@@ -21,7 +21,10 @@ repositories {
 dependencies {
 	// Core
 	// implementation "org.springframework.boot:spring-boot-starter"
-	implementation "org.springframework.boot:spring-boot-starter-web"
+	implementation("org.springframework.boot:spring-boot-starter-web") {
+		exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
+	}
+	implementation "org.springframework.boot:spring-boot-starter-jetty"
 	// implementation "org.springframework.boot:spring-boot-starter-aop"
 	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 
@@ -39,6 +42,10 @@ dependencies {
 	// Cache
 	implementation "org.springframework.boot:spring-boot-starter-cache"
 	implementation "org.springframework.boot:spring-boot-starter-data-redis"
+
+	// Storage
+	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2'
+	implementation 'org.springframework.boot:spring-boot-jackson2' // Future versions of Spring Boot are being migrated to version 3 and remove this
 
 	// API and Tools
 	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3" // Swagger UI
