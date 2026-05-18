@@ -1,0 +1,25 @@
+{
+	"editor.detectIndentation": true,
+	"editor.indentSize": "tabSize",
+	"editor.tabSize": 4,
+	"editor.autoIndent": "full",
+	"editor.renderWhitespace": "boundary",
+	"files.insertFinalNewline": true,
+	"files.exclude": {
+		"**/.git": true,         // this is a default value
+		"**/.DS_Store": true,    // this is a default value
+		"build": true
+	},
+	"files.watcherExclude": {
+		"**/target": true
+	},
+	"java.autobuild.enabled": true,
+	"java.compile.nullAnalysis.mode": "interactive",
+	"java.configuration.updateBuildConfiguration": "interactive",
+	"java.debug.settings.hotCodeReplace": "auto",
+	"java.debug.settings.onBuildFailureProceed": true,
+	"java.import.gradle.wrapper.enabled": true,
+  	"java.jdt.ls.java.home": "/usr/lib/jvm/temurin-25-jdk-amd64",
+	"java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx8G -Xms512m -Xlog:disable",
+	"java.settings.url": ".vscode/java-settings.prefs",
+}
