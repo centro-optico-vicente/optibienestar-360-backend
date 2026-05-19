@@ -20,16 +20,16 @@ repositories {
 
 dependencies {
 	// Core
-	// implementation "org.springframework.boot:spring-boot-starter"
 	implementation("org.springframework.boot:spring-boot-starter-web") {
 		exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
 	}
 	implementation "org.springframework.boot:spring-boot-starter-jetty"
-	// implementation "org.springframework.boot:spring-boot-starter-aop"
 	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 
-	// Persistence
+	// Persistence + Migrations
 	implementation "org.springframework.boot:spring-boot-starter-data-jpa"
+	implementation "org.flywaydb:flyway-core"
+	implementation "org.flywaydb:flyway-database-postgresql"
 	runtimeOnly "org.postgresql:postgresql:42.7.11"
 
 	// Security
@@ -43,15 +43,21 @@ dependencies {
 	implementation "org.springframework.boot:spring-boot-starter-cache"
 	implementation "org.springframework.boot:spring-boot-starter-data-redis"
 
-	// Storage
+	// Storage (AWS SDK v2 for Cloudflare R2 via S3 API)
 	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2'
-	implementation 'org.springframework.boot:spring-boot-jackson2' // Future versions of Spring Boot are being migrated to version 3 and remove this
+	implementation 'org.springframework.boot:spring-boot-jackson2'
+
+	// Email
+	implementation "org.springframework.boot:spring-boot-starter-mail"
+	implementation "org.springframework.boot:spring-boot-starter-thymeleaf"
 
 	// API and Tools
-	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3" // Swagger UI
-	implementation "io.github.perplexhub:rsql-jpa-spring-boot-starter:7.0.0" // Advances filters
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3"
+	implementation "io.github.perplexhub:rsql-jpa-spring-boot-starter:7.0.0"
 	implementation "org.mapstruct:mapstruct:1.6.3"
 	annotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
+	compileOnly "org.projectlombok:lombok"
+	annotationProcessor "org.projectlombok:lombok"
 
 	// Monitoring
 	implementation "org.springframework.boot:spring-boot-starter-actuator"
