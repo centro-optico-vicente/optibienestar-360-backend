@@ -118,8 +118,8 @@ jobs:
             DEPLOY_VERSION=${{ github.event.release.tag_name }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ github.workflow }}-alpine
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-alpine
+          cache-from: type=gha,scope=docker-alpine
+          cache-to: type=gha,mode=max,scope=docker-alpine
 
 
   push-debian-image-dhr:
@@ -168,5 +168,5 @@ jobs:
             DEPLOY_VERSION=${{ github.event.release.tag_name }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ github.workflow }}-debian
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-debian
+          cache-from: type=gha,scope=docker-debian
+          cache-to: type=gha,mode=max,scope=docker-debian

@@ -92,5 +92,5 @@ jobs:
           build-args: |
             DEPLOY_VERSION=ci-${{ github.sha }}
           # Warm the cache used by publish.yaml for faster releases
-          cache-from: type=gha,scope=CI/CD — Build, Test & Publish-${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=CI/CD — Build, Test & Publish-${{ matrix.variant }}
+          cache-from: type=gha,scope=docker-${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=docker-${{ matrix.variant }}
