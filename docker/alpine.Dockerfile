@@ -40,3 +40,23 @@ ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava
 USER appuser
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+
+# ─── Stage 3: CI fast path (JAR pre-compilado, sin Gradle) ───────────────────
+# Populated via --build-context prebuilt=./prebuilt/ in docker-build-check
+FROM scratch AS prebuilt-src
+
+FROM eclipse-temurin:25-jre-alpine AS from-prebuilt
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=prebuilt-src . /tmp/libs/
+RUN find /tmp/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar \; \
+    && rm -rf /tmp/libs
+
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+
+USER appuser
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
