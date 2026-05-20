@@ -39,8 +39,8 @@
 - [ ] [P0/C2] Migration `V3__contact_messages.sql`
 - [ ] [P0/C2] Health checks Actuator: `/actuator/health/liveness`, `/actuator/health/readiness`
 - [ ] [P1/C2] Logging estructurado JSON (logback-spring.xml)
-- [ ] [P0/C2] `Dockerfile` multi-stage (Gradle build + JRE 25 Alpine runtime)
-- [ ] [P0/C2] GitHub Actions: build + test + push imagen Docker Hub `fenixcoreenterprises/optisalud-plus-backend`
+- [x] [P0/C2] `Dockerfile` multi-stage (Gradle build + JRE 25 Alpine runtime) — 2026-05-19
+- [x] [P0/C2] GitHub Actions: build + test + push imagen Docker Hub `fenixcoreenterprises/optisalud-plus-backend` — 2026-05-19
 
 ### Tarea 1.8 — SMTP
 

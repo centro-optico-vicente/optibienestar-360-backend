@@ -1,0 +1,96 @@
+name: CI — Build & Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Cancel in-progress runs for the same branch when a new push arrives
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: optisalud_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25 with Gradle cache
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build and Test
+        run: ./gradlew build --no-daemon --console=plain
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+          DATABASE_URL: jdbc:postgresql://localhost:5432/optisalud_test
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/
+          retention-days: 7
+
+
+  docker-build-check:
+    name: Validate Dockerfiles
+    needs:
+      - build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - variant: alpine
+            file: ./docker/alpine.Dockerfile
+          - variant: debian
+            file: ./docker/debian.Dockerfile
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.variant }} image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          push: false
+          build-args: |
+            DEPLOY_VERSION=ci-${{ github.sha }}
+          # Warm the cache used by publish.yaml for faster releases
+          cache-from: type=gha,scope=docker-${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=docker-${{ matrix.variant }}
