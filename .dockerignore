@@ -1,0 +1,30 @@
+# Build output
+build/
+bin/
+out/
+
+# VCS
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Project docs and AI context (not needed in image)
+.ai/
+.github/
+*.md
+HELP.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Local env files (never include secrets in image)
+.env
+*.env
+*.env.local
