@@ -39,8 +39,11 @@
 - [ ] [P0/C2] Migration `V3__contact_messages.sql`
 - [ ] [P0/C2] Health checks Actuator: `/actuator/health/liveness`, `/actuator/health/readiness`
 - [ ] [P1/C2] Logging estructurado JSON (logback-spring.xml)
-- [x] [P0/C2] `Dockerfile` multi-stage (Gradle build + JRE 25 Alpine runtime) — 2026-05-19
-- [x] [P0/C2] GitHub Actions: build + test + push imagen Docker Hub `fenixcoreenterprises/optisalud-plus-backend` — 2026-05-19
+- [x] [P0/C2] `docker/alpine.Dockerfile` + `docker/debian.Dockerfile` multi-stage (JDK 25 builder + JRE 25 runtime, `--mount=type=cache` Gradle) — 2026-05-19
+- [x] [P0/C2] `.github/workflows/publish.yaml`: build + test + push Docker Hub `fenixcoreenterprises/optisalud-plus-backend` (Alpine + Debian, prerelease-aware tags) — 2026-05-19
+- [x] [P0/C2] `.github/workflows/ci.yaml`: CI independiente (push/PR a main), cancela runs en paralelo — 2026-05-19
+- [x] [P1/C2] Cache Gradle en CI vía `actions/setup-java cache: gradle` (`~/.gradle/caches` + `~/.gradle/wrapper`) — 2026-05-20
+- [x] [P1/C2] Cache Docker en CI: `docker-build-check` usa JAR precompilado (`from-prebuilt` target) en lugar de re-compilar con Gradle — 2026-05-20
 
 ### Tarea 1.8 — SMTP
 
