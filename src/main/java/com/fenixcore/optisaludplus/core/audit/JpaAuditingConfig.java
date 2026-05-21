@@ -8,19 +8,24 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")
 public class JpaAuditingConfig {
 
     @Bean
-    public AuditorAware<String> auditorProvider() {
+    public AuditorAware<UUID> auditorProvider() {
         return () -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-                return Optional.of("system");
+                return Optional.empty();
             }
-            return Optional.ofNullable(auth.getName());
+            try {
+                return Optional.of(UUID.fromString(auth.getName()));
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
         };
     }
 }
