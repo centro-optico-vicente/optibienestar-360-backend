@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2   { color: #1a56a0; border-bottom: 2px solid #1a56a0; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .message-box { background: #f5f5f5; padding: 12px; border-left: 4px solid #1a56a0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h2>Nuevo mensaje de contacto</h2>
+
+    <div class="field">
+        <span class="label">Nombre:</span>
+        <span th:text="${contact.name()}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Email:</span>
+        <a th:href="'mailto:' + ${contact.email()}" th:text="${contact.email()}"></a>
+    </div>
+    <div class="field" th:if="${contact.phone() != null and !#strings.isEmpty(contact.phone())}">
+        <span class="label">Teléfono:</span>
+        <span th:text="${contact.phone()}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Asunto:</span>
+        <span th:text="${contact.subject()}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Mensaje:</span>
+        <div class="message-box" th:text="${contact.message()}"></div>
+    </div>
+</body>
+</html>

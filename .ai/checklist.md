@@ -33,10 +33,10 @@
 - [x] [P0/C2] `core.config.RedisCacheConfig`: serializadores JSON, TTL, prefix — 2026-05-20
 - [x] [P0/C2] `core.config.S3Config` apuntando a Cloudflare R2 (endpoint custom, path-style) — 2026-05-20
 - [x] [P0/C3] `common.service.StorageService`: upload, download, generatePresignedUrl, delete, exists — 2026-05-20
-- [ ] [P0/C2] Endpoint `POST /v1/public/contact` (form landing → email + persistencia)
-- [ ] [P0/C2] Migration `V1__initial_extensions.sql`: pgcrypto, unaccent, citext
-- [ ] [P0/C2] Migration `V2__base_audit_function.sql`: `set_updated_at()` trigger
-- [ ] [P0/C2] Migration `V3__contact_messages.sql`
+- [x] [P0/C2] Endpoint `POST /v1/public/contact` (form landing → email + persistencia) — 2026-05-21
+- [x] [P0/C2] Migration `V1__initial_extensions.sql`: pgcrypto, unaccent, citext — 2026-05-21
+- [x] [P0/C2] Migration `V2__base_audit_function.sql`: `set_updated_at()` trigger — 2026-05-21
+- [x] [P0/C2] Migration `V3__contact_messages.sql` — 2026-05-21
 - [ ] [P0/C2] Health checks Actuator: `/actuator/health/liveness`, `/actuator/health/readiness`
 - [ ] [P1/C2] Logging estructurado JSON (logback-spring.xml)
 - [x] [P0/C2] `docker/alpine.Dockerfile` + `docker/debian.Dockerfile` multi-stage (JDK 25 builder + JRE 25 runtime, `--mount=type=cache` Gradle) — 2026-05-19
@@ -47,10 +47,10 @@
 
 ### Tarea 1.8 — SMTP
 
-- [ ] [P0/C2] Agregar `spring-boot-starter-mail` al `build.gradle`
-- [ ] [P0/C2] Configurar `spring.mail.*` con variables de entorno
-- [ ] [P0/C2] `common.service.EmailService`: `sendSimple`, `sendTemplated` (Thymeleaf)
-- [ ] [P0/C2] Template `contact-form-received.html`
+- [x] [P0/C2] Agregar `spring-boot-starter-mail` al `build.gradle` — 2026-05-19
+- [x] [P0/C2] Configurar `spring.mail.*` con variables de entorno — 2026-05-19
+- [x] [P0/C2] `common.service.EmailService`: `sendSimple`, `sendTemplated` (Thymeleaf) — 2026-05-21
+- [x] [P0/C2] Template `contact-form-received.html` — 2026-05-21
 - [ ] [P1/C2] Cola async con `@Async` + reintentos exponenciales
 
 ## FASE 5 — Afiliaciones y Membresías

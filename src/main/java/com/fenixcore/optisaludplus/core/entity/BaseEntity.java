@@ -6,6 +6,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.PrePersist;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedBy;
@@ -24,9 +25,12 @@ import java.util.UUID;
 public abstract class BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false, updatable = false)
-    private UUID id;
+    private Long id;
+
+    @Column(nullable = false, updatable = false, unique = true)
+    private UUID uuid;
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
@@ -43,10 +47,17 @@ public abstract class BaseEntity {
     private Instant updatedAt;
 
     @CreatedBy
-    @Column(name = "created_by", updatable = false, length = 100)
-    private String createdBy;
+    @Column(name = "created_by", updatable = false)
+    private UUID createdBy;
 
     @LastModifiedBy
-    @Column(name = "updated_by", length = 100)
-    private String updatedBy;
+    @Column(name = "updated_by")
+    private UUID updatedBy;
+
+    @PrePersist
+    private void assignUuid() {
+        if (uuid == null) {
+            uuid = UUID.randomUUID();
+        }
+    }
 }
