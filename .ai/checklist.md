@@ -3,6 +3,8 @@
 > Subset filtrado por tag `[B]` del [checklist maestro](../../centro-optico-vicente/.ai/checklist.md). Mantener sincronizado.
 >
 > Formato `[P/C]`: Prioridad (P0/P1/P2/P3) + Complejidad (C1-C5). Marcar `- [x]` con fecha al completar.
+>
+> **Orden de ejecución Fase 5:** ver [plan-vertical-slices.md](plan-vertical-slices.md) — organizado por alcances (Auth → Catálogos → Aliados → Afiliados → Membresías → Pagos → Validador → Promotores → Notificaciones → Hardening).
 
 ## FASE 0 — Bootstrap
 

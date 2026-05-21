@@ -10,6 +10,7 @@
 3. [`../specs/01-package-structure.md`](../specs/01-package-structure.md) — estructura paquetes
 4. [`../specs/02-database.md`](../specs/02-database.md) — schema
 5. [`../checklist.md`](../checklist.md) — tareas
+6. [`../plan-vertical-slices.md`](../plan-vertical-slices.md) — orden de ejecución Fase 5 por alcances
 
 ### "Voy a crear una entidad nueva"
 1. [`../playbooks/new-entity.md`](../playbooks/new-entity.md)
