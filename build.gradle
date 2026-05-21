@@ -61,6 +61,7 @@ dependencies {
 
 	// Monitoring
 	implementation "org.springframework.boot:spring-boot-starter-actuator"
+	implementation "net.logstash.logback:logstash-logback-encoder:8.0"
 
 	// Tests
 	testImplementation "org.springframework.boot:spring-boot-starter-test"
