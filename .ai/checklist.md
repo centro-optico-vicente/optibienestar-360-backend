@@ -16,8 +16,8 @@
 
 ### Tarea 1.7 — Cimientos infrastructure & config
 
-- [ ] [P0/C2] Agregar Flyway al `build.gradle`: `flyway-core`, `flyway-database-postgresql`
-- [ ] [P0/C2] Configurar Flyway en `application.properties`: `spring.flyway.enabled=true`, `locations=classpath:db/migration`, `baseline-on-migrate=true`
+- [x] [P0/C2] Agregar Flyway al `build.gradle`: `flyway-core`, `flyway-database-postgresql` — 2026-05-19
+- [x] [P0/C2] Configurar Flyway en `application.properties`: `enabled`, `locations`, `validate-on-migrate` (base compartida; `baseline-on-migrate` diferenciado por profile) — 2026-05-20
 - [ ] [P0/C2] Cambiar `spring.jpa.hibernate.ddl-auto=validate` en TODOS los profiles
 - [ ] [P0/C3] Crear estructura paquetes: `core/`, `security/`, `common/`, `modules/`
 - [ ] [P0/C2] `core.config.JacksonConfig`: ISO 8601, Decimal sin notación científica
