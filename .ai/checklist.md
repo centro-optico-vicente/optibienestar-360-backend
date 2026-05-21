@@ -18,21 +18,21 @@
 
 - [x] [P0/C2] Agregar Flyway al `build.gradle`: `flyway-core`, `flyway-database-postgresql` — 2026-05-19
 - [x] [P0/C2] Configurar Flyway en `application.properties`: `enabled`, `locations`, `validate-on-migrate` (base compartida; `baseline-on-migrate` diferenciado por profile) — 2026-05-20
-- [ ] [P0/C2] Cambiar `spring.jpa.hibernate.ddl-auto=validate` en TODOS los profiles
+- [x] [P0/C2] Cambiar `spring.jpa.hibernate.ddl-auto=validate` en TODOS los profiles — 2026-05-19
 - [x] [P0/C3] Crear estructura paquetes: `core/`, `security/`, `common/`, `modules/` — 2026-05-20
 - [x] [P0/C2] `core.config.JacksonConfig`: ISO 8601, Decimal sin notación científica — 2026-05-20
 - [x] [P0/C2] `core.config.CorsConfig`: allowedOrigins, métodos, headers, credentials — 2026-05-20
 - [x] [P0/C3] `core.exception.GlobalExceptionHandler`: RFC 7807 problem+json para 400/401/403/404/409/422/500 — 2026-05-20
-- [ ] [P0/C3] `security.SecurityConfig`: filter chain JWT, endpoints públicos
-- [ ] [P0/C3] `security.jwt.JwtService`: gen + validación (15min access / 30d refresh)
-- [ ] [P0/C2] `security.jwt.JwtAuthenticationFilter` extends OncePerRequestFilter
-- [ ] [P0/C2] `security.PasswordEncoder` bean (BCrypt strength 12)
-- [ ] [P0/C3] Entidad abstracta `BaseEntity` (id uuid, isActive, status, audit columns)
-- [ ] [P0/C2] `core.audit.JpaAuditingConfig` + `AuditorAware` (extrae user del SecurityContext)
-- [ ] [P0/C2] `core.config.OpenApiConfig`: Swagger + security scheme JWT, contact info
-- [ ] [P0/C2] `core.config.RedisCacheConfig`: serializadores JSON, TTL, prefix
-- [ ] [P0/C2] `core.config.S3Config` apuntando a Cloudflare R2 (endpoint custom, path-style)
-- [ ] [P0/C3] `common.service.StorageService`: upload, download, generatePresignedUrl, delete, exists
+- [x] [P0/C3] `security.SecurityConfig`: filter chain JWT, endpoints públicos — 2026-05-20
+- [x] [P0/C3] `security.jwt.JwtService`: gen + validación (15min access / 30d refresh) — 2026-05-20
+- [x] [P0/C2] `security.jwt.JwtAuthenticationFilter` extends OncePerRequestFilter — 2026-05-20
+- [x] [P0/C2] `security.PasswordEncoder` bean (BCrypt strength 12) — 2026-05-20
+- [x] [P0/C3] Entidad abstracta `BaseEntity` (id uuid, isActive, status, audit columns) — 2026-05-20
+- [x] [P0/C2] `core.audit.JpaAuditingConfig` + `AuditorAware` (extrae user del SecurityContext) — 2026-05-20
+- [x] [P0/C2] `core.config.OpenApiConfig`: Swagger + security scheme JWT, contact info — 2026-05-20
+- [x] [P0/C2] `core.config.RedisCacheConfig`: serializadores JSON, TTL, prefix — 2026-05-20
+- [x] [P0/C2] `core.config.S3Config` apuntando a Cloudflare R2 (endpoint custom, path-style) — 2026-05-20
+- [x] [P0/C3] `common.service.StorageService`: upload, download, generatePresignedUrl, delete, exists — 2026-05-20
 - [ ] [P0/C2] Endpoint `POST /v1/public/contact` (form landing → email + persistencia)
 - [ ] [P0/C2] Migration `V1__initial_extensions.sql`: pgcrypto, unaccent, citext
 - [ ] [P0/C2] Migration `V2__base_audit_function.sql`: `set_updated_at()` trigger
