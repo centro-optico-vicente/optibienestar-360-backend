@@ -5,8 +5,8 @@
 
 ## Migraciones
 
-- [ ] [P0/C2] `V10__users_and_roles.sql` — users, roles, permissions, user_roles, role_permissions
-- [ ] [P0/C2] `V11__seed_roles.sql` — ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR
+- [x] [P0/C2] `V5__users_and_roles.sql` — security_policies, roles, permissions, users, user_password_history, user_roles, role_permissions, user_sessions_log
+- [x] [P0/C2] `V6__seed_roles.sql` — SYSTEM, ADMINISTRADOR, OPERADOR, OPERADOR_MEDICO, ALIADO, AFILIADO, PROMOTOR + 49 permisos + asignación rol→permisos
 
 ## Hardening de base de datos
 

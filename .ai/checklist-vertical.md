@@ -1,7 +1,9 @@
 # Plan de ejecución por alcances verticales — Fase 2
 
 > Cada alcance entrega migraciones Flyway + entidades JPA + servicios + endpoints completos y testeables.
-> Checklist general: [checklist.md](checklist.md) | Tareas detalladas: [checklists/fase-2-afiliaciones-y-membresias.md](checklists/fase-2-afiliaciones-y-membresias.md)
+>
+> **Dashboard de progreso (conteos, %):** [`checklist.md`](checklist.md)
+> **Fuente de verdad de checkboxes:** archivos `checklists/vertical-N-*.md`
 
 ## Dependencias
 
@@ -20,7 +22,7 @@
 
 | # | Alcance | Archivo | Estado |
 |---|---|---|---|
-| 1 | Seguridad y Autenticación | [vertical-1-seguridad-y-autenticacion.md](checklists/vertical-1-seguridad-y-autenticacion.md) | 🔲 |
+| 1 | Seguridad y Autenticación | [vertical-1-seguridad-y-autenticacion.md](checklists/vertical-1-seguridad-y-autenticacion.md) | 🟡 En curso (4/16) |
 | 2 | Catálogos | [vertical-2-catalogos.md](checklists/vertical-2-catalogos.md) | 🔲 |
 | 3 | Aliados | [vertical-3-aliados.md](checklists/vertical-3-aliados.md) | 🔲 |
 | 4 | Afiliados y Familia | [vertical-4-afiliados-y-familia.md](checklists/vertical-4-afiliados-y-familia.md) | 🔲 |
