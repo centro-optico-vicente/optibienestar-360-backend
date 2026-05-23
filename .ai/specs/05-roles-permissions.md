@@ -4,12 +4,15 @@
 
 | Rol | Cantidad esperada | Resumen |
 |---|---|---|
-| `ADMIN` | 2-5 | Super-usuario del sistema |
-| `OPERADOR` | 5-20 | Personal interno con permisos limitados |
-| `ALIADO_USER` | 200-1000 | Operador por cuenta de aliado |
-| `AFILIADO_USER` | hasta 100k | Afiliado titular |
-| `PROMOTOR` | 10-100 | Vendedor de membresías |
-| `OPERADOR_MEDICO` (opcional) | pocos | Operador con acceso médico |
+| `SYSTEM` | 1-2 | Administrador técnico — acceso total incluyendo gestión de roles |
+| `ADMINISTRADOR` | 2-5 | Administrador del negocio — acceso operativo completo sin gestión de roles |
+| `OPERADOR` | 5-20 | Personal interno sin acceso médico ni gestión de roles |
+| `OPERADOR_MEDICO` | pocos | Operador con acceso adicional a historial médico |
+| `ALIADO` | 200-1000 | Operador del aliado — validación de afiliados y registro de uso |
+| `AFILIADO` | hasta 100k | Portal del afiliado — consulta y gestión de datos propios |
+| `PROMOTOR` | 10-100 | Vendedor de membresías y consulta de comisiones propias |
+
+**Convención de nombres:** `SYSTEM` en inglés (rol técnico), resto en español sin sufijos redundantes.
 
 Detalle de cada perfil en [hub `stakeholders.md`](../../../centro-optico-vicente/.ai/context/stakeholders.md).
 
@@ -65,36 +68,38 @@ Detalle de cada perfil en [hub `stakeholders.md`](../../../centro-optico-vicente
 
 ## Asignación rol → permisos
 
-### ADMIN
-Todos los permisos. Implementación: marca `is_super = TRUE` o asignar explícitamente todos.
+### SYSTEM (49 permisos)
+Todos los permisos sin excepción. CROSS JOIN en el seed.
 
-### OPERADOR
-- Todos los USER_* excepto CHANGE_ROLE
+### ADMINISTRADOR (48 permisos)
+Todos excepto `USER_CHANGE_ROLE` (cambiar roles es operación técnica, no de negocio).
+
+### OPERADOR (43 permisos)
+- Todos los USER_* excepto USER_CHANGE_ROLE
 - Todos los MEMBER_* excepto MEDICAL_RECORD_*
 - Todos los ALLY_*
 - Todos los PLAN_*, MEMBERSHIP_*
 - PAYMENT_REGISTER + APPROVE + REJECT + VIEW_ALL
-- PROMOTER_*, COMMISSION_VIEW_ALL + PAYOUT
+- Todos los PROMOTER_*, COMMISSION_VIEW_ALL + PAYOUT
 - REFERRAL_CODE_CREATE + VIEW_ALL
 - REPORT_VIEW_DASHBOARD + EXPORT
 
-### OPERADOR_MEDICO (opcional)
-- Todos los del OPERADOR
-- MEDICAL_RECORD_VIEW + UPDATE
+### OPERADOR_MEDICO (45 permisos)
+Igual que OPERADOR más MEDICAL_RECORD_VIEW + MEDICAL_RECORD_UPDATE.
 
-### ALIADO_USER
+### ALIADO (3 permisos)
 - ALLY_VIEW_OWN
 - ALLY_VALIDATE_MEMBER
 - ALLY_REGISTER_USAGE
 
-### AFILIADO_USER
+### AFILIADO (5 permisos)
 - MEMBER_VIEW_OWN
 - MEMBERSHIP_VIEW_OWN
-- PAYMENT_VIEW_OWN + REGISTER (sólo los propios)
+- PAYMENT_VIEW_OWN + PAYMENT_REGISTER (sólo los propios)
 - REFERRAL_CODE_VIEW_OWN
 
-### PROMOTOR
-- MEMBER_CREATE (asignado a sí mismo automáticamente)
+### PROMOTOR (5 permisos)
+- MEMBER_CREATE (para sus afiliados)
 - MEMBERSHIP_CREATE (para sus afiliados)
 - PAYMENT_REGISTER (para sus afiliados)
 - COMMISSION_VIEW_OWN
@@ -135,7 +140,7 @@ public class MemberSecurity {
 
 ### Asignación inicial (seed Flyway)
 
-`V11__seed_roles.sql` + `V11b__seed_permissions.sql` + `V11c__assign_permissions_to_roles.sql` (o todo en V11 si es manejable).
+`V5__seed_roles.sql` — roles, permisos y asignación rol→permisos en un solo archivo.
 
 ## Auditoría
 

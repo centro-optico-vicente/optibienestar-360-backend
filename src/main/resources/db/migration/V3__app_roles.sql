@@ -1,0 +1,81 @@
+-- ============================================================
+-- DB roles — passwords injected via Flyway placeholders,
+-- never hardcoded in version-controlled files.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- optisalud_migration: DDL + DML — used by Flyway
+-- ------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'optisalud_migration') THEN
+        CREATE ROLE optisalud_migration WITH LOGIN PASSWORD '${migration_db_password}';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO optisalud_migration', current_database());
+END $$;
+GRANT USAGE, CREATE ON SCHEMA app TO optisalud_migration;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA app TO optisalud_migration;
+GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA app TO optisalud_migration;
+
+
+-- ------------------------------------------------------------
+-- optisalud_app: DML only — used by the Spring Boot runtime
+-- ------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'optisalud_app') THEN
+        CREATE ROLE optisalud_app WITH LOGIN PASSWORD '${app_db_password}';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO optisalud_app', current_database());
+END $$;
+GRANT USAGE ON SCHEMA app TO optisalud_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA app TO optisalud_app;
+GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA app TO optisalud_app;
+
+-- Future tables — cover both the bootstrap user (postgres) and the migration role
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres          IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres          IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
+
+
+-- ------------------------------------------------------------
+-- optisalud_readonly: SELECT only — reports, DBeaver, auditoría
+-- ------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'optisalud_readonly') THEN
+        CREATE ROLE optisalud_readonly WITH LOGIN PASSWORD '${readonly_db_password}';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO optisalud_readonly', current_database());
+END $$;
+GRANT USAGE ON SCHEMA app TO optisalud_readonly;
+GRANT SELECT ON ALL TABLES    IN SCHEMA app TO optisalud_readonly;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO optisalud_readonly;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT ON TABLES    TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT ON TABLES    TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly;
+
+
+-- ------------------------------------------------------------
+-- Schema hardening
+-- ------------------------------------------------------------
+
+-- Prevent any authenticated user from accessing schema app by default
+REVOKE ALL ON SCHEMA app FROM PUBLIC;
+
+-- Fix search_path per role — prevents search_path injection (CVE-2018-1058)
+ALTER ROLE optisalud_migration SET search_path = app, public;
+ALTER ROLE optisalud_app       SET search_path = app, public;
+ALTER ROLE optisalud_readonly  SET search_path = app, public;
