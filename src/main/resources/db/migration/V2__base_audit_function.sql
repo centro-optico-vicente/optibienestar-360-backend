@@ -1,3 +1,5 @@
+SET search_path TO app, public;
+
 CREATE OR REPLACE FUNCTION set_updated_at()
     RETURNS TRIGGER AS
 $$

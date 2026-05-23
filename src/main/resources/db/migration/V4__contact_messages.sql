@@ -1,3 +1,5 @@
+SET search_path TO app, public;
+
 CREATE TABLE contact_messages
 (
     contact_messages_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
