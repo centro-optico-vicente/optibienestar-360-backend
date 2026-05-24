@@ -20,10 +20,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    private static final String PROBLEMS_BASE = "https://problems.optisalud.com";
+    @org.springframework.beans.factory.annotation.Value("${problems.base-url}")
+    private String problemsBase;
 
     // 400 — bean validation (@Valid on request body)
     @Override
@@ -37,7 +40,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "One or more fields have invalid values");
-        problem.setType(URI.create(PROBLEMS_BASE + "/validation-error"));
+        problem.setType(URI.create(problemsBase + "/validation-error"));
         problem.setTitle("Validation Failed");
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);
@@ -52,17 +55,37 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "Constraint violation");
-        problem.setType(URI.create(PROBLEMS_BASE + "/validation-error"));
+        problem.setType(URI.create(problemsBase + "/validation-error"));
         problem.setTitle("Validation Failed");
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    // 401 — bad credentials (not to be confused with 403 Forbidden)
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ProblemDetail> handleUnauthorized(AuthenticationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(UNAUTHORIZED, ex.getMessage());
+        problem.setType(URI.create(problemsBase + "/unauthorized"));
+        problem.setTitle("Unauthorized");
+        return ResponseEntity.status(UNAUTHORIZED).body(problem);
+    }
+
+    // 423 — account temporarily locked (brute-force protection)
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ProblemDetail> handleLocked(AccountLockedException ex) {
+        HttpStatusCode status = HttpStatusCode.valueOf(423);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
+        problem.setType(URI.create(problemsBase + "/account-locked"));
+        problem.setTitle("Account Locked");
+        problem.setProperty("lockedUntil", ex.getLockedUntil());
+        return ResponseEntity.status(status).body(problem);
     }
 
     // 403 — thrown from @PreAuthorize or service layer (filter-level 403 handled in SecurityConfig)
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleForbidden(AccessDeniedException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access denied");
-        problem.setType(URI.create(PROBLEMS_BASE + "/forbidden"));
+        problem.setType(URI.create(problemsBase + "/forbidden"));
         problem.setTitle("Forbidden");
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
@@ -71,7 +94,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(NoSuchElementException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-        problem.setType(URI.create(PROBLEMS_BASE + "/not-found"));
+        problem.setType(URI.create(problemsBase + "/not-found"));
         problem.setTitle("Not Found");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
     }
@@ -81,7 +104,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ProblemDetail> handleConflict(DataIntegrityViolationException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT, "Resource already exists or a uniqueness constraint was violated");
-        problem.setType(URI.create(PROBLEMS_BASE + "/conflict"));
+        problem.setType(URI.create(problemsBase + "/conflict"));
         problem.setTitle("Conflict");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
@@ -91,7 +114,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUnprocessable(IllegalArgumentException ex) {
         HttpStatusCode status = HttpStatusCode.valueOf(422);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
-        problem.setType(URI.create(PROBLEMS_BASE + "/unprocessable"));
+        problem.setType(URI.create(problemsBase + "/unprocessable"));
         problem.setTitle("Unprocessable Entity");
         return ResponseEntity.status(status).body(problem);
     }
@@ -102,7 +125,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         logger.error("Unexpected error", ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
-        problem.setType(URI.create(PROBLEMS_BASE + "/internal-error"));
+        problem.setType(URI.create(problemsBase + "/internal-error"));
         problem.setTitle("Internal Server Error");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
     }
