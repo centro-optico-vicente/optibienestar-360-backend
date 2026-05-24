@@ -12,6 +12,7 @@
 - [x] [P0/C2] `core.config.JacksonConfig`: ISO 8601, Decimal sin notación científica — 2026-05-20
 - [x] [P0/C2] `core.config.CorsConfig`: allowedOrigins, métodos, headers, credentials — 2026-05-20
 - [x] [P0/C3] `core.exception.GlobalExceptionHandler`: RFC 7807 problem+json para 400/401/403/404/409/422/500 — 2026-05-20
+- [ ] [P1/C1] `GlobalExceptionHandler` — inyección de `problemsBase` por constructor (no field `@Value`) para ser testeable sin contexto Spring (spring-boot-engineer)
 - [x] [P0/C3] `security.SecurityConfig`: filter chain JWT, endpoints públicos — 2026-05-20
 - [x] [P0/C3] `security.jwt.JwtService`: gen + validación (15min access / 30d refresh) — 2026-05-20
 - [x] [P0/C2] `security.jwt.JwtAuthenticationFilter` extends OncePerRequestFilter — 2026-05-20
@@ -42,3 +43,5 @@
 - [x] [P0/C2] `common.service.EmailService`: `sendSimple`, `sendTemplated` (Thymeleaf) — 2026-05-21
 - [x] [P0/C2] Template `contact-form-received.html` — 2026-05-21
 - [x] [P1/C2] Cola async con `@Async` + reintentos exponenciales — 2026-05-24
+- [ ] [P1/C1] `EmailService.sendTemplated` — envolver `MessagingException` en `MailPreparationException` antes de re-throw para que `@Retryable` lo capture (actualmente se traga en silencio sin reintento) (spring-boot-engineer)
+- [ ] [P1/C1] `AsyncConfig.emailExecutor` — agregar `setRejectedExecutionHandler(new CallerRunsPolicy())` — cola llena actualmente dispara `AbortPolicy` como 500 al caller (spring-boot-engineer)

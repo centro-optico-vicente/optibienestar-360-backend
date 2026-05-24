@@ -34,7 +34,7 @@ public class UserSessionLog {
     @Column(nullable = false, length = 36)
     private String jti;
 
-    @Column(name = "ip_address", nullable = false)
+    @Column(name = "ip_address", nullable = false, columnDefinition = "inet")
     private String ipAddress;
 
     @Column(name = "user_agent", length = 500)

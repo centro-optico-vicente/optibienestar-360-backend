@@ -15,15 +15,19 @@ public class CustomUserDetails implements UserDetails {
     @Getter
     private final UUID uuid;
 
+    @Getter
+    private final String jti;
+
     private final String email;
     private final String passwordHash;
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean active;
 
-    public CustomUserDetails(Long id, UUID uuid, String email, String passwordHash,
+    public CustomUserDetails(Long id, UUID uuid, String jti, String email, String passwordHash,
                              Collection<? extends GrantedAuthority> authorities, boolean active) {
         this.id = id;
         this.uuid = uuid;
+        this.jti = jti;
         this.email = email;
         this.passwordHash = passwordHash;
         this.authorities = authorities;
@@ -31,8 +35,8 @@ public class CustomUserDetails implements UserDetails {
     }
 
     /** Lightweight instance built from JWT claims — no DB lookup required. */
-    public static CustomUserDetails fromJwt(UUID uuid, Collection<? extends GrantedAuthority> authorities) {
-        return new CustomUserDetails(null, uuid, uuid.toString(), null, authorities, true);
+    public static CustomUserDetails fromJwt(UUID uuid, String jti, Collection<? extends GrantedAuthority> authorities) {
+        return new CustomUserDetails(null, uuid, jti, uuid.toString(), null, authorities, true);
     }
 
     @Override

@@ -1,7 +1,6 @@
 package com.fenixcore.optisaludplus.security;
 
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
-import com.fenixcore.optisaludplus.modules.auth.entity.UserRole;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,6 +32,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return new CustomUserDetails(
                 user.getId(),
                 user.getUuid(),
+                null,
                 user.getEmail(),
                 user.getPasswordHash(),
                 authorities,
