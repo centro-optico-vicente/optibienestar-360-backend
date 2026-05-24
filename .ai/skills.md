@@ -1,59 +1,32 @@
-# Skills externos recomendados (backend)
+# Skills instalados (backend)
 
-Skills para instalar en este repo vía `npx skills add` (o equivalente).
+Gestionados con `npx skills`. Viven en `.agents/skills/{name}/`.
 
-## Stack core
+## Instalados y activos
 
-| Skill | Cuándo invocar |
-|---|---|
-| `spring-boot-best-practices` | Refactor backend, config, beans, profiles, actuator |
-| `postgresql-expert` | Diseñar schema, índices, EXPLAIN, queries complejas |
-| `redis-expert` | Cache strategies, TTL, eviction, blacklist tokens |
-
-## Seguridad
-
-| Skill | Cuándo invocar |
-|---|---|
-| `owasp-security` | Audit Spring Security, JWT, password storage, CORS |
-| `api-security-best-practices` | Rate limiting, validación entrada |
-
-## API design
-
-| Skill | Cuándo invocar |
-|---|---|
-| `rest-api-design` | Diseño endpoints, status codes, paginación, RSQL |
-
-## Comandos
-
-```bash
-# Instalar (interactivo, seleccionar agente claude-code)
-npx skills add
-
-# Listar instalados
-npx skills list
-
-# Actualizar todos
-npx skills update -p
-
-# Quitar
-npx skills remove <name>
-```
+| Skill | Slash command | Cuándo invocar |
+|---|---|---|
+| `spring-boot-engineer` | `/spring-boot-engineer` | Config, beans, profiles, actuator, Spring Security, WebFlux |
+| `springboot-patterns` | `/springboot-patterns` | Patrones REST, capas, cache, async, paginación, validación |
+| `spring-data-jpa` | `/spring-data-jpa` | Entidades, repositorios, `@Query`, auditing, transacciones |
+| `postgresql-expert` | `/postgresql-expert` | Schema, índices, EXPLAIN, queries complejas, migraciones |
+| `redis-expert` | `/redis-expert` | Cache strategies, TTL, eviction, blacklist tokens |
+| `owasp-security` | `/owasp-security` | Audit Spring Security, JWT, password storage, CORS, OWASP Top 10 |
+| `api-security-best-practices` | `/api-security-best-practices` | Rate limiting, validación entrada, headers HTTP |
+| `rest-api-design` | `/rest-api-design` | Diseño endpoints, status codes, paginación, RSQL |
 
 ## Reglas
 
-- Skills viven en `.agents/skills/{name}/` con symlinks en `.claude/skills/{name}` (gestionado automáticamente por `npx skills`).
-- No editar archivos dentro de `.agents/skills/` directamente.
+- Skills viven en `.agents/skills/{name}/`. No editar directamente.
 - Lockfile en `skills-lock.json` al root del repo.
-- Si un skill conflictúa con un ADR local, prevalece el ADR.
+- Si un skill conflictúa con un ADR local, **prevalece el ADR**.
+- `spring-boot-best-practices` no existe como skill publicado — se usa `spring-boot-engineer` (equivalente, 5.9K installs).
 
-## Orden sugerido
+## Gestión
 
-**Bloqueantes:**
-1. `postgresql-expert`
-2. `spring-boot-best-practices`
-
-**Después:**
-3. `owasp-security`
-4. `redis-expert`
-5. `rest-api-design`
-6. `api-security-best-practices`
+```bash
+npx skills list          # ver instalados
+npx skills add <owner/repo@skill>
+npx skills update -p     # actualizar todos
+npx skills remove <name>
+```
