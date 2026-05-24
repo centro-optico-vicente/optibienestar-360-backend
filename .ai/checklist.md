@@ -42,7 +42,7 @@
 | Fase | Archivo | Tareas | Hechas | Pendientes | Estado |
 |---|---|---|---|---|---|
 | FASE 0 — Bootstrap infra | [fase-0-bootstrap.md](checklists/fase-0-bootstrap.md) | 5 | 5 | 0 | ✅ Completa |
-| FASE 1 — Bootstrap Spring Boot | [fase-1-bootstrap-backend-spring-boot.md](checklists/fase-1-bootstrap-backend-spring-boot.md) | 34 | 33 | 1 | ⚠️ 1 pendiente (cola async) |
+| FASE 1 — Bootstrap Spring Boot | [fase-1-bootstrap-backend-spring-boot.md](checklists/fase-1-bootstrap-backend-spring-boot.md) | 34 | 34 | 0 | ✅ Completa |
 
 ---
 
