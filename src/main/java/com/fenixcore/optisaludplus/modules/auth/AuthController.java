@@ -44,6 +44,9 @@ public class AuthController {
                                        @RequestBody(required = false) LogoutRequest request,
                                        HttpServletRequest httpRequest) {
         String rawToken = extractToken(httpRequest);
+        if (rawToken == null) {
+            return ResponseEntity.noContent().build();
+        }
         authService.logout(rawToken, request);
         return ResponseEntity.noContent().build();
     }

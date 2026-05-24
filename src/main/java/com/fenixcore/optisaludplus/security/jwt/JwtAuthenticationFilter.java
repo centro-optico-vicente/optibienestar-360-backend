@@ -52,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .toList();
 
                 CustomUserDetails principal = CustomUserDetails.fromJwt(
-                        UUID.fromString(subject), authorities);
+                        UUID.fromString(subject), jti, authorities);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, null, authorities);

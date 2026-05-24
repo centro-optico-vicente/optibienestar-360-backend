@@ -31,7 +31,7 @@ public class MeController {
     @PostMapping("/change-password")
     public ResponseEntity<Void> changePassword(@AuthenticationPrincipal CustomUserDetails principal,
                                                @Valid @RequestBody ChangePasswordRequest request) {
-        authService.changePassword(request, principal.getUuid());
+        authService.changePassword(request, principal.getUuid(), principal.getJti());
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,6 +1,5 @@
 package com.fenixcore.optisaludplus.modules.auth.service;
 
-import com.fenixcore.optisaludplus.core.exception.AuthenticationException;
 import com.fenixcore.optisaludplus.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.UserDto;
@@ -12,7 +11,7 @@ import com.fenixcore.optisaludplus.modules.auth.repository.RoleRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRoleRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +22,15 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
+            "email", "fullName", "status", "documentType", "documentNumber", "active", "createdAt");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -47,10 +50,25 @@ public class UserService {
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
     public Page<UserDto> listUsers(String filter, Pageable pageable) {
-        Specification<User> spec = (filter == null || filter.isBlank())
-                ? (root, query, cb) -> null
-                : RSQLJPASupport.toSpecification(filter);
+        Specification<User> spec = (root, query, cb) -> null;
+        if (filter != null && !filter.isBlank()) {
+            validateFilterFields(filter);
+            spec = RSQLJPASupport.toSpecification(filter);
+        }
         return userRepository.findAll(spec, pageable).map(userMapper::toDto);
+    }
+
+    private void validateFilterFields(String filter) {
+        // Reject any field name not in the allow-list to prevent JPA association traversal
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("([a-zA-Z][a-zA-Z0-9]*(?:\\.[a-zA-Z][a-zA-Z0-9]*)*)\\s*[=!<>]")
+                .matcher(filter);
+        while (matcher.find()) {
+            String field = matcher.group(1).split("\\.")[0];
+            if (!ALLOWED_FILTER_FIELDS.contains(field)) {
+                throw new IllegalArgumentException("Campo de filtro no permitido: " + field);
+            }
+        }
     }
 
     public UserDto getUser(UUID uuid) {

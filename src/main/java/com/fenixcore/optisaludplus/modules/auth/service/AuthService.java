@@ -13,7 +13,6 @@ import com.fenixcore.optisaludplus.modules.auth.dto.ResetPasswordRequest;
 import com.fenixcore.optisaludplus.modules.auth.entity.SecurityPolicy;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
 import com.fenixcore.optisaludplus.modules.auth.entity.UserPasswordHistory;
-import com.fenixcore.optisaludplus.modules.auth.entity.UserRole;
 import com.fenixcore.optisaludplus.modules.auth.entity.UserSessionLog;
 import com.fenixcore.optisaludplus.modules.auth.mapper.UserMapper;
 import com.fenixcore.optisaludplus.modules.auth.repository.SecurityPolicyRepository;
@@ -22,7 +21,7 @@ import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optisaludplus.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -222,7 +221,7 @@ public class AuthService {
     // ─── Change Password ──────────────────────────────────────────────────────
 
     @Transactional
-    public void changePassword(ChangePasswordRequest request, UUID userUuid) {
+    public void changePassword(ChangePasswordRequest request, UUID userUuid, String currentJti) {
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .orElseThrow(() -> new AuthenticationException("Usuario no encontrado"));
 
@@ -237,6 +236,10 @@ public class AuthService {
         userRepository.save(user);
 
         savePasswordHistory(user, newHash, policy);
+        // Blacklist current access token so it cannot be reused after password change
+        if (currentJti != null) {
+            blacklistService.blacklistAccessToken(currentJti, (long) accessExpirationMinutes * 60);
+        }
         blacklistService.revokeAllUserRefreshTokens(userUuid.toString());
     }
 
@@ -290,10 +293,8 @@ public class AuthService {
     }
 
     private String resolveClientIp(HttpServletRequest req) {
-        String forwarded = req.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
+        // X-Forwarded-For is resolved by Jetty via server.forward-headers-strategy=NATIVE;
+        // getRemoteAddr() returns the real client IP when behind Traefik.
         return req.getRemoteAddr();
     }
 
@@ -335,7 +336,4 @@ public class AuthService {
         }
     }
 
-    private List<UserRole> collectUserRoles(User user) {
-        return user.getUserRoles();
-    }
 }

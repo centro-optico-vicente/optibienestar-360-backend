@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 @Slf4j
@@ -31,8 +32,9 @@ public class TokenBlacklistService {
         try {
             return Boolean.TRUE.equals(redis.hasKey(BLACKLIST_PREFIX + jti));
         } catch (Exception e) {
-            log.warn("Redis unavailable — assuming token is NOT blacklisted");
-            return false;
+            // Fail-closed: Redis outage must not allow revoked tokens through
+            log.warn("Redis unavailable — rejecting token (fail-closed): jti={}", jti);
+            return true;
         }
     }
 
@@ -76,8 +78,9 @@ public class TokenBlacklistService {
     public void revokeAllUserRefreshTokens(String userUuid) {
         try {
             Set<String> jtis = redis.opsForSet().members(USER_REFRESH_SET + userUuid);
-            if (jtis != null) {
-                jtis.forEach(jti -> redis.delete(REFRESH_PREFIX + jti));
+            if (jtis != null && !jtis.isEmpty()) {
+                List<String> keys = jtis.stream().map(jti -> REFRESH_PREFIX + jti).toList();
+                redis.delete(keys);
             }
             redis.delete(USER_REFRESH_SET + userUuid);
         } catch (Exception e) {
