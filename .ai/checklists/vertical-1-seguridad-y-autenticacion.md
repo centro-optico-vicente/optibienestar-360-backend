@@ -17,13 +17,13 @@
 
 ## Código
 
-- [ ] [P0/C2] Entidades User, Role, Permission, UserRole, RolePermission (JPA)
-- [ ] [P0/C2] Repositorios + Services + DTOs + Mappers
-- [ ] [P0/C2] `POST /v1/auth/login`
-- [ ] [P0/C2] `POST /v1/auth/refresh`
-- [ ] [P0/C2] `POST /v1/auth/logout` (Redis blacklist)
-- [ ] [P0/C2] `POST /v1/auth/recover-password` + `reset-password`
-- [ ] [P0/C2] `GET /v1/me`
-- [ ] [P0/C3] `/v1/admin/users` CRUD + RSQL
-- [ ] [P1/C2] `POST /v1/me/change-password`
-- [ ] [P1/C2] Anti-brute-force (lock IP + identifier)
+- [x] [P0/C2] Entidades User, Role, Permission, UserRole (JPA) — RolePermission como @ManyToMany en Role
+- [x] [P0/C2] Repositorios + UserDetailsServiceImpl + DTOs (UserDto, RoleDto) + UserMapper (MapStruct) — JWT claim renombrado roles→permissions
+- [x] [P0/C2] `POST /v1/auth/login` — brute-force tracking, SecurityPolicy, UserSessionLog, Redis refresh token store
+- [x] [P0/C2] `POST /v1/auth/refresh` — valida JTI en Redis, rota tokens
+- [x] [P0/C2] `POST /v1/auth/logout` — blacklist JTI en Redis, revoca refresh token, actualiza UserSessionLog
+- [x] [P0/C2] `POST /v1/auth/recover-password` + `reset-password` — token SHA-256, historial de contraseñas, revoca refresh tokens
+- [x] [P0/C2] `GET /v1/me` — retorna UserDto del usuario autenticado
+- [x] [P0/C3] `/v1/admin/users` CRUD + RSQL — filtro dinámico con rsql-jpa-spring-boot-starter
+- [x] [P1/C2] `POST /v1/me/change-password` — verifica contraseña actual, historial, revoca refresh tokens
+- [x] [P1/C2] Anti-brute-force (lock IP + identifier) — configurable via SecurityPolicy (max_login_attempts, lockout_duration_minutes)

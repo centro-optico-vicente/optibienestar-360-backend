@@ -34,8 +34,8 @@ public class JwtService {
         this.refreshExpirationMs = (long) refreshExpirationDays * 24 * 60 * 60 * 1_000;
     }
 
-    public String generateAccessToken(String subject, List<String> roles) {
-        return buildToken(subject, roles, accessExpirationMs, "access");
+    public String generateAccessToken(String subject, List<String> permissions) {
+        return buildToken(subject, permissions, accessExpirationMs, "access");
     }
 
     public String generateRefreshToken(String subject) {
@@ -55,9 +55,9 @@ public class JwtService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> extractRoles(String token) {
-        Object roles = extractAllClaims(token).get("roles");
-        return (roles instanceof List<?>) ? (List<String>) roles : List.of();
+    public List<String> extractPermissions(String token) {
+        Object perms = extractAllClaims(token).get("permissions");
+        return (perms instanceof List<?>) ? (List<String>) perms : List.of();
     }
 
     public boolean isValid(String token) {
@@ -75,6 +75,16 @@ public class JwtService {
         return "access".equals(extractAllClaims(token).get("type"));
     }
 
+    public String extractJti(String token) {
+        return extractAllClaims(token).getId();
+    }
+
+    public long getRemainingTtlSeconds(String token) {
+        Date expiration = extractAllClaims(token).getExpiration();
+        long remaining = expiration.getTime() - System.currentTimeMillis();
+        return Math.max(0L, remaining / 1_000);
+    }
+
     private String buildToken(String subject, List<String> roles, long ttlMs, String type) {
         Date now = new Date();
         return Jwts.builder()
@@ -83,7 +93,7 @@ public class JwtService {
                 .issuer(issuer)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ttlMs))
-                .claim("roles", roles)
+                .claim("permissions", roles)
                 .claim("type", type)
                 .signWith(secretKey)
                 .compact();

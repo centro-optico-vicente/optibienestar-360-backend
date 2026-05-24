@@ -52,7 +52,7 @@
 
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | Estado |
 |---|---|---|---|---|---|---|
-| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 16 | 4 | 12 | 🟡 En curso |
+| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 16 | 14 | 2 | ✅ 2 hardening pendientes |
 | 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 6 | 0 | 6 | 🔲 |
 | 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 10 | 0 | 10 | 🔲 |
 | 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 12 | 0 | 12 | 🔲 |
@@ -62,7 +62,7 @@
 | 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 12 | 0 | 12 | 🔲 |
 | 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 10 | 0 | 10 | 🔲 |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 15 | 0 | 15 | 🔲 |
-| **TOTAL Fase 2** | | | **111** | **4** | **107** | 🟡 4% |
+| **TOTAL Fase 2** | | | **111** | **12** | **99** | 🟡 11% |
 
 ---
 
