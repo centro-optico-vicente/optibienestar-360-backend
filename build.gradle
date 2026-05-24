@@ -58,6 +58,7 @@ dependencies {
 	annotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
 	compileOnly "org.projectlombok:lombok"
 	annotationProcessor "org.projectlombok:lombok"
+	annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
 
 	// Monitoring
 	implementation "org.springframework.boot:spring-boot-starter-actuator"
