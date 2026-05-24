@@ -9,6 +9,10 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
@@ -29,6 +33,15 @@ public class EmailService {
     @Value("${mail.from-name}")
     private String fromName;
 
+    @Async("emailExecutor")
+    @Retryable(
+            retryFor = MailException.class,
+            maxAttemptsExpression = "${mail.retry.max-attempts:4}",
+            backoff = @Backoff(
+                delayExpression = "${mail.retry.initial-delay-ms:1000}",
+                multiplierExpression = "${mail.retry.multiplier:2}"
+            )
+    )
     public void sendSimple(String to, String subject, String text) {
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
@@ -40,9 +53,19 @@ public class EmailService {
             log.debug("Simple email sent to {}", to);
         } catch (MailException e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
+            throw e;
         }
     }
 
+    @Async("emailExecutor")
+    @Retryable(
+            retryFor = MailException.class,
+            maxAttemptsExpression = "${mail.retry.max-attempts:4}",
+            backoff = @Backoff(
+                delayExpression = "${mail.retry.initial-delay-ms:1000}",
+                multiplierExpression = "${mail.retry.multiplier:2}"
+            )
+    )
     public void sendTemplated(String to, String subject, String template, Map<String, Object> variables) {
         try {
             Context ctx = new Context();
@@ -59,6 +82,7 @@ public class EmailService {
             log.debug("Templated email [{}] sent to {}", template, to);
         } catch (MailException | MessagingException | java.io.UnsupportedEncodingException e) {
             log.error("Failed to send templated email [{}] to {}: {}", template, to, e.getMessage());
+            if (e instanceof MailException mailEx) throw mailEx;
         }
     }
 }

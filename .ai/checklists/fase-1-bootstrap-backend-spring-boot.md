@@ -41,4 +41,4 @@
 - [x] [P0/C2] Configurar `spring.mail.*` con variables de entorno — 2026-05-19
 - [x] [P0/C2] `common.service.EmailService`: `sendSimple`, `sendTemplated` (Thymeleaf) — 2026-05-21
 - [x] [P0/C2] Template `contact-form-received.html` — 2026-05-21
-- [ ] [P1/C2] Cola async con `@Async` + reintentos exponenciales
+- [x] [P1/C2] Cola async con `@Async` + reintentos exponenciales — 2026-05-24

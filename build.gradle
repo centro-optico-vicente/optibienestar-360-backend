@@ -60,6 +60,9 @@ dependencies {
 	annotationProcessor "org.projectlombok:lombok"
 	annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
 
+	// Async retry (aspectjweaver already on classpath transitively via spring-boot-starter-aspectj)
+	implementation "org.springframework.retry:spring-retry:2.0.12"
+
 	// Monitoring
 	implementation "org.springframework.boot:spring-boot-starter-actuator"
 	implementation "net.logstash.logback:logstash-logback-encoder:8.0"

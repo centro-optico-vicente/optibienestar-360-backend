@@ -15,7 +15,9 @@
 ### "Voy a crear una entidad nueva"
 1. [`../playbooks/new-entity.md`](../playbooks/new-entity.md)
 2. Para schema: [`../specs/02-database.md`](../specs/02-database.md)
-3. Para naming: [ADR 0006 cross-stack](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+3. Para naming de tablas/columnas: [ADR 0006 cross-stack](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+4. Para naming Java (camelCase, PascalCase, UPPER_SNAKE_CASE): [`../decisions/0007-java-naming-conventions.md`](../decisions/0007-java-naming-conventions.md)
+5. Para búsquedas en repositorios (uuid, código, FK compuesta): [`../decisions/0006-repository-search-conventions.md`](../decisions/0006-repository-search-conventions.md)
 
 ### "Voy a crear una migración Flyway"
 1. [`../playbooks/new-migration.md`](../playbooks/new-migration.md)
