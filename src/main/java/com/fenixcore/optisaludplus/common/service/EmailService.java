@@ -11,6 +11,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
@@ -35,8 +36,11 @@ public class EmailService {
     @Async("emailExecutor")
     @Retryable(
             retryFor = MailException.class,
-            maxAttempts = 4,
-            backoff = @Backoff(delay = 1_000, multiplier = 2)
+            maxAttemptsExpression = "${mail.retry.max-attempts:4}",
+            backoff = @Backoff(
+                delayExpression = "${mail.retry.initial-delay-ms:1000}",
+                multiplierExpression = "${mail.retry.multiplier:2}"
+            )
     )
     public void sendSimple(String to, String subject, String text) {
         try {
@@ -56,8 +60,11 @@ public class EmailService {
     @Async("emailExecutor")
     @Retryable(
             retryFor = MailException.class,
-            maxAttempts = 4,
-            backoff = @Backoff(delay = 1_000, multiplier = 2)
+            maxAttemptsExpression = "${mail.retry.max-attempts:4}",
+            backoff = @Backoff(
+                delayExpression = "${mail.retry.initial-delay-ms:1000}",
+                multiplierExpression = "${mail.retry.multiplier:2}"
+            )
     )
     public void sendTemplated(String to, String subject, String template, Map<String, Object> variables) {
         try {
