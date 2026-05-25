@@ -7,40 +7,42 @@
 
 > Las migraciones se ejecutan por alcance junto a su código — ver [checklist-vertical.md](../checklist-vertical.md).
 
-- [ ] [P0/C2] `V10__users_and_roles.sql`: users, roles, permissions, user_roles, role_permissions
-- [ ] [P0/C2] `V11__seed_roles.sql`: ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR
-- [ ] [P0/C2] `V12__catalogs.sql`: countries, states, cities, genders, document_types, marital_statuses, occupations
-- [ ] [P0/C3] `V13__health_catalogs.sql`: medical_specialties, service_categories, ally_types
-- [ ] [P0/C3] `V14__allies.sql`: allies, ally_specialties, ally_services, ally_agreements
-- [ ] [P0/C3] `V15__ally_users.sql`
-- [ ] [P0/C3] `V16__plans.sql`
-- [ ] [P0/C2] `V17__seed_plans.sql`: plan personal $10/$5/$5
-- [ ] [P0/C3] `V18__members.sql` + member_documents
-- [ ] [P0/C3] `V19__beneficiaries.sql`
-- [ ] [P0/C3] `V20__medical_records.sql`
-- [ ] [P0/C3] `V21__memberships.sql`
-- [ ] [P0/C3] `V22__payments.sql`
-- [ ] [P0/C3] `V23__benefit_usages.sql`
-- [ ] [P0/C3] `V24__promoters.sql`
-- [ ] [P0/C3] `V25__commissions.sql`
-- [ ] [P0/C3] `V26__referrals.sql`
-- [ ] [P0/C2] `V27__notifications.sql`
-- [ ] [P0/C2] `V28__digital_cards_view.sql`
+> Numeración alineada con migraciones reales en disco. V1–V4 son bootstrap Phase 1; V7 es `seed_users` supplementary.
+
+- [x] [P0/C2] `V5__users_and_roles.sql`: users, roles, permissions, user_roles, role_permissions
+- [x] [P0/C2] `V6__seed_roles.sql`: ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR _(+ V7 `seed_users` supplementary)_
+- [ ] [P0/C2] `V8__catalogs.sql`: countries, states, cities, genders, document_types, marital_statuses, occupations
+- [ ] [P0/C3] `V9__health_catalogs.sql`: medical_specialties, service_categories, ally_types
+- [ ] [P0/C3] `V10__allies.sql`: allies, ally_specialties, ally_services, ally_agreements
+- [ ] [P0/C3] `V11__ally_users.sql`
+- [ ] [P0/C3] `V12__plans.sql`
+- [ ] [P0/C2] `V13__seed_plans.sql`: plan personal $10/$5/$5
+- [ ] [P0/C3] `V14__members.sql` + member_documents
+- [ ] [P0/C3] `V15__beneficiaries.sql`
+- [ ] [P0/C3] `V16__medical_records.sql`
+- [ ] [P0/C3] `V17__memberships.sql`
+- [ ] [P0/C3] `V18__payments.sql`
+- [ ] [P0/C3] `V19__benefit_usages.sql`
+- [ ] [P0/C3] `V20__promoters.sql`
+- [ ] [P0/C3] `V21__commissions.sql`
+- [ ] [P0/C3] `V22__referrals.sql`
+- [ ] [P0/C2] `V23__notifications.sql`
+- [ ] [P0/C2] `V24__digital_cards_view.sql`
 - [ ] [P0/C2] Índices clave: members(document), memberships(status, next_due), benefit_usages, payments(status)
 - [ ] [P1/C2] Índice GIN full-text en members.full_name con unaccent
 
 ## Tarea 2.2 — Auth + Users
 
-- [ ] [P0/C2] Entidades User, Role, Permission, UserRole, RolePermission (JPA)
-- [ ] [P0/C2] Repositorios + Services + DTOs + Mappers
-- [ ] [P0/C2] `POST /v1/auth/login`
-- [ ] [P0/C2] `POST /v1/auth/refresh`
-- [ ] [P0/C2] `POST /v1/auth/logout` (Redis blacklist)
-- [ ] [P0/C2] `POST /v1/auth/recover-password` + `reset-password`
-- [ ] [P0/C2] `GET /v1/me`
-- [ ] [P0/C3] `/v1/admin/users` CRUD + RSQL
-- [ ] [P1/C2] `POST /v1/me/change-password`
-- [ ] [P1/C2] Anti-brute-force (lock IP+identifier)
+- [x] [P0/C2] Entidades User, Role, Permission, UserRole, RolePermission (JPA) _(RolePermission implementado como `@JoinTable` dentro de Role — relación M:N sin atributos extra; las otras 4 son @Entity explícitas)_
+- [x] [P0/C2] Repositorios + Services + DTOs + Mappers _(módulo `modules/auth/{repository,service,dto,mapper}` completo)_
+- [x] [P0/C2] `POST /v1/auth/login`
+- [x] [P0/C2] `POST /v1/auth/refresh`
+- [x] [P0/C2] `POST /v1/auth/logout` (Redis blacklist) _(TokenBlacklistService con Redis, 3 keys, graceful degradation)_
+- [x] [P0/C2] `POST /v1/auth/recover-password` + `reset-password`
+- [x] [P0/C2] `GET /v1/me` _(MeController)_
+- [x] [P0/C3] `/v1/admin/users` CRUD + RSQL _(AdminUserController con @PreAuthorize fine-grained + paginación)_
+- [x] [P1/C2] `POST /v1/me/change-password`
+- [x] [P1/C2] Anti-brute-force (lock IP+identifier) _(campos brute-force en User + SecurityPolicy configurable)_
 
 ## Tarea 2.3 — Aliados
 
@@ -136,7 +138,7 @@
 
 ## Tarea 2.12 — Hardening + QA
 
-- [ ] [P0/C3] OWASP Top 10 audit con skill
+- [x] [P0/C3] OWASP Top 10 audit con skill _(ejecutado en Vertical 1 — auth module; pendiente re-ejecutar al cierre de cada vertical)_
 - [ ] [P0/C2] CSP estricto
 - [ ] [P0/C2] Validación uploads (MIME real, tamaño max)
 - [ ] [P0/C2] Audit logs acciones sensibles
