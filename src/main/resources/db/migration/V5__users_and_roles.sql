@@ -83,6 +83,7 @@ CREATE TABLE users
     password_reset_token      VARCHAR(255),
     password_reset_expires_at TIMESTAMPTZ,
     last_login_at             TIMESTAMPTZ,
+    password_never_expires    BOOLEAN      NOT NULL DEFAULT FALSE,
     is_active                 BOOLEAN      NOT NULL DEFAULT TRUE,
     status                    VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE'
                                   CHECK (status IN ('ACTIVE', 'SUSPENDED', 'LOCKED')),

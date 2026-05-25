@@ -312,9 +312,9 @@ public class AuthService {
     }
 
     private void savePasswordHistory(User user, String passwordHash, SecurityPolicy policy) {
-        Instant expiresAt = policy.getDaysPasswordExpires() > 0
-                ? Instant.now().plus(policy.getDaysPasswordExpires(), ChronoUnit.DAYS)
-                : null;
+        Instant expiresAt = (user.isPasswordNeverExpires() || policy.getDaysPasswordExpires() <= 0)
+                ? null
+                : Instant.now().plus(policy.getDaysPasswordExpires(), ChronoUnit.DAYS);
 
         passwordHistoryRepository.save(new UserPasswordHistory(user, passwordHash, expiresAt));
         passwordHistoryRepository.pruneOlderThan(user.getId(), policy.getPasswordHistoryCount());
