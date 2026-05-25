@@ -39,9 +39,11 @@ dependencies {
 	runtimeOnly "io.jsonwebtoken:jjwt-impl:0.13.0"
 	runtimeOnly "io.jsonwebtoken:jjwt-jackson:0.13.0"
 
-	// Cache
+	// Cache — Redis used when auth.token-blacklist.provider=redis (default);
+	// Caffeine is the in-process fallback for single-replica deployments.
 	implementation "org.springframework.boot:spring-boot-starter-cache"
 	implementation "org.springframework.boot:spring-boot-starter-data-redis"
+	implementation "com.github.ben-manes.caffeine:caffeine"
 
 	// Storage (AWS SDK v2 for Cloudflare R2 via S3 API)
 	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2'
