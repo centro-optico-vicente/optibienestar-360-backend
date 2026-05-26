@@ -119,6 +119,8 @@ jobs:
           push: true
           build-args: |
             DEPLOY_VERSION=${{ github.event.release.tag_name }}
+            BUILD_VERSION=${{ github.event.release.tag_name }}
+            BUILD_DATE=${{ github.event.release.published_at }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=docker-alpine
@@ -169,6 +171,8 @@ jobs:
           push: true
           build-args: |
             DEPLOY_VERSION=${{ github.event.release.tag_name }}
+            BUILD_VERSION=${{ github.event.release.tag_name }}
+            BUILD_DATE=${{ github.event.release.published_at }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=docker-debian
