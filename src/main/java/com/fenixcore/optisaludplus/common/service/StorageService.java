@@ -3,6 +3,7 @@ package com.fenixcore.optisaludplus.common.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -19,6 +20,7 @@ import java.time.Duration;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "storage.r2.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class StorageService {
 
