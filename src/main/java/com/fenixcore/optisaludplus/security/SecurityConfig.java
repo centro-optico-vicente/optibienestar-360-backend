@@ -30,6 +30,9 @@ public class SecurityConfig {
     private final JwtAccessDeniedHandler accessDeniedHandler;
 
     private static final String[] PUBLIC_PATHS = {
+            "/",
+            "/v1",
+            "/v1/system-info",
             "/v1/public/**",
             "/v1/auth/login",
             "/v1/auth/refresh",

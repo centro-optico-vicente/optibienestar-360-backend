@@ -37,6 +37,15 @@ RUN find /tmp/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar 
 # Container-aware JVM: respects cgroup memory/CPU limits
 ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
+# Release metadata injected at build time from the GitHub release that triggered
+# the workflow (BUILD_VERSION = tag_name, BUILD_DATE = published_at, ISO-8601).
+# Consumed by SystemInfoController via `app.version` / `app.version-date`.
+# Defaults are placeholders so locally-built images still expose sane values.
+ARG BUILD_VERSION="dev-0.0.1"
+ARG BUILD_DATE=""
+ENV VERSION=${BUILD_VERSION} \
+    VERSION_DATE=${BUILD_DATE}
+
 USER appuser
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
@@ -56,6 +65,11 @@ RUN find /tmp/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar 
     && rm -rf /tmp/libs
 
 ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+
+ARG BUILD_VERSION="dev-0.0.1"
+ARG BUILD_DATE=""
+ENV VERSION=${BUILD_VERSION} \
+    VERSION_DATE=${BUILD_DATE}
 
 USER appuser
 EXPOSE 8080
