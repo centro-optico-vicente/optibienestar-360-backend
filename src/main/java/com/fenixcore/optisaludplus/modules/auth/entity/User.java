@@ -29,7 +29,7 @@ import java.util.List;
 @AttributeOverride(name = "id", column = @Column(name = "users_id", nullable = false, updatable = false))
 public class User extends BaseEntity {
 
-    @Column(unique = true, length = 254)
+    @Column(unique = true, columnDefinition = "citext")
     private String email;
 
     @Column(name = "password_hash", length = 255, nullable = false)
