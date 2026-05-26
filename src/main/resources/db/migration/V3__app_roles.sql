@@ -38,9 +38,8 @@ GRANT USAGE ON SCHEMA app TO optisalud_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA app TO optisalud_app;
 GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA app TO optisalud_app;
 
--- Future tables — cover both the bootstrap user (postgres) and the migration role
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres          IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres          IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
+-- Future tables — migrations run as optisalud_migration (database owner), so
+-- objects it creates automatically grant DML to optisalud_app via these defaults.
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
 
@@ -62,8 +61,6 @@ GRANT USAGE ON SCHEMA app TO optisalud_readonly;
 GRANT SELECT ON ALL TABLES    IN SCHEMA app TO optisalud_readonly;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO optisalud_readonly;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT ON TABLES    TO optisalud_readonly;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT ON TABLES    TO optisalud_readonly;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly;
 
