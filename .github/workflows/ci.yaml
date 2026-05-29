@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build and Test
+    name: Build, Test & Validate Dockerfiles
     runs-on: ubuntu-latest
 
     services:
@@ -66,54 +66,45 @@ jobs:
         with:
           name: test-reports
           path: build/reports/tests/
-          retention-days: 7
+          retention-days: 3
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-jar
-          path: build/libs/
-          retention-days: 1
-          if-no-files-found: error
+      # - name: Upload JAR artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: app-jar
+      #     path: build/libs/
+      #     retention-days: 1
+      #     if-no-files-found: error
 
-
-  docker-build-check:
-    name: Validate Dockerfiles
-    needs:
-      - build-and-test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - variant: alpine
-            file: ./docker/alpine.Dockerfile
-          - variant: debian
-            file: ./docker/debian.Dockerfile
-
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v6
-
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-jar
-          path: prebuilt/
-
+      # Validate both Dockerfiles in this same job: the JAR built above stays in
+      # build/libs/ on the runner and is fed to the `from-prebuilt` stage via a
+      # build-context — no cross-job artifact upload (avoids GitHub artifact-storage
+      # quota on private repos). Both images build, none are pushed.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build ${{ matrix.variant }} image (no push)
+      - name: Validate Alpine image (build, no push)
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.file }}
+          file: ./docker/alpine.Dockerfile
           target: from-prebuilt
           build-contexts: |
-            prebuilt-src=prebuilt/
+            prebuilt-src=build/libs/
           platforms: linux/amd64
           push: false
-          build-args: |
-            DEPLOY_VERSION=ci-${{ github.sha }}
-          cache-from: type=gha,scope=docker-${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=docker-${{ matrix.variant }}
+          cache-from: type=gha,scope=docker-alpine
+          cache-to: type=gha,mode=max,scope=docker-alpine
+
+      - name: Validate Debian image (build, no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docker/debian.Dockerfile
+          target: from-prebuilt
+          build-contexts: |
+            prebuilt-src=build/libs/
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=docker-debian
+          cache-to: type=gha,mode=max,scope=docker-debian
