@@ -5,8 +5,8 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V14__allies.sql` — allies, ally_specialties, ally_services, ally_agreements
-- [ ] [P0/C3] `V15__ally_users.sql`
+- [ ] [P0/C3] `V11__allies.sql` — allies, ally_specialties, ally_services, ally_agreements
+- [ ] [P0/C3] `V12__ally_users.sql`
 
 ## Código
 

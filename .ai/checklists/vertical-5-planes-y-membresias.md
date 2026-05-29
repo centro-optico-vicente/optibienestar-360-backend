@@ -5,9 +5,9 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V16__plans.sql`
-- [ ] [P0/C2] `V17__seed_plans.sql` — plan personal $10 inscripción / $5 titular / $5 beneficiario
-- [ ] [P0/C3] `V21__memberships.sql`
+- [ ] [P0/C3] `V13__plans.sql`
+- [ ] [P0/C2] `V14__seed_plans.sql` — plan personal $10 inscripción / $5 titular / $5 beneficiario
+- [ ] [P0/C3] `V18__memberships.sql`
 - [ ] [P0/C2] Índices: `memberships(status, next_due_date)`
 
 ## Código

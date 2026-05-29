@@ -5,9 +5,9 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V24__promoters.sql`
-- [ ] [P0/C3] `V25__commissions.sql`
-- [ ] [P0/C3] `V26__referrals.sql`
+- [ ] [P0/C3] `V21__promoters.sql`
+- [ ] [P0/C3] `V22__commissions.sql`
+- [ ] [P0/C3] `V23__referrals.sql`
 
 ## Código
 

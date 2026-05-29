@@ -5,9 +5,9 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V18__members.sql` + member_documents
-- [ ] [P0/C3] `V19__beneficiaries.sql`
-- [ ] [P0/C3] `V20__medical_records.sql`
+- [ ] [P0/C3] `V15__members.sql` + member_documents
+- [ ] [P0/C3] `V16__beneficiaries.sql`
+- [ ] [P0/C3] `V17__medical_records.sql`
 - [ ] [P1/C2] Índice GIN full-text `members.full_name` con unaccent
 
 ## Código

@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V23__benefit_usages.sql`
+- [ ] [P0/C3] `V20__benefit_usages.sql`
 - [ ] [P0/C2] Índices en `benefit_usages` según EXPLAIN ANALYZE
 
 ## Código

@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V22__payments.sql`
+- [ ] [P0/C3] `V19__payments.sql`
 - [ ] [P0/C2] Índice: `payments(status)`
 
 ## Código

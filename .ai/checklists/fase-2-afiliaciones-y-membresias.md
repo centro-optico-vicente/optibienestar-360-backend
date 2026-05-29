@@ -11,23 +11,24 @@
 
 - [x] [P0/C2] `V5__users_and_roles.sql`: users, roles, permissions, user_roles, role_permissions
 - [x] [P0/C2] `V6__seed_roles.sql`: ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR _(+ V7 `seed_users` supplementary)_
-- [ ] [P0/C2] `V8__catalogs.sql`: countries, states, cities, genders, document_types, marital_statuses, occupations
-- [ ] [P0/C3] `V9__health_catalogs.sql`: medical_specialties, service_categories, ally_types
-- [ ] [P0/C3] `V10__allies.sql`: allies, ally_specialties, ally_services, ally_agreements
-- [ ] [P0/C3] `V11__ally_users.sql`
-- [ ] [P0/C3] `V12__plans.sql`
-- [ ] [P0/C2] `V13__seed_plans.sql`: plan personal $10/$5/$5
-- [ ] [P0/C3] `V14__members.sql` + member_documents
-- [ ] [P0/C3] `V15__beneficiaries.sql`
-- [ ] [P0/C3] `V16__medical_records.sql`
-- [ ] [P0/C3] `V17__memberships.sql`
-- [ ] [P0/C3] `V18__payments.sql`
-- [ ] [P0/C3] `V19__benefit_usages.sql`
-- [ ] [P0/C3] `V20__promoters.sql`
-- [ ] [P0/C3] `V21__commissions.sql`
-- [ ] [P0/C3] `V22__referrals.sql`
-- [ ] [P0/C2] `V23__notifications.sql`
-- [ ] [P0/C2] `V24__digital_cards_view.sql`
+- [ ] [P0/C2] `V8__locations.sql`: countries (seed VE + iso_code), states (FK→countries, 24 entidades federales VE), cities (FK→states, seed curado)
+- [ ] [P0/C2] `V9__personal_catalogs.sql`: genders, document_types (normaliza el CHECK V/E de users en V5), marital_statuses, occupations
+- [ ] [P0/C3] `V10__health_catalogs.sql`: medical_specialties, service_categories, ally_types
+- [ ] [P0/C3] `V11__allies.sql`: allies, ally_specialties, ally_services, ally_agreements
+- [ ] [P0/C3] `V12__ally_users.sql`
+- [ ] [P0/C3] `V13__plans.sql`
+- [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
+- [ ] [P0/C3] `V15__members.sql` + member_documents
+- [ ] [P0/C3] `V16__beneficiaries.sql`
+- [ ] [P0/C3] `V17__medical_records.sql`
+- [ ] [P0/C3] `V18__memberships.sql`
+- [ ] [P0/C3] `V19__payments.sql`
+- [ ] [P0/C3] `V20__benefit_usages.sql`
+- [ ] [P0/C3] `V21__promoters.sql`
+- [ ] [P0/C3] `V22__commissions.sql`
+- [ ] [P0/C3] `V23__referrals.sql`
+- [ ] [P0/C2] `V24__notifications.sql`
+- [ ] [P0/C2] `V25__digital_cards_view.sql`
 - [ ] [P0/C2] Índices clave: members(document), memberships(status, next_due), benefit_usages, payments(status)
 - [ ] [P1/C2] Índice GIN full-text en members.full_name con unaccent
 

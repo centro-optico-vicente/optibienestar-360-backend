@@ -5,8 +5,9 @@
 
 ## Migraciones
 
-- [ ] [P0/C2] `V12__catalogs.sql` — countries, states, cities, genders, document_types, marital_statuses, occupations
-- [ ] [P0/C3] `V13__health_catalogs.sql` — medical_specialties, service_categories, ally_types
+- [ ] [P0/C2] `V8__locations.sql` — `countries` (seed VE + `iso_code` UNIQUE), `states` (FK→countries, seed 24 entidades federales VE), `cities` (FK→states, seed curado: capitales/municipios principales)
+- [ ] [P0/C2] `V9__personal_catalogs.sql` — `genders` (M/F/O), `document_types` (V/E/J/P — normaliza el CHECK inline de `users` en V5), `marital_statuses` (soltero/casado/divorciado/viudo/concubinato), `occupations` (lista curada)
+- [ ] [P0/C3] `V10__health_catalogs.sql` — medical_specialties, service_categories, ally_types
 
 ## Código
 
