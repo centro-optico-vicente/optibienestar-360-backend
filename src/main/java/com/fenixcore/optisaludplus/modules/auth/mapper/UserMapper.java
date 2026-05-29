@@ -35,6 +35,7 @@ public interface UserMapper {
         return userRoles.stream()
                 .filter(UserRole::isActive)
                 .map(ur -> roleToDto(ur.getRole()))
+                .distinct()
                 .toList();
     }
 }

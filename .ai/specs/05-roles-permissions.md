@@ -148,6 +148,28 @@ Cambios de roles/permisos:
 - INSERT en `audit_log` con `action = 'ROLE_CHANGE'`
 - Forzar refresh de JWT en el siguiente request (claims viejos no reflejan cambio)
 
+## RBAC dinámico y modelos de autorización (evaluación)
+
+> Spike no comprometido. Ver ítems en [`../checklists/vertical-1-seguridad-y-autenticacion.md`](../checklists/vertical-1-seguridad-y-autenticacion.md) (sección "Evaluación — RBAC dinámico").
+
+### Punto clave: la autorización ya es *por permiso*, no por rol
+
+Los `@PreAuthorize` usan `hasAuthority('PERMISSION')` y el JWT lleva el claim `permissions` (aplanado desde los roles del usuario). El nombre del rol **nunca** se evalúa en la autorización. Consecuencia:
+
+- **Roles editables ya son compatibles sin tocar ningún `@PreAuthorize`.** Si un admin crea/edita un rol y le asigna permisos existentes, solo cambia qué permisos acumula el usuario; el código de autorización no se entera.
+- **Restricción:** los **permisos permanecen fijos en código** (cada string de `hasAuthority('X')` debe existir y estar referenciado). Crear permisos en runtime no sirve — no habría `@PreAuthorize` que los use. Por eso el modelo dinámico sería: **permisos = catálogo fijo (solo lectura)**, **roles = contenedores editables** de esos permisos.
+- **El verdadero punto difícil es el _token staleness_:** al cambiar los permisos de un rol, los `accessToken` activos (TTL 15 min) siguen con los permisos viejos hasta el refresh. Decisión: aceptar la ventana de 15 min, o forzar invalidación (revocar refresh tokens / blacklist) de los usuarios afectados (ver "Auditoría" arriba).
+
+### Comparativa de modelos
+
+| Modelo | Qué es | Ventajas | Desventajas | Encaje en OptiSalud |
+|---|---|---|---|---|
+| **RBAC granular** *(actual)* | Permisos agrupados en roles; autorización por permiso. Permisos fijos en código, roles en BD. | Simple y predecible; fácil de auditar; nativo en Spring (`@PreAuthorize`); sin lookups extra (permisos en el JWT); ya implementado. | Permisos no editables en runtime; los casos contextuales (p. ej. "solo sus propios afiliados") requieren checks ad-hoc en service; puede crecer el nº de permisos. | ✅ Cubre ~95% de los casos. Los `VIEW_OWN` ya se resuelven con components custom (`@memberSecurity.canRead`). **Recomendado mantener.** |
+| **ABAC** (Attribute-Based) | Decisiones por atributos (usuario, recurso, entorno) evaluados en reglas. Ej.: "ver si `recurso.region == usuario.region` y en horario laboral". | Muy flexible; reglas contextuales sin tocar código por cada caso; escala a políticas complejas. | Alta complejidad (motor de reglas + gestión de políticas); más difícil de auditar/razonar; riesgo de reglas contradictorias; evaluación por request. | ⚠️ Los pocos casos contextuales actuales ya se cubren con checks puntuales → ABAC completo es sobre-ingeniería hoy. |
+| **OPA** (Open Policy Agent) | Motor de políticas externo (sidecar/servicio) con lenguaje Rego; centraliza la autorización fuera de la app. | Políticas declarativas, centralizadas y versionables; desacopladas del código; reutilizable cross-servicio; testeable aislado. OSS (compatible [ADR 0004](../../../centro-optico-vicente/.ai/decisions/0004-only-free-tools.md)). | Infra extra (sidecar/servicio) → choca con "single VPS / infra mínima" ([ADR 0003](../../../centro-optico-vicente/.ai/decisions/0003-infrastructure.md)); latencia por decisión; curva de Rego; otro componente que mantener y monitorear. | ❌ Overkill para un monolito Spring en un VPS. Tendría sentido recién con arquitectura multi-servicio o políticas muy dinámicas. |
+
+**Veredicto:** mantener **RBAC granular**; los casos contextuales se resuelven con `PermissionEvaluator`/components custom (patrón ya en uso). Reevaluar **ABAC/OPA** solo si aparece multi-servicio o reglas de negocio fuertemente dependientes de atributos/contexto.
+
 ## Referencias
 
 - [04-security.md](04-security.md)

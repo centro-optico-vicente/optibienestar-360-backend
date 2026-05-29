@@ -42,6 +42,7 @@
 - [x] [P0/C2] `POST /v1/auth/recover-password` + `reset-password`
 - [x] [P0/C2] `GET /v1/me` _(MeController)_
 - [x] [P0/C3] `/v1/admin/users` CRUD + RSQL _(AdminUserController con @PreAuthorize fine-grained + paginación)_
+- [x] [P1/C1] `GET /v1/admin/roles` + `/{uuid}` _(AdminRoleController — lectura de roles activos para selects del panel; sin CRUD)_
 - [x] [P1/C2] `POST /v1/me/change-password`
 - [x] [P1/C2] Anti-brute-force (lock IP+identifier) _(campos brute-force en User + SecurityPolicy configurable)_
 
