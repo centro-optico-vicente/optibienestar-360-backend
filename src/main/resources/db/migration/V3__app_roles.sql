@@ -76,3 +76,17 @@ REVOKE ALL ON SCHEMA app FROM PUBLIC;
 ALTER ROLE optisalud_migration SET search_path = app, public;
 ALTER ROLE optisalud_app       SET search_path = app, public;
 ALTER ROLE optisalud_readonly  SET search_path = app, public;
+
+-- Per-role connection limits — caps each role so one cannot exhaust max_connections.
+-- app must cover Hikari maximum-pool-size (20) × replicas (2) = 40, plus headroom.
+-- Values are parameterized via Flyway placeholders (env-overridable, see application.properties).
+ALTER ROLE optisalud_app       CONNECTION LIMIT ${app_conn_limit};
+ALTER ROLE optisalud_migration CONNECTION LIMIT ${migration_conn_limit};
+ALTER ROLE optisalud_readonly  CONNECTION LIMIT ${readonly_conn_limit};
+
+-- Runtime timeouts for the app role — kills hung queries and abandoned open
+-- transactions so a stuck request cannot hold a connection (and its locks) forever.
+-- Only optisalud_app: migrations may legitimately run long; readonly is for ad-hoc tools.
+-- Parameterized via Flyway placeholders (env-overridable, see application.properties).
+ALTER ROLE optisalud_app SET statement_timeout = '${app_statement_timeout}';
+ALTER ROLE optisalud_app SET idle_in_transaction_session_timeout = '${app_idle_in_transaction_timeout}';
