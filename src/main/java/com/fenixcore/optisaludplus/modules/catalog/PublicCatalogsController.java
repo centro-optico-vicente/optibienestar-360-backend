@@ -1,18 +1,24 @@
 package com.fenixcore.optisaludplus.modules.catalog;
 
+import com.fenixcore.optisaludplus.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CountryDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.DocumentTypeDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.GenderDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.MaritalStatusDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.OccupationDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.StateDto;
+import com.fenixcore.optisaludplus.modules.catalog.service.AllyTypeService;
 import com.fenixcore.optisaludplus.modules.catalog.service.CityService;
 import com.fenixcore.optisaludplus.modules.catalog.service.CountryService;
 import com.fenixcore.optisaludplus.modules.catalog.service.DocumentTypeService;
 import com.fenixcore.optisaludplus.modules.catalog.service.GenderService;
 import com.fenixcore.optisaludplus.modules.catalog.service.MaritalStatusService;
+import com.fenixcore.optisaludplus.modules.catalog.service.MedicalSpecialtyService;
 import com.fenixcore.optisaludplus.modules.catalog.service.OccupationService;
+import com.fenixcore.optisaludplus.modules.catalog.service.ServiceCategoryService;
 import com.fenixcore.optisaludplus.modules.catalog.service.StateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +48,9 @@ public class PublicCatalogsController {
     private final DocumentTypeService documentTypeService;
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
+    private final MedicalSpecialtyService medicalSpecialtyService;
+    private final ServiceCategoryService serviceCategoryService;
+    private final AllyTypeService allyTypeService;
 
     // ─── countries ──────────────────────────────────────────────────────────
     @GetMapping("/countries")
@@ -121,5 +130,38 @@ public class PublicCatalogsController {
     @GetMapping("/occupations/{uuid}")
     public ResponseEntity<OccupationDto> getOccupation(@PathVariable UUID uuid) {
         return ResponseEntity.ok(occupationService.get(uuid));
+    }
+
+    // ─── medical-specialties ────────────────────────────────────────────────
+    @GetMapping("/medical-specialties")
+    public ResponseEntity<List<MedicalSpecialtyDto>> listMedicalSpecialties() {
+        return ResponseEntity.ok(medicalSpecialtyService.list());
+    }
+
+    @GetMapping("/medical-specialties/{uuid}")
+    public ResponseEntity<MedicalSpecialtyDto> getMedicalSpecialty(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(medicalSpecialtyService.get(uuid));
+    }
+
+    // ─── service-categories ─────────────────────────────────────────────────
+    @GetMapping("/service-categories")
+    public ResponseEntity<List<ServiceCategoryDto>> listServiceCategories() {
+        return ResponseEntity.ok(serviceCategoryService.list());
+    }
+
+    @GetMapping("/service-categories/{uuid}")
+    public ResponseEntity<ServiceCategoryDto> getServiceCategory(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(serviceCategoryService.get(uuid));
+    }
+
+    // ─── ally-types ─────────────────────────────────────────────────────────
+    @GetMapping("/ally-types")
+    public ResponseEntity<List<AllyTypeDto>> listAllyTypes() {
+        return ResponseEntity.ok(allyTypeService.list());
+    }
+
+    @GetMapping("/ally-types/{uuid}")
+    public ResponseEntity<AllyTypeDto> getAllyType(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(allyTypeService.get(uuid));
     }
 }
