@@ -62,6 +62,8 @@ public class Member extends BaseEntity {
 - **Enums:** `@Enumerated(EnumType.STRING)` siempre (nunca ORDINAL)
 - **Decimals:** `BigDecimal` con `@Column(precision = 12, scale = 2)`
 - **Fechas:** `Instant` (UTC) o `LocalDate` según corresponda
+- **Strings:** preferir `VARCHAR(N)` en la migración (mapea a `String` por default, sin anotaciones extra). **Evitar `CHAR(N)`** salvo razón clara — `String` por default lo valida como `VARCHAR` y rompe el arranque (ver sección "Hibernate validate" abajo).
+- **Tipos PostgreSQL no estándar** (`CITEXT`, `INET`, `TEXT`, `CHAR(N)`, `JSONB`, etc.): mapear con `@Column(columnDefinition = "…")` en la entity para que el `validate` matchee lo que reporta el driver.
 
 ### Performance: evitar N+1
 
@@ -121,12 +123,40 @@ public interface MemberRepository
 Al arrancar:
 - Hibernate compara cada entidad con su tabla
 - Si falta una columna, tipo no coincide, etc. → falla al arranque
-- Mensaje típico: `missing column [X] in table [Y]`
+- Mensajes típicos:
+  - `missing column [X] in table [Y]`
+  - `wrong column type encountered in column [iso_code] in table [countries]; found [bpchar (Types#CHAR)], but expecting [varchar(2) (Types#VARCHAR)]` ← CHAR vs VARCHAR
 
 Si esto pasa:
 1. Confirmar que la migración correspondiente existe y se aplicó
 2. Confirmar que el tipo Java mapea al tipo SQL correctamente
-3. Posibles mismatches: `String` ↔ `VARCHAR/TEXT/CITEXT`, `Instant` ↔ `TIMESTAMP WITH TIME ZONE`, `BigDecimal` ↔ `NUMERIC(p,s)`
+3. Posibles mismatches: `String` ↔ `VARCHAR/TEXT/CITEXT/CHAR`, `Instant` ↔ `TIMESTAMP WITH TIME ZONE`, `BigDecimal` ↔ `NUMERIC(p,s)`
+
+### Mapeo de tipos PostgreSQL no-default — `columnDefinition`
+
+`String` mapea por default a `VARCHAR`. Para cualquier otro tipo de texto, **declarar `columnDefinition`** en la entity (es el patrón establecido en este proyecto):
+
+```java
+// CITEXT (case-insensitive, ej. users.email)
+@Column(unique = true, columnDefinition = "citext")
+private String email;
+
+// INET (IPv4/IPv6, ej. user_sessions_log.ip_address)
+@Column(name = "ip_address", nullable = false, columnDefinition = "inet")
+private String ipAddress;
+
+// TEXT (sin límite de longitud, ej. contact_messages.message)
+@Column(nullable = false, columnDefinition = "TEXT")
+private String message;
+
+// CHAR(N) — desaconsejado en este proyecto (Postgres lo guarda como bpchar
+// con padding de espacios; ver regla "Preferir VARCHAR(N)" arriba). Sólo si
+// hay una razón clara (p. ej. interop con un sistema externo que exige CHAR):
+@Column(unique = true, nullable = false, columnDefinition = "char(2)")
+private String someFixedCode;
+```
+
+> **Preferir `VARCHAR(N)` en nuevas migraciones** y omitir `columnDefinition` en la entity. Usar `CHAR(N)` / `CITEXT` / `INET` sólo cuando aporte algo concreto (longitud fija real, case-insensitive nativo, semántica de red), y entonces alinear la entity con `columnDefinition`.
 
 ## Tests
 

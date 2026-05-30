@@ -15,7 +15,7 @@ CREATE TABLE genders
 (
     genders_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     uuid       UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-    code       CHAR(1)      NOT NULL UNIQUE,             -- 'M' / 'F' / 'O'
+    code       VARCHAR(1)   NOT NULL UNIQUE,             -- 'M' / 'F' / 'O'
     name       VARCHAR(20)  NOT NULL UNIQUE,
     is_active  BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
