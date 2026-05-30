@@ -13,7 +13,7 @@ CREATE TABLE countries
 (
     countries_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     uuid         UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-    iso_code     CHAR(2)      NOT NULL UNIQUE,          -- ISO 3166-1 alpha-2 (e.g. 'VE')
+    iso_code     VARCHAR(2)   NOT NULL UNIQUE,          -- ISO 3166-1 alpha-2 (e.g. 'VE')
     name         VARCHAR(100) NOT NULL UNIQUE,
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
