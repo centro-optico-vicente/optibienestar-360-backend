@@ -1,8 +1,17 @@
 package com.fenixcore.optisaludplus.modules.catalog;
 
+import com.fenixcore.optisaludplus.modules.catalog.dto.AllyTypeCreateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.dto.AllyTypeDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.AllyTypeUpdateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityUpdateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyCreateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyUpdateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.dto.ServiceCategoryCreateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.dto.ServiceCategoryDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.ServiceCategoryUpdateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CountryCreateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CountryDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CountryUpdateRequest;
@@ -21,12 +30,15 @@ import com.fenixcore.optisaludplus.modules.catalog.dto.OccupationUpdateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.StateCreateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.StateDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.StateUpdateRequest;
+import com.fenixcore.optisaludplus.modules.catalog.service.AllyTypeService;
 import com.fenixcore.optisaludplus.modules.catalog.service.CityService;
 import com.fenixcore.optisaludplus.modules.catalog.service.CountryService;
 import com.fenixcore.optisaludplus.modules.catalog.service.DocumentTypeService;
 import com.fenixcore.optisaludplus.modules.catalog.service.GenderService;
 import com.fenixcore.optisaludplus.modules.catalog.service.MaritalStatusService;
+import com.fenixcore.optisaludplus.modules.catalog.service.MedicalSpecialtyService;
 import com.fenixcore.optisaludplus.modules.catalog.service.OccupationService;
+import com.fenixcore.optisaludplus.modules.catalog.service.ServiceCategoryService;
 import com.fenixcore.optisaludplus.modules.catalog.service.StateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -74,6 +86,9 @@ public class AdminCatalogsController {
     private final DocumentTypeService documentTypeService;
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
+    private final MedicalSpecialtyService medicalSpecialtyService;
+    private final ServiceCategoryService serviceCategoryService;
+    private final AllyTypeService allyTypeService;
 
     // ═══════════════ countries ═══════════════
     @GetMapping("/countries")
@@ -313,6 +328,108 @@ public class AdminCatalogsController {
     @PreAuthorize(WRITE_AUTH)
     public ResponseEntity<Void> deleteOccupation(@PathVariable UUID uuid) {
         occupationService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═══════════════ medical-specialties ═══════════════
+    @GetMapping("/medical-specialties")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<MedicalSpecialtyDto>> listMedicalSpecialties() {
+        return ResponseEntity.ok(medicalSpecialtyService.list());
+    }
+
+    @GetMapping("/medical-specialties/{uuid}")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<MedicalSpecialtyDto> getMedicalSpecialty(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(medicalSpecialtyService.get(uuid));
+    }
+
+    @PostMapping("/medical-specialties")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<MedicalSpecialtyDto> createMedicalSpecialty(@Valid @RequestBody MedicalSpecialtyCreateRequest req) {
+        MedicalSpecialtyDto created = medicalSpecialtyService.create(req);
+        return ResponseEntity.created(locationFor(created.uuid())).body(created);
+    }
+
+    @PutMapping("/medical-specialties/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<MedicalSpecialtyDto> updateMedicalSpecialty(@PathVariable UUID uuid,
+                                                                      @Valid @RequestBody MedicalSpecialtyUpdateRequest req) {
+        return ResponseEntity.ok(medicalSpecialtyService.update(uuid, req));
+    }
+
+    @DeleteMapping("/medical-specialties/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<Void> deleteMedicalSpecialty(@PathVariable UUID uuid) {
+        medicalSpecialtyService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═══════════════ service-categories ═══════════════
+    @GetMapping("/service-categories")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<ServiceCategoryDto>> listServiceCategories() {
+        return ResponseEntity.ok(serviceCategoryService.list());
+    }
+
+    @GetMapping("/service-categories/{uuid}")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<ServiceCategoryDto> getServiceCategory(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(serviceCategoryService.get(uuid));
+    }
+
+    @PostMapping("/service-categories")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<ServiceCategoryDto> createServiceCategory(@Valid @RequestBody ServiceCategoryCreateRequest req) {
+        ServiceCategoryDto created = serviceCategoryService.create(req);
+        return ResponseEntity.created(locationFor(created.uuid())).body(created);
+    }
+
+    @PutMapping("/service-categories/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<ServiceCategoryDto> updateServiceCategory(@PathVariable UUID uuid,
+                                                                    @Valid @RequestBody ServiceCategoryUpdateRequest req) {
+        return ResponseEntity.ok(serviceCategoryService.update(uuid, req));
+    }
+
+    @DeleteMapping("/service-categories/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<Void> deleteServiceCategory(@PathVariable UUID uuid) {
+        serviceCategoryService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═══════════════ ally-types ═══════════════
+    @GetMapping("/ally-types")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<AllyTypeDto>> listAllyTypes() {
+        return ResponseEntity.ok(allyTypeService.list());
+    }
+
+    @GetMapping("/ally-types/{uuid}")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<AllyTypeDto> getAllyType(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(allyTypeService.get(uuid));
+    }
+
+    @PostMapping("/ally-types")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<AllyTypeDto> createAllyType(@Valid @RequestBody AllyTypeCreateRequest req) {
+        AllyTypeDto created = allyTypeService.create(req);
+        return ResponseEntity.created(locationFor(created.uuid())).body(created);
+    }
+
+    @PutMapping("/ally-types/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<AllyTypeDto> updateAllyType(@PathVariable UUID uuid,
+                                                      @Valid @RequestBody AllyTypeUpdateRequest req) {
+        return ResponseEntity.ok(allyTypeService.update(uuid, req));
+    }
+
+    @DeleteMapping("/ally-types/{uuid}")
+    @PreAuthorize(WRITE_AUTH)
+    public ResponseEntity<Void> deleteAllyType(@PathVariable UUID uuid) {
+        allyTypeService.delete(uuid);
         return ResponseEntity.noContent().build();
     }
 
