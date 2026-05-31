@@ -11,6 +11,7 @@ public record UserDto(
         String documentType,
         String documentNumber,
         String phone,
+        String locale,
         String status,
         boolean active,
         Instant lastLoginAt,

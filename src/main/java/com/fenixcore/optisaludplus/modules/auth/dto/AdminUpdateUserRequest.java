@@ -10,6 +10,7 @@ public record AdminUpdateUserRequest(
         @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
         String documentNumber,
         String phone,
+        @Pattern(regexp = "^(es|es-VE|en)$", message = "{validation.locale.allowed}") String locale,
         @Pattern(regexp = "^(ACTIVE|SUSPENDED|LOCKED)$",
                  message = "{validation.user_status.allowed_values}") String status,
         Boolean active,

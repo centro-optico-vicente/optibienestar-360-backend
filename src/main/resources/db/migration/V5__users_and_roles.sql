@@ -127,6 +127,7 @@ CREATE TABLE users
     password_reset_expires_at TIMESTAMPTZ,
     last_login_at             TIMESTAMPTZ,
     password_never_expires    BOOLEAN      NOT NULL DEFAULT FALSE,
+    locale                    VARCHAR(10),                                     -- BCP47 (`es`, `es-VE`, `en`, …); NULL = no preference, resolver falls back to Accept-Language or app default
     is_active                 BOOLEAN      NOT NULL DEFAULT TRUE,
     status                    VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE'
                                   CHECK (status IN ('ACTIVE', 'SUSPENDED', 'LOCKED')),
@@ -217,6 +218,7 @@ CREATE TABLE user_sessions_log
     jti                  VARCHAR(36)  NOT NULL,
     ip_address           INET         NOT NULL,
     user_agent           VARCHAR(500),
+    login_locale         VARCHAR(10),                                          -- effective locale at login time (claim baked into the JWT). Immutable per-session: if users.locale changes later, this row keeps the original. Sirve para analytics + forensics.
     login_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     logout_at            TIMESTAMPTZ,
     logout_reason        VARCHAR(50)  CHECK (logout_reason IN ('user_logout', 'token_expired', 'forced')),

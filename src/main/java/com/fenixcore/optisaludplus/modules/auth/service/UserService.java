@@ -109,6 +109,7 @@ public class UserService {
         if (request.documentType() != null) user.setDocumentType(request.documentType());
         if (request.documentNumber() != null) user.setDocumentNumber(request.documentNumber());
         if (request.phone() != null) user.setPhone(request.phone());
+        if (request.locale() != null) user.setLocale(request.locale());
         if (request.status() != null) user.setStatus(request.status());
         if (request.active() != null) user.setActive(request.active());
 

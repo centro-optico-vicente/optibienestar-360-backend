@@ -22,4 +22,7 @@ public class Country extends BaseAuditEntity {
 
     @Column(length = 100, unique = true, nullable = false)
     private String name;
+
+    @Column(length = 10)
+    private String locale;
 }

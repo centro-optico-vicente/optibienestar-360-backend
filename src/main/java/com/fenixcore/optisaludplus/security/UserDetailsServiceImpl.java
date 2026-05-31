@@ -33,6 +33,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 user.getId(),
                 user.getUuid(),
                 null,
+                user.getLocale(),
                 user.getEmail(),
                 user.getPasswordHash(),
                 authorities,

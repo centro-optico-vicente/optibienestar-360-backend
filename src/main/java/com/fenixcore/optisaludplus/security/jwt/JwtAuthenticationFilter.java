@@ -46,13 +46,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (!blacklistService.isBlacklisted(jti)) {
                 String subject = jwtService.extractSubject(token);
                 List<String> permissions = jwtService.extractPermissions(token);
+                String locale = jwtService.extractLocale(token);
 
                 List<SimpleGrantedAuthority> authorities = permissions.stream()
                         .map(SimpleGrantedAuthority::new)
                         .toList();
 
                 CustomUserDetails principal = CustomUserDetails.fromJwt(
-                        UUID.fromString(subject), jti, authorities);
+                        UUID.fromString(subject), jti, locale, authorities);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, null, authorities);
