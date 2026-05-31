@@ -3,6 +3,8 @@ package com.fenixcore.optisaludplus.modules.auth.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -44,10 +46,28 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
 
     @Override
     public void storeRefreshToken(String jti, String userUuid, long ttlSeconds) {
+        final Duration ttl = Duration.ofSeconds(ttlSeconds);
+        final String refreshKey = REFRESH_PREFIX + jti;
+        final String userSetKey = USER_REFRESH_SET + userUuid;
         try {
-            redis.opsForValue().set(REFRESH_PREFIX + jti, userUuid, Duration.ofSeconds(ttlSeconds));
-            redis.opsForSet().add(USER_REFRESH_SET + userUuid, jti);
-            redis.expire(USER_REFRESH_SET + userUuid, Duration.ofSeconds(ttlSeconds));
+            // MULTI/EXEC keeps the three writes atomic on the Redis side: either
+            // all three apply or none does. Without the transaction, a crash or
+            // failover between the SADD and the EXPIRE leaves the per-user set
+            // with no TTL → it leaks forever; a crash between the SET and the
+            // SADD leaves the refresh token usable but invisible to
+            // revokeAllUserRefreshTokens. Pipelining alone would only batch the
+            // round-trips, not give atomicity, so MULTI/EXEC is the fix.
+            redis.execute(new SessionCallback<List<Object>>() {
+                @Override
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                public List<Object> execute(RedisOperations operations) {
+                    operations.multi();
+                    operations.opsForValue().set(refreshKey, userUuid, ttl);
+                    operations.opsForSet().add(userSetKey, jti);
+                    operations.expire(userSetKey, ttl);
+                    return operations.exec();
+                }
+            });
         } catch (Exception e) {
             log.warn("Redis unavailable — refresh token {} not stored", jti);
         }
