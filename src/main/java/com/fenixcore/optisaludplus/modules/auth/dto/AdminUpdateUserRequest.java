@@ -7,12 +7,12 @@ import java.util.UUID;
 
 public record AdminUpdateUserRequest(
         String fullName,
-        @Pattern(regexp = "^[VE]$", message = "documentType must be 'V' or 'E'") String documentType,
+        @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
         String documentNumber,
         String phone,
         @Pattern(regexp = "^(es|es-VE|en)$", message = "{validation.locale.allowed}") String locale,
         @Pattern(regexp = "^(ACTIVE|SUSPENDED|LOCKED)$",
-                 message = "status must be 'ACTIVE', 'SUSPENDED' or 'LOCKED'") String status,
+                 message = "{validation.user_status.allowed_values}") String status,
         Boolean active,
         List<UUID> roleIds
 ) {}

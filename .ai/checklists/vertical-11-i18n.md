@@ -26,10 +26,10 @@
 
 ## Fase 3 — Retrofit de validación Jakarta Bean
 
-- [ ] [P1/C1] DTOs auth: `AdminCreateUserRequest.java`, `AdminUpdateUserRequest.java` — `@Pattern(message="{validation.document_type.format}")` + `@Pattern(message="{validation.user_status.allowed_values}")`.
-- [ ] [P1/C1] DTOs catálogo (×7): `ServiceCategoryCreateRequest`, `GenderCreateRequest`, `DocumentTypeCreateRequest`, `AllyTypeCreateRequest`, `MedicalSpecialtyCreateRequest`, `MaritalStatusCreateRequest`, `CountryCreateRequest` — `@Pattern(message="{validation.code.*}")`.
-- [ ] [P1/C1] DTO `UpdateRolePermissionsRequest.java` — `@NotNull` ya está sin message custom (usa default Jakarta); agregar `message="{validation.update_role_permissions.permission_uuids.required}"` si se quiere localizar también ese mensaje.
-- [ ] [P1/C1] Llenar `ValidationMessages_es.properties` + `ValidationMessages_en.properties` con todas las claves `validation.*`.
+- [x] [P1/C1] DTOs auth: `AdminCreateUserRequest.java`, `AdminUpdateUserRequest.java` — `@Pattern(message="{validation.document_type.format}")` (×2 archivos) + `@Pattern(message="{validation.user_status.allowed_values}")` (Update).
+- [x] [P1/C1] DTOs catálogo (×7): mensajes mapeados a 5 claves compartidas según longitud de la regex — `{validation.code.uppercase.single}` (Gender), `{validation.code.uppercase.short}` (DocumentType, 1-3), `{validation.code.uppercase.medium}` (MaritalStatus, 1-20), `{validation.code.uppercase.long}` (ServiceCategory + AllyType + MedicalSpecialty, 1-40), `{validation.iso_code.alpha2}` (Country). Agrupar claves por longitud evita duplicar mensajes idénticos.
+- [ ] [P2/C1] DTO `UpdateRolePermissionsRequest.java` — `@NotNull` sigue sin message custom (usa default Jakarta, que ya viene localizado en español/inglés por Hibernate Validator). Optativo, no se aplicó en este PR.
+- [x] [P1/C1] Bundles llenos: `ValidationMessages.properties` (canónico EN), `ValidationMessages_es.properties` y `ValidationMessages_en.properties` con 7 claves cada uno (`validation.document_type.format`, `validation.user_status.allowed_values`, `validation.code.uppercase.{single,short,medium,long}`, `validation.iso_code.alpha2`).
 
 ## Fase 4 — Locale por usuario (persistente) + audit log
 

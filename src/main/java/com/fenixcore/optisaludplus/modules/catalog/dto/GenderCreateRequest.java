@@ -5,6 +5,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record GenderCreateRequest(
-        @NotBlank @Pattern(regexp = "^[A-Z]$", message = "code must be a single uppercase letter") String code,
+        @NotBlank @Pattern(regexp = "^[A-Z]$", message = "{validation.code.uppercase.single}") String code,
         @NotBlank @Size(max = 20) String name
 ) {}
