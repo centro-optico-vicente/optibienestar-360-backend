@@ -31,7 +31,7 @@
 
 ## Hardening adicional (hallazgos audit multi-skill)
 
-- [ ] [P1/C1] `UserRole.role` — cambiar `FetchType.EAGER` → `LAZY`; el `@EntityGraph` existente cubre los casos que lo necesitan (spring-data-jpa / postgresql-expert)
+- [x] [P1/C1] `UserRole.role` — cambiar `FetchType.EAGER` → `LAZY`; el `@EntityGraph` existente cubre los casos que lo necesitan (spring-data-jpa / postgresql-expert). Aplicado: los 4 callers críticos (login, refresh, getMe, admin user get/create/update) usan `findByEmailAndActiveTrue` / `findWithRolesByUuid` con `@EntityGraph` que carga `userRoles.role.permissions`. Único caso sin EntityGraph: `UserService.list` con `findAll(spec, pageable)` — corre dentro de `@Transactional`, así que LAZY no rompe pero queda con N+1 (un SELECT por user para sus roles) → trade-off aceptable mientras el listado admin sea infrecuente; mitigar más adelante si pesa.
 - [ ] [P1/C2] Todos los repositorios del módulo auth — agregar `@Transactional(readOnly=true)` en todos los métodos SELECT derivados para activar dirty-check skip y connection readOnly (spring-data-jpa)
 - [ ] [P1/C2] `TokenBlacklistService.storeRefreshToken()` — hacer atómica la secuencia `opsForSet().add()` + `expire()` usando `executePipelined` o `MULTI/EXEC` — evita TTL perdido si Redis falla entre las dos operaciones (redis-expert)
 - [x] [P1/C1] `AdminCreateUserRequest` + `AdminUpdateUserRequest` — `@Pattern("^[VE]$")` en `documentType` — devuelve 400 claro en vez del 409 engañoso que daba la violación del CHECK de la BD (owasp-security A01)
