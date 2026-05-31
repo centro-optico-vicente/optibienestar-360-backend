@@ -52,10 +52,11 @@
 
 ## Fase 5 — Templates email localizados
 
-- [ ] [P2/C1] Renombrar `templates/email/password-recovery.html` → mantener como fallback (en inglés) + crear `password-recovery_es.html` (español base, cubre es/es-VE/es-MX/es-AR) + `password-recovery_en.html`. Mismo trato para `contact-form-received.html`.
-- [ ] [P2/C1] `common/service/EmailService.java` — `sendTemplated(...)` acepta `Locale` parámetro, pasa al `Context.setLocale(locale)` de Thymeleaf, resuelve `subject` vía `messageSource.getMessage("email.<name>.subject", null, locale)`.
-- [ ] [P2/C1] Llenar claves `email.recovery.*`, `email.contact.*` en bundles.
-- [ ] [P2/C1] Callers que disparan emails (`AuthService.recoverPassword`, `ContactService.notify*`) — usar el `locale` del **destinatario** (no del request HTTP). Para recovery: `user.getLocale()` con fallback a `es-VE`. Para contacto público: el del request (es el único disponible).
+- [x] [P2/C1] Templates renombrados in-place (siguen en `templates/`, no `templates/email/`): `password-recovery.html` (fallback EN, lang="en") + `password-recovery_es.html` (renombrado del actual, español) + `password-recovery_en.html`. Mismo trato para `contact-form-received.html`.
+- [x] [P2/C1] `common/service/EmailService.java` — nueva firma `sendTemplated(to, subject, template, Locale, variables)`: resuelve `<template>_<lang>.html` vía whitelist `{es,en}` (cae al base si fuera de whitelist), instancia `new Context(locale)` para que cualquier `#{}` en el template resuelva vía MessageSource. El subject se pasa pre-resuelto (el caller conoce los args específicos del template).
+- [x] [P2/C1] Claves `email.recovery.subject` y `email.contact.subject` (con `{0}` = subject del usuario) agregadas a los 3 bundles.
+- [x] [P2/C1] `AuthService.recoverPassword` — inyecta `MessageSource`, resuelve `Locale recipientLocale` desde `user.getLocale()` con fallback a `es-VE` (helper `resolveRecipientLocale`), resuelve subject via MessageSource. Email va en el idioma del **destinatario** aunque admin dispare el flujo desde otra locale.
+- [x] [P2/C1] `ContactService.submit` — inyecta `MessageSource`, usa `LocaleContextHolder.getLocale()` (request locale — único disponible en endpoint público sin auth), resuelve subject + dispara email con esa locale.
 
 ## Fase 6 — Documentación
 

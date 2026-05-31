@@ -22,6 +22,7 @@ import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optisaludplus.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,6 +50,7 @@ import java.util.UUID;
 public class AuthService {
 
     private static final String GENERIC_AUTH_ERROR = "auth.credentials.invalid";
+    private static final Locale DEFAULT_RECIPIENT_LOCALE = Locale.forLanguageTag("es-VE");
 
     private final UserRepository userRepository;
     private final SecurityPolicyRepository securityPolicyRepository;
@@ -58,6 +61,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final EmailService emailService;
+    private final MessageSource messageSource;
 
     @Value("${jwt.access-expiration-minutes:15}")
     private int accessExpirationMinutes;
@@ -184,14 +188,29 @@ public class AuthService {
             user.setPasswordResetExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
             userRepository.save(user);
 
+            // Recipient locale wins over request locale: the email goes to the
+            // user, so it should match THEIR preference (admin-triggered flows
+            // wouldn't honor the admin's Accept-Language for someone else).
+            Locale recipientLocale = resolveRecipientLocale(user.getLocale());
+            String subject = messageSource.getMessage("email.recovery.subject", null, recipientLocale);
+
             emailService.sendTemplated(
                     user.getEmail(),
-                    "Recuperación de contraseña — OptiSalud Plus",
+                    subject,
                     "password-recovery",
+                    recipientLocale,
                     Map.of("fullName", user.getFullName(), "token", rawToken)
             );
         });
         // Always return void (don't reveal if email exists)
+    }
+
+    private Locale resolveRecipientLocale(String userLocaleTag) {
+        if (userLocaleTag == null || userLocaleTag.isBlank()) {
+            return DEFAULT_RECIPIENT_LOCALE;
+        }
+        Locale parsed = Locale.forLanguageTag(userLocaleTag);
+        return parsed.getLanguage().isEmpty() ? DEFAULT_RECIPIENT_LOCALE : parsed;
     }
 
     // ─── Reset Password ───────────────────────────────────────────────────────
