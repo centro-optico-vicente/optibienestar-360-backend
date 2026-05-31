@@ -45,7 +45,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final String GENERIC_AUTH_ERROR = "Credenciales incorrectas";
+    private static final String GENERIC_AUTH_ERROR = "auth.credentials.invalid";
 
     private final UserRepository userRepository;
     private final SecurityPolicyRepository securityPolicyRepository;
@@ -109,12 +109,12 @@ public class AuthService {
         String token = request.refreshToken();
 
         if (!jwtService.isValid(token) || jwtService.isAccessToken(token)) {
-            throw new AuthenticationException("Token de refresco inválido o expirado");
+            throw new AuthenticationException("auth.token.refresh.invalid");
         }
 
         String refreshJti = jwtService.extractJti(token);
         if (!blacklistService.isValidRefreshToken(refreshJti)) {
-            throw new AuthenticationException("Token de refresco inválido o expirado");
+            throw new AuthenticationException("auth.token.refresh.invalid");
         }
 
         String subject    = jwtService.extractSubject(token);
@@ -122,7 +122,7 @@ public class AuthService {
 
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .filter(u -> u.isActive())
-                .orElseThrow(() -> new AuthenticationException("Usuario no encontrado"));
+                .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
 
         blacklistService.revokeRefreshToken(refreshJti, subject);
 
@@ -197,11 +197,11 @@ public class AuthService {
         String hashedToken = sha256(request.token());
 
         User user = userRepository.findByPasswordResetToken(hashedToken)
-                .orElseThrow(() -> new AuthenticationException("Token inválido o expirado"));
+                .orElseThrow(() -> new AuthenticationException("auth.token.invalid_or_expired"));
 
         if (user.getPasswordResetExpiresAt() == null
                 || user.getPasswordResetExpiresAt().isBefore(Instant.now())) {
-            throw new AuthenticationException("Token inválido o expirado");
+            throw new AuthenticationException("auth.token.invalid_or_expired");
         }
 
         SecurityPolicy policy = activePolicy();
@@ -223,10 +223,10 @@ public class AuthService {
     @Transactional
     public void changePassword(ChangePasswordRequest request, UUID userUuid, String currentJti) {
         User user = userRepository.findWithRolesByUuid(userUuid)
-                .orElseThrow(() -> new AuthenticationException("Usuario no encontrado"));
+                .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            throw new AuthenticationException("Contraseña actual incorrecta");
+            throw new AuthenticationException("auth.password.current.wrong");
         }
 
         SecurityPolicy policy = activePolicy();
@@ -316,8 +316,12 @@ public class AuthService {
         int limit = Math.min(history.size(), policy.getPasswordHistoryCount());
         for (int i = 0; i < limit; i++) {
             if (passwordEncoder.matches(rawPassword, history.get(i).getPasswordHash())) {
-                throw new IllegalArgumentException(
-                        "La nueva contraseña no puede ser igual a las últimas " + policy.getPasswordHistoryCount() + " contraseñas");
+                // The historyCount is not embedded in the message because
+                // i18n-resolved strings would have to carry it as a {0}
+                // arg, and IllegalArgumentException doesn't model args.
+                // The count still appears in logs via the stack trace and
+                // the SecurityPolicy is the canonical place to look it up.
+                throw new IllegalArgumentException("auth.password.history.repeat");
             }
         }
         return passwordEncoder.encode(rawPassword);

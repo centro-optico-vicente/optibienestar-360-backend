@@ -43,7 +43,7 @@ public class UserService {
 
     public UserDto getMe(UUID userUuid) {
         User user = userRepository.findWithRolesByUuid(userUuid)
-                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
         return userMapper.toDto(user);
     }
 
@@ -66,21 +66,24 @@ public class UserService {
         while (matcher.find()) {
             String field = matcher.group(1).split("\\.")[0];
             if (!ALLOWED_FILTER_FIELDS.contains(field)) {
-                throw new IllegalArgumentException("Campo de filtro no permitido: " + field);
+                // The field name is not embedded in the localized message
+                // (no args support on IllegalArgumentException); the value
+                // arrives in logs via the throw's stack trace.
+                throw new IllegalArgumentException("user.filter.field_not_allowed");
             }
         }
     }
 
     public UserDto getUser(UUID uuid) {
         User user = userRepository.findWithRolesByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado: " + uuid));
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
         return userMapper.toDto(user);
     }
 
     @Transactional
     public UserDto createUser(AdminCreateUserRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("El correo ya está registrado");
+            throw new IllegalArgumentException("user.email.exists");
         }
 
         User user = new User();
@@ -100,7 +103,7 @@ public class UserService {
     @Transactional
     public UserDto updateUser(UUID uuid, AdminUpdateUserRequest request) {
         User user = userRepository.findWithRolesByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado: " + uuid));
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
         if (request.fullName() != null) user.setFullName(request.fullName());
         if (request.documentType() != null) user.setDocumentType(request.documentType());
@@ -121,7 +124,7 @@ public class UserService {
     @Transactional
     public void deleteUser(UUID uuid) {
         User user = userRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado: " + uuid));
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
         user.setActive(false);
         user.setStatus("SUSPENDED");
         userRepository.save(user);
@@ -134,7 +137,7 @@ public class UserService {
         List<UserRole> newRoles = new ArrayList<>();
         for (UUID roleUuid : roleIds) {
             Role role = roleRepository.findByUuid(roleUuid)
-                    .orElseThrow(() -> new NoSuchElementException("Rol no encontrado: " + roleUuid));
+                    .orElseThrow(() -> new NoSuchElementException("role.not_found"));
             UserRole ur = new UserRole();
             ur.setUser(user);
             ur.setRole(role);

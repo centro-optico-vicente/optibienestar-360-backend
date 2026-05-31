@@ -69,7 +69,7 @@ public class RoleService {
         Role role = findRole(roleUuid);
 
         if (SYSTEM_ROLE_NAME.equals(role.getName())) {
-            throw new AccessDeniedException("Role SYSTEM is not editable");
+            throw new AccessDeniedException("role.system.not_editable");
         }
 
         Set<Permission> newPermissions = loadAndValidatePermissions(permissionUuids);
@@ -85,7 +85,7 @@ public class RoleService {
 
     private Role findRole(UUID uuid) {
         return roleRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("Role not found: " + uuid));
+                .orElseThrow(() -> new NoSuchElementException("role.not_found"));
     }
 
     private Set<Permission> loadAndValidatePermissions(Set<UUID> requestedUuids) {
@@ -97,7 +97,9 @@ public class RoleService {
             Set<UUID> foundUuids = found.stream().map(Permission::getUuid).collect(Collectors.toSet());
             Set<UUID> missing = new HashSet<>(requestedUuids);
             missing.removeAll(foundUuids);
-            throw new IllegalArgumentException("Permission UUIDs not found: " + missing);
+            // The set of missing UUIDs survives in the throw's stack trace
+            // for log/debug; the localized user-facing message stays generic.
+            throw new IllegalArgumentException("role.permission.uuid.unknown");
         }
         return found;
     }
@@ -115,9 +117,7 @@ public class RoleService {
                 .anyMatch(p -> ROLE_PERMISSION_EDIT.equals(p.getName()));
 
         if (!wouldKeepEditPerm) {
-            throw new IllegalArgumentException(
-                    "Auto-lockout prevented: this change would remove your own ROLE_PERMISSION_EDIT "
-                            + "and lock you out of the admin permissions panel");
+            throw new IllegalArgumentException("role.auto_lockout");
         }
     }
 }
