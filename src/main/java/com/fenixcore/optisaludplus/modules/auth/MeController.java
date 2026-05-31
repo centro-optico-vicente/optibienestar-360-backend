@@ -1,6 +1,8 @@
 package com.fenixcore.optisaludplus.modules.auth;
 
+import com.fenixcore.optisaludplus.modules.auth.dto.AccessTokenResponse;
 import com.fenixcore.optisaludplus.modules.auth.dto.ChangePasswordRequest;
+import com.fenixcore.optisaludplus.modules.auth.dto.LocalePreferenceRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.UserDto;
 import com.fenixcore.optisaludplus.modules.auth.service.AuthService;
 import com.fenixcore.optisaludplus.modules.auth.service.UserService;
@@ -33,5 +35,20 @@ public class MeController {
                                                @Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(request, principal.getUuid(), principal.getJti());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Updates the caller's locale preference and returns a fresh access token
+     * with the new locale claim. The refresh token is unchanged — clients
+     * replace only the access token. The previous access token is blacklisted
+     * server-side so it cannot continue to drive a stale claim.
+     */
+    @PostMapping("/locale")
+    public ResponseEntity<AccessTokenResponse> updateLocale(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @Valid @RequestBody LocalePreferenceRequest request) {
+        return ResponseEntity.ok(
+                authService.updateMyLocale(principal.getUuid(), request.locale(), principal.getJti())
+        );
     }
 }

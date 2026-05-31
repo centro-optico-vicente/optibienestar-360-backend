@@ -56,6 +56,6 @@ public class CountryService {
     }
 
     static CountryDto toDto(Country c) {
-        return new CountryDto(c.getUuid(), c.getIsoCode(), c.getName(), c.isActive());
+        return new CountryDto(c.getUuid(), c.getIsoCode(), c.getName(), c.getLocale(), c.isActive());
     }
 }

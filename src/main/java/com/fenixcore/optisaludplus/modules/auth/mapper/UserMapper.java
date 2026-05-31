@@ -19,6 +19,7 @@ public interface UserMapper {
     @Mapping(target = "documentType", source = "documentType")
     @Mapping(target = "documentNumber", source = "documentNumber")
     @Mapping(target = "phone", source = "phone")
+    @Mapping(target = "locale", source = "locale")
     @Mapping(target = "status", source = "status")
     @Mapping(target = "active", source = "active")
     @Mapping(target = "lastLoginAt", source = "lastLoginAt")

@@ -69,6 +69,9 @@ public class User extends BaseEntity {
     @Column(name = "password_never_expires", nullable = false)
     private boolean passwordNeverExpires = false;
 
+    @Column(length = 10)
+    private String locale;
+
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserRole> userRoles = new ArrayList<>();
 }

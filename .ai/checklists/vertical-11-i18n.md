@@ -33,16 +33,22 @@
 
 ## Fase 4 — Locale por usuario (persistente) + audit log
 
-- [ ] [P1/C2] `V11__users_and_sessions_locale.sql` — `ALTER TABLE users ADD COLUMN locale VARCHAR(10)`; `ALTER TABLE user_sessions_log ADD COLUMN login_locale VARCHAR(10)` (snapshot inmutable per-sesión, sirve para analytics y forensics).
-- [ ] [P1/C1] `modules/auth/entity/User.java` — `@Column(length=10) private String locale`.
-- [ ] [P1/C1] `modules/auth/entity/UserSessionLog.java` — `@Column(name="login_locale", length=10) private String loginLocale` (insert-only).
-- [ ] [P1/C1] `modules/auth/dto/UserDto.java` — campo `String locale` para que `/v1/me` lo retorne.
-- [ ] [P1/C1] `modules/auth/dto/AdminUpdateUserRequest.java` — campo `String locale` con `@Pattern(regexp="^(es|es-VE|en)$", message="{validation.locale.allowed}")`.
-- [ ] [P1/C2] `security/jwt/JwtService.java` — `generateAccessToken` acepta `String locale`, lo mete como claim `"locale"`. Refresh token NO necesita.
-- [ ] [P1/C1] `security/jwt/JwtAuthenticationFilter.java` — extraer claim `locale`, pasarlo a `CustomUserDetails`.
-- [ ] [P1/C1] `security/CustomUserDetails.java` — `private final String locale` con getter.
-- [ ] [P1/C2] `modules/auth/service/AuthService.java` — `login` y `refresh` leen `user.getLocale()` y lo pasan a `generateAccessToken`. `logSession` recibe el `effectiveLocale` (el que terminó en el JWT) y lo persiste en `UserSessionLog.loginLocale`.
-- [ ] [P1/C1] `HybridLocaleResolver` (de Fase 1) — activar el paso "claim JWT" ahora que `CustomUserDetails.locale` está poblado.
+- [x] [P1/C2] V5/V8 modificados en sitio (BD se recrea, no se agrega V11 nueva): `users.locale VARCHAR(10)`, `user_sessions_log.login_locale VARCHAR(10)` (snapshot inmutable per-sesión, sirve para analytics y forensics); además `countries.locale VARCHAR(10)` con seed VE='es-VE' para pre-poblar preferencia al registrar usuarios.
+- [x] [P1/C1] `modules/auth/entity/User.java` — `@Column(length=10) private String locale`.
+- [x] [P1/C1] `modules/auth/entity/UserSessionLog.java` — `@Column(name="login_locale", length=10) private String loginLocale` (insert-only, set en constructor).
+- [x] [P1/C1] `modules/catalog/entity/Country.java` + `CountryDto` + `CountryService.toDto` — campo `locale` propagado.
+- [x] [P1/C1] `modules/auth/dto/UserDto.java` — campo `String locale` para que `/v1/me` lo retorne.
+- [x] [P1/C1] `modules/auth/dto/AdminUpdateUserRequest.java` — campo `String locale` con `@Pattern(regexp="^(es|es-VE|en)$", message="{validation.locale.allowed}")`.
+- [x] [P1/C1] `modules/auth/mapper/UserMapper.java` — mapeo del campo `locale`.
+- [x] [P1/C2] `security/jwt/JwtService.java` — `generateAccessToken(subject, permissions, locale)` mete claim `"locale"` solo si no es null/blank; `extractLocale(token)` añadido. Refresh token NO lleva claim.
+- [x] [P1/C1] `security/jwt/JwtAuthenticationFilter.java` — extrae claim `locale`, lo pasa a `CustomUserDetails`.
+- [x] [P1/C1] `security/CustomUserDetails.java` — `private final String locale` con getter; `fromJwt` y constructor actualizados; `UserDetailsServiceImpl` lee de `user.getLocale()`.
+- [x] [P1/C2] `modules/auth/service/AuthService.java` — `login` y `refresh` leen `user.getLocale()` y lo pasan a `generateAccessToken`. `logSession(user, jti, req, effectiveLocale)` persiste el locale efectivo (user.locale si existe, sino `LocaleContextHolder.getLocale().toLanguageTag()`) en `UserSessionLog.loginLocale`.
+- [x] [P1/C2] **Option C — cambio de locale mid-session:** `AuthService.updateMyLocale(uuid, locale, currentJti)` actualiza `users.locale`, reemite access token con claim nuevo, blacklistea el access anterior (refresh NO rota — preferencia no es evento de seguridad). Nuevos DTOs `LocalePreferenceRequest` (con `@NotBlank @Pattern`) y `AccessTokenResponse`.
+- [x] [P1/C1] `MeController.POST /v1/me/locale` — endpoint dedicado que recibe `LocalePreferenceRequest` y retorna `AccessTokenResponse` con token nuevo (efecto inmediato).
+- [x] [P1/C1] `UserService.updateUser` propaga `request.locale()` para el flujo admin.
+- [x] [P1/C1] `HybridLocaleResolver` (de Fase 1) — activado el paso "claim JWT": lee `SecurityContextHolder` → `CustomUserDetails.getLocale()` y prevalece sobre `Accept-Language`. Fallback al header (whitelist + base lang) cuando no hay principal o claim.
+- [x] [P1/C1] `ValidationMessages*.properties` — clave `validation.locale.allowed` agregada en fallback + `_es` + `_en`.
 
 ## Fase 5 — Templates email localizados
 

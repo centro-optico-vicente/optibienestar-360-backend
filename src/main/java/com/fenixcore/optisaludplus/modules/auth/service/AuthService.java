@@ -3,6 +3,7 @@ package com.fenixcore.optisaludplus.modules.auth.service;
 import com.fenixcore.optisaludplus.common.service.EmailService;
 import com.fenixcore.optisaludplus.core.exception.AccountLockedException;
 import com.fenixcore.optisaludplus.core.exception.AuthenticationException;
+import com.fenixcore.optisaludplus.modules.auth.dto.AccessTokenResponse;
 import com.fenixcore.optisaludplus.modules.auth.dto.ChangePasswordRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.LoginRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.LoginResponse;
@@ -21,6 +22,7 @@ import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optisaludplus.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -83,7 +85,9 @@ public class AuthService {
 
         List<String> permissions = collectPermissions(user);
         String subject = user.getUuid().toString();
-        String accessToken  = jwtService.generateAccessToken(subject, permissions);
+        String userLocale = user.getLocale();
+        String effectiveLocale = resolveEffectiveLocale(userLocale);
+        String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale);
         String refreshToken = jwtService.generateRefreshToken(subject);
 
         String accessJti  = jwtService.extractJti(accessToken);
@@ -92,7 +96,7 @@ public class AuthService {
         long refreshTtlSeconds = (long) refreshExpirationDays * 24 * 60 * 60;
         blacklistService.storeRefreshToken(refreshJti, subject, refreshTtlSeconds);
 
-        logSession(user, accessJti, httpRequest);
+        logSession(user, accessJti, httpRequest, effectiveLocale);
 
         return LoginResponse.of(
                 accessToken,
@@ -127,7 +131,7 @@ public class AuthService {
         blacklistService.revokeRefreshToken(refreshJti, subject);
 
         List<String> permissions = collectPermissions(user);
-        String newAccessToken  = jwtService.generateAccessToken(subject, permissions);
+        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getLocale());
         String newRefreshToken = jwtService.generateRefreshToken(subject);
 
         String newRefreshJti   = jwtService.extractJti(newRefreshToken);
@@ -243,6 +247,37 @@ public class AuthService {
         blacklistService.revokeAllUserRefreshTokens(userUuid.toString());
     }
 
+    // ─── Locale preference (Option C: dedicated endpoint, immediate effect) ──
+
+    /**
+     * Updates the caller's locale preference and reissues an access token with
+     * the new claim. The old access token is blacklisted so it cannot be used
+     * with the stale claim — the refresh token stays valid (preference change
+     * is not a security event).
+     */
+    @Transactional
+    public AccessTokenResponse updateMyLocale(UUID userUuid, String newLocale, String currentJti) {
+        User user = userRepository.findWithRolesByUuid(userUuid)
+                .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
+
+        user.setLocale(newLocale);
+        userRepository.save(user);
+
+        List<String> permissions = collectPermissions(user);
+        String subject = user.getUuid().toString();
+        String newAccessToken = jwtService.generateAccessToken(subject, permissions, newLocale);
+
+        if (currentJti != null) {
+            blacklistService.blacklistAccessToken(currentJti, (long) accessExpirationMinutes * 60);
+        }
+
+        return AccessTokenResponse.of(
+                newAccessToken,
+                (long) accessExpirationMinutes * 60,
+                userMapper.toDto(user)
+        );
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private SecurityPolicy activePolicy() {
@@ -286,10 +321,22 @@ public class AuthService {
                 .toList();
     }
 
-    private void logSession(User user, String jti, HttpServletRequest req) {
+    private void logSession(User user, String jti, HttpServletRequest req, String loginLocale) {
         String ip        = resolveClientIp(req);
         String userAgent = req.getHeader("User-Agent");
-        sessionLogRepository.save(new UserSessionLog(user, jti, ip, userAgent));
+        sessionLogRepository.save(new UserSessionLog(user, jti, ip, userAgent, loginLocale));
+    }
+
+    /**
+     * Effective locale at login time = preference if persisted, otherwise the
+     * locale Spring resolved for this request (Accept-Language → app default).
+     * Snapshot value persisted to user_sessions_log.login_locale.
+     */
+    private String resolveEffectiveLocale(String userLocale) {
+        if (userLocale != null && !userLocale.isBlank()) {
+            return userLocale;
+        }
+        return LocaleContextHolder.getLocale().toLanguageTag();
     }
 
     private String resolveClientIp(HttpServletRequest req) {

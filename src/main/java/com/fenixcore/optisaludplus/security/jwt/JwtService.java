@@ -34,12 +34,12 @@ public class JwtService {
         this.refreshExpirationMs = (long) refreshExpirationDays * 24 * 60 * 60 * 1_000;
     }
 
-    public String generateAccessToken(String subject, List<String> permissions) {
-        return buildToken(subject, permissions, accessExpirationMs, "access");
+    public String generateAccessToken(String subject, List<String> permissions, String locale) {
+        return buildToken(subject, permissions, accessExpirationMs, "access", locale);
     }
 
     public String generateRefreshToken(String subject) {
-        return buildToken(subject, List.of(), refreshExpirationMs, "refresh");
+        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null);
     }
 
     public Claims extractAllClaims(String token) {
@@ -58,6 +58,11 @@ public class JwtService {
     public List<String> extractPermissions(String token) {
         Object perms = extractAllClaims(token).get("permissions");
         return (perms instanceof List<?>) ? (List<String>) perms : List.of();
+    }
+
+    public String extractLocale(String token) {
+        Object locale = extractAllClaims(token).get("locale");
+        return (locale instanceof String s) ? s : null;
     }
 
     public boolean isValid(String token) {
@@ -85,17 +90,19 @@ public class JwtService {
         return Math.max(0L, remaining / 1_000);
     }
 
-    private String buildToken(String subject, List<String> roles, long ttlMs, String type) {
+    private String buildToken(String subject, List<String> roles, long ttlMs, String type, String locale) {
         Date now = new Date();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .subject(subject)
                 .issuer(issuer)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ttlMs))
                 .claim("permissions", roles)
-                .claim("type", type)
-                .signWith(secretKey)
-                .compact();
+                .claim("type", type);
+        if (locale != null && !locale.isBlank()) {
+            builder.claim("locale", locale);
+        }
+        return builder.signWith(secretKey).compact();
     }
 }

@@ -15,6 +15,7 @@ CREATE TABLE countries
     uuid         UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
     iso_code     VARCHAR(2)   NOT NULL UNIQUE,          -- ISO 3166-1 alpha-2 (e.g. 'VE')
     name         VARCHAR(100) NOT NULL UNIQUE,
+    locale       VARCHAR(10),                            -- canonical BCP47 locale for the country (e.g. 'es-VE'); seeds default user/email locale when users.locale is NULL
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -85,8 +86,8 @@ CREATE TRIGGER trg_cities_updated_at
 -- Seed — Venezuela
 -- ============================================================
 
-INSERT INTO countries (iso_code, name)
-VALUES ('VE', 'Venezuela');
+INSERT INTO countries (iso_code, name, locale)
+VALUES ('VE', 'Venezuela', 'es-VE');
 
 
 -- 24 entidades federales (23 estados + Distrito Capital). Las Dependencias

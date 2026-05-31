@@ -1,9 +1,12 @@
 package com.fenixcore.optisaludplus.core.config;
 
+import com.fenixcore.optisaludplus.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
@@ -63,10 +66,6 @@ public class I18nConfig {
      *   <li><b>App default</b> {@code es-VE}.</li>
      * </ol>
      *
-     * <p>Step 1 is a placeholder until Fase 4 adds the {@code locale} field
-     * to {@code CustomUserDetails}; today this resolver effectively does
-     * header → default, which is exactly the behaviour the Fase 1 plan
-     * promises.</p>
      */
     @Bean
     public LocaleResolver localeResolver() {
@@ -77,19 +76,37 @@ public class I18nConfig {
     }
 
     /**
-     * Extends Spring's {@link AcceptHeaderLocaleResolver} so the JWT claim
-     * step can be added in Fase 4 without changing the bean wiring above.
-     * Today it just delegates to the header-based logic in the parent.
+     * Extends Spring's {@link AcceptHeaderLocaleResolver} so the JWT
+     * {@code locale} claim — surfaced through {@link CustomUserDetails} by
+     * {@code JwtAuthenticationFilter} — wins over the {@code Accept-Language}
+     * header. Falls back to the parent's header/whitelist logic when no
+     * authenticated principal is present (login, recover-password, public
+     * endpoints) or when the claim is blank.
      */
     static final class HybridLocaleResolver extends AcceptHeaderLocaleResolver {
 
         @Override
         public Locale resolveLocale(HttpServletRequest request) {
-            // TODO (Fase 4): when CustomUserDetails carries a `locale` field,
-            // read it from the SecurityContext authentication.principal here
-            // and return it before falling back to the Accept-Language header.
-            // The claim is the user's explicit profile choice and should win.
+            String claim = readLocaleClaim();
+            if (claim != null && !claim.isBlank()) {
+                Locale parsed = Locale.forLanguageTag(claim);
+                if (parsed != null && !parsed.getLanguage().isEmpty()) {
+                    return parsed;
+                }
+            }
             return super.resolveLocale(request);
+        }
+
+        private String readLocaleClaim() {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) {
+                return null;
+            }
+            Object principal = auth.getPrincipal();
+            if (principal instanceof CustomUserDetails user) {
+                return user.getLocale();
+            }
+            return null;
         }
     }
 }

@@ -40,6 +40,9 @@ public class UserSessionLog {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    @Column(name = "login_locale", length = 10)
+    private String loginLocale;
+
     @Column(name = "login_at", nullable = false)
     private Instant loginAt = Instant.now();
 
@@ -52,10 +55,11 @@ public class UserSessionLog {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    public UserSessionLog(User user, String jti, String ipAddress, String userAgent) {
+    public UserSessionLog(User user, String jti, String ipAddress, String userAgent, String loginLocale) {
         this.user = user;
         this.jti = jti;
         this.ipAddress = ipAddress;
         this.userAgent = userAgent;
+        this.loginLocale = loginLocale;
     }
 }
