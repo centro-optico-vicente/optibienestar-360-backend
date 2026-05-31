@@ -13,7 +13,7 @@ public record AdminCreateUserRequest(
         @NotBlank @Email String email,
         @NotBlank String fullName,
         @NotBlank @Size(min = 8, max = 128) String password,
-        @Pattern(regexp = "^[VE]$", message = "documentType must be 'V' or 'E'") String documentType,
+        @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
         String documentNumber,
         String phone,
         @NotEmpty List<UUID> roleIds
