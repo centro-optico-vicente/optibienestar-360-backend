@@ -38,10 +38,19 @@ GRANT USAGE ON SCHEMA app TO optisalud_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA app TO optisalud_app;
 GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA app TO optisalud_app;
 
--- Future tables — migrations run as optisalud_migration (database owner), so
--- objects it creates automatically grant DML to optisalud_app via these defaults.
+-- Future tables — default privileges are scoped to the role that creates the
+-- object. Two scenarios are covered:
+--   * Flyway runs as optisalud_migration (recommended) → objects owned by it.
+--   * Flyway runs as postgres (default DATABASE_MIGRATION_USER fallback at
+--     fresh bootstrap, before optisalud_migration exists at all) → objects
+--     owned by postgres.
+-- Without the FOR ROLE postgres block the runtime user would get
+-- "permission denied for table users" on the first SELECT after a fresh
+-- bootstrap with the default Flyway user.
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
 
 
 -- ------------------------------------------------------------
@@ -61,8 +70,10 @@ GRANT USAGE ON SCHEMA app TO optisalud_readonly;
 GRANT SELECT ON ALL TABLES    IN SCHEMA app TO optisalud_readonly;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO optisalud_readonly;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT ON TABLES    TO optisalud_readonly;
-ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT          ON TABLES    TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT   ON SEQUENCES TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT          ON TABLES    TO optisalud_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT   ON SEQUENCES TO optisalud_readonly;
 
 
 -- ------------------------------------------------------------
