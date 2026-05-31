@@ -295,7 +295,19 @@ public class AuthService {
     private String resolveClientIp(HttpServletRequest req) {
         // X-Forwarded-For is resolved by Jetty via server.forward-headers-strategy=NATIVE;
         // getRemoteAddr() returns the real client IP when behind Traefik.
-        return req.getRemoteAddr();
+        String ip = req.getRemoteAddr();
+        if (ip == null) {
+            return null;
+        }
+        // Some Servlet containers return IPv6 addresses wrapped in brackets
+        // (e.g. "[0:0:0:0:0:0:0:1]" for ::1 loopback). Postgres `inet` rejects
+        // that form, so strip the brackets before passing the value to
+        // UserSessionLog.ip_address — otherwise the login session insert
+        // throws 22P02 "invalid input syntax for type inet".
+        if (ip.length() > 1 && ip.charAt(0) == '[' && ip.charAt(ip.length() - 1) == ']') {
+            ip = ip.substring(1, ip.length() - 1);
+        }
+        return ip;
     }
 
     private String hashNewPassword(User user, String rawPassword, SecurityPolicy policy) {
