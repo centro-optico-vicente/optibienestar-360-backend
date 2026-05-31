@@ -40,17 +40,25 @@ GRANT USAGE, SELECT                  ON ALL SEQUENCES IN SCHEMA app TO optisalud
 
 -- Future tables — default privileges are scoped to the role that creates the
 -- object. Two scenarios are covered:
---   * Flyway runs as optisalud_migration (recommended) → objects owned by it.
---   * Flyway runs as postgres (default DATABASE_MIGRATION_USER fallback at
---     fresh bootstrap, before optisalud_migration exists at all) → objects
---     owned by postgres.
+--   * Flyway runs as optisalud_migration (recommended) → objects owned by it
+--     → first ALTER block applies.
+--   * Flyway runs as postgres (DATABASE_MIGRATION_USER fallback at fresh
+--     bootstrap, before optisalud_migration exists) → objects owned by
+--     postgres → second ALTER block applies, guarded by membership check
+--     because non-postgres-member users (e.g. optisalud_migration) cannot
+--     issue ALTER DEFAULT PRIVILEGES FOR ROLE postgres.
 -- Without the FOR ROLE postgres block the runtime user would get
 -- "permission denied for table users" on the first SELECT after a fresh
 -- bootstrap with the default Flyway user.
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO optisalud_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT                  ON SEQUENCES TO optisalud_app;
+DO $$
+BEGIN
+    IF pg_has_role(current_user, 'postgres', 'MEMBER') THEN
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO optisalud_app';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_app';
+    END IF;
+END $$;
 
 
 -- ------------------------------------------------------------
@@ -72,8 +80,16 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO optisalud_readonly;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT SELECT          ON TABLES    TO optisalud_readonly;
 ALTER DEFAULT PRIVILEGES FOR ROLE optisalud_migration IN SCHEMA app GRANT USAGE, SELECT   ON SEQUENCES TO optisalud_readonly;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT SELECT          ON TABLES    TO optisalud_readonly;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres            IN SCHEMA app GRANT USAGE, SELECT   ON SEQUENCES TO optisalud_readonly;
+-- Same membership guard as the optisalud_app block above: only postgres-member
+-- users can ALTER DEFAULT PRIVILEGES FOR ROLE postgres; skip when Flyway runs
+-- as optisalud_migration (which is the recommended setup).
+DO $$
+BEGIN
+    IF pg_has_role(current_user, 'postgres', 'MEMBER') THEN
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app GRANT SELECT ON TABLES TO optisalud_readonly';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO optisalud_readonly';
+    END IF;
+END $$;
 
 
 -- ------------------------------------------------------------
