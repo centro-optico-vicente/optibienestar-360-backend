@@ -62,19 +62,19 @@
 - [x] [P2/C1] `entity/PermissionDomain.java` (hereda `BaseAuditEntity`) + `repository/PermissionDomainRepository.java` con `findAllByActiveTrueOrderByDisplayOrder()`
 - [x] [P2/C1] Refactor `entity/Permission.java` — reemplazar `String domain` por `@ManyToOne(fetch=LAZY) @JoinColumn(name="domain_id") PermissionDomain domain`
 - [x] [P2/C1] `dto/PermissionDomainDto` (uuid, code, label, icon, description, displayOrder, permissions[]) + `dto/PermissionDto` (uuid, label, description) — **NO** exponer `name` técnico al panel
-- [ ] [P2/C1] `dto/UpdateRolePermissionsRequest` con `@NotNull List<UUID> permissionUuids`
+- [x] [P2/C1] `dto/UpdateRolePermissionsRequest` con `@NotNull List<UUID> permissionUuids`
 
 ### Código — servicios
 
 - [x] [P2/C2] `PermissionService.getCatalog()` — devuelve `List<PermissionDomainDto>` con permisos anidados, ordenado por `display_order` (dominio) y `description` (permiso)
-- [ ] [P2/C2] `RoleService.updateRolePermissions(roleUuid, Set<UUID> permissionUuids)` — guard SYSTEM (403 "rol no editable"); anti-lockout (rechaza si el actor se quita `ROLE_PERMISSION_EDIT` a sí mismo); valida que todos los uuids existen (400 si no); reemplaza el set vía `role.setPermissions(...)` (Hibernate gestiona el diff en `role_permissions`)
-- [ ] [P2/C1] `RoleService.getRolePermissions(roleUuid): Set<UUID>` — devuelve los uuids del set actual para precargar checkboxes del panel
+- [x] [P2/C2] `RoleService.updateRolePermissions(roleUuid, Set<UUID> permissionUuids)` — guard SYSTEM (403 vía `AccessDeniedException`); anti-lockout (rechaza con 422 si el actor se quita `ROLE_PERMISSION_EDIT` a sí mismo — compara perms del actor cargando el rol editado con el nuevo set y los demás roles tal cual); valida que todos los uuids existen (422 con la lista de los que faltan); reemplaza el set vía `role.getPermissions().clear() + addAll()` (preserva la instancia de la colección — patrón Hibernate recomendado para `@ManyToMany`).
+- [x] [P2/C1] `RoleService.getRolePermissions(roleUuid): Set<UUID>` — devuelve los uuids del set actual para precargar checkboxes del panel.
 
 ### Endpoints
 
 - [x] [P2/C1] `PermissionController.GET /v1/admin/permissions` — devuelve catálogo completo (tree dominios→permisos); `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
-- [ ] [P2/C1] `AdminRoleController.GET /v1/admin/roles/{uuid}/permissions` — devuelve `List<UUID>` del set actual del rol; `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
-- [ ] [P2/C2] `AdminRoleController.PUT /v1/admin/roles/{uuid}/permissions` — recibe `UpdateRolePermissionsRequest`; aplica guards SYSTEM y anti-lockout; idempotente (reemplaza set completo); `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
+- [x] [P2/C1] `AdminRoleController.GET /v1/admin/roles/{uuid}/permissions` — devuelve `Set<UUID>` del set actual del rol; `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`.
+- [x] [P2/C2] `AdminRoleController.PUT /v1/admin/roles/{uuid}/permissions` — recibe `@Valid UpdateRolePermissionsRequest` + `@AuthenticationPrincipal CustomUserDetails`; delega a `roleService.updateRolePermissions(uuid, set, actor.getUuid())` que aplica los guards; devuelve **204 No Content** en éxito; `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`.
 
 ### Tests
 
