@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
     <style>
@@ -11,10 +11,10 @@
     </style>
 </head>
 <body>
-    <h2>New contact message</h2>
+    <h2>Nuevo mensaje de contacto</h2>
 
     <div class="field">
-        <span class="label">Name:</span>
+        <span class="label">Nombre:</span>
         <span th:text="${contact.name()}"></span>
     </div>
     <div class="field">
@@ -22,15 +22,15 @@
         <a th:href="'mailto:' + ${contact.email()}" th:text="${contact.email()}"></a>
     </div>
     <div class="field" th:if="${contact.phone() != null and !#strings.isEmpty(contact.phone())}">
-        <span class="label">Phone:</span>
+        <span class="label">Teléfono:</span>
         <span th:text="${contact.phone()}"></span>
     </div>
     <div class="field">
-        <span class="label">Subject:</span>
+        <span class="label">Asunto:</span>
         <span th:text="${contact.subject()}"></span>
     </div>
     <div class="field">
-        <span class="label">Message:</span>
+        <span class="label">Mensaje:</span>
         <div class="message-box" th:text="${contact.message()}"></div>
     </div>
 </body>
