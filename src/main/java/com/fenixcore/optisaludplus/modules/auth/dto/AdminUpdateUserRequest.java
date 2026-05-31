@@ -10,7 +10,8 @@ public record AdminUpdateUserRequest(
         @Pattern(regexp = "^[VE]$", message = "documentType must be 'V' or 'E'") String documentType,
         String documentNumber,
         String phone,
-        String status,
+        @Pattern(regexp = "^(ACTIVE|SUSPENDED|LOCKED)$",
+                 message = "status must be 'ACTIVE', 'SUSPENDED' or 'LOCKED'") String status,
         Boolean active,
         List<UUID> roleIds
 ) {}
