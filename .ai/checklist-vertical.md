@@ -16,6 +16,9 @@
 6 (Pagos) ──────► 8 (Promotores)
 1–8 ────────────► 9 (Notificaciones)
 1–9 ────────────► 10 (Optimización / Hardening)
+11 (i18n) ──────► cross-cutting, paralelizable con cualquiera; idealmente
+                  arranca tras 1 (Auth) porque mete claim `locale` al JWT
+                  y reescribe los mensajes del módulo auth.
 ```
 
 ## Alcances
@@ -32,3 +35,4 @@
 | 8 | Promotores, Comisiones y Referidos | [vertical-8-promotores-comisiones-referidos.md](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔲 |
 | 9 | Notificaciones y Carnet digital | [vertical-9-notificaciones-y-carnet.md](checklists/vertical-9-notificaciones-y-carnet.md) | 🔲 |
 | 10 | Optimización, Reportes y Hardening | [vertical-10-optimizacion-reportes-hardening.md](checklists/vertical-10-optimizacion-reportes-hardening.md) | 🔲 |
+| 11 | Internacionalización (i18n) — `es` + `en`, locale híbrido (JWT > header > es-VE) | [vertical-11-i18n.md](checklists/vertical-11-i18n.md) | 🔲 |
