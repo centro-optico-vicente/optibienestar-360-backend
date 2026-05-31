@@ -1,6 +1,6 @@
 # Estado actual del backend (snapshot)
 
-> **Actualizado:** 2026-05-18
+> **Actualizado:** 2026-05-31
 >
 > Qué existe HOY en `optisalud-plus-backend`. Actualizar al cierre de cada sesión productiva.
 
@@ -8,19 +8,19 @@
 
 | Aspecto | Estado |
 |---|---|
-| Bootstrap base | ✅ Spring Boot 4.0.6 + Java 25 + dependencias instaladas |
-| Estructura paquetes | ❌ Solo `OptiSaludPlusApplication.java` (sin módulos) |
-| Configuración seguridad | ❌ Sin `SecurityConfig`, `JwtService`, filters |
-| Migraciones Flyway | ❌ No instalado (sólo `ddl-auto=update` en dev) |
-| Entidades JPA | ❌ Cero |
-| Endpoints REST | ❌ Cero |
-| Tests | ❌ Solo `contextLoads()` trivial |
-| Dockerfile | ❌ No existe |
-| CI/CD | ⚠️ Workflow existe en `.github/`pero genérico |
-| Configuración SMTP | ❌ No instalado |
-| Configuración Redis | ⚠️ Cliente instalado, no configurado |
-| Configuración S3/R2 | ⚠️ Cliente instalado, no configurado |
-| Swagger/OpenAPI | ⚠️ Dependencia instalada, no configurado |
+| Bootstrap base | ✅ Spring Boot 4.0.6 + Java 25 + Gradle 9.4.1 |
+| Estructura paquetes | ✅ `core/`, `security/`, `common/`, `modules/{auth,catalog,contact}` |
+| Configuración seguridad | ✅ `SecurityConfig` + `JwtService` + filters + `RedisTokenBlacklistService` + 49+1 permisos |
+| Migraciones Flyway | ✅ V1–V10 aplicadas (extensions, audit, app_roles, contact, users+roles+permission_domains, seeds, locations, personal, health catalogs) |
+| Entidades JPA | ✅ User, Role, Permission, **PermissionDomain**, UserRole, UserPasswordHistory, SecurityPolicy, UserSessionLog, ContactMessage + 10 catálogos (Country/State/City/Gender/DocumentType/MaritalStatus/Occupation/MedicalSpecialty/ServiceCategory/AllyType) |
+| Endpoints REST | ✅ `AuthController` (login/refresh/logout/recover), `MeController`, `AdminUserController` (CRUD + RSQL), `AdminRoleController` (read-only), **`PermissionController`** (GET catálogo), `ContactController`, `AdminCatalogsController`, `PublicCatalogsController`, `SystemInfoController` |
+| Tests | ⚠️ Sin tests de integración aún (solo `contextLoads()` trivial) |
+| Dockerfile | ✅ Multi-stage Alpine + Debian |
+| CI/CD | ✅ GitHub Actions: build + publish Docker Hub |
+| Configuración SMTP | ✅ `EmailService` + templates (recuperación de contraseña) |
+| Configuración Redis | ✅ Token blacklist + refresh token store |
+| Configuración S3/R2 | ✅ Cliente configurado (MinIO en dev, R2 en prod) |
+| Swagger/OpenAPI | ✅ Configurado en `/v1/swagger-ui` con redirects 301 |
 
 ## Detalle
 
@@ -135,5 +135,10 @@ Ver [`../checklist.md`](../checklist.md) sección FASE 1 Tarea 1.7. Empezar por:
 
 ## Cambios recientes
 
-- **2026-05-18** — Bootstrap del `.ai/` local del backend (CLAUDE.md, checklist subset, skills, MEMORY, current-state).
-- **Anterior** — Bootstrap inicial Spring Boot 4 + Java 25 + dependencias clave instaladas.
+- **2026-05-31** — Tabla `permission_domains` (10 dominios UI con `code`/`name`/`icon`/`display_order`) consolidada en V5; nuevo permiso `ROLE_PERMISSION_EDIT` consolidado en V6 (asignado solo a SYSTEM); `permissions.domain` (texto) → `domain_id` (FK); entidad `PermissionDomain` + repo + `Permission` refactor a `@ManyToOne`; DTOs `PermissionDto`/`PermissionDomainDto`; `PermissionService.getCatalog()` + `PermissionController GET /v1/admin/permissions` con `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`; ADR 0009 espejado al backend; convenciones de trabajo con IA agregadas a `.ai/CLAUDE.md`.
+- **2026-05-28** — Connection limits + statement timeouts por rol DB (V3 hardening, deployment env vars).
+- **2026-05-25** — Endpoint `/v1/system-info` con metadata de release.
+- **2026-05-18 → 2026-05-24** — Bootstrap completo del módulo auth (login/refresh/logout/recover/me/admin users), módulo catalog (10 catálogos públicos+admin), módulo contact. Migraciones V1–V10. Hardening Postgres (REVOKE PUBLIC, search_path, connection limits).
+- **2026-05-18 (inicial)** — Bootstrap Spring Boot 4 + Java 25 + dependencias clave + `.ai/` local.
+
+> Las secciones "Detalle" y "Estructura del repo" más abajo describen el estado de bootstrap del 2026-05-18 y necesitan refresh — usar como contexto histórico, no como verdad operativa.

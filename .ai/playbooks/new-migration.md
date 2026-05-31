@@ -92,14 +92,12 @@ COMMENT ON COLUMN members.phone_secondary IS 'Teléfono alternativo opcional';
 #### Template para seeds
 
 ```sql
--- V11__seed_roles.sql
-INSERT INTO roles (role_id, name, description, is_active, status, created_at, updated_at)
+-- V{N}__seed_example.sql  (formato genérico de un seed)
+-- Para el seed real de roles ver V6__seed_roles.sql.
+INSERT INTO example_things (name, description)
 VALUES
-  (gen_random_uuid(), 'ADMIN', 'Administrador del sistema', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'OPERADOR', 'Operador interno', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'ALIADO_USER', 'Usuario de aliado', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'AFILIADO_USER', 'Afiliado titular', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'PROMOTOR', 'Promotor de membresías', TRUE, 'ACTIVE', NOW(), NOW());
+    ('FOO', 'Descripción de foo'),
+    ('BAR', 'Descripción de bar');
 ```
 
 #### Template para nuevo índice

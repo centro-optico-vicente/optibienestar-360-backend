@@ -324,7 +324,7 @@ class ExampleThingControllerIT {
 ## Paso 9 — Seguridad
 
 Si la entidad requiere permisos nuevos:
-1. Agregar permisos a `V11__seed_roles.sql` (o nueva migration `V{N}__add_permission_EXAMPLE.sql`).
+1. Agregar permisos al seed (`V6__seed_roles.sql` solo si V6 aún no se aplicó en ningún entorno; si ya está aplicada, crear una migration nueva `V{N}__add_permission_EXAMPLE.sql`).
 2. Asignar a roles relevantes.
 3. Documentar en [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md).
 

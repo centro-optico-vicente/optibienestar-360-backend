@@ -43,13 +43,56 @@ CREATE TRIGGER trg_roles_updated_at
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
--- permissions: granular action rights — no external FKs
+-- permission_domains: UI modules grouping permissions in the admin panel
+-- with Spanish name + lucide icon + display order. Seeded here because
+-- permissions.domain_id is a NOT NULL FK to this table — domains must
+-- exist before V6 inserts the permission catalog.
+CREATE TABLE permission_domains
+(
+    permission_domains_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uuid                  UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+    code                  VARCHAR(50)  NOT NULL UNIQUE,         -- 'MEMBERS' (technical, code-bound)
+    name                  VARCHAR(100) NOT NULL UNIQUE,         -- 'Afiliados' (Spanish UI name — domain data, not code)
+    icon                  VARCHAR(60),                          -- 'i-lucide-users'
+    description           VARCHAR(255),                         -- longer help text for the UI (tooltip / subtitle)
+    display_order         INT          NOT NULL DEFAULT 100,
+    is_active             BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by            UUID,
+    updated_by            UUID
+);
+
+CREATE INDEX idx_permission_domains_is_active     ON permission_domains (is_active) WHERE is_active;
+CREATE INDEX idx_permission_domains_display_order ON permission_domains (display_order) WHERE is_active;
+
+CREATE TRIGGER trg_permission_domains_updated_at
+    BEFORE UPDATE ON permission_domains
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Seed of the 10 UI domains. The `code` values are the strings that V6
+-- joins against when inserting the permission catalog.
+INSERT INTO permission_domains (code, name, icon, description, display_order)
+VALUES
+    ('USERS',       'Usuarios',   'i-lucide-user-cog',       'Gestión de cuentas y roles de usuarios del sistema',      10),
+    ('MEMBERS',     'Afiliados',  'i-lucide-users',          'Afiliados al programa, documentos e historial médico',    20),
+    ('ALLIES',      'Aliados',    'i-lucide-handshake',      'Aliados comerciales, acuerdos y validación de afiliados', 30),
+    ('PLANS',       'Planes',     'i-lucide-clipboard-list', 'Configuración de planes de membresía',                    40),
+    ('MEMBERSHIPS', 'Membresías', 'i-lucide-badge-check',    'Membresías activas, cancelaciones y reactivaciones',      50),
+    ('PAYMENTS',    'Pagos',      'i-lucide-credit-card',    'Registro, aprobación y consulta de pagos',                60),
+    ('PROMOTERS',   'Promotores', 'i-lucide-megaphone',      'Promotores y red de ventas',                              70),
+    ('COMMISSIONS', 'Comisiones', 'i-lucide-percent',        'Comisiones de promotores y ciclos de pago',               80),
+    ('REFERRALS',   'Referidos',  'i-lucide-share-2',        'Códigos de referido y seguimiento',                       90),
+    ('REPORTS',     'Reportes',   'i-lucide-bar-chart-3',    'Panel de control y exportación de reportes',             100);
+
+
+-- permissions: granular action rights — depends on permission_domains
 CREATE TABLE permissions
 (
     permissions_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     uuid           UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
     name           VARCHAR(100) NOT NULL UNIQUE,
-    domain         VARCHAR(50)  NOT NULL,
+    domain_id      BIGINT       NOT NULL REFERENCES permission_domains (permission_domains_id),
     description    VARCHAR(200),
     is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -58,7 +101,7 @@ CREATE TABLE permissions
     updated_by     UUID
 );
 
-CREATE INDEX idx_permissions_domain    ON permissions (domain);
+CREATE INDEX idx_permissions_domain_id ON permissions (domain_id);
 CREATE INDEX idx_permissions_is_active ON permissions (is_active) WHERE is_active;
 
 CREATE TRIGGER trg_permissions_updated_at

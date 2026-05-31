@@ -150,7 +150,12 @@ Cambios de roles/permisos:
 
 ## RBAC dinámico y modelos de autorización (evaluación)
 
-> Spike no comprometido. Ver ítems en [`../checklists/vertical-1-seguridad-y-autenticacion.md`](../checklists/vertical-1-seguridad-y-autenticacion.md) (sección "Evaluación — RBAC dinámico").
+> **Estado (2026-05-31):** fase mínima implementada parcialmente. Lo concretado:
+> - Tabla `permission_domains` (en V5) — agrupador de permisos con `code`/`name`/`icon`/`display_order` para alimentar el panel admin con labels en español + iconos.
+> - Permiso nuevo `ROLE_PERMISSION_EDIT` (en V6), asignado solo a SYSTEM. Granular distinto a `USER_CHANGE_ROLE` (asignar roles a usuarios).
+> - Endpoint `GET /v1/admin/permissions` (read-only) que devuelve el catálogo agrupado dominios → permisos, ordenado y listo para renderizar.
+>
+> Pendiente: `GET /v1/admin/roles/{uuid}/permissions` (set actual) + `PUT /v1/admin/roles/{uuid}/permissions` (reemplazar set, con guard SYSTEM + anti-lockout). Ver tareas en [`../checklists/vertical-1-seguridad-y-autenticacion.md`](../checklists/vertical-1-seguridad-y-autenticacion.md) sección "RBAC con permisos por rol editables — Implementación".
 
 ### Punto clave: la autorización ya es *por permiso*, no por rol
 

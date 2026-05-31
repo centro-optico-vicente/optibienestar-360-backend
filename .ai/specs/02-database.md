@@ -8,34 +8,43 @@
 
 Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domain-model.md) para el diagrama ER de alto nivel.
 
-## Catálogo de migraciones planeadas
+## Catálogo de migraciones
 
-| Migration | Tablas/cambios | Estado |
+### Aplicadas
+
+| Migration | Tablas/cambios |
+|---|---|
+| `V1__initial_extensions.sql` | pgcrypto, unaccent, citext, schema `app` |
+| `V2__base_audit_function.sql` | función `set_updated_at()` |
+| `V3__app_roles.sql` | DB roles `optisalud_migration`/`optisalud_app`/`optisalud_readonly` con CONNECTION LIMIT + statement_timeout + idle_in_transaction_timeout; REVOKE PUBLIC; ALTER ROLE search_path |
+| `V4__contact_messages.sql` | contact_messages (landing) |
+| `V5__users_and_roles.sql` | security_policies, roles, **permission_domains** (10 seed), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log |
+| `V6__seed_roles.sql` | 7 roles + 50 permisos (incluye `ROLE_PERMISSION_EDIT`) + asignación rol→permisos + security_policies default |
+| `V7__seed_users.sql` | 2 usuarios seed (System, Administrador) |
+| `V8__locations.sql` | countries, states, cities (seed Venezuela 24 estados + capitales) |
+| `V9__personal_catalogs.sql` | genders, document_types, marital_statuses, occupations |
+| `V10__health_catalogs.sql` | medical_specialties, service_categories, ally_types |
+
+### Planeadas
+
+| Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V1__initial_extensions.sql` | pgcrypto, unaccent, citext | pendiente |
-| `V2__base_audit_function.sql` | función `set_updated_at()` | pendiente |
-| `V3__contact_messages.sql` | tabla contact_messages | pendiente |
-| `V10__users_and_roles.sql` | users, roles, permissions, user_roles, role_permissions | pendiente |
-| `V11__seed_roles.sql` | seeds de roles + permisos base | pendiente |
-| `V12__catalogs.sql` | countries, states, cities, genders, document_types, etc. | pendiente |
-| `V13__health_catalogs.sql` | medical_specialties, service_categories, ally_types | pendiente |
-| `V14__allies.sql` | allies, ally_specialties, ally_services, ally_agreements | pendiente |
-| `V15__ally_users.sql` | ally_users | pendiente |
-| `V16__plans.sql` | plans | pendiente |
-| `V17__seed_plans.sql` | plan personal base | pendiente |
-| `V18__members.sql` | members, member_documents | pendiente |
-| `V19__beneficiaries.sql` | beneficiaries | pendiente |
-| `V20__medical_records.sql` | medical_records | pendiente |
-| `V21__memberships.sql` | memberships | pendiente |
-| `V22__payments.sql` | payments | pendiente |
-| `V23__benefit_usages.sql` | benefit_usages | pendiente |
-| `V24__promoters.sql` | promoters | pendiente |
-| `V25__commissions.sql` | commissions | pendiente |
-| `V26__referrals.sql` | referrals | pendiente |
-| `V27__notifications.sql` | notifications | pendiente |
-| `V28__digital_cards_view.sql` | vista digital_cards_v | pendiente |
-| `V29__audit_log.sql` | tabla audit_log | pendiente |
-| `V30__indexes_optimization.sql` | índices adicionales según EXPLAIN | pendiente |
+| `V11__allies.sql` | allies, ally_specialties, ally_services, ally_agreements | 3 — aliados |
+| `V12__ally_users.sql` | ally_users | 3 — aliados |
+| `V13__plans.sql` | plans (+ seed plan personal base) | 5 — planes |
+| `V14__members.sql` | members, member_documents | 4 — afiliados |
+| `V15__beneficiaries.sql` | beneficiaries | 4 — afiliados |
+| `V16__medical_records.sql` | medical_records | 4 — afiliados |
+| `V17__memberships.sql` | memberships | 5 — planes |
+| `V18__payments.sql` | payments | 6 — pagos |
+| `V19__benefit_usages.sql` | benefit_usages | 7 — validador |
+| `V20__promoters.sql` | promoters | 8 — promotores |
+| `V21__commissions.sql` | commissions | 8 — promotores |
+| `V22__referrals.sql` | referrals | 8 — promotores |
+| `V23__notifications.sql` | notifications | 9 — notificaciones |
+| `V24__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
+| `V25__audit_log.sql` | tabla audit_log | 10 — hardening |
+| `V26__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
 ## Convenciones aplicadas a TODAS las tablas
 
@@ -65,9 +74,22 @@ CREATE TRIGGER trg_example_before_update_set_updated_at
 
 (pendiente — al ejecutar V10)
 
-### `roles`, `permissions`, `user_roles`, `role_permissions`
+### `roles`, `permissions`, `permission_domains`, `user_roles`, `role_permissions`
 
-(pendiente — al ejecutar V10/V11)
+**Aplicadas en V5 (esquema RBAC + catálogo de dominios) y V6 (seed roles + 50 permisos incluido `ROLE_PERMISSION_EDIT`).**
+
+- **`roles`** (7 filas seed): `SYSTEM`, `ADMINISTRADOR`, `OPERADOR`, `OPERADOR_MEDICO`, `ALIADO`, `AFILIADO`, `PROMOTOR`. Columnas: `name` UNIQUE, `description`, audit estándar.
+
+- **`permissions`** (50 filas seed V6): catálogo code-bound. Columnas: `name` UNIQUE (string técnico tipo `MEMBER_CREATE`, evaluado en `@PreAuthorize`), `domain_id` FK → `permission_domains`, `description` (texto humano en español que ve el admin), audit.
+  - **Regla clave:** este catálogo es inmutable en runtime; cada permiso requiere un `@PreAuthorize("hasAuthority('NAME')")` que lo respalde. Solo se modifica vía migración + deploy.
+
+- **`permission_domains`** (10 filas seed V5): módulos UI para agrupar permisos en el panel admin. Columnas: `code` UNIQUE (técnico, `'USERS'`/`'MEMBERS'`/...), `name` UNIQUE (label español: `'Usuarios'`/`'Afiliados'`/...), `icon` (clase lucide), `description` (texto largo para tooltip), `display_order` (orden en el panel), audit.
+
+- **`user_roles`** (pivot): `user_id` × `role_id`, con `assigned_by`, `expires_at`, `is_active`. UNIQUE (user_id, role_id).
+
+- **`role_permissions`** (pivot): `role_id` × `permission_id`. UNIQUE. **Esta tabla SÍ es editable en runtime** desde el panel admin (vía `PUT /v1/admin/roles/{uuid}/permissions`, pendiente) — los permisos asignados a cada rol pueden cambiar sin redeploy.
+
+Spec funcional: [`05-roles-permissions.md`](05-roles-permissions.md).
 
 ### `members`, `beneficiaries`, `medical_records`
 

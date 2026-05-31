@@ -5,8 +5,8 @@
 
 ## Migraciones
 
-- [x] [P0/C2] `V5__users_and_roles.sql` — security_policies, roles, permissions, users, user_password_history, user_roles, role_permissions, user_sessions_log
-- [x] [P0/C2] `V6__seed_roles.sql` — SYSTEM, ADMINISTRADOR, OPERADOR, OPERADOR_MEDICO, ALIADO, AFILIADO, PROMOTOR + 49 permisos + asignación rol→permisos
+- [x] [P0/C2] `V5__users_and_roles.sql` — security_policies, roles, **permission_domains** (10 dominios UI con `code`/`name`/`icon`/`display_order`), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log
+- [x] [P0/C2] `V6__seed_roles.sql` — 7 roles seed (SYSTEM, ADMINISTRADOR, OPERADOR, OPERADOR_MEDICO, ALIADO, AFILIADO, PROMOTOR) + **50 permisos** (incluye `ROLE_PERMISSION_EDIT`) + asignación rol→permisos (SYSTEM=50, ADMIN=48, OP_MEDICO=45, OPERADOR=43, AFILIADO/PROMOTOR=5, ALIADO=3)
 
 ## Hardening de base de datos
 
@@ -37,12 +37,49 @@
 - [x] [P1/C1] `AdminCreateUserRequest` + `AdminUpdateUserRequest` — `@Pattern("^[VE]$")` en `documentType` — devuelve 400 claro en vez del 409 engañoso que daba la violación del CHECK de la BD (owasp-security A01)
 - [ ] [P1/C1] `AdminUpdateUserRequest` — agregar `@Pattern` en `status` (`ACTIVE|SUSPENDED|LOCKED`) — previene valores arbitrarios sin validación (owasp-security A01)
 
-## Evaluación — RBAC dinámico (roles editables) *(spike, no comprometido)*
+## Evaluación — RBAC con permisos por rol editables *(spike, no comprometido)*
 
 > Extiende el `GET /v1/admin/roles` read-only actual a gestión completa. La idea: los **permisos siguen fijos en código** (cada uno referenciado por algún `@PreAuthorize`), y los **roles pasan a ser contenedores editables** de esos permisos. Evaluar viabilidad y decidir antes de implementar.
 
-- [ ] [P2/C2] **Spike compatibilidad `@PreAuthorize`** — confirmar que la autorización ya es **por permiso** (`hasAuthority('PERM')`), no por rol → roles editables NO rompen los `@PreAuthorize`. Restricción clave: el **catálogo de permisos permanece code-bound** (crear permisos sin un `@PreAuthorize` que los use es inútil) → NO habrá CRUD de permisos, solo de roles.
-- [ ] [P2/C2] `GET /v1/admin/permissions` (read-only) — catálogo de permisos para que el panel arme/edite los roles. Sin CRUD.
+- [x] [P2/C2] **Spike compatibilidad `@PreAuthorize`** — **confirmado por auditoría**: los 8 `@PreAuthorize` usan `hasAuthority('PERM')`; cero usos de `hasRole`/`@Secured`/`@RolesAllowed`/`RoleHierarchy`; cero hardcodes de nombres de rol en lógica; `SecurityConfig` solo exige `authenticated()`; `JwtAuthenticationFilter` mapea permisos directo sin prefijo `ROLE_`. Roles editables son compatibles sin tocar autorización. Restricción confirmada: catálogo de permisos permanece **code-bound** (no habrá CRUD de permisos, solo de roles).
+- [x] [P2/C2] `GET /v1/admin/permissions` (read-only) — catálogo de permisos para que el panel arme/edite los roles. Sin CRUD.
 - [ ] [P2/C3] CRUD de roles + reasignación rol↔permisos — `POST/PUT/DELETE /v1/admin/roles` + endpoint para setear `role_permissions`. Validar nombre único; soft-delete si el rol tiene usuarios asignados.
 - [ ] [P2/C3] **Token staleness** — al cambiar permisos de un rol, los `accessToken` activos (TTL 15 min) cargan permisos viejos hasta el refresh. Decidir: aceptar la ventana de 15 min, o forzar invalidación (revocar refresh tokens / blacklist) de los usuarios afectados.
 - [ ] [P2/C2] **Guards anti-lockout** — proteger rol `SYSTEM` (no borrable / no editable) y evitar que un admin se quite a sí mismo permisos críticos o se deje sin acceso.
+
+## RBAC con permisos por rol editables — Implementación (panel friendly para no-técnicos)
+
+> Fase mínima del spike: catálogo de permisos navegable + edición de `role_permissions` por rol existente, sin CRUD de roles. Se promueve `permission.domain` (texto libre) a tabla `permission_domains` con `label`/`icon`/`display_order` para que el panel muestre nombres en español agrupados por módulo. Decisión de staleness: aceptar ventana de 15 min (TTL del access). El admin nunca ve nombres técnicos (`MEMBER_CREATE`, `MEMBERS`) — ve `description` en español y `label` del dominio.
+
+### Migraciones
+
+> Las migraciones de schema (`permission_domains`) y catálogo (`ROLE_PERMISSION_EDIT`) se consolidaron dentro de **V5** y **V6** respectivamente — ver primera sección "Migraciones" arriba. No hay V11/V12 dedicadas; los slots quedan libres para Fase 2 (`allies`, `ally_users`).
+
+### Código — entidades y DTOs
+
+- [x] [P2/C1] `entity/PermissionDomain.java` (hereda `BaseAuditEntity`) + `repository/PermissionDomainRepository.java` con `findAllByActiveTrueOrderByDisplayOrder()`
+- [x] [P2/C1] Refactor `entity/Permission.java` — reemplazar `String domain` por `@ManyToOne(fetch=LAZY) @JoinColumn(name="domain_id") PermissionDomain domain`
+- [x] [P2/C1] `dto/PermissionDomainDto` (uuid, code, label, icon, description, displayOrder, permissions[]) + `dto/PermissionDto` (uuid, label, description) — **NO** exponer `name` técnico al panel
+- [ ] [P2/C1] `dto/UpdateRolePermissionsRequest` con `@NotNull List<UUID> permissionUuids`
+
+### Código — servicios
+
+- [x] [P2/C2] `PermissionService.getCatalog()` — devuelve `List<PermissionDomainDto>` con permisos anidados, ordenado por `display_order` (dominio) y `description` (permiso)
+- [ ] [P2/C2] `RoleService.updateRolePermissions(roleUuid, Set<UUID> permissionUuids)` — guard SYSTEM (403 "rol no editable"); anti-lockout (rechaza si el actor se quita `ROLE_PERMISSION_EDIT` a sí mismo); valida que todos los uuids existen (400 si no); reemplaza el set vía `role.setPermissions(...)` (Hibernate gestiona el diff en `role_permissions`)
+- [ ] [P2/C1] `RoleService.getRolePermissions(roleUuid): Set<UUID>` — devuelve los uuids del set actual para precargar checkboxes del panel
+
+### Endpoints
+
+- [x] [P2/C1] `PermissionController.GET /v1/admin/permissions` — devuelve catálogo completo (tree dominios→permisos); `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
+- [ ] [P2/C1] `AdminRoleController.GET /v1/admin/roles/{uuid}/permissions` — devuelve `List<UUID>` del set actual del rol; `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
+- [ ] [P2/C2] `AdminRoleController.PUT /v1/admin/roles/{uuid}/permissions` — recibe `UpdateRolePermissionsRequest`; aplica guards SYSTEM y anti-lockout; idempotente (reemplaza set completo); `@PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")`
+
+### Tests
+
+- [ ] [P2/C2] Integración `PermissionControllerIT` — GET catálogo devuelve 10 dominios ordenados por `display_order` con 49 permisos repartidos; sin token devuelve 401; con token sin `ROLE_PERMISSION_EDIT` devuelve 403
+- [ ] [P2/C2] Integración `AdminRoleControllerIT` — PUT exitoso a rol no-SYSTEM aplica cambio (verificable con GET siguiente); PUT a rol SYSTEM devuelve 403 con mensaje claro; PUT con permissionUuid inexistente devuelve 400; PUT que dejaría al actor sin `ROLE_PERMISSION_EDIT` devuelve 400 con mensaje "auto-lockout"
+
+### Documentación
+
+- [ ] [P2/C1] `playbooks/edit-role-permissions.md` — flujo operativo del admin (paso a paso desde el panel); documentar la ventana de propagación de 15 min y cómo forzar refresh inmediato si urge (revocar `refresh:<user_uuid>` en Redis con `redis-cli DEL`)
+- [ ] [P2/C1] Actualizar `.ai/specs/05-roles-permissions.md` — marcar la fase mínima como implementada; documentar la nueva tabla `permission_domains`, los 3 endpoints nuevos y el permiso `ROLE_PERMISSION_EDIT`
