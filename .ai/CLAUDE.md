@@ -55,6 +55,8 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 - **Verificar `current-state.md` antes de asumir** qué existe — los checklists describen lo planeado, no lo construido.
 - **No re-discutir decisiones** ya congeladas en `decisions/` o en el hub salvo que se escriba un ADR nuevo que las supersede.
 - **Nunca commits directos a `main`** — todo cambio entra vía PR desde una rama `<tipo>/<descripción>` (`feature/`, `fix/`, `hotfix/`, `chore/`, `refactor/`). Sin excepciones, ni siquiera para hotfixes o cambios "obvios". Ver [ADR 0004](decisions/0004-pr-and-branch-conventions.md) (regla cero).
+- **Crear ramas con `--no-track`** desde `origin/main`: `git switch -c <tipo>/<descripcion> --no-track origin/main`. **Nunca** `git checkout origin/main -b <name>` porque configura automáticamente el upstream de la rama nueva a `origin/main` y dispara pushes accidentales a `main` (el bug que provocó la creación de la regla cero).
+- **Hook pre-push activado** — el repo trae [`.githooks/pre-push`](../.githooks/pre-push) que bloquea cualquier `git push` hacia `refs/heads/main`. Activar una vez por clone con `git config core.hooksPath .githooks` (también está en el [README root](../README.md#local-clone-setup-one-time)). Es la red de seguridad porque Branch Protection de GitHub es paid-only en repos privados.
 - **PR/branch siguen Conventional Commits** + Gitflow simplificado. La primera línea del cuerpo repite el título.
 
 ## Orden de lectura recomendado para una IA

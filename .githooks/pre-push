@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# .githooks/pre-push
+#
+# Block direct pushes to `main` (ADR 0004 — regla cero: no commits
+# directos a main). Server-side branch protection is paid-only on
+# private GitHub repos, so this client-side hook is the free fallback.
+#
+# Activate per clone (one-time):
+#     git config core.hooksPath .githooks
+#
+# Emergency bypass (rare, NOT recommended):
+#     git push --no-verify
+
+set -e
+
+PROTECTED_BRANCH="refs/heads/main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$remote_ref" = "$PROTECTED_BRANCH" ]; then
+        cat >&2 <<'EOM'
+
+❌  Direct push to main rejected (ADR 0004 — regla cero: no commits directos a main).
+
+    Crea un PR desde una rama de tipo feature/ fix/ refactor/ chore/ hotfix/:
+
+        git switch -c <tipo>/<descripcion> --no-track origin/main
+        #   ... cambios + commits ...
+        git push -u origin <tipo>/<descripcion>
+        gh pr create   # o crearlo desde la UI de GitHub
+
+    Bypass de emergencia (NO recomendado, salta la regla cero):
+
+        git push --no-verify
+
+EOM
+        exit 1
+    fi
+done
+
+exit 0

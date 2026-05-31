@@ -2,6 +2,23 @@
 
 OptiSalud+ Backend.
 
+## Local clone setup (one-time)
+
+After cloning the repo, activate the versioned git hooks **once per clone**:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+This enables the `pre-push` hook that blocks direct pushes to `main` per the
+**regla cero** in [ADR 0004](.ai/decisions/0004-pr-and-branch-conventions.md):
+all changes must enter `main` via a Pull Request from a `feature/`, `fix/`,
+`refactor/`, `chore/` or `hotfix/` branch. Server-side branch protection is
+paid-only on private GitHub repos and would violate
+[ADR 0004 — Only free tools](../centro-optico-vicente/.ai/decisions/0004-only-free-tools.md),
+so the hook is the free, client-side fallback. Bypass is `git push --no-verify`
+(reserve for genuine emergencies). See [`.githooks/README.md`](.githooks/README.md) for details.
+
 ## Environment variables
 
 All configuration is injected through environment variables (see
