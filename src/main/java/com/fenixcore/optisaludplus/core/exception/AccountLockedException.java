@@ -2,12 +2,17 @@ package com.fenixcore.optisaludplus.core.exception;
 
 import java.time.Instant;
 
-public class AccountLockedException extends RuntimeException {
+/**
+ * 423 — account temporarily locked (anti-brute-force). Carries the timestamp
+ * until which the lock is in effect; {@link GlobalExceptionHandler} exposes
+ * it as the {@code lockedUntil} property of the problem+json response.
+ */
+public class AccountLockedException extends LocalizedBusinessException {
 
     private final Instant lockedUntil;
 
     public AccountLockedException(Instant lockedUntil) {
-        super("Account is temporarily locked");
+        super("auth.account.locked");
         this.lockedUntil = lockedUntil;
     }
 
