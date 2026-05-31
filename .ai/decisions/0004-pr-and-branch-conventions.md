@@ -9,6 +9,29 @@ Se necesita una convención uniforme para nombrar ramas y redactar Pull Requests
 
 ## Decisión
 
+### Regla cero — nunca commits directos a `main`
+
+Todo cambio entra a `main` **únicamente vía Pull Request**. Sin excepciones, incluso para hotfixes urgentes o "cambios obvios" de una sola persona.
+
+Razones:
+- Historial de `main` limpio (un squash-merge semántico por PR, no commits WIP sueltos).
+- CI corre antes del merge → atrapa fallos antes de manchar `main`.
+- Cada cambio queda con descripción persistente y discusión asociada al PR.
+- Habilita rollback granular vía `gh pr revert <N>`.
+
+Flujo correcto siempre:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b <tipo>/<descripción-kebab-case>
+# ... cambios + commits locales ...
+git push -u origin <tipo>/<descripción-kebab-case>
+gh pr create
+```
+
+Para hotfixes, usar prefijo `hotfix/...` y PR de aprobación rápida — el costo extra es <1 min y mantiene la disciplina.
+
 ### Nomenclatura de ramas (Gitflow simplificado)
 
 ```

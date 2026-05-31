@@ -54,7 +54,8 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 - **Invocar skills proactivamente** al iniciar trabajo relevante, no después. Catálogo en [`skills.md`](skills.md). Ejemplos: `spring-boot-engineer` para nuevos endpoints, `postgresql-table-design` para nuevas tablas, `owasp-security` antes de tocar auth.
 - **Verificar `current-state.md` antes de asumir** qué existe — los checklists describen lo planeado, no lo construido.
 - **No re-discutir decisiones** ya congeladas en `decisions/` o en el hub salvo que se escriba un ADR nuevo que las supersede.
-- **PR/branch siguen Conventional Commits** + Gitflow simplificado. La primera línea del cuerpo repite el título. Ver [ADR 0004](decisions/0004-pr-and-branch-conventions.md).
+- **Nunca commits directos a `main`** — todo cambio entra vía PR desde una rama `<tipo>/<descripción>` (`feature/`, `fix/`, `hotfix/`, `chore/`, `refactor/`). Sin excepciones, ni siquiera para hotfixes o cambios "obvios". Ver [ADR 0004](decisions/0004-pr-and-branch-conventions.md) (regla cero).
+- **PR/branch siguen Conventional Commits** + Gitflow simplificado. La primera línea del cuerpo repite el título.
 
 ## Orden de lectura recomendado para una IA
 
