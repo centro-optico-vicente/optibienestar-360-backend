@@ -19,6 +19,17 @@ paid-only on private GitHub repos and would violate
 so the hook is the free, client-side fallback. Bypass is `git push --no-verify`
 (reserve for genuine emergencies). See [`.githooks/README.md`](.githooks/README.md) for details.
 
+### Locale in dev requests
+
+The API is i18n-aware. When testing with `curl` / Postman / your IDE HTTP client,
+send `Accept-Language: es` (or `en`) to get responses in that language; without
+the header the app falls back to `es-VE` (default per
+[ADR 0010](.ai/decisions/0010-localization-venezuela.md)). For an authenticated
+user the JWT `locale` claim wins over the header — change it via
+`POST /v1/me/locale`. Locales outside the `{es, en}` whitelist are ignored and
+the resolver falls back to the next level. See
+[`.ai/specs/14-i18n.md`](.ai/specs/14-i18n.md) for the full resolver chain.
+
 ## Environment variables
 
 All configuration is injected through environment variables (see
