@@ -60,9 +60,9 @@
 
 ## Fase 6 — Documentación
 
-- [ ] [P2/C1] `.ai/specs/14-i18n.md` — nuevo spec con: convención naming dot-separated, cadena de fallback del resolver, patrón base+extends para bundles y templates, cómo agregar un idioma nuevo, cuándo crear `LocalizedBusinessException` nuevo vs reusar, locale del email siempre del destinatario.
-- [ ] [P2/C1] `.ai/CLAUDE.md` — regla #9 "Mensajes user-facing van vía MessageSource code, nunca string literal".
-- [ ] [P2/C1] `README.md` root — línea bajo "Local clone setup" sobre `Accept-Language` en requests de desarrollo.
+- [x] [P2/C1] `.ai/specs/14-i18n.md` — nuevo spec con: convención naming dot-separated, cadena de fallback del resolver, patrón base+extends para bundles y templates, cómo agregar un idioma nuevo, cuándo crear `LocalizedBusinessException` nuevo vs reusar, locale del email siempre del destinatario.
+- [x] [P2/C1] `.ai/CLAUDE.md` — regla #9 "Mensajes user-facing van vía MessageSource code, nunca string literal".
+- [x] [P2/C1] `README.md` root — línea bajo "Local clone setup" sobre `Accept-Language` en requests de desarrollo.
 
 ## Tests
 
