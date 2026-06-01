@@ -32,7 +32,7 @@ class I18nConfigTest {
     @Test
     void es_VE_locale_falls_back_to_es_bundle() {
         // ResourceBundle chain: messages_es_VE (no existe) → messages_es (existe).
-        String msg = messageSource.getMessage("auth.credentials.invalid", null, new Locale("es", "VE"));
+        String msg = messageSource.getMessage("auth.credentials.invalid", null, Locale.forLanguageTag("es-VE"));
         assertThat(msg).isEqualTo("Credenciales incorrectas");
     }
 

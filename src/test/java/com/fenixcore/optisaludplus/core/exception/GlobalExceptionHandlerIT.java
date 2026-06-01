@@ -117,7 +117,7 @@ class GlobalExceptionHandlerIT {
     @Test
     void illegal_argument_returns_localized_422_in_spanish() throws Exception {
         mockMvc.perform(get("/test-throw/illegal-argument").header("Accept-Language", "es"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.title").value("Entidad no procesable"))
                 .andExpect(jsonPath("$.detail").value("Uno o más permisos no existen"));
     }
