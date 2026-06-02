@@ -115,6 +115,10 @@ jobs:
         with:
           context: .
           file: ./docker/alpine.Dockerfile
+          # Compile from source inside the build. Without this, the build defaults
+          # to the last stage (from-prebuilt), which expects a JAR fed via
+          # build-contexts (used by ci.yaml) and ships an empty image on release.
+          target: runtime
           platforms: linux/amd64
           push: true
           build-args: |
@@ -169,6 +173,10 @@ jobs:
         with:
           context: .
           file: ./docker/debian.Dockerfile
+          # Compile from source inside the build. Without this, the build defaults
+          # to the last stage (from-prebuilt), which expects a JAR fed via
+          # build-contexts (used by ci.yaml) and ships an empty image on release.
+          target: runtime
           platforms: linux/amd64
           push: true
           build-args: |
