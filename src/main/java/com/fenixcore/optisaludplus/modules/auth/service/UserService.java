@@ -20,7 +20,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -114,8 +116,7 @@ public class UserService {
         if (request.active() != null) user.setActive(request.active());
 
         if (request.roleIds() != null && !request.roleIds().isEmpty()) {
-            deactivateAllRoles(user);
-            assignRoles(user, request.roleIds());
+            syncRoles(user, request.roleIds());
         }
 
         userRepository.save(user);
@@ -147,9 +148,42 @@ public class UserService {
         userRoleRepository.saveAll(newRoles);
     }
 
-    private void deactivateAllRoles(User user) {
-        List<UserRole> active = userRoleRepository.findByUserIdAndActiveTrue(user.getId());
-        active.forEach(ur -> ur.setActive(false));
-        userRoleRepository.saveAll(active);
+    /**
+     * Reconciles the user's role pivot rows to match the requested set.
+     * Reactivates or deactivates existing rows and inserts only roles that
+     * have no pivot row yet, avoiding the unique (user_id, role_id) collision
+     * that a deactivate-then-reinsert approach would trigger.
+     */
+    private void syncRoles(User user, List<UUID> roleIds) {
+        // Resolve requested roles up-front (validates existence) keyed by role id
+        Map<Long, Role> requested = new LinkedHashMap<>();
+        for (UUID roleUuid : roleIds) {
+            Role role = roleRepository.findByUuid(roleUuid)
+                    .orElseThrow(() -> new NoSuchElementException("role.not_found"));
+            requested.put(role.getId(), role);
+        }
+
+        List<UserRole> toSave = new ArrayList<>();
+
+        // Flip active flag on existing rows to match the requested set
+        for (UserRole ur : userRoleRepository.findByUserId(user.getId())) {
+            Long roleId = ur.getRole().getId();
+            boolean shouldBeActive = requested.containsKey(roleId);
+            if (ur.isActive() != shouldBeActive) {
+                ur.setActive(shouldBeActive);
+                toSave.add(ur);
+            }
+            requested.remove(roleId); // already represented by a pivot row
+        }
+
+        // Insert pivot rows only for roles with no existing row
+        for (Role role : requested.values()) {
+            UserRole ur = new UserRole();
+            ur.setUser(user);
+            ur.setRole(role);
+            toSave.add(ur);
+        }
+
+        userRoleRepository.saveAll(toSave);
     }
 }

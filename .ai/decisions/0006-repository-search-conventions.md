@@ -53,10 +53,15 @@ Las tablas que no tienen `uuid` propio (`user_roles`, `user_password_history`, `
 
 | Tabla | Búsqueda canónica |
 |---|---|
-| `user_roles` | `findByUserIdAndActiveTrue(Long userId)` |
+| `user_roles` | por **cada FK** (`findByUserId` / `findByRoleId`, con variante `...AndActiveTrue`) y por la **clave compuesta** (`findByUserIdAndRoleId`) |
 | `user_password_history` | `findRecentByUserId(Long userId)` (ORDER BY created_at DESC) |
-| `user_sessions_log` | `findByJtiAndLogoutAtIsNull(String jti)` |
+| `user_sessions_log` | por `jti` (`findByJtiAndLogoutAtIsNull`) y por FK `user_id` (`findByUserId`, `findByUserIdAndLogoutAtIsNull`) |
 | `role_permissions` | modelado como `@ManyToMany` en `Role` — sin repositorio propio |
+
+> Para una pivot de dos FK (`user_roles`), exponer búsqueda por **ambos** lados de la
+> relación, no solo uno: `findByUserId*` para "los roles de un usuario" y
+> `findByRoleId*` para "los usuarios de un rol", más `findByUserIdAndRoleId` para
+> resolver/reconciliar una asignación puntual sin chocar con el `UNIQUE (user_id, role_id)`.
 
 Nunca exponer el `BIGINT id` interno en métodos públicos del repositorio ni en DTOs.
 
@@ -86,9 +91,9 @@ List<T> findAllByCategory(String cat);    // futuros catálogos
 | `PermissionRepository` | ✅ | `findByName` | — | ✅ + `findAllByDomain` |
 | `SecurityPolicyRepository` | ✅ | — | — | implícito en `findFirstByActiveTrue` |
 | `ContactMessageRepository` | ✅ | — | — | — |
-| `UserRoleRepository` | sin uuid | — | `findByUserIdAndActiveTrue` | — |
+| `UserRoleRepository` | sin uuid | — | `findByUserId(AndActiveTrue)`, `findByRoleId(AndActiveTrue)`, `findByUserIdAndRoleId` | — |
 | `UserPasswordHistoryRepository` | sin uuid | — | `findRecentByUserId` | — |
-| `UserSessionLogRepository` | sin uuid | — | `findByJtiAndLogoutAtIsNull` | — |
+| `UserSessionLogRepository` | sin uuid | `findByJtiAndLogoutAtIsNull` | `findByUserId`, `findByUserIdAndLogoutAtIsNull` | — |
 
 ---
 
