@@ -6,6 +6,7 @@ import org.springframework.web.servlet.config.annotation.CorsRegistration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -28,8 +29,23 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // Configured origins are split: entries containing "*" are routed to
+        // allowedOriginPatterns (e.g. "*" for any origin, or "https://*.centroopticovicente.com"
+        // for any subdomain), the rest to exact allowedOrigins. The CORS spec forbids wildcards
+        // in plain allowedOrigins when allowCredentials(true), but permits them in
+        // allowedOriginPatterns — Spring echoes the matched origin back — so credentials stay on.
+        List<String> exactOrigins = allowedOrigins.stream()
+            .filter(origin -> !origin.contains("*"))
+            .toList();
+        List<String> patternOrigins = new ArrayList<>(allowedOrigins.stream()
+            .filter(origin -> origin.contains("*"))
+            .toList());
+
+        if (allowLocalhost) {
+            patternOrigins.addAll(List.of(LOCALHOST_ORIGIN_PATTERNS));
+        }
+
         CorsRegistration mapping = registry.addMapping("/v1/**")
-            .allowedOrigins(allowedOrigins.toArray(String[]::new))
             .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             .allowedHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With", "Cache-Control")
             .exposedHeaders("Authorization")
@@ -37,8 +53,11 @@ public class CorsConfig implements WebMvcConfigurer {
             .maxAge(3600)
         ;
 
-        if (allowLocalhost) {
-            mapping.allowedOriginPatterns(LOCALHOST_ORIGIN_PATTERNS);
+        if (!exactOrigins.isEmpty()) {
+            mapping.allowedOrigins(exactOrigins.toArray(String[]::new));
+        }
+        if (!patternOrigins.isEmpty()) {
+            mapping.allowedOriginPatterns(patternOrigins.toArray(String[]::new));
         }
     }
 }
