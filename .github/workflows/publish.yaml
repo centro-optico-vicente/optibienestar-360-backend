@@ -123,8 +123,10 @@ jobs:
             BUILD_DATE=${{ github.event.release.published_at }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=docker-alpine
-          cache-to: type=gha,mode=max,scope=docker-alpine
+          # Releases must always compile from the checked-out source. A shared GHA
+          # layer cache once shipped a stale JAR (old code under a new tag), so we
+          # build from scratch here — releases are infrequent and correctness wins.
+          no-cache: true
 
 
   push-debian-image-dhr:
@@ -175,5 +177,7 @@ jobs:
             BUILD_DATE=${{ github.event.release.published_at }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=docker-debian
-          cache-to: type=gha,mode=max,scope=docker-debian
+          # Releases must always compile from the checked-out source. A shared GHA
+          # layer cache once shipped a stale JAR (old code under a new tag), so we
+          # build from scratch here — releases are infrequent and correctness wins.
+          no-cache: true
