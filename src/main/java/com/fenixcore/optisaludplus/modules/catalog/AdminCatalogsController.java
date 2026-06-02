@@ -56,7 +56,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import java.util.UUID;
 
 /**
@@ -93,8 +95,11 @@ public class AdminCatalogsController {
     // ═══════════════ countries ═══════════════
     @GetMapping("/countries")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<CountryDto>> listCountries() {
-        return ResponseEntity.ok(countryService.list());
+    public ResponseEntity<Page<CountryDto>> listCountries(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(countryService.list(pageable, filter, q));
     }
 
     @GetMapping("/countries/{uuid}")
@@ -127,9 +132,12 @@ public class AdminCatalogsController {
     // ═══════════════ states ═══════════════
     @GetMapping("/states")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<StateDto>> listStates(
+    public ResponseEntity<Page<StateDto>> listStates(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode) {
-        return ResponseEntity.ok(stateService.list(countryIsoCode));
+        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode));
     }
 
     @GetMapping("/states/{uuid}")
@@ -162,10 +170,13 @@ public class AdminCatalogsController {
     // ═══════════════ cities ═══════════════
     @GetMapping("/cities")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<CityDto>> listCities(
+    public ResponseEntity<Page<CityDto>> listCities(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
             @RequestParam(name = "stateUuid", required = false) UUID stateUuid,
             @RequestParam(name = "stateCode", required = false) String stateCode) {
-        return ResponseEntity.ok(cityService.list(stateUuid, stateCode));
+        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode));
     }
 
     @GetMapping("/cities/{uuid}")
@@ -198,8 +209,11 @@ public class AdminCatalogsController {
     // ═══════════════ genders ═══════════════
     @GetMapping("/genders")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<GenderDto>> listGenders() {
-        return ResponseEntity.ok(genderService.list());
+    public ResponseEntity<Page<GenderDto>> listGenders(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(genderService.list(pageable, filter, q));
     }
 
     @GetMapping("/genders/{uuid}")
@@ -232,8 +246,11 @@ public class AdminCatalogsController {
     // ═══════════════ document-types ═══════════════
     @GetMapping("/document-types")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<DocumentTypeDto>> listDocumentTypes() {
-        return ResponseEntity.ok(documentTypeService.list());
+    public ResponseEntity<Page<DocumentTypeDto>> listDocumentTypes(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q));
     }
 
     @GetMapping("/document-types/{uuid}")
@@ -266,8 +283,11 @@ public class AdminCatalogsController {
     // ═══════════════ marital-statuses ═══════════════
     @GetMapping("/marital-statuses")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<MaritalStatusDto>> listMaritalStatuses() {
-        return ResponseEntity.ok(maritalStatusService.list());
+    public ResponseEntity<Page<MaritalStatusDto>> listMaritalStatuses(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q));
     }
 
     @GetMapping("/marital-statuses/{uuid}")
@@ -300,8 +320,11 @@ public class AdminCatalogsController {
     // ═══════════════ occupations ═══════════════
     @GetMapping("/occupations")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<OccupationDto>> listOccupations() {
-        return ResponseEntity.ok(occupationService.list());
+    public ResponseEntity<Page<OccupationDto>> listOccupations(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(occupationService.list(pageable, filter, q));
     }
 
     @GetMapping("/occupations/{uuid}")
@@ -334,8 +357,11 @@ public class AdminCatalogsController {
     // ═══════════════ medical-specialties ═══════════════
     @GetMapping("/medical-specialties")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<MedicalSpecialtyDto>> listMedicalSpecialties() {
-        return ResponseEntity.ok(medicalSpecialtyService.list());
+    public ResponseEntity<Page<MedicalSpecialtyDto>> listMedicalSpecialties(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q));
     }
 
     @GetMapping("/medical-specialties/{uuid}")
@@ -368,8 +394,11 @@ public class AdminCatalogsController {
     // ═══════════════ service-categories ═══════════════
     @GetMapping("/service-categories")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<ServiceCategoryDto>> listServiceCategories() {
-        return ResponseEntity.ok(serviceCategoryService.list());
+    public ResponseEntity<Page<ServiceCategoryDto>> listServiceCategories(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q));
     }
 
     @GetMapping("/service-categories/{uuid}")
@@ -402,8 +431,11 @@ public class AdminCatalogsController {
     // ═══════════════ ally-types ═══════════════
     @GetMapping("/ally-types")
     @PreAuthorize(READ_AUTH)
-    public ResponseEntity<List<AllyTypeDto>> listAllyTypes() {
-        return ResponseEntity.ok(allyTypeService.list());
+    public ResponseEntity<Page<AllyTypeDto>> listAllyTypes(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q));
     }
 
     @GetMapping("/ally-types/{uuid}")

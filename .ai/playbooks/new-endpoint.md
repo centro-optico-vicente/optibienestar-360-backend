@@ -104,23 +104,24 @@ public class FooController {
 }
 ```
 
-## Paso 5 — Endpoint listado con paginación + RSQL
+## Paso 5 — Endpoint listado con paginación + RSQL + búsqueda libre
+
+> **Regla obligatoria:** todo endpoint de listado debe paginar (`Page<DTO>`). Ver convención completa de params (`page`/`size`/`sort`/`filter`/`q`, `size=-1` o `unpaged=true` para todo, defaults por tipo de recurso) en [`../specs/06-rest-api.md` → Paginación](../specs/06-rest-api.md).
 
 ```java
 @GetMapping
-@PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
-@Operation(summary = "List foos with optional RSQL filters")
-public Page<FooListItemDTO> findAll(
+@PreAuthorize("hasAnyAuthority('FOO_VIEW_ALL')")
+@Operation(summary = "List foos with optional RSQL filter + free-text search")
+public ResponseEntity<Page<FooListItemDTO>> findAll(
+    @Parameter(hidden = true)
+    @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
     @Parameter(description = "RSQL filter expression") @RequestParam(required = false) String filter,
-    @Parameter(hidden = true) @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    @Parameter(description = "Free-text search across name/code/description") @RequestParam(required = false) String q
 ) {
-    // Validar size <= 100
-    if (pageable.getPageSize() > 100) {
-        throw new BusinessRuleException("Page size must be <= 100");
+    if (pageable.isPaged() && pageable.getPageSize() > 200) {
+        throw new IllegalArgumentException("page.size.exceeded");
     }
-
-    Specification<Foo> spec = RSQLJPASupport.toSpecification(filter);
-    return service.findAll(spec, pageable);
+    return ResponseEntity.ok(service.list(pageable, filter, q));
 }
 ```
 
@@ -129,7 +130,7 @@ public Page<FooListItemDTO> findAll(
 private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
     "name", "status", "createdAt"
 );
-// Validar antes de aplicar RSQL
+// Validar antes de aplicar RSQL — patrón en UserService.validateFilterFields()
 ```
 
 ## Paso 6 — Endpoint upload (multipart)

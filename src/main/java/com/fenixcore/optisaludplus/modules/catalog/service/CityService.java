@@ -1,5 +1,8 @@
 package com.fenixcore.optisaludplus.modules.catalog.service;
 
+import com.fenixcore.optisaludplus.core.util.ListQuery;
+import com.fenixcore.optisaludplus.core.util.RsqlFieldValidator;
+import com.fenixcore.optisaludplus.core.util.SearchSpecifications;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityUpdateRequest;
@@ -7,12 +10,22 @@ import com.fenixcore.optisaludplus.modules.catalog.entity.City;
 import com.fenixcore.optisaludplus.modules.catalog.entity.State;
 import com.fenixcore.optisaludplus.modules.catalog.repository.CityRepository;
 import com.fenixcore.optisaludplus.modules.catalog.repository.StateRepository;
+import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -20,19 +33,43 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class CityService {
 
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("name", "state");
+    private static final String[] SEARCHABLE_FIELDS = {"name"};
+
     private final CityRepository repository;
     private final StateRepository stateRepository;
 
-    public List<CityDto> list(UUID stateUuid, String stateCode) {
-        List<City> cities;
-        if (stateUuid != null) {
-            cities = repository.findByState_UuidAndActiveTrueOrderByName(stateUuid);
-        } else if (stateCode != null && !stateCode.isBlank()) {
-            cities = repository.findByState_CodeAndActiveTrueOrderByName(stateCode);
-        } else {
-            cities = repository.findAllByActiveTrueOrderByName();
+    @Autowired @Lazy
+    private CityService self;
+
+    public Page<CityDto> list(Pageable pageable, String filter, String q,
+                              UUID stateUuid, String stateCode) {
+        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q, stateUuid, stateCode)) {
+            return new PageImpl<>(self.loadAllForDropdown());
         }
-        return cities.stream().map(CityService::toDto).toList();
+        Specification<City> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        if (filter != null && !filter.isBlank()) {
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "city.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (stateUuid != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("state").get("uuid"), stateUuid));
+        } else if (stateCode != null && !stateCode.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("state").get("code"), stateCode));
+        }
+        return repository.findAll(spec, pageable).map(CityService::toDto);
+    }
+
+    @Cacheable(value = "catalogs", key = "'city:all'")
+    public List<CityDto> loadAllForDropdown() {
+        return repository.findAllByActiveTrueOrderByName().stream()
+                .map(CityService::toDto)
+                .toList();
     }
 
     public CityDto get(UUID uuid) {
@@ -40,6 +77,7 @@ public class CityService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public CityDto create(CityCreateRequest req) {
         State state = stateRepository.findByUuid(req.stateUuid())
                 .orElseThrow(() -> new NoSuchElementException("State not found: " + req.stateUuid()));
@@ -50,6 +88,7 @@ public class CityService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public CityDto update(UUID uuid, CityUpdateRequest req) {
         City c = find(uuid);
         c.setName(req.name());
@@ -57,6 +96,7 @@ public class CityService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public void delete(UUID uuid) {
         City c = find(uuid);
         c.setActive(false);

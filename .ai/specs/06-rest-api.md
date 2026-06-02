@@ -41,17 +41,34 @@ public class MemberController {
 
 ## Paginación
 
+> **Regla obligatoria.** Todo endpoint de listado (`GET /<recurso>`) **debe** paginar por default y devolver `Page<DTO>`. No se aceptan endpoints que devuelvan `List<DTO>` para colecciones sin acotar — un dataset chico hoy se vuelve grande mañana y romper el contrato es caro. Se aplica a TODO nuevo service/controller que se agregue al API.
+
+### Convención de query params
+
+| Param | Significado | Default |
+|---|---|---|
+| `page` | Número de página (0-indexed) | `0` |
+| `size` | Tamaño de página | `50` para catálogos, `20` para el resto |
+| `sort` | Campo + dirección (`name,asc`) | varía por recurso (ver `@PageableDefault`) |
+| `size=-1` **o** `unpaged=true` | Devuelve TODOS los resultados sin paginar | — |
+| `filter` | Expresión RSQL contra whitelist de campos (ver sección RSQL) | — |
+| `q` | Búsqueda libre case-insensitive + `unaccent` en `name` / `code` / `description` (los que existan en la entidad) | — |
+
+`size=-1` y `unpaged=true` son equivalentes y los maneja un `PageableHandlerMethodArgumentResolver` global (en `WebConfig`) que los mapea a `Pageable.unpaged()`. Útil para selects/dropdowns. Nota: si está habilitado el `@Cacheable`, solo se cachea el path **unpaged + sin filter + sin q** (el resto del espacio de combinaciones tiene cardinalidad muy alta).
+
+### Ejemplo de controller
+
 ```java
-@GetMapping
-public Page<MemberListItemDTO> findAll(
-    @RequestParam(required = false) String filter,
-    @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
-) {
-    if (pageable.getPageSize() > 100) {
-        throw new BusinessRuleException("Page size cannot exceed 100");
+@GetMapping("/members")
+@PreAuthorize("hasAuthority('MEMBER_VIEW_ALL')")
+public ResponseEntity<Page<MemberDto>> list(
+        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+        @RequestParam(required = false) String filter,
+        @RequestParam(required = false) String q) {
+    if (pageable.isPaged() && pageable.getPageSize() > 200) {
+        throw new IllegalArgumentException("page.size.exceeded");
     }
-    Specification<Member> spec = RSQLJPASupport.toSpecification(filter);
-    return service.findAll(spec, pageable);
+    return ResponseEntity.ok(memberService.list(pageable, filter, q));
 }
 ```
 

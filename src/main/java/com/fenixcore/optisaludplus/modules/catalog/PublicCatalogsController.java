@@ -21,6 +21,9 @@ import com.fenixcore.optisaludplus.modules.catalog.service.OccupationService;
 import com.fenixcore.optisaludplus.modules.catalog.service.ServiceCategoryService;
 import com.fenixcore.optisaludplus.modules.catalog.service.StateService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,13 +31,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Read-only access to the catalog tables, exposed without authentication
  * (path is whitelisted in SecurityConfig.PUBLIC_PATHS as /v1/public/**).
  * Drives selects/dropdowns in the public landing and registration flows.
+ *
+ * <p>All list endpoints paginate by default (size=50). Use {@code size=-1}
+ * or {@code unpaged=true} to load every entry in a single page — useful for
+ * dropdowns. Accept also RSQL {@code filter} and free-text {@code q} (see
+ * {@code .ai/specs/06-rest-api.md → Paginación}).</p>
  */
 @RestController
 @RequestMapping("/v1/public/catalogs")
@@ -54,8 +61,11 @@ public class PublicCatalogsController {
 
     // ─── countries ──────────────────────────────────────────────────────────
     @GetMapping("/countries")
-    public ResponseEntity<List<CountryDto>> listCountries() {
-        return ResponseEntity.ok(countryService.list());
+    public ResponseEntity<Page<CountryDto>> listCountries(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(countryService.list(pageable, filter, q));
     }
 
     @GetMapping("/countries/{uuid}")
@@ -65,9 +75,12 @@ public class PublicCatalogsController {
 
     // ─── states ─────────────────────────────────────────────────────────────
     @GetMapping("/states")
-    public ResponseEntity<List<StateDto>> listStates(
+    public ResponseEntity<Page<StateDto>> listStates(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode) {
-        return ResponseEntity.ok(stateService.list(countryIsoCode));
+        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode));
     }
 
     @GetMapping("/states/{uuid}")
@@ -77,10 +90,13 @@ public class PublicCatalogsController {
 
     // ─── cities ─────────────────────────────────────────────────────────────
     @GetMapping("/cities")
-    public ResponseEntity<List<CityDto>> listCities(
+    public ResponseEntity<Page<CityDto>> listCities(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
             @RequestParam(name = "stateUuid", required = false) UUID stateUuid,
             @RequestParam(name = "stateCode", required = false) String stateCode) {
-        return ResponseEntity.ok(cityService.list(stateUuid, stateCode));
+        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode));
     }
 
     @GetMapping("/cities/{uuid}")
@@ -90,8 +106,11 @@ public class PublicCatalogsController {
 
     // ─── genders ────────────────────────────────────────────────────────────
     @GetMapping("/genders")
-    public ResponseEntity<List<GenderDto>> listGenders() {
-        return ResponseEntity.ok(genderService.list());
+    public ResponseEntity<Page<GenderDto>> listGenders(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(genderService.list(pageable, filter, q));
     }
 
     @GetMapping("/genders/{uuid}")
@@ -101,8 +120,11 @@ public class PublicCatalogsController {
 
     // ─── document-types ─────────────────────────────────────────────────────
     @GetMapping("/document-types")
-    public ResponseEntity<List<DocumentTypeDto>> listDocumentTypes() {
-        return ResponseEntity.ok(documentTypeService.list());
+    public ResponseEntity<Page<DocumentTypeDto>> listDocumentTypes(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q));
     }
 
     @GetMapping("/document-types/{uuid}")
@@ -112,8 +134,11 @@ public class PublicCatalogsController {
 
     // ─── marital-statuses ───────────────────────────────────────────────────
     @GetMapping("/marital-statuses")
-    public ResponseEntity<List<MaritalStatusDto>> listMaritalStatuses() {
-        return ResponseEntity.ok(maritalStatusService.list());
+    public ResponseEntity<Page<MaritalStatusDto>> listMaritalStatuses(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q));
     }
 
     @GetMapping("/marital-statuses/{uuid}")
@@ -123,8 +148,11 @@ public class PublicCatalogsController {
 
     // ─── occupations ────────────────────────────────────────────────────────
     @GetMapping("/occupations")
-    public ResponseEntity<List<OccupationDto>> listOccupations() {
-        return ResponseEntity.ok(occupationService.list());
+    public ResponseEntity<Page<OccupationDto>> listOccupations(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(occupationService.list(pageable, filter, q));
     }
 
     @GetMapping("/occupations/{uuid}")
@@ -134,8 +162,11 @@ public class PublicCatalogsController {
 
     // ─── medical-specialties ────────────────────────────────────────────────
     @GetMapping("/medical-specialties")
-    public ResponseEntity<List<MedicalSpecialtyDto>> listMedicalSpecialties() {
-        return ResponseEntity.ok(medicalSpecialtyService.list());
+    public ResponseEntity<Page<MedicalSpecialtyDto>> listMedicalSpecialties(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q));
     }
 
     @GetMapping("/medical-specialties/{uuid}")
@@ -145,8 +176,11 @@ public class PublicCatalogsController {
 
     // ─── service-categories ─────────────────────────────────────────────────
     @GetMapping("/service-categories")
-    public ResponseEntity<List<ServiceCategoryDto>> listServiceCategories() {
-        return ResponseEntity.ok(serviceCategoryService.list());
+    public ResponseEntity<Page<ServiceCategoryDto>> listServiceCategories(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q));
     }
 
     @GetMapping("/service-categories/{uuid}")
@@ -156,8 +190,11 @@ public class PublicCatalogsController {
 
     // ─── ally-types ─────────────────────────────────────────────────────────
     @GetMapping("/ally-types")
-    public ResponseEntity<List<AllyTypeDto>> listAllyTypes() {
-        return ResponseEntity.ok(allyTypeService.list());
+    public ResponseEntity<Page<AllyTypeDto>> listAllyTypes(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q));
     }
 
     @GetMapping("/ally-types/{uuid}")

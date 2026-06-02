@@ -1,16 +1,29 @@
 package com.fenixcore.optisaludplus.modules.catalog.service;
 
+import com.fenixcore.optisaludplus.core.util.ListQuery;
+import com.fenixcore.optisaludplus.core.util.RsqlFieldValidator;
+import com.fenixcore.optisaludplus.core.util.SearchSpecifications;
 import com.fenixcore.optisaludplus.modules.catalog.dto.GenderCreateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.dto.GenderDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.GenderUpdateRequest;
 import com.fenixcore.optisaludplus.modules.catalog.entity.Gender;
 import com.fenixcore.optisaludplus.modules.catalog.repository.GenderRepository;
+import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -18,10 +31,34 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class GenderService {
 
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name");
+    private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
+
     private final GenderRepository repository;
 
-    public List<GenderDto> list() {
-        return repository.findAllByActiveTrueOrderByName().stream().map(GenderService::toDto).toList();
+    @Autowired @Lazy
+    private GenderService self;
+
+    public Page<GenderDto> list(Pageable pageable, String filter, String q) {
+        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+            return new PageImpl<>(self.loadAllForDropdown());
+        }
+        Specification<Gender> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        if (filter != null && !filter.isBlank()) {
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "gender.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        return repository.findAll(spec, pageable).map(GenderService::toDto);
+    }
+
+    @Cacheable(value = "catalogs", key = "'gender:all'")
+    public List<GenderDto> loadAllForDropdown() {
+        return repository.findAllByActiveTrueOrderByName().stream()
+                .map(GenderService::toDto)
+                .toList();
     }
 
     public GenderDto get(UUID uuid) {
@@ -29,6 +66,7 @@ public class GenderService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public GenderDto create(GenderCreateRequest req) {
         Gender g = new Gender();
         g.setCode(req.code());
@@ -37,6 +75,7 @@ public class GenderService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public GenderDto update(UUID uuid, GenderUpdateRequest req) {
         Gender g = find(uuid);
         g.setName(req.name());
@@ -44,6 +83,7 @@ public class GenderService {
     }
 
     @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
     public void delete(UUID uuid) {
         Gender g = find(uuid);
         g.setActive(false);
