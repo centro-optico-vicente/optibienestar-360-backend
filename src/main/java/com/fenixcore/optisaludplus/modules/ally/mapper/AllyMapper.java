@@ -6,7 +6,9 @@ import com.fenixcore.optisaludplus.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyUserDto;
+import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyListItemDto;
+import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyServiceDto;
 import com.fenixcore.optisaludplus.modules.ally.entity.Ally;
 import com.fenixcore.optisaludplus.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optisaludplus.modules.ally.entity.AllyService;
@@ -42,6 +44,21 @@ public interface AllyMapper {
     @Mapping(target = "allyTypeName", source = "allyType.name")
     @Mapping(target = "cityName",     source = "city.name")
     PublicAllyListItemDto toPublicListItem(Ally ally);
+
+    /**
+     * Sanitized projection for the public detail page. Same omission rules
+     * as {@link #toPublicListItem} plus filtered sub-lists: specialty
+     * names + only the public-visible services
+     * ({@code active AND published AND reviewStatus=APPROVED}).
+     */
+    @Mapping(target = "allyTypeName",   source = "allyType.name")
+    @Mapping(target = "cityName",       source = "city.name")
+    @Mapping(target = "specialtyNames", expression = "java(extractSpecialtyNames(ally.getSpecialties()))")
+    @Mapping(target = "services",       expression = "java(extractPublicServices(ally.getServices()))")
+    PublicAllyDetailDto toPublicDetail(Ally ally);
+
+    @Mapping(target = "categoryName", source = "serviceCategory.name")
+    PublicAllyServiceDto toPublicServiceDto(AllyService service);
 
     @Mapping(target = "allyType",    source = "allyType")
     @Mapping(target = "city",        source = "city")
@@ -113,5 +130,29 @@ public interface AllyMapper {
     default int countActive(Collection<? extends BaseEntity> entities) {
         if (entities == null) return 0;
         return (int) entities.stream().filter(BaseEntity::isActive).count();
+    }
+
+    default List<String> extractSpecialtyNames(Set<MedicalSpecialty> specialties) {
+        if (specialties == null) return List.of();
+        return specialties.stream()
+                .filter(MedicalSpecialty::isActive)
+                .map(MedicalSpecialty::getName)
+                .toList();
+    }
+
+    /**
+     * Filters services to only those visible publicly — active + published +
+     * APPROVED. Anything in PROPOSED / IN_REVIEW / REJECTED / REMOVED, or
+     * unpublished, or soft-deleted is dropped before the DTOs are built so
+     * anonymous viewers never see them.
+     */
+    default List<PublicAllyServiceDto> extractPublicServices(List<AllyService> services) {
+        if (services == null) return List.of();
+        return services.stream()
+                .filter(AllyService::isActive)
+                .filter(AllyService::isPublished)
+                .filter(s -> s.getReviewStatus() == AllyService.ReviewStatus.APPROVED)
+                .map(this::toPublicServiceDto)
+                .toList();
     }
 }

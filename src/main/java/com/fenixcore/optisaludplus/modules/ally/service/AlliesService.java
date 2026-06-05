@@ -6,6 +6,7 @@ import com.fenixcore.optisaludplus.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyUpdateRequest;
+import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.entity.Ally;
 import com.fenixcore.optisaludplus.modules.ally.mapper.AllyMapper;
@@ -141,6 +142,20 @@ public class AlliesService {
         }
 
         return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
+    }
+
+    /**
+     * Public-facing get-by-uuid. 404s if the ally doesn't exist OR is not
+     * publicly visible (inactive or unpublished) — anonymous callers never
+     * learn an ally exists if it shouldn't be visible. Same filter as
+     * {@link #publicDirectory}.
+     */
+    public PublicAllyDetailDto publicGetByUuid(UUID uuid) {
+        Ally ally = repository.findByUuid(uuid)
+                .filter(Ally::isActive)
+                .filter(Ally::isPublished)
+                .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
+        return mapper.toPublicDetail(ally);
     }
 
     // ─── Mutations ──────────────────────────────────────────────────────────
