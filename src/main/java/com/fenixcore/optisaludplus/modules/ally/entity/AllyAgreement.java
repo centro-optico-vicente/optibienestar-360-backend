@@ -17,13 +17,13 @@ import lombok.Setter;
 import java.time.LocalDate;
 
 /**
- * Convenio formal entre la plataforma y un {@link Ally}. Documenta términos
- * comerciales, exclusividades, vigencia y el PDF firmado.
+ * Formal contract between the platform and an {@link Ally}. Captures
+ * commercial terms, exclusivity, validity period and the signed PDF.
  *
- * <p>El {@code status} (DRAFT/ACTIVE/EXPIRED/TERMINATED) lo provee
- * {@link BaseEntity#getStatus()} ya que es la misma columna {@code status
- * VARCHAR(50)} con CHECK constraint en DB — no se duplica como campo
- * propio.</p>
+ * <p>The {@code status} (DRAFT / ACTIVE / EXPIRED / TERMINATED) is provided
+ * by {@link BaseEntity#getStatus()} — it's the same {@code status
+ * VARCHAR(50)} column with a CHECK constraint on the DB side, so the
+ * entity does not redeclare it.</p>
  */
 @Getter
 @Setter

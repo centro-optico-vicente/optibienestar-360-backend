@@ -27,15 +27,15 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Aliado comercial / médico — entidad organizacional (clínica, farmacia,
- * óptica, ferretería, veterinaria, …). NO referencia {@code persons}: un
- * aliado es una organización, no un humano. Los usuarios que lo operan se
- * enganchan vía {@link AllyUser} (pivote N:M, V12).
+ * Commercial / medical ally — organizational entity (clinic, pharmacy,
+ * optical store, hardware store, vet, etc.). Does NOT reference
+ * {@code persons}: an ally is an organization, not a human. Users that
+ * operate it attach via {@link AllyUser} (N:M pivot, V12).
  *
- * <p>Visibilidad pública controlada por {@link #isPublished()} +
- * {@link #getPublishedAt()} — ortogonal al ciclo de vida de los servicios
- * que ofrece (cada {@link AllyService} tiene su propio
- * {@code reviewStatus} y {@code isPublished}).</p>
+ * <p>Public visibility controlled by {@link #isPublished()} +
+ * {@link #getPublishedAt()} — orthogonal to the lifecycle of the services
+ * it offers (each {@link AllyService} has its own {@code reviewStatus} and
+ * {@code isPublished}).</p>
  */
 @Getter
 @Setter
@@ -55,7 +55,7 @@ public class Ally extends BaseEntity {
     @JoinColumn(name = "ally_type_id", nullable = false)
     private AllyType allyType;
 
-    // ─── Identidad fiscal (RIF VE) ──────────────────────────────────────────
+    // ─── Tax identity (Venezuelan RIF) ──────────────────────────────────────
 
     @Column(name = "tax_document_type", length = 1)
     private String taxDocumentType;
@@ -63,7 +63,7 @@ public class Ally extends BaseEntity {
     @Column(name = "tax_document_number", length = 20)
     private String taxDocumentNumber;
 
-    // ─── Contacto ──────────────────────────────────────────────────────────
+    // ─── Contact ────────────────────────────────────────────────────────────
 
     @Column(columnDefinition = "citext")
     private String email;
@@ -74,7 +74,7 @@ public class Ally extends BaseEntity {
     @Column(length = 255)
     private String website;
 
-    // ─── Dirección ─────────────────────────────────────────────────────────
+    // ─── Address ────────────────────────────────────────────────────────────
 
     @Column(columnDefinition = "text")
     private String address;
@@ -83,7 +83,7 @@ public class Ally extends BaseEntity {
     @JoinColumn(name = "city_id")
     private City city;
 
-    // ─── Branding ──────────────────────────────────────────────────────────
+    // ─── Branding ───────────────────────────────────────────────────────────
 
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
@@ -94,7 +94,7 @@ public class Ally extends BaseEntity {
     @Column(name = "joined_at")
     private LocalDate joinedAt;
 
-    // ─── Publicación en directorio ─────────────────────────────────────────
+    // ─── Directory publishing ───────────────────────────────────────────────
 
     @Column(name = "is_published", nullable = false)
     private boolean published = false;
@@ -102,7 +102,7 @@ public class Ally extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    // ─── Especialidades médicas (pivote ally_specialties) ──────────────────
+    // ─── Medical specialties (ally_specialties pivot) ───────────────────────
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -112,17 +112,17 @@ public class Ally extends BaseEntity {
     )
     private Set<MedicalSpecialty> specialties = new HashSet<>();
 
-    // ─── Membresías de usuarios (V12 ally_users) ───────────────────────────
+    // ─── User memberships (V12 ally_users) ──────────────────────────────────
 
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
     private List<AllyUser> users = new ArrayList<>();
 
-    // ─── Servicios ofrecidos ───────────────────────────────────────────────
+    // ─── Services offered ───────────────────────────────────────────────────
 
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
     private List<AllyService> services = new ArrayList<>();
 
-    // ─── Convenios / acuerdos ──────────────────────────────────────────────
+    // ─── Agreements ─────────────────────────────────────────────────────────
 
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
     private List<AllyAgreement> agreements = new ArrayList<>();

@@ -12,25 +12,25 @@ import java.util.UUID;
 /**
  * Full per-ally view returned by {@code GET /v1/admin/allies/{uuid}} and
  * {@code GET /v1/public/allies/{uuid}}. Embeds the catalog DTOs for
- * ally_type, city, and specialties so the frontend can render the ficha
- * without follow-up calls.
+ * ally_type, city, and specialties so the frontend can render the full
+ * ficha without follow-up calls.
  *
  * <p>Users / services / agreements are NOT inlined — they have dedicated
  * sub-resources ({@code /allies/{id}/users}, {@code /services},
  * {@code /agreements}) with their own pagination. Counts are exposed here
- * so the frontend can show "3 servicios activos" badges without querying
- * the sub-resources.</p>
+ * so the frontend can show "3 active services" badges without querying the
+ * sub-resources.</p>
  */
 public record AllyDetailDto(
         UUID uuid,
         String name,
         AllyTypeDto allyType,
 
-        // ─── Identidad fiscal ──────────────────────────────────────────────
+        // ─── Tax identity ──────────────────────────────────────────────────
         String taxDocumentType,
         String taxDocumentNumber,
 
-        // ─── Contacto + dirección ──────────────────────────────────────────
+        // ─── Contact + address ─────────────────────────────────────────────
         String email,
         String phone,
         String website,
@@ -42,14 +42,14 @@ public record AllyDetailDto(
         String description,
         LocalDate joinedAt,
 
-        // ─── Publicación ───────────────────────────────────────────────────
+        // ─── Publishing ────────────────────────────────────────────────────
         boolean published,
         Instant publishedAt,
 
-        // ─── Especialidades médicas (ally_specialties pivote) ──────────────
+        // ─── Medical specialties (ally_specialties pivot) ──────────────────
         List<MedicalSpecialtyDto> specialties,
 
-        // ─── Resumen agregado (no inlines las sub-listas) ──────────────────
+        // ─── Aggregated summary (sub-lists not inlined; sub-resources handle that) ─
         int activeUsersCount,
         int activeServicesCount,
         int activeAgreementsCount,

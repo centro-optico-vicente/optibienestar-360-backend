@@ -20,17 +20,17 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Servicio puntual ofrecido por un {@link Ally} (consulta, examen, descuento
- * en óptica, etc.). Pasa por el workflow de aprobación:
+ * Service offered by an {@link Ally} (consultation, exam, optical discount,
+ * etc.). Goes through the approval workflow:
  * <pre>
  *   PROPOSED → IN_REVIEW → APPROVED → REMOVED
  *                      ↘   ↑
  *                        REJECTED (resubmittable)
  * </pre>
  *
- * <p>Solo aparece en el directorio público cuando {@link #isPublished()} +
- * {@link #getReviewStatus()} == {@link ReviewStatus#APPROVED} (CHECK
- * constraint en DB lo garantiza).</p>
+ * <p>Only appears in the public directory when {@link #isPublished()} +
+ * {@link #getReviewStatus()} == {@link ReviewStatus#APPROVED} (the DB
+ * CHECK constraint enforces this invariant).</p>
  */
 @Getter
 @Setter
@@ -63,7 +63,7 @@ public class AllyService extends BaseEntity {
     @Column(name = "requires_appointment", nullable = false)
     private boolean requiresAppointment = false;
 
-    // ─── Review workflow ───────────────────────────────────────────────────
+    // ─── Review workflow ────────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
     @Column(name = "review_status", length = 20, nullable = false)
@@ -76,11 +76,11 @@ public class AllyService extends BaseEntity {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
-    /** Texto contextual del último cambio a {@code REJECTED} o {@code REMOVED}. */
+    /** Contextual text for the last transition into {@code REJECTED} or {@code REMOVED}. */
     @Column(name = "review_reason", columnDefinition = "text")
     private String reviewReason;
 
-    // ─── Publicación en directorio ─────────────────────────────────────────
+    // ─── Directory publishing ───────────────────────────────────────────────
 
     @Column(name = "is_published", nullable = false)
     private boolean published = false;
