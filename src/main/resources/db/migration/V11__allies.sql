@@ -52,6 +52,17 @@ CREATE TABLE allies
     manager_user_id     BIGINT       REFERENCES users (users_id),
     joined_at           DATE,
 
+    -- Visibilidad en el directorio público (independiente del workflow de
+    -- aprobación, que aplica a `ally_services`). El admin puede:
+    --   - is_published=FALSE                        → oculto, en onboarding
+    --   - is_published=TRUE + published_at NULL     → publicado desde ya
+    --   - is_published=FALSE + published_at futuro  → programado (scheduler
+    --     diario flipea is_published al llegar la fecha)
+    --   - is_published=TRUE + published_at pasado   → publicado desde X fecha
+    --     (mostrar "Publicado desde…" en la ficha pública)
+    is_published        BOOLEAN      NOT NULL DEFAULT FALSE,
+    published_at        TIMESTAMPTZ,
+
     -- Audit + soft-delete
     is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
     status              VARCHAR(50),
@@ -74,6 +85,8 @@ CREATE UNIQUE INDEX uniq_allies_tax_document
 CREATE INDEX idx_allies_ally_type ON allies (ally_type_id);
 CREATE INDEX idx_allies_city      ON allies (city_id) WHERE city_id IS NOT NULL;
 CREATE INDEX idx_allies_manager   ON allies (manager_user_id) WHERE manager_user_id IS NOT NULL;
+-- Filtro del directorio público
+CREATE INDEX idx_allies_published ON allies (is_published) WHERE is_published;
 CREATE INDEX idx_allies_name_unaccent
     ON allies USING gin (unaccent(lower(name)) gin_trgm_ops);
 
@@ -121,6 +134,15 @@ CREATE TABLE ally_services
     reviewed_at            TIMESTAMPTZ,
     review_reason          TEXT,         -- aplica a REJECTED y REMOVED — texto contextual
 
+    -- Visibilidad en el directorio público. Ortogonal al review_status:
+    -- un servicio APPROVED puede estar sin publicar (en pausa estacional,
+    -- esperando coordinación con marketing, etc.). El filtro público es
+    --   WHERE is_active AND is_published AND review_status = 'APPROVED'.
+    -- Soporta publicación programada via published_at + scheduler (misma
+    -- semántica que allies — ver comentario allá).
+    is_published           BOOLEAN      NOT NULL DEFAULT FALSE,
+    published_at           TIMESTAMPTZ,
+
     -- Audit + soft-delete
     is_active              BOOLEAN      NOT NULL DEFAULT TRUE,
     status                 VARCHAR(50),
@@ -134,6 +156,10 @@ CREATE TABLE ally_services
     CONSTRAINT chk_ally_services_review_reason CHECK (
         review_status NOT IN ('REJECTED', 'REMOVED')
         OR (review_reason IS NOT NULL AND reviewed_by IS NOT NULL)
+    ),
+    -- Consistency: no se publica un servicio que no esté aprobado
+    CONSTRAINT chk_ally_services_published_requires_approved CHECK (
+        is_published = FALSE OR review_status = 'APPROVED'
     )
 );
 
@@ -144,6 +170,10 @@ CREATE INDEX idx_ally_services_review_status ON ally_services (review_status);
 CREATE INDEX idx_ally_services_pending_queue
     ON ally_services (created_at)
     WHERE review_status IN ('PROPOSED', 'IN_REVIEW');
+-- Filtro del directorio público (servicios visibles)
+CREATE INDEX idx_ally_services_published
+    ON ally_services (ally_id)
+    WHERE is_published AND review_status = 'APPROVED';
 
 CREATE TRIGGER trg_ally_services_updated_at
     BEFORE UPDATE ON ally_services
