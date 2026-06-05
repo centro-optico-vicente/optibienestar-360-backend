@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V11__allies.sql` — allies, ally_specialties, ally_services, ally_agreements
+- [x] [P0/C3] `V11__allies.sql` — allies, ally_specialties, ally_services, ally_agreements _(Implementada incluyendo desde el día 1 los campos del workflow v2 sobre `ally_services` y la tabla `ally_service_review_log` — ver bullets v2 marcados abajo. También seed del permiso `ALLY_SERVICE_APPROVE` a SYSTEM + ADMINISTRADOR. Decisiones: `tax_document` (RIF) opcional con UNIQUE parcial; `manager_user_id` FK NULL para aliados gestionados centralmente; índice GIN unaccent sobre `name` para búsqueda; `ally_service_review_log` es insert-only (sin trigger updated_at, no audit columns). contextLoads aplica el chain V1..V11 limpio sobre BD vacía.)_
 - [ ] [P0/C3] `V12__ally_users.sql`
 
 ## Código
@@ -25,8 +25,8 @@
 
 ### Migraciones
 
-- [ ] [v2] [P0/C2] `ally_services` ampliada: columna `status` ENUM ('PROPOSED','IN_REVIEW','APPROVED','REJECTED') default 'PROPOSED', `reviewed_by` FK users, `reviewed_at`, `rejection_reason` TEXT, `discount_pct` numeric — el aliado propone, admin aprueba antes de publicar.
-- [ ] [v2] [P0/C2] `ally_service_review_log` — historial de cambios de estado (`from_status`, `to_status`, `actor`, `at`, `comment`). Visible para admin Y para el aliado dueño del servicio.
+- [x] [v2] [P0/C2] `ally_services` ampliada: columna `review_status` ENUM ('PROPOSED','IN_REVIEW','APPROVED','REJECTED','**REMOVED**') default 'PROPOSED', `reviewed_by` FK users, `reviewed_at`, `review_reason` TEXT (aplica a REJECTED y REMOVED), `discount_pct` numeric. Workflow: `PROPOSED → IN_REVIEW → APPROVED → REMOVED` con bypass `→ REJECTED` desde PROPOSED/IN_REVIEW. CHECK constraint exige `review_reason + reviewed_by` cuando el estado es REJECTED o REMOVED. _(Schema implementado en V11 — falta el código de service/endpoints para mover los estados.)_
+- [x] [v2] [P0/C2] `ally_service_review_log` — tabla insert-only con `from_status`, `to_status`, `actor_user_id`, `action_at`, `comment`. Visible para admin Y para el aliado dueño (se filtra en service por `ally_service.ally.manager_user_id = currentUser`). Índice `(ally_service_id, action_at DESC)` para historial cronológico inverso. _(Schema implementado en V11 — endpoints/logging desde service code pendientes.)_
 
 ### Endpoints
 
@@ -34,9 +34,11 @@
 - [ ] [v2] [P0/C2] `GET /v1/admin/ally-services/pending` — cola de revisión (filtrable por aliado, tipo).
 - [ ] [v2] [P0/C2] `POST /v1/admin/ally-services/{uuid}/approve` (requiere `ALLY_SERVICE_APPROVE`).
 - [ ] [v2] [P0/C2] `POST /v1/admin/ally-services/{uuid}/reject` (requiere `ALLY_SERVICE_APPROVE`, exige `reason`).
+- [ ] [v2] [P0/C2] `POST /v1/admin/ally-services/{uuid}/remove` (requiere `ALLY_SERVICE_APPROVE`, exige `reason`; transición sólo desde APPROVED).
+- [ ] [v2] [P0/C2] `DELETE /v1/aliado/services/{uuid}` (el aliado dueño retira su servicio APPROVED — internamente transiciona a REMOVED con `actor = currentUser`, no requiere `ALLY_SERVICE_APPROVE`).
 - [ ] [v2] [P0/C2] `GET /v1/aliado/services/{uuid}/log` y `GET /v1/admin/ally-services/{uuid}/log` — mismo endpoint con scope diferente, log compartido.
 - [ ] [v2] [P0/C1] `GET /v1/public/allies/{id}` solo expone `ally_services` con `status='APPROVED'`.
 
 ### Permisos (V6 ampliación o nueva migración)
 
-- [ ] [v2] [P0/C1] Permiso `ALLY_SERVICE_APPROVE` (asignado a ADMINISTRADOR + SYSTEM).
+- [x] [v2] [P0/C1] Permiso `ALLY_SERVICE_APPROVE` (asignado a ADMINISTRADOR + SYSTEM). _(Seed en V11 vía `INSERT INTO permissions` + `role_permissions` join — usa el `permission_domains.code='ALLIES'` ya existente del V5 seed. Asignado solo a SYSTEM + ADMINISTRADOR; el aliado nunca aprueba sus propios servicios.)_
