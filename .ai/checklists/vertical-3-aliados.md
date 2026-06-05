@@ -30,7 +30,7 @@
 
 ### Endpoints
 
-- [ ] [v2] [P0/C2] `POST /v1/aliado/services` — el aliado propone un servicio + porcentaje de descuento (entra en `PROPOSED`).
+- [x] [v2] [P0/C2] `POST /v1/aliado/services` — el aliado propone un servicio + porcentaje de descuento (entra en `PROPOSED`). _(Endpoint en `AllyServicesController` (al `/v1/aliado/services`) guarded por `@PreAuthorize("isAuthenticated()")` — NO permiso nuevo seeded; la autorización es **membership-based**: `AllyServicesProposeService.propose(actorUserUuid, request)` busca membership activa del actor con `findActiveByAllyUuidAndUserUuid` (query JPQL nueva en AllyUserRepository) y rechaza con 403 `ally_service.propose.not_allowed` si no existe o si `allyRole=VIEWER` (sólo OWNER y STAFF pueden proponer). Request: `ProposeAllyServiceRequest` con `allyUuid` explícito (un user puede pertenecer a múltiples allies, cadena de farmacias etc.) + service category + name/desc/price/discount/requiresAppointment. Service lands at `reviewStatus=PROPOSED` (V11 default); `reviewedBy/At` quedan NULL hasta que admin promueve via workflow endpoints (siguiente bullet). Response 201 + Location header al detail admin del nuevo service. 1 key i18n nueva en 3 bundles. contextLoads + 51 tests verdes.)_
 - [ ] [v2] [P0/C2] `GET /v1/admin/ally-services/pending` — cola de revisión (filtrable por aliado, tipo).
 - [ ] [v2] [P0/C2] `POST /v1/admin/ally-services/{uuid}/approve` (requiere `ALLY_SERVICE_APPROVE`).
 - [ ] [v2] [P0/C2] `POST /v1/admin/ally-services/{uuid}/reject` (requiere `ALLY_SERVICE_APPROVE`, exige `reason`).
