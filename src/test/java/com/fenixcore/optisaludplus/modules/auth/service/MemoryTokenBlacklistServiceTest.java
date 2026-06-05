@@ -106,4 +106,36 @@ class MemoryTokenBlacklistServiceTest {
         // poll for eventual expiry rather than asserting immediately.
         await().atMost(2, TimeUnit.SECONDS).until(() -> !svc.isBlacklisted("jti-0"));
     }
+
+    // ─── User invalidation epoch ────────────────────────────────────────────
+
+    @Test
+    void getUserInvalidatedEpoch_returnsZeroWhenNeverInvalidated() {
+        assertThat(svc.getUserInvalidatedEpoch(UUID.randomUUID().toString())).isZero();
+    }
+
+    @Test
+    void markUserInvalidatedNow_storesRecentEpochAndIsIdempotent() {
+        String userUuid = UUID.randomUUID().toString();
+        long before = java.time.Instant.now().getEpochSecond();
+        svc.markUserInvalidatedNow(userUuid);
+        long after = java.time.Instant.now().getEpochSecond();
+
+        long epoch = svc.getUserInvalidatedEpoch(userUuid);
+        assertThat(epoch).isBetween(before, after);
+
+        // Re-marking is idempotent (overwrites with a newer-or-equal epoch).
+        svc.markUserInvalidatedNow(userUuid);
+        assertThat(svc.getUserInvalidatedEpoch(userUuid)).isGreaterThanOrEqualTo(epoch);
+    }
+
+    @Test
+    void userInvalidationsAreScopedPerUser() {
+        String a = UUID.randomUUID().toString();
+        String b = UUID.randomUUID().toString();
+        svc.markUserInvalidatedNow(a);
+
+        assertThat(svc.getUserInvalidatedEpoch(a)).isPositive();
+        assertThat(svc.getUserInvalidatedEpoch(b)).isZero();
+    }
 }

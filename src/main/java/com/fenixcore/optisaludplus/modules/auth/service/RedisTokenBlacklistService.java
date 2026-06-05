@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -21,6 +22,14 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
     private static final String BLACKLIST_PREFIX = "blacklist:";
     private static final String REFRESH_PREFIX   = "refresh:";
     private static final String USER_REFRESH_SET = "user_refresh:";
+    private static final String USER_INV_PREFIX  = "user_inv:";
+    /**
+     * Marker TTL — comfortably outlives the longest possible access token
+     * (default 15 min). After this window passes, every access token issued
+     * before the marker was set is already expired by JWT itself, so the
+     * marker has no work left to do.
+     */
+    private static final Duration USER_INV_TTL   = Duration.ofHours(24);
 
     private final StringRedisTemplate redis;
 
@@ -114,6 +123,35 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
             redis.delete(USER_REFRESH_SET + userUuid);
         } catch (Exception e) {
             log.warn("Redis unavailable — could not revoke all refresh tokens for user {}", userUuid);
+        }
+    }
+
+    @Override
+    public void markUserInvalidatedNow(String userUuid) {
+        try {
+            long nowSec = Instant.now().getEpochSecond();
+            redis.opsForValue().set(USER_INV_PREFIX + userUuid, Long.toString(nowSec), USER_INV_TTL);
+        } catch (Exception e) {
+            log.warn("Redis unavailable — could not mark user {} as invalidated", userUuid);
+        }
+    }
+
+    @Override
+    public long getUserInvalidatedEpoch(String userUuid) {
+        try {
+            String value = redis.opsForValue().get(USER_INV_PREFIX + userUuid);
+            return value != null ? Long.parseLong(value) : 0L;
+        } catch (NumberFormatException corrupt) {
+            // Corrupt marker → treat as no marker, do NOT reject the user.
+            log.warn("Corrupt user invalidation marker for {}, ignoring", userUuid);
+            return 0L;
+        } catch (Exception e) {
+            // Fail-closed: return Long.MAX_VALUE so every token's iat is "older"
+            // than the epoch and the filter rejects it. Same posture as
+            // isBlacklisted() during a Redis outage — under failure we refuse
+            // auth rather than risk serving stale permissions.
+            log.warn("Redis unavailable — failing closed on user epoch check for {}", userUuid);
+            return Long.MAX_VALUE;
         }
     }
 }
