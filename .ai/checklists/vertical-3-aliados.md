@@ -10,7 +10,7 @@
 
 ## Código
 
-- [ ] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser
+- [x] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser _(`AllyType` + `MedicalSpecialty` + `ServiceCategory` + `City` ya existían en `modules/catalog/entity/` desde V10/V8. Las 4 ally-domain entities nuevas viven en `modules/ally/entity/`: Ally (con `@ManyToMany Set<MedicalSpecialty>` via pivote `ally_specialties` + `@OneToMany` a AllyUser/AllyService/AllyAgreement), AllyService (con `@Enumerated(STRING)` para `ReviewStatus` enum interno PROPOSED/IN_REVIEW/APPROVED/REJECTED/REMOVED), AllyAgreement (con `AgreementType` enum COMMERCIAL/MEDICAL/EXCLUSIVITY/SUPPLY; `status` heredado de BaseEntity para los estados del contrato DRAFT/ACTIVE/EXPIRED/TERMINATED), AllyUser (con `AllyRole` enum OWNER/STAFF/VIEWER + flag `primary`). Todas extienden `BaseEntity` (provee uuid/active/status/audit). `AllyServiceReviewLog` no se modela aún como entity — vendrá con la implementación del workflow service. Hibernate validate verde — contextLoads OK.)_
 - [ ] [P0/C2] Repos + Services (findByDocument, searchByLocationAndSpecialty)
 - [ ] [P0/C2] DTOs (Create, Update, ListItem, Detail, Agreement)
 - [ ] [P0/C3] `/v1/admin/allies` CRUD + RSQL
