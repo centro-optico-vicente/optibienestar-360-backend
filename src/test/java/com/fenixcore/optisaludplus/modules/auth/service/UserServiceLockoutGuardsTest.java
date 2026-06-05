@@ -8,6 +8,8 @@ import com.fenixcore.optisaludplus.modules.auth.mapper.UserMapper;
 import com.fenixcore.optisaludplus.modules.auth.repository.RoleRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optisaludplus.modules.person.entity.Person;
+import com.fenixcore.optisaludplus.modules.person.service.PersonService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -47,6 +48,7 @@ class UserServiceLockoutGuardsTest {
     @Mock private UserMapper userMapper;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private TokenBlacklistService blacklistService;
+    @Mock private PersonService personService;
 
     @InjectMocks private UserService userService;
 
@@ -66,7 +68,7 @@ class UserServiceLockoutGuardsTest {
         User systemUser = userWithRole(targetUuid, "SYSTEM");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemUser));
 
-        AdminUpdateUserRequest request = minimalUpdate("New Name");
+        AdminUpdateUserRequest request = minimalUpdateFirstName("Renamed");
 
         assertThatThrownBy(() -> userService.updateUser(targetUuid, request, otherActorUuid))
                 .isInstanceOf(AccessDeniedException.class)
@@ -96,8 +98,7 @@ class UserServiceLockoutGuardsTest {
         User target = userWithRole(targetUuid, "ADMINISTRADOR");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(
-                null, null, null, null, null, null, /* active */ false, null);
+        AdminUpdateUserRequest request = updateWithActive(false);
 
         // actorUuid == targetUuid → self
         assertThatThrownBy(() -> userService.updateUser(targetUuid, request, targetUuid))
@@ -110,8 +111,7 @@ class UserServiceLockoutGuardsTest {
         User target = userWithRole(targetUuid, "ADMINISTRADOR");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(
-                null, null, null, null, null, /* status */ "SUSPENDED", null, null);
+        AdminUpdateUserRequest request = updateWithStatus("SUSPENDED");
 
         assertThatThrownBy(() -> userService.updateUser(targetUuid, request, targetUuid))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -123,9 +123,7 @@ class UserServiceLockoutGuardsTest {
         User target = userWithRole(targetUuid, "ADMINISTRADOR");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(
-                null, null, null, null, null, null, null,
-                /* roleIds */ List.of(UUID.randomUUID()));
+        AdminUpdateUserRequest request = updateWithRoleIds(List.of(UUID.randomUUID()));
 
         assertThatThrownBy(() -> userService.updateUser(targetUuid, request, targetUuid))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -148,16 +146,13 @@ class UserServiceLockoutGuardsTest {
     @Test
     void updateUser_allowsSelfProfileEditWhenNotTouchingSecurityFields() {
         User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        // findWithRolesByUuid is called twice — once at entry, once for the
+        // toDto call at the end. Stub a default return for both.
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
-        AdminUpdateUserRequest request = new AdminUpdateUserRequest(
-                "Updated Self Name", null, null, "+58414-1234567", null, null, null, null);
+        AdminUpdateUserRequest request = updateProfileFields("Edwin", "+58414-1234567");
 
         // Should NOT throw — profile fields are editable on self.
-        // The mapper will be called; stub it so we don't NPE on the return value.
-        when(userMapper.toDto(any())).thenReturn(null);
-        UserMapper unused = userMapper;
-        assertThat(unused).isNotNull();
         userService.updateUser(targetUuid, request, targetUuid);
 
         verify(userRepository).save(any());
@@ -167,9 +162,15 @@ class UserServiceLockoutGuardsTest {
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
+    /**
+     * Builds a User entity with a populated Person (since UserService.updateUser
+     * walks user.getPerson()...) plus a single active role assignment.
+     */
     private User userWithRole(UUID userUuid, String roleName) {
         User u = new User();
         u.setUuid(userUuid);
+        u.setPerson(emptyPerson());
+
         Role role = new Role();
         role.setName(roleName);
         UserRole ur = new UserRole();
@@ -182,7 +183,54 @@ class UserServiceLockoutGuardsTest {
         return u;
     }
 
-    private AdminUpdateUserRequest minimalUpdate(String name) {
-        return new AdminUpdateUserRequest(name, null, null, null, null, null, null, null);
+    private Person emptyPerson() {
+        Person p = new Person();
+        p.setFirstName("Seed");
+        p.setLastName("Person");
+        p.setDocumentType("V");
+        p.setDocumentNumber("99999999");
+        return p;
+    }
+
+    private AdminUpdateUserRequest minimalUpdateFirstName(String firstName) {
+        // firstName-only edit: tests the SYSTEM-user guard fires before any
+        // Person mutation, regardless of which field is being changed.
+        return new AdminUpdateUserRequest(
+                firstName, null, null, null,
+                null, null, null, null,
+                null, null,
+                null, null, null);
+    }
+
+    private AdminUpdateUserRequest updateWithActive(boolean active) {
+        return new AdminUpdateUserRequest(
+                null, null, null, null,
+                null, null, null, null,
+                null, null,
+                null, /* active */ active, null);
+    }
+
+    private AdminUpdateUserRequest updateWithStatus(String status) {
+        return new AdminUpdateUserRequest(
+                null, null, null, null,
+                null, null, null, null,
+                null, null,
+                /* status */ status, null, null);
+    }
+
+    private AdminUpdateUserRequest updateWithRoleIds(List<UUID> roleIds) {
+        return new AdminUpdateUserRequest(
+                null, null, null, null,
+                null, null, null, null,
+                null, null,
+                null, null, /* roleIds */ roleIds);
+    }
+
+    private AdminUpdateUserRequest updateProfileFields(String firstName, String phone) {
+        return new AdminUpdateUserRequest(
+                firstName, null, null, null,
+                null, null, null, null,
+                phone, null,
+                null, null, null);
     }
 }

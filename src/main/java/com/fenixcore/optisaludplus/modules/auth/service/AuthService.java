@@ -89,7 +89,7 @@ public class AuthService {
 
         List<String> permissions = collectPermissions(user);
         String subject = user.getUuid().toString();
-        String userLocale = user.getLocale();
+        String userLocale = user.getPerson().getLocale();
         String effectiveLocale = resolveEffectiveLocale(userLocale);
         String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale);
         String refreshToken = jwtService.generateRefreshToken(subject);
@@ -135,7 +135,7 @@ public class AuthService {
         blacklistService.revokeRefreshToken(refreshJti, subject);
 
         List<String> permissions = collectPermissions(user);
-        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getLocale());
+        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale());
         String newRefreshToken = jwtService.generateRefreshToken(subject);
 
         String newRefreshJti   = jwtService.extractJti(newRefreshToken);
@@ -191,7 +191,7 @@ public class AuthService {
             // Recipient locale wins over request locale: the email goes to the
             // user, so it should match THEIR preference (admin-triggered flows
             // wouldn't honor the admin's Accept-Language for someone else).
-            Locale recipientLocale = resolveRecipientLocale(user.getLocale());
+            Locale recipientLocale = resolveRecipientLocale(user.getPerson().getLocale());
             String subject = messageSource.getMessage("email.recovery.subject", null, recipientLocale);
 
             emailService.sendTemplated(
@@ -199,7 +199,7 @@ public class AuthService {
                     subject,
                     "password-recovery",
                     recipientLocale,
-                    Map.of("fullName", user.getFullName(), "token", rawToken)
+                    Map.of("fullName", user.getPerson().getFullName(), "token", rawToken)
             );
         });
         // Always return void (don't reveal if email exists)
@@ -279,8 +279,8 @@ public class AuthService {
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
 
-        user.setLocale(newLocale);
-        userRepository.save(user);
+        user.getPerson().setLocale(newLocale);
+        // No explicit save — managed entity → dirty-check on tx commit.
 
         List<String> permissions = collectPermissions(user);
         String subject = user.getUuid().toString();

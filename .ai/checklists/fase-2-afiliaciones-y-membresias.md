@@ -18,17 +18,17 @@
 - [ ] [P0/C3] `V12__ally_users.sql`
 - [ ] [P0/C3] `V13__plans.sql`
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
-- [ ] [P0/C3] `V15__members.sql` + member_documents
-- [ ] [P0/C3] `V16__beneficiaries.sql`
-- [ ] [P0/C3] `V17__medical_records.sql`
-- [ ] [P0/C3] `V18__memberships.sql`
-- [ ] [P0/C3] `V19__payments.sql`
-- [ ] [P0/C3] `V20__benefit_usages.sql`
-- [ ] [P0/C3] `V21__promoters.sql`
-- [ ] [P0/C3] `V22__commissions.sql`
-- [ ] [P0/C3] `V23__referrals.sql`
-- [ ] [P0/C2] `V24__notifications.sql`
-- [ ] [P0/C2] `V25__digital_cards_view.sql`
+- [ ] [P0/C3] `V17__members.sql` + member_documents
+- [ ] [P0/C3] `V18__beneficiaries.sql`
+- [ ] [P0/C3] `V19__medical_records.sql`
+- [ ] [P0/C3] `V20__memberships.sql`
+- [ ] [P0/C3] `V21__payments.sql`
+- [ ] [P0/C3] `V22__benefit_usages.sql`
+- [ ] [P0/C3] `V23__promoters.sql`
+- [ ] [P0/C3] `V24__commissions.sql`
+- [ ] [P0/C3] `V25__referrals.sql`
+- [ ] [P0/C2] `V26__notifications.sql`
+- [ ] [P0/C2] `V27__digital_cards_view.sql`
 - [ ] [P0/C2] Índices clave: members(document), memberships(status, next_due), benefit_usages, payments(status)
 - [ ] [P1/C2] Índice GIN full-text en members.full_name con unaccent
 
