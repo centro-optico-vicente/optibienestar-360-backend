@@ -18,7 +18,7 @@
 - [x] [P0/C3] `V12__ally_users.sql` — pivote N:M user↔ally con `ally_role` (OWNER/STAFF/VIEWER) + `is_primary`. Dropea `allies.manager_user_id` (V11) ahora redundante. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [ ] [P0/C3] `V13__plans.sql`
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
-- [ ] [P0/C3] `V17__members.sql` + member_documents
+- [x] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (BaseEntity-style audit, sin demográficos). `member_documents` con CHECK constraint sobre `document_type` + `file_url` (R2 key). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C3] `V18__beneficiaries.sql`
 - [ ] [P0/C3] `V19__medical_records.sql`
 - [ ] [P0/C3] `V20__memberships.sql`
