@@ -6,6 +6,7 @@ import com.fenixcore.optisaludplus.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyUpdateRequest;
+import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.entity.Ally;
 import com.fenixcore.optisaludplus.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optisaludplus.modules.ally.repository.AllyRepository;
@@ -98,17 +99,33 @@ public class AlliesService {
     }
 
     /**
-     * Public-directory query. Filters {@code is_active AND is_published}.
-     * Both UUID filters optional — null means "no restriction".
+     * Public-directory query. Filters {@code is_active AND is_published}, so
+     * anonymous callers never see allies still in onboarding nor
+     * temporarily-unpublished ones. All inputs are optional — passing
+     * everything null returns every published ally (paginated).
+     *
+     * <p>{@code q} is a free-text search across {@code name} +
+     * {@code description}; reuses {@link SearchSpecifications#acrossFields}
+     * so accents are normalized ({@code "merida"} matches
+     * {@code "Mérida"}). The specialty filter joins through the
+     * {@code @ManyToMany ally_specialties} pivot with
+     * {@code query.distinct(true)} so an ally with multiple specialties
+     * doesn't duplicate in results.</p>
+     *
+     * @return paginated sanitized {@link PublicAllyListItemDto} — see that
+     *         DTO for which fields are intentionally omitted.
      */
-    public Page<Ally> searchByLocationAndSpecialty(UUID cityUuid,
-                                                   UUID medicalSpecialtyUuid,
-                                                   Pageable pageable) {
+    public Page<PublicAllyListItemDto> publicDirectory(UUID cityUuid,
+                                                       UUID medicalSpecialtyUuid,
+                                                       String q,
+                                                       Pageable pageable) {
         Specification<Ally> spec = publishedOnly();
+
         if (cityUuid != null) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("city").get("uuid"), cityUuid));
         }
+
         if (medicalSpecialtyUuid != null) {
             spec = spec.and((root, query, cb) -> {
                 if (query != null) {
@@ -118,7 +135,12 @@ public class AlliesService {
                 return cb.equal(specialties.get("uuid"), medicalSpecialtyUuid);
             });
         }
-        return repository.findAll(spec, pageable);
+
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, "name", "description"));
+        }
+
+        return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
     }
 
     // ─── Mutations ──────────────────────────────────────────────────────────

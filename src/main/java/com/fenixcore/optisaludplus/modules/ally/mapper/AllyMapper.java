@@ -6,6 +6,7 @@ import com.fenixcore.optisaludplus.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyUserDto;
+import com.fenixcore.optisaludplus.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optisaludplus.modules.ally.entity.Ally;
 import com.fenixcore.optisaludplus.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optisaludplus.modules.ally.entity.AllyService;
@@ -36,6 +37,11 @@ public interface AllyMapper {
     @Mapping(target = "cityUuid",     source = "city.uuid")
     @Mapping(target = "cityName",     source = "city.name")
     AllyListItemDto toListItem(Ally ally);
+
+    /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */
+    @Mapping(target = "allyTypeName", source = "allyType.name")
+    @Mapping(target = "cityName",     source = "city.name")
+    PublicAllyListItemDto toPublicListItem(Ally ally);
 
     @Mapping(target = "allyType",    source = "allyType")
     @Mapping(target = "city",        source = "city")
