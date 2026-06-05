@@ -115,11 +115,21 @@ public class UserService {
         if (request.status() != null) user.setStatus(request.status());
         if (request.active() != null) user.setActive(request.active());
 
-        if (request.roleIds() != null && !request.roleIds().isEmpty()) {
+        boolean rolesChanged = request.roleIds() != null && !request.roleIds().isEmpty();
+        if (rolesChanged) {
             syncRoles(user, request.roleIds());
         }
 
         userRepository.save(user);
+
+        // Token-staleness: when role assignment changes, the user's current
+        // access token still carries the old `permissions` claim. Bump the
+        // invalidation epoch so the JwtAuthenticationFilter rejects the stale
+        // token on the next request and forces a refresh.
+        if (rolesChanged) {
+            blacklistService.markUserInvalidatedNow(uuid.toString());
+        }
+
         return userMapper.toDto(userRepository.findWithRolesByUuid(uuid).orElseThrow());
     }
 
@@ -131,6 +141,9 @@ public class UserService {
         user.setStatus("SUSPENDED");
         userRepository.save(user);
         blacklistService.revokeAllUserRefreshTokens(uuid.toString());
+        // Close the access-token window too: refresh revocation alone leaves
+        // up to 15 min during which the existing access token still works.
+        blacklistService.markUserInvalidatedNow(uuid.toString());
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

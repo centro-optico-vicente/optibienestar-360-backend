@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -23,8 +24,12 @@ import java.util.concurrent.TimeUnit;
 @ConditionalOnProperty(name = "auth.token-blacklist.provider", havingValue = "memory")
 public class MemoryTokenBlacklistService implements TokenBlacklistService {
 
+    /** Same 24h marker TTL as the Redis impl; see USER_INV_TTL there. */
+    private static final Duration USER_INV_TTL = Duration.ofHours(24);
+
     private final Cache<String, TtlValue> blacklist;
     private final Cache<String, TtlValue> refreshTokens;
+    private final Cache<String, TtlValue> userInvalidations;
 
     public MemoryTokenBlacklistService() {
         Expiry<String, TtlValue> perEntryExpiry = new Expiry<>() {
@@ -42,8 +47,9 @@ public class MemoryTokenBlacklistService implements TokenBlacklistService {
             }
         };
 
-        this.blacklist     = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
-        this.refreshTokens = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
+        this.blacklist         = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
+        this.refreshTokens     = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
+        this.userInvalidations = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
         log.info("Token blacklist provider: memory (Caffeine). Multi-replica logout/revoke will NOT propagate.");
     }
 
@@ -87,6 +93,26 @@ public class MemoryTokenBlacklistService implements TokenBlacklistService {
             if (userUuid.equals(entry.getValue().value())) {
                 refreshTokens.invalidate(entry.getKey());
             }
+        }
+    }
+
+    @Override
+    public void markUserInvalidatedNow(String userUuid) {
+        long nowSec = Instant.now().getEpochSecond();
+        userInvalidations.put(userUuid, new TtlValue(Long.toString(nowSec), USER_INV_TTL.toNanos()));
+    }
+
+    @Override
+    public long getUserInvalidatedEpoch(String userUuid) {
+        TtlValue entry = userInvalidations.getIfPresent(userUuid);
+        if (entry == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(entry.value());
+        } catch (NumberFormatException e) {
+            log.warn("Corrupt user invalidation marker for {}, ignoring", userUuid);
+            return 0L;
         }
     }
 

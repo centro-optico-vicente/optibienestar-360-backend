@@ -27,4 +27,26 @@ public interface TokenBlacklistService {
     void revokeRefreshToken(String jti, String userUuid);
 
     void revokeAllUserRefreshTokens(String userUuid);
+
+    // ─── User invalidation epoch ────────────────────────────────────────────
+    // Used by RoleService / UserService when a role's permissions or a user's
+    // role assignment changes. Stores "now" as the user's invalidation epoch;
+    // the JwtAuthenticationFilter rejects any access token whose iat is older
+    // than this epoch, forcing the client to refresh and pick up the new
+    // permissions. Avoids the up-to-15-min staleness window of the access
+    // token TTL without having to track per-user active JTIs server-side.
+
+    /**
+     * Mark every access token of {@code userUuid} issued before {@link java.time.Instant#now()}
+     * as stale. Idempotent. The marker auto-expires after a TTL chosen to
+     * comfortably outlive any possible access token (impl-defined).
+     */
+    void markUserInvalidatedNow(String userUuid);
+
+    /**
+     * @return the epoch seconds of the most recent {@link #markUserInvalidatedNow(String)}
+     *         for this user, or {@code 0} if no marker is stored (no invalidation
+     *         ever recorded, or the marker has expired).
+     */
+    long getUserInvalidatedEpoch(String userUuid);
 }

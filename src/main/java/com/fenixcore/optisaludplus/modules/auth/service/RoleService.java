@@ -37,6 +37,7 @@ public class RoleService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserMapper userMapper;
+    private final TokenBlacklistService blacklistService;
 
     public List<RoleDto> listActiveRoles() {
         return roleRepository.findAllByActiveTrue().stream()
@@ -85,6 +86,12 @@ public class RoleService {
         // sees a single managed collection rather than a swap.
         role.getPermissions().clear();
         role.getPermissions().addAll(newPermissions);
+
+        // Token-staleness fan-out: every user currently assigned this role has
+        // an access token whose `permissions` claim is now wrong. Bump their
+        // invalidation epoch so the JwtAuthenticationFilter rejects the stale
+        // token on the next request and forces a refresh.
+        invalidateAllUsersOf(role);
     }
 
     /**
@@ -142,8 +149,31 @@ public class RoleService {
         if (userRoleRepository.existsByRoleId(role.getId())) {
             role.setActive(false);
             // managed entity → dirty-check on commit
+            // Same staleness fan-out as updateRolePermissions: users keep the
+            // role in their JWT claim until refresh, but the role is now
+            // inactive and its permissions should no longer count.
+            invalidateAllUsersOf(role);
         } else {
             roleRepository.delete(role);
+            // No fan-out: no one had this role, no token to invalidate.
+        }
+    }
+
+    /**
+     * Fan-out the token-staleness epoch to every user currently assigned the
+     * given role (active assignments only — historical/inactive assignments
+     * have nothing to invalidate since their refresh flow already re-checks
+     * roles). Uses {@code findActiveUserUuidsByRoleId} to avoid the N+1 of
+     * walking each {@code UserRole.user.uuid} lazily.
+     *
+     * <p>Cost is O(N) Redis SET ops where N = active users with this role.
+     * Pipelined under the hood by Spring Data Redis when called in tight
+     * succession; even AFILIADO at ~100k users is well under a second.</p>
+     */
+    private void invalidateAllUsersOf(Role role) {
+        List<UUID> userUuids = userRoleRepository.findActiveUserUuidsByRoleId(role.getId());
+        for (UUID userUuid : userUuids) {
+            blacklistService.markUserInvalidatedNow(userUuid.toString());
         }
     }
 

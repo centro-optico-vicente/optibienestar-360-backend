@@ -43,25 +43,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtService.isValid(token) && jwtService.isAccessToken(token)) {
             String jti = jwtService.extractJti(token);
 
-            if (!blacklistService.isBlacklisted(jti)) {
-                String subject = jwtService.extractSubject(token);
-                List<String> permissions = jwtService.extractPermissions(token);
-                String locale = jwtService.extractLocale(token);
-
-                List<SimpleGrantedAuthority> authorities = permissions.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
-
-                CustomUserDetails principal = CustomUserDetails.fromJwt(
-                        UUID.fromString(subject), jti, locale, authorities);
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
+            if (blacklistService.isBlacklisted(jti)) {
                 log.debug("Blacklisted token rejected: jti={}", jti);
+            } else {
+                String subject = jwtService.extractSubject(token);
+                long iat = jwtService.extractIssuedAt(token);
+                long userEpoch = blacklistService.getUserInvalidatedEpoch(subject);
+
+                if (iat < userEpoch) {
+                    // Token was issued before this user's permissions/roles
+                    // were last edited. Force the client to refresh so it
+                    // picks up the new claims.
+                    log.debug("Stale token rejected by user epoch: subject={} iat={} epoch={}",
+                            subject, iat, userEpoch);
+                } else {
+                    List<String> permissions = jwtService.extractPermissions(token);
+                    String locale = jwtService.extractLocale(token);
+
+                    List<SimpleGrantedAuthority> authorities = permissions.stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .toList();
+
+                    CustomUserDetails principal = CustomUserDetails.fromJwt(
+                            UUID.fromString(subject), jti, locale, authorities);
+
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         }
 

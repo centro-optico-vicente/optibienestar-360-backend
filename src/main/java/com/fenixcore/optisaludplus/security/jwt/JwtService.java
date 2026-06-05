@@ -84,6 +84,17 @@ public class JwtService {
         return extractAllClaims(token).getId();
     }
 
+    /**
+     * @return the token's {@code iat} claim as epoch seconds, or {@code 0} when
+     *         the claim is missing. Used by {@code JwtAuthenticationFilter} to
+     *         compare against the per-user invalidation epoch in
+     *         {@link com.fenixcore.optisaludplus.modules.auth.service.TokenBlacklistService}.
+     */
+    public long extractIssuedAt(String token) {
+        Date issued = extractAllClaims(token).getIssuedAt();
+        return issued != null ? issued.toInstant().getEpochSecond() : 0L;
+    }
+
     public long getRemainingTtlSeconds(String token) {
         Date expiration = extractAllClaims(token).getExpiration();
         long remaining = expiration.getTime() - System.currentTimeMillis();
