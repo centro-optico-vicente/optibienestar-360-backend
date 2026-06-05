@@ -14,7 +14,7 @@
 - [x] [P0/C2] `V8__locations.sql`: countries (seed VE + iso_code), states (FK→countries, 24 entidades federales VE), cities (FK→states, seed curado)
 - [x] [P0/C2] `V9__personal_catalogs.sql`: genders, document_types (normaliza el CHECK V/E de users en V5), marital_statuses, occupations
 - [x] [P0/C3] `V10__health_catalogs.sql`: medical_specialties, service_categories, ally_types
-- [ ] [P0/C3] `V11__allies.sql`: allies, ally_specialties, ally_services, ally_agreements
+- [x] [P0/C3] `V11__allies.sql`: allies, ally_specialties, ally_services, ally_agreements + `ally_service_review_log` + workflow v2 (`PROPOSED → IN_REVIEW → APPROVED → REMOVED`, bypass REJECTED) + permiso `ALLY_SERVICE_APPROVE`. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [ ] [P0/C3] `V12__ally_users.sql`
 - [ ] [P0/C3] `V13__plans.sql`
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
