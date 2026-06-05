@@ -36,3 +36,12 @@
 | 9 | Notificaciones y Carnet digital | [vertical-9-notificaciones-y-carnet.md](checklists/vertical-9-notificaciones-y-carnet.md) | 🔲 |
 | 10 | Optimización, Reportes y Hardening | [vertical-10-optimizacion-reportes-hardening.md](checklists/vertical-10-optimizacion-reportes-hardening.md) | 🔲 |
 | 11 | Internacionalización (i18n) — `es` + `en`, locale híbrido (JWT > header > es-VE) | [vertical-11-i18n.md](checklists/vertical-11-i18n.md) | 🔲 |
+| 12 | **[v2]** Subsidios y Exoneraciones — _adicional v2 ([scope-additions-v2.md](scope-additions-v2.md))_ | [vertical-12-subsidios-y-exoneraciones.md](checklists/vertical-12-subsidios-y-exoneraciones.md) | 🔲 |
+
+## Adicionales v2
+
+> Adicionales surgidos post-arranque (PDF "Informe de Avances y Solicitud de Continuidad v1", mesas técnicas mayo–junio 2026). Mapa de trazabilidad: [`scope-additions-v2.md`](scope-additions-v2.md).
+>
+> **Convención:** los ítems v2 dentro de cada vertical están marcados con tag `[v2]` y agrupados en una sección "Adicionales v2" al final del archivo. Vertical-12 es íntegramente v2 (nuevo).
+>
+> Verticales afectados por v2 sin cambiar su numeración: 3, 4, 5, 8. Vertical nuevo: 12. Versionado escalable — futuras v3 usarán `[v3]` y `scope-additions-v3.md`.
