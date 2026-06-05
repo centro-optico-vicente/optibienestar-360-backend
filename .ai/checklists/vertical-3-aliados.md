@@ -6,7 +6,7 @@
 ## Migraciones
 
 - [x] [P0/C3] `V11__allies.sql` — allies, ally_specialties, ally_services, ally_agreements _(Implementada incluyendo desde el día 1 los campos del workflow v2 sobre `ally_services` y la tabla `ally_service_review_log` — ver bullets v2 marcados abajo. También seed del permiso `ALLY_SERVICE_APPROVE` a SYSTEM + ADMINISTRADOR. Decisiones: `tax_document` (RIF) opcional con UNIQUE parcial; `manager_user_id` FK NULL para aliados gestionados centralmente; índice GIN unaccent sobre `name` para búsqueda; `ally_service_review_log` es insert-only (sin trigger updated_at, no audit columns). contextLoads aplica el chain V1..V11 limpio sobre BD vacía.)_
-- [ ] [P0/C3] `V12__ally_users.sql`
+- [x] [P0/C3] `V12__ally_users.sql` _(Pivote N:M user↔ally con rol intra-aliado `ally_role` ENUM (OWNER/STAFF/VIEWER) + `is_primary` para el contacto principal. CHECK `is_primary → ally_role = OWNER`. Partial unique index garantiza UN solo primary activo por ally. UNIQUE (ally_id, user_id) — readmisión muta `is_active` del registro existente, no inserta duplicado. Aprovecha y dropea `allies.manager_user_id` (V11) ahora redundante — single source of truth vía `is_primary`. ON DELETE CASCADE en ally_id. contextLoads aplica V1..V12 limpio.)_
 
 ## Código
 
