@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V13__plans.sql`
+- [ ] [P0/C3] `V13__plans.sql` _(**Incluir desde el día 1** los campos `is_published BOOLEAN NOT NULL DEFAULT FALSE` + `published_at TIMESTAMPTZ` para que el admin controle visibilidad del plan en la web independientemente del estado del plan — mismo patrón que `allies` y `ally_services` en V11. Filtro público: `WHERE is_active AND is_published`. Decisión del 2026-06.)_
 - [ ] [P0/C2] `V14__seed_plans.sql` — plan personal (Individual) $10 inscripción / $5 mensualidad _(v2: extender con Familiar y Corporativo + nuevos campos, ver Adicionales v2)_
 - [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C2] Índices: `memberships(status, next_due_date)`
