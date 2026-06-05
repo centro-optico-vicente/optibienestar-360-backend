@@ -208,6 +208,42 @@ public class AlliesService {
         ally.setPublished(false);
     }
 
+    // ─── Specialties sub-resource (single-item add / remove) ────────────────
+
+    /**
+     * List the medical specialties currently attached to the ally. Mirrors
+     * the {@code specialties} field of {@link AllyDetailDto} but exposed as
+     * a dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/specialties}
+     * endpoint family.
+     */
+    public List<com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyDto>
+            listSpecialties(UUID allyUuid) {
+        Ally ally = findManaged(allyUuid);
+        return mapper.toMedicalSpecialtyDtoList(ally.getSpecialties());
+    }
+
+    /**
+     * Attach a single medical specialty to the ally. Idempotent — re-adding an
+     * already-present specialty is a no-op and still returns 200.
+     */
+    @Transactional
+    public void addSpecialty(UUID allyUuid, UUID specialtyUuid) {
+        Ally ally = findManaged(allyUuid);
+        MedicalSpecialty specialty = medicalSpecialtyRepository.findByUuid(specialtyUuid)
+                .orElseThrow(() -> new NoSuchElementException("medical_specialty.not_found"));
+        ally.getSpecialties().add(specialty);  // Set semantics → idempotent
+    }
+
+    /**
+     * Detach a single medical specialty from the ally. Idempotent — removing
+     * a non-attached specialty is a no-op.
+     */
+    @Transactional
+    public void removeSpecialty(UUID allyUuid, UUID specialtyUuid) {
+        Ally ally = findManaged(allyUuid);
+        ally.getSpecialties().removeIf(ms -> ms.getUuid().equals(specialtyUuid));
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private Ally findManaged(UUID uuid) {
