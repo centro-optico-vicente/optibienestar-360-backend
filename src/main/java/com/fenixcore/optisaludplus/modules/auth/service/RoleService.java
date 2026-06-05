@@ -1,6 +1,8 @@
 package com.fenixcore.optisaludplus.modules.auth.service;
 
+import com.fenixcore.optisaludplus.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.RoleDto;
+import com.fenixcore.optisaludplus.modules.auth.dto.UpdateRoleRequest;
 import com.fenixcore.optisaludplus.modules.auth.entity.Permission;
 import com.fenixcore.optisaludplus.modules.auth.entity.Role;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
@@ -8,6 +10,7 @@ import com.fenixcore.optisaludplus.modules.auth.mapper.UserMapper;
 import com.fenixcore.optisaludplus.modules.auth.repository.PermissionRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.RoleRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
+import com.fenixcore.optisaludplus.modules.auth.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class RoleService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
     private final UserMapper userMapper;
 
     public List<RoleDto> listActiveRoles() {
@@ -81,6 +85,66 @@ public class RoleService {
         // sees a single managed collection rather than a swap.
         role.getPermissions().clear();
         role.getPermissions().addAll(newPermissions);
+    }
+
+    /**
+     * Create a new role with an empty permission set. The name must be unique
+     * across all roles (active or inactive); duplicate names are rejected with
+     * 422 ({@code role.name.duplicate}) before the DB constraint fires, so the
+     * client gets a clear error instead of the misleading 409 "resource already
+     * exists" from the generic {@code DataIntegrityViolationException} handler.
+     */
+    @Transactional
+    public RoleDto create(CreateRoleRequest req) {
+        if (roleRepository.findByName(req.name()).isPresent()) {
+            throw new IllegalArgumentException("role.name.duplicate");
+        }
+        Role role = new Role();
+        role.setName(req.name());
+        role.setDescription(req.description());
+        role.setActive(true);
+        return userMapper.roleToDto(roleRepository.save(role));
+    }
+
+    /**
+     * Update name and description. Same uniqueness guard as
+     * {@link #create(CreateRoleRequest)} but excluding self, so a no-op rename
+     * (same name) is allowed. The {@code SYSTEM} role is immutable.
+     */
+    @Transactional
+    public RoleDto update(UUID uuid, UpdateRoleRequest req) {
+        Role role = findRole(uuid);
+        if (SYSTEM_ROLE_NAME.equals(role.getName())) {
+            throw new AccessDeniedException("role.system.not_editable");
+        }
+        roleRepository.findByName(req.name())
+                .filter(other -> !other.getId().equals(role.getId()))
+                .ifPresent(other -> { throw new IllegalArgumentException("role.name.duplicate"); });
+        role.setName(req.name());
+        role.setDescription(req.description());
+        return userMapper.roleToDto(role);  // managed entity, dirty-checked on tx commit
+    }
+
+    /**
+     * Smart-delete. If the role has any {@code user_roles} row (active or
+     * inactive), perform a soft-delete ({@code is_active = false}) to preserve
+     * referential integrity and historical FK references. If the role is
+     * completely unreferenced, hard-delete the row to keep the table tidy.
+     *
+     * <p>The {@code SYSTEM} role is never deletable — same guard as update.</p>
+     */
+    @Transactional
+    public void delete(UUID uuid) {
+        Role role = findRole(uuid);
+        if (SYSTEM_ROLE_NAME.equals(role.getName())) {
+            throw new AccessDeniedException("role.system.not_editable");
+        }
+        if (userRoleRepository.existsByRoleId(role.getId())) {
+            role.setActive(false);
+            // managed entity → dirty-check on commit
+        } else {
+            roleRepository.delete(role);
+        }
     }
 
     private Role findRole(UUID uuid) {
