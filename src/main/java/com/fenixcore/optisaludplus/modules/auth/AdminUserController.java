@@ -4,6 +4,7 @@ import com.fenixcore.optisaludplus.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.UserDto;
 import com.fenixcore.optisaludplus.modules.auth.service.UserService;
+import com.fenixcore.optisaludplus.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,14 +62,16 @@ public class AdminUserController {
     @PutMapping("/{uuid}")
     @PreAuthorize("hasAuthority('USER_UPDATE')")
     public ResponseEntity<UserDto> update(@PathVariable UUID uuid,
-                                          @Valid @RequestBody AdminUpdateUserRequest request) {
-        return ResponseEntity.ok(userService.updateUser(uuid, request));
+                                          @Valid @RequestBody AdminUpdateUserRequest request,
+                                          @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(userService.updateUser(uuid, request, actor.getUuid()));
     }
 
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('USER_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        userService.deleteUser(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+                                       @AuthenticationPrincipal CustomUserDetails actor) {
+        userService.deleteUser(uuid, actor.getUuid());
         return ResponseEntity.noContent().build();
     }
 }

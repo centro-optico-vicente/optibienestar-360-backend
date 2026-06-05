@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,9 @@ public class UserService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "email", "fullName", "status", "documentType", "documentNumber", "active", "createdAt");
+
+    private static final String SYSTEM_ROLE_NAME = "SYSTEM";
+    private static final String ACTIVE_STATUS = "ACTIVE";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -102,10 +106,45 @@ public class UserService {
         return userMapper.toDto(userRepository.findWithRolesByUuid(user.getUuid()).orElseThrow());
     }
 
+    /**
+     * Admin update. Two anti-lockout guards:
+     * <ul>
+     *   <li><b>SYSTEM user immutability</b> — the seeded bootstrap user (the
+     *       one carrying the {@code SYSTEM} role) is hardcoded immutable
+     *       regardless of who edits it. Mirrors {@code RoleService}'s
+     *       {@code SYSTEM} role guard, but at the user layer so the seed
+     *       account survives even if an admin somehow obtains
+     *       {@code USER_UPDATE}.</li>
+     *   <li><b>Self-edit restrictions</b> — when {@code actorUuid == uuid}:
+     *       the actor cannot deactivate themselves, change their own status
+     *       to anything other than ACTIVE, or alter their own roles. The
+     *       roles block is intentionally coarse (any change → reject) rather
+     *       than computing "would I keep ROLE_PERMISSION_EDIT after this",
+     *       so the guard cannot be defeated by a wrong-but-plausible role
+     *       set. Self-edits to profile fields (fullName, phone, locale,
+     *       documentType, documentNumber) are still allowed.</li>
+     * </ul>
+     */
     @Transactional
-    public UserDto updateUser(UUID uuid, AdminUpdateUserRequest request) {
+    public UserDto updateUser(UUID uuid, AdminUpdateUserRequest request, UUID actorUuid) {
         User user = userRepository.findWithRolesByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+
+        if (hasSystemRole(user)) {
+            throw new AccessDeniedException("user.system.not_editable");
+        }
+
+        if (uuid.equals(actorUuid)) {
+            if (Boolean.FALSE.equals(request.active())) {
+                throw new IllegalArgumentException("user.self.cannot_deactivate");
+            }
+            if (request.status() != null && !ACTIVE_STATUS.equals(request.status())) {
+                throw new IllegalArgumentException("user.self.cannot_change_own_status");
+            }
+            if (request.roleIds() != null && !request.roleIds().isEmpty()) {
+                throw new IllegalArgumentException("user.self.cannot_change_own_roles");
+            }
+        }
 
         if (request.fullName() != null) user.setFullName(request.fullName());
         if (request.documentType() != null) user.setDocumentType(request.documentType());
@@ -133,10 +172,25 @@ public class UserService {
         return userMapper.toDto(userRepository.findWithRolesByUuid(uuid).orElseThrow());
     }
 
+    /**
+     * Admin soft-delete (sets active=false + status=SUSPENDED + revokes
+     * tokens). Same two anti-lockout guards as {@link #updateUser}:
+     * <ul>
+     *   <li>Actor cannot delete themselves (would lock the actor out and
+     *       require another admin's intervention).</li>
+     *   <li>The SYSTEM seed user is not deletable.</li>
+     * </ul>
+     */
     @Transactional
-    public void deleteUser(UUID uuid) {
-        User user = userRepository.findByUuid(uuid)
+    public void deleteUser(UUID uuid, UUID actorUuid) {
+        if (uuid.equals(actorUuid)) {
+            throw new IllegalArgumentException("user.self.cannot_delete");
+        }
+        User user = userRepository.findWithRolesByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        if (hasSystemRole(user)) {
+            throw new AccessDeniedException("user.system.not_deletable");
+        }
         user.setActive(false);
         user.setStatus("SUSPENDED");
         userRepository.save(user);
@@ -144,6 +198,18 @@ public class UserService {
         // Close the access-token window too: refresh revocation alone leaves
         // up to 15 min during which the existing access token still works.
         blacklistService.markUserInvalidatedNow(uuid.toString());
+    }
+
+    /**
+     * @return {@code true} if {@code user} currently has an active assignment
+     *         to the {@code SYSTEM} role. Requires the {@code userRoles}
+     *         collection to be populated — callers should load via
+     *         {@code findWithRolesByUuid}, not {@code findByUuid}.
+     */
+    private boolean hasSystemRole(User user) {
+        return user.getUserRoles().stream()
+                .filter(UserRole::isActive)
+                .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()));
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
