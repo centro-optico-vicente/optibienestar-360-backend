@@ -27,24 +27,29 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 ### Planeadas
 
+> 📌 **Renumeración del 2026-06:** se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
+
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
 | `V11__allies.sql` | allies, ally_specialties, ally_services, ally_agreements | 3 — aliados |
 | `V12__ally_users.sql` | ally_users | 3 — aliados |
 | `V13__plans.sql` | plans (+ seed plan personal base) | 5 — planes |
-| `V14__members.sql` | members, member_documents | 4 — afiliados |
-| `V15__beneficiaries.sql` | beneficiaries | 4 — afiliados |
-| `V16__medical_records.sql` | medical_records | 4 — afiliados |
-| `V17__memberships.sql` | memberships | 5 — planes |
-| `V18__payments.sql` | payments | 6 — pagos |
-| `V19__benefit_usages.sql` | benefit_usages | 7 — validador |
-| `V20__promoters.sql` | promoters | 8 — promotores |
-| `V21__commissions.sql` | commissions | 8 — promotores |
-| `V22__referrals.sql` | referrals | 8 — promotores |
-| `V23__notifications.sql` | notifications | 9 — notificaciones |
-| `V24__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
-| `V25__audit_log.sql` | tabla audit_log | 10 — hardening |
-| `V26__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
+| `V14__seed_plans.sql` | seed planes Individual / Familiar / Corporativo | 5 — planes |
+| `V15__persons.sql` | **persons** — identity hub (nombres partidos, doc, RIF, contacto, address, city_id FK) | cross-cutting (ADR 0011) |
+| `V16__refactor_users_persons.sql` | backfill persons desde users + ALTER users (drop demográficos, add `person_id` FK NOT NULL UNIQUE) | cross-cutting (ADR 0011) |
+| `V17__members.sql` | members (FK person_id), member_documents | 4 — afiliados |
+| `V18__beneficiaries.sql` | beneficiaries (FK person_id) | 4 — afiliados |
+| `V19__medical_records.sql` | medical_records | 4 — afiliados |
+| `V20__memberships.sql` | memberships | 5 — planes |
+| `V21__payments.sql` | payments | 6 — pagos |
+| `V22__benefit_usages.sql` | benefit_usages | 7 — validador |
+| `V23__promoters.sql` | promoters | 8 — promotores |
+| `V24__commissions.sql` | commissions | 8 — promotores |
+| `V25__referrals.sql` | referrals | 8 — promotores |
+| `V26__notifications.sql` | notifications | 9 — notificaciones |
+| `V27__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
+| `V28__audit_log.sql` | tabla audit_log | 10 — hardening |
+| `V29__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
 ## Convenciones aplicadas a TODAS las tablas
 

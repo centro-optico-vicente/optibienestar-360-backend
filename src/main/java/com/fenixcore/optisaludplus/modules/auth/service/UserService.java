@@ -10,6 +10,8 @@ import com.fenixcore.optisaludplus.modules.auth.mapper.UserMapper;
 import com.fenixcore.optisaludplus.modules.auth.repository.RoleRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optisaludplus.modules.person.entity.Person;
+import com.fenixcore.optisaludplus.modules.person.service.PersonService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService blacklistService;
+    private final PersonService personService;
 
     // ─── /v1/me ───────────────────────────────────────────────────────────────
 
@@ -92,13 +95,26 @@ public class UserService {
             throw new IllegalArgumentException("user.email.exists");
         }
 
+        // Resolve or create the Person hub for this cédula. If a Member or
+        // another User already exists for the same cédula, the same persons
+        // row is reused so the same human is never duplicated across roles.
+        Person seed = new Person();
+        seed.setFirstName(request.firstName());
+        seed.setMiddleName(request.middleName());
+        seed.setLastName(request.lastName());
+        seed.setSecondLastName(request.secondLastName());
+        seed.setDocumentType(request.documentType());
+        seed.setDocumentNumber(request.documentNumber());
+        seed.setTaxDocumentType(request.taxDocumentType());
+        seed.setTaxDocumentNumber(request.taxDocumentNumber());
+        seed.setPhone(request.phone());
+        seed.setEmail(request.email());
+        Person person = personService.findOrCreate(seed);
+
         User user = new User();
         user.setEmail(request.email());
-        user.setFullName(request.fullName());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setDocumentType(request.documentType());
-        user.setDocumentNumber(request.documentNumber());
-        user.setPhone(request.phone());
+        user.setPerson(person);
         user.setStatus("ACTIVE");
         userRepository.save(user);
 
@@ -146,11 +162,20 @@ public class UserService {
             }
         }
 
-        if (request.fullName() != null) user.setFullName(request.fullName());
-        if (request.documentType() != null) user.setDocumentType(request.documentType());
-        if (request.documentNumber() != null) user.setDocumentNumber(request.documentNumber());
-        if (request.phone() != null) user.setPhone(request.phone());
-        if (request.locale() != null) user.setLocale(request.locale());
+        // Person fields → mutate the linked persons row (managed → dirty-check on commit)
+        Person person = user.getPerson();
+        if (request.firstName()         != null) person.setFirstName(request.firstName());
+        if (request.middleName()        != null) person.setMiddleName(request.middleName());
+        if (request.lastName()          != null) person.setLastName(request.lastName());
+        if (request.secondLastName()    != null) person.setSecondLastName(request.secondLastName());
+        if (request.documentType()      != null) person.setDocumentType(request.documentType());
+        if (request.documentNumber()    != null) person.setDocumentNumber(request.documentNumber());
+        if (request.taxDocumentType()   != null) person.setTaxDocumentType(request.taxDocumentType());
+        if (request.taxDocumentNumber() != null) person.setTaxDocumentNumber(request.taxDocumentNumber());
+        if (request.phone()             != null) person.setPhone(request.phone());
+        if (request.locale()            != null) person.setLocale(request.locale());
+
+        // User-level fields
         if (request.status() != null) user.setStatus(request.status());
         if (request.active() != null) user.setActive(request.active());
 

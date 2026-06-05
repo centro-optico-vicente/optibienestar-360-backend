@@ -13,21 +13,31 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
-    @Mapping(target = "uuid", source = "uuid")
-    @Mapping(target = "email", source = "email")
-    @Mapping(target = "fullName", source = "fullName")
-    @Mapping(target = "documentType", source = "documentType")
-    @Mapping(target = "documentNumber", source = "documentNumber")
-    @Mapping(target = "phone", source = "phone")
-    @Mapping(target = "locale", source = "locale")
-    @Mapping(target = "status", source = "status")
-    @Mapping(target = "active", source = "active")
-    @Mapping(target = "lastLoginAt", source = "lastLoginAt")
-    @Mapping(target = "roles", expression = "java(mapRoles(user.getUserRoles()))")
+    @Mapping(target = "uuid",              source = "uuid")
+    @Mapping(target = "email",             source = "email")
+
+    // Person — sourced via the @OneToOne relationship
+    @Mapping(target = "firstName",         source = "person.firstName")
+    @Mapping(target = "middleName",        source = "person.middleName")
+    @Mapping(target = "lastName",          source = "person.lastName")
+    @Mapping(target = "secondLastName",    source = "person.secondLastName")
+    @Mapping(target = "fullName",          source = "person.fullName")
+    @Mapping(target = "documentType",      source = "person.documentType")
+    @Mapping(target = "documentNumber",    source = "person.documentNumber")
+    @Mapping(target = "taxDocumentType",   source = "person.taxDocumentType")
+    @Mapping(target = "taxDocumentNumber", source = "person.taxDocumentNumber")
+    @Mapping(target = "phone",             source = "person.phone")
+    @Mapping(target = "locale",            source = "person.locale")
+
+    // Auth
+    @Mapping(target = "status",            source = "status")
+    @Mapping(target = "active",            source = "active")
+    @Mapping(target = "lastLoginAt",       source = "lastLoginAt")
+    @Mapping(target = "roles",             expression = "java(mapRoles(user.getUserRoles()))")
     UserDto toDto(User user);
 
-    @Mapping(target = "uuid", source = "uuid")
-    @Mapping(target = "name", source = "name")
+    @Mapping(target = "uuid",        source = "uuid")
+    @Mapping(target = "name",        source = "name")
     @Mapping(target = "description", source = "description")
     RoleDto roleToDto(Role role);
 

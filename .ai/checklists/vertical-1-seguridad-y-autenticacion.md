@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [x] [P0/C2] `V5__users_and_roles.sql` — security_policies, roles, **permission_domains** (10 dominios UI con `code`/`name`/`icon`/`display_order`), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log
+- [x] [P0/C2] `V5__users_and_roles.sql` — security_policies, roles, **permission_domains** (10 dominios UI con `code`/`name`/`icon`/`display_order`), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log _(refactor 2026-06: campos demográficos full_name/document_type/document_number/phone/locale movidos a `persons` vía V15 + V16; users mantiene solo auth/security + `person_id` FK NOT NULL. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md))_
 - [x] [P0/C2] `V6__seed_roles.sql` — 7 roles seed (SYSTEM, ADMINISTRADOR, OPERADOR, OPERADOR_MEDICO, ALIADO, AFILIADO, PROMOTOR) + **50 permisos** (incluye `ROLE_PERMISSION_EDIT`) + asignación rol→permisos (SYSTEM=50, ADMIN=48, OP_MEDICO=45, OPERADOR=43, AFILIADO/PROMOTOR=5, ALIADO=3)
 
 ## Hardening de base de datos

@@ -5,10 +5,12 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V15__members.sql` + member_documents
-- [ ] [P0/C3] `V16__beneficiaries.sql`
-- [ ] [P0/C3] `V17__medical_records.sql`
-- [ ] [P1/C2] Índice GIN full-text `members.full_name` con unaccent
+> 📌 Refactor 2026-06: V15-V25 originales se bumpearon +2 al insertarse V15 persons + V16 refactor_users_persons. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
+
+- [ ] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (datos demográficos del titular viven en persons, no en members)
+- [ ] [P0/C3] `V18__beneficiaries.sql` — `beneficiaries.person_id` FK NOT NULL a `persons`; UNIQUE(member_id, person_id) evita duplicados en el mismo plan
+- [ ] [P0/C3] `V19__medical_records.sql`
+- [ ] [P1/C2] Búsqueda full-text reusa `idx_persons_full_name_unaccent` (V15) vía JOIN — no se crea índice duplicado en members
 
 ## Código
 

@@ -7,7 +7,7 @@
 
 - [ ] [P0/C3] `V13__plans.sql`
 - [ ] [P0/C2] `V14__seed_plans.sql` — plan personal (Individual) $10 inscripción / $5 mensualidad _(v2: extender con Familiar y Corporativo + nuevos campos, ver Adicionales v2)_
-- [ ] [P0/C3] `V18__memberships.sql`
+- [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C2] Índices: `memberships(status, next_due_date)`
 
 ## Código
