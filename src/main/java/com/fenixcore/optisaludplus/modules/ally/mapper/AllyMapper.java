@@ -4,14 +4,20 @@ import com.fenixcore.optisaludplus.core.entity.BaseEntity;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optisaludplus.modules.ally.dto.AllyListItemDto;
+import com.fenixcore.optisaludplus.modules.ally.dto.AllyServiceDto;
+import com.fenixcore.optisaludplus.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optisaludplus.modules.ally.entity.Ally;
 import com.fenixcore.optisaludplus.modules.ally.entity.AllyAgreement;
+import com.fenixcore.optisaludplus.modules.ally.entity.AllyService;
+import com.fenixcore.optisaludplus.modules.ally.entity.AllyUser;
 import com.fenixcore.optisaludplus.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.CityDto;
 import com.fenixcore.optisaludplus.modules.catalog.dto.MedicalSpecialtyDto;
+import com.fenixcore.optisaludplus.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optisaludplus.modules.catalog.entity.AllyType;
 import com.fenixcore.optisaludplus.modules.catalog.entity.City;
 import com.fenixcore.optisaludplus.modules.catalog.entity.MedicalSpecialty;
+import com.fenixcore.optisaludplus.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optisaludplus.modules.catalog.entity.State;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -44,6 +50,21 @@ public interface AllyMapper {
     @Mapping(target = "allyUuid", source = "ally.uuid")
     AllyAgreementDto toAgreementDto(AllyAgreement agreement);
 
+    // ─── AllyService → DTO ─────────────────────────────────────────────────
+
+    @Mapping(target = "allyUuid",        source = "ally.uuid")
+    @Mapping(target = "serviceCategory", source = "serviceCategory")
+    @Mapping(target = "reviewedByUuid",  source = "reviewedBy.uuid")
+    AllyServiceDto toServiceDto(AllyService service);
+
+    // ─── AllyUser → DTO ────────────────────────────────────────────────────
+
+    @Mapping(target = "allyUuid",     source = "ally.uuid")
+    @Mapping(target = "userUuid",     source = "user.uuid")
+    @Mapping(target = "userEmail",    source = "user.email")
+    @Mapping(target = "userFullName", source = "user.person.fullName")
+    AllyUserDto toAllyUserDto(AllyUser allyUser);
+
     // ─── Nested catalog DTOs (default methods consumed by the generated impl) ─
 
     default AllyTypeDto toAllyTypeDto(AllyType allyType) {
@@ -68,6 +89,12 @@ public interface AllyMapper {
         if (ms == null) return null;
         return new MedicalSpecialtyDto(ms.getUuid(), ms.getCode(),
                 ms.getName(), ms.getDescription(), ms.isActive());
+    }
+
+    default ServiceCategoryDto toServiceCategoryDto(ServiceCategory sc) {
+        if (sc == null) return null;
+        return new ServiceCategoryDto(sc.getUuid(), sc.getCode(),
+                sc.getName(), sc.getDescription(), sc.isActive());
     }
 
     default List<MedicalSpecialtyDto> toMedicalSpecialtyDtoList(Set<MedicalSpecialty> set) {
