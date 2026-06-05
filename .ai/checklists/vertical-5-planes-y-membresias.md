@@ -51,8 +51,16 @@
 - [ ] [v2] [P0/C2] `POST /v1/admin/corporate-contracts/{uuid}/members` — alta de miembros en bloque (CSV o lista).
 - [ ] [v2] [P0/C2] `GET /v1/admin/corporate-contracts/{uuid}/members` listar miembros del contrato.
 
+### Solvencia con subsidio activo (gap del PDF — "Motor de Solvencia")
+
+- [ ] [v2] [P0/C2] `MembershipStatusService` reconoce **subsidio 100% activo** como condición de `ACTIVE/SOLVENT` SIN requerir fila en `payments`. Hoy el cómputo exige pago real + grace period; el ítem PDF #1.b pide saltarse el pago real cuando hay exoneración total.
+- [ ] [v2] [P0/C2] Subsidios parciales (`percentage < 100`) sí exigen `payment` del monto reducido (`plan.monthly_fee * (1 - percentage/100)`) — no quedan cubiertos por la exoneración.
+- [ ] [v2] [P0/C2] Job diario `@Scheduled` consulta `subsidies` activas antes de marcar EXPIRED por falta de pago — los exonerados no caen a EXPIRED.
+- [ ] [v2] [P0/C2] Audit trail: marca explícita en `membership_status_log` (o el equivalente) indicando "ACTIVE por subsidio X (uuid)" en vez de "ACTIVE por payment Y".
+
 ### Pendientes (TBD) — capturar con cliente
 
 - [ ] [v2] [P0/C1] **TBD:** confirmar `max_beneficiaries` del plan Familiar (el flyer no lo aclara — asumimos 5 hasta verificar).
 - [ ] [v2] [P0/C1] **TBD:** confirmar si "$5/persona" del Plan Corporativo es solo mensualidad, solo inscripción, o ambas.
 - [ ] [v2] [P0/C1] **TBD:** confirmar si `payer_mode` se decide por contrato o se permite mixto dentro del mismo contrato.
+- [ ] [v2] [P0/C1] **TBD:** naming "Planes 1+, 2+, 3+ (Premium)" mencionado en la conversación del PDF vs naming del flyer (Individual/Familiar/Corporativo). Posibles interpretaciones: (a) alias comerciales del mismo set, (b) tiers ortogonales al `type` (un `Plan.tier` ENUM BASIC/PLUS/PREMIUM además de `type`), (c) reemplazo del naming. Decidir antes de cargar el seed final.

@@ -39,6 +39,13 @@
 - [ ] [v2] [P0/C2] Distinto de subsidios: aplica a UN `payment` específico (ej. condonar una mensualidad puntual por error). No es recurrente.
 - [ ] [v2] [P0/C2] `POST /v1/admin/payments/{uuid}/discount` — aplica descuento al pago en estado PENDING (requiere `ALLOWS_DISCOUNT`, exige `reason`). Graba en `payment_audit_log` (existente en vertical-6).
 
+## Cambios asociados en otros verticals
+
+> Subsidios no es un módulo aislado: cambia cómo se computa la solvencia y cómo se generan los recibos.
+
+- **vertical-5 (Planes y Membresías)** — sección "Solvencia con subsidio activo": `MembershipStatusService` debe reconocer subsidio 100% activo como ACTIVE/SOLVENT sin requerir fila en `payments`. El job diario que marca EXPIRED por falta de pago debe consultar `subsidies` activas antes de degradar status. Subsidio parcial (< 100%) sí exige payment del monto reducido. _Ítem PDF #1.b: "Modificación de Motor de Solvencia"._
+- **vertical-6 (Pagos manuales)** — los recibos generados deben mostrar "Subsidio aplicado: X%" como línea separada del monto base.
+
 ## Pendientes (TBD) — capturar con cliente
 
 - [ ] [v2] [P0/C1] **TBD:** ¿se permiten subsidios parciales (X% off) o solo exoneración 100%? La columna `percentage` los soporta; pregunta para el contrato comercial.
