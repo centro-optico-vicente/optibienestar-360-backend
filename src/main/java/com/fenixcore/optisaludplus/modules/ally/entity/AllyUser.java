@@ -19,18 +19,18 @@ import lombok.Setter;
 import java.time.LocalDate;
 
 /**
- * Membresía N:M user ↔ ally (V12). Define qué usuarios pueden operar sobre
- * cuál {@link Ally} y con qué nivel de autoridad intra-aliado
+ * N:M membership user ↔ ally (V12). Defines which users can operate on
+ * which {@link Ally}, with what intra-ally authority level
  * ({@link AllyRole}).
  *
- * <p>{@link AllyRole} es ortogonal al rol global del usuario en
- * {@code user_roles} (típicamente {@code ALIADO}). El service layer combina
- * ambos: el usuario necesita (a) el permiso global {@code ALLY_*} requerido
- * Y (b) una membresía activa sobre el ally afectado con
- * {@code allyRole} suficiente.</p>
+ * <p>{@link AllyRole} is orthogonal to the user's global role assignment
+ * in {@code user_roles} (typically {@code ALIADO}). The service layer
+ * combines both: the user needs (a) the global {@code ALLY_*} permission
+ * required AND (b) an active membership on the target ally with a
+ * sufficient {@code allyRole}.</p>
  *
- * <p>A lo sumo UN {@code primary=true} activo por ally — garantizado por
- * partial unique index en la migración V12.</p>
+ * <p>At most ONE {@code primary=true} active row per ally — guaranteed by
+ * the partial unique index in the V12 migration.</p>
  */
 @Getter
 @Setter
@@ -62,11 +62,11 @@ public class AllyUser extends BaseEntity {
     private LocalDate joinedAt;
 
     public enum AllyRole {
-        /** Edita perfil del ally, propone/retira services, firma agreements, gestiona otros ally_users. */
+        /** Edits the ally profile, proposes / withdraws services, signs agreements, manages other ally_users. */
         OWNER,
-        /** Operaciones del día a día (validar afiliados, registrar uso de beneficios). */
+        /** Day-to-day operations (validate affiliates, register benefit usage). */
         STAFF,
-        /** Solo lectura — reportes, dashboard. */
+        /** Read-only — reports, dashboard. */
         VIEWER
     }
 }

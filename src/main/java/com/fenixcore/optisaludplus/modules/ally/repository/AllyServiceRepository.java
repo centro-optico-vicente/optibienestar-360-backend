@@ -20,5 +20,21 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
 
     List<AllyService> findByAllyIdAndReviewStatus(Long allyId, ReviewStatus reviewStatus);
 
+    /**
+     * "Same service offered by different allies" — cross-ally listing for a
+     * service category (e.g. every clinic that offers an 'Ophthalmology
+     * consultation'). Required by ADR 0006 Rule 3 (search by every FK of
+     * detail tables, even when the table carries its own uuid).
+     */
+    List<AllyService> findByServiceCategoryIdAndActiveTrue(Long serviceCategoryId);
+
+    /**
+     * Filtered cross-ally listing — typically called with
+     * {@code ReviewStatus.APPROVED} from the public directory so unapproved
+     * offerings never leak.
+     */
+    List<AllyService> findByServiceCategoryIdAndReviewStatusAndActiveTrue(
+            Long serviceCategoryId, ReviewStatus reviewStatus);
+
     long countByReviewStatusIn(java.util.Collection<ReviewStatus> statuses);
 }
