@@ -20,6 +20,8 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     List<UserRole> findByRoleIdAndActiveTrue(Long roleId);
 
+    boolean existsByRoleId(Long roleId);
+
     // ─── By the functional composite key (user_id, role_id) ─────────────────
     Optional<UserRole> findByUserIdAndRoleId(Long userId, Long roleId);
 }
