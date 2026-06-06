@@ -20,7 +20,7 @@
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
 - [x] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (BaseEntity-style audit, sin demográficos). `member_documents` con CHECK constraint sobre `document_type` + `file_url` (R2 key). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V18__beneficiaries.sql` — FK a persons + UNIQUE(member_id, person_id) + `extra_inscription_paid` boolean v2 + `inscription_payment_id` BIGINT (FK pendiente para V21). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
-- [ ] [P0/C3] `V19__medical_records.sql`
+- [x] [P0/C3] `V19__medical_records.sql` — 1:1 con persons (blood_type CHECK + emergency contact estructurado + allergies/conditions/medications/notes TEXT). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C3] `V21__payments.sql`
 - [ ] [P0/C3] `V22__benefit_usages.sql`
@@ -59,7 +59,7 @@
 
 ## Tarea 2.4 — Afiliados + Familia
 
-- [ ] [P0/C2] Entidades Member, Beneficiary, MemberDocument, MedicalRecord
+- [x] [P0/C2] Entidades Member, Beneficiary, MemberDocument, MedicalRecord — 4 entities en `modules/member/entity/` con enums internos (Relationship, DocumentType, EmergencyContactRelationship); `bloodType` queda como String. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C3] Validaciones custom: cédula VE (V-/E-), edad min 18, max 3 beneficiarios
 - [ ] [P0/C3] `/v1/admin/members` CRUD + RSQL
 - [ ] [P0/C2] `/v1/admin/members/{id}/beneficiaries` CRUD
