@@ -14,6 +14,7 @@
 - [x] [P1/C1] `V3__app_roles.sql` — `ALTER ROLE … SET search_path = app, public` para los 3 roles — previene inyección de esquema (CVE-2018-1058)
 - [x] [P1/C1] `V3__app_roles.sql` — `CONNECTION LIMIT` por rol (`app=50`, `migration=5`, `readonly=10`) — evita agotamiento del pool
 - [x] [P1/C1] `V3__app_roles.sql` — `statement_timeout=30s` e `idle_in_transaction_session_timeout=60s` para `optisalud_app` — mata queries colgadas y transacciones idle
+- [ ] [P0/C3] **4to rol `optisalud_public`** — least-privilege read-only para endpoints `/v1/public/*` + split DataSource. Diferido hasta post-modelado del schema (Fase 2 cerrada) para tener la lista final de tablas habilitadas. Definición completa en [vertical-10](vertical-10-optimizacion-reportes-hardening.md) — sección "Hardening y QA".
 
 ## Código
 
