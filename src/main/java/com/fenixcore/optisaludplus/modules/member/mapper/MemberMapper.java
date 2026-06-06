@@ -10,9 +10,11 @@ import com.fenixcore.optisaludplus.modules.catalog.entity.MaritalStatus;
 import com.fenixcore.optisaludplus.modules.catalog.entity.Occupation;
 import com.fenixcore.optisaludplus.modules.catalog.entity.State;
 import com.fenixcore.optisaludplus.modules.member.dto.BeneficiaryDto;
+import com.fenixcore.optisaludplus.modules.member.dto.MedicalRecordDto;
 import com.fenixcore.optisaludplus.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optisaludplus.modules.member.dto.MemberListItemDto;
 import com.fenixcore.optisaludplus.modules.member.entity.Beneficiary;
+import com.fenixcore.optisaludplus.modules.member.entity.MedicalRecord;
 import com.fenixcore.optisaludplus.modules.member.entity.Member;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -68,6 +70,11 @@ public interface MemberMapper {
     @Mapping(target = "phone",            source = "person.phone")
     @Mapping(target = "email",            source = "person.email")
     BeneficiaryDto toBeneficiaryDto(Beneficiary beneficiary);
+
+    // ─── MedicalRecord → DTO ────────────────────────────────────────────────
+
+    @Mapping(target = "personUuid", source = "person.uuid")
+    MedicalRecordDto toMedicalRecordDto(MedicalRecord record);
 
     // ─── Nested catalog DTOs (default methods, mirror AllyMapper pattern) ─
 
