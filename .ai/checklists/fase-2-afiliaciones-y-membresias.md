@@ -61,7 +61,7 @@
 
 - [x] [P0/C2] Entidades Member, Beneficiary, MemberDocument, MedicalRecord — 4 entities en `modules/member/entity/` con enums internos (Relationship, DocumentType, EmergencyContactRelationship); `bloodType` queda como String. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] Validaciones custom: cédula VE (V-/E-), edad min 18, max 3 beneficiarios — `@VenezuelanDocumentNumber` + `@MinimumAge` (2 de 3 reglas con Jakarta Validation); tope beneficiarios queda service-side al implementar Plan. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
-- [ ] [P0/C3] `/v1/admin/members` CRUD + RSQL
+- [x] [P0/C3] `/v1/admin/members` CRUD + RSQL — `AdminMemberController` (5 endpoints guardados por perms MEMBER_*) + `MembersService` que orquesta `PersonService.findOrCreate` para dedupe por cédula. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C2] `/v1/admin/members/{id}/beneficiaries` CRUD
 - [ ] [P0/C3] `/v1/admin/members/{id}/medical-record` (`@PreAuthorize`)
 - [ ] [P0/C2] `POST /v1/admin/members/{id}/upload-document`
