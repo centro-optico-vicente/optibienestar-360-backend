@@ -89,6 +89,21 @@ public class MembersService {
         return toDetailWithCounts(findManaged(uuid));
     }
 
+    /**
+     * Self-service "my member record" lookup. Resolves the member of the
+     * JWT-authenticated user via the {@code user.person → member.person}
+     * link and returns the same {@link MemberDetailDto} the admin endpoint
+     * exposes — staff users (with no member row) and members whose record
+     * was soft-deleted both get a 404, so the front-end treats them the
+     * same way ("you are not enrolled").
+     */
+    public MemberDetailDto getMyMember(UUID actorUserUuid) {
+        Member member = memberRepository.findByUserUuid(actorUserUuid)
+                .filter(Member::isActive)
+                .orElseThrow(() -> new NoSuchElementException("me.member.not_enrolled"));
+        return toDetailWithCounts(member);
+    }
+
     public Page<MemberListItemDto> list(Pageable pageable, String filter, String q) {
         Specification<Member> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
