@@ -87,8 +87,25 @@ CREATE INDEX idx_allies_city      ON allies (city_id) WHERE city_id IS NOT NULL;
 CREATE INDEX idx_allies_manager   ON allies (manager_user_id) WHERE manager_user_id IS NOT NULL;
 -- Filtro del directorio público
 CREATE INDEX idx_allies_published ON allies (is_published) WHERE is_published;
+
+-- Trigram fuzzy search over an accent-folded name. unaccent() ships as STABLE
+-- (it depends on the unaccent text-search dictionary, which is mutable), so
+-- PostgreSQL rejects it directly inside an index expression (SQLSTATE 42P17).
+-- Pin the dictionary and wrap it in an IMMUTABLE SQL function so it is indexable;
+-- the two-argument unaccent variant is deterministic given a fixed dictionary.
+-- Reused by the persons full_name index (V15).
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE OR REPLACE FUNCTION immutable_unaccent(text)
+    RETURNS text
+    LANGUAGE sql
+    IMMUTABLE
+    PARALLEL SAFE
+    STRICT
+AS $$ SELECT unaccent('unaccent', $1) $$;
+
 CREATE INDEX idx_allies_name_unaccent
-    ON allies USING gin (unaccent(lower(name)) gin_trgm_ops);
+    ON allies USING gin (immutable_unaccent(lower(name)) gin_trgm_ops);
 
 CREATE TRIGGER trg_allies_updated_at
     BEFORE UPDATE ON allies

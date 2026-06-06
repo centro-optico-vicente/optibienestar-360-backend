@@ -91,9 +91,10 @@ CREATE INDEX idx_persons_last_name ON persons (last_name);
 
 -- Full-text search on the derived full_name with unaccent so "Mérida" matches
 -- "merida". Reused by Member/Beneficiary listings via JOIN to persons.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- immutable_unaccent() + pg_trgm are provisioned in V11 (see that migration for
+-- why unaccent must be wrapped in an IMMUTABLE function to be indexable).
 CREATE INDEX idx_persons_full_name_unaccent
-    ON persons USING gin (unaccent(lower(full_name)) gin_trgm_ops);
+    ON persons USING gin (immutable_unaccent(lower(full_name)) gin_trgm_ops);
 
 CREATE TRIGGER trg_persons_updated_at
     BEFORE UPDATE ON persons
