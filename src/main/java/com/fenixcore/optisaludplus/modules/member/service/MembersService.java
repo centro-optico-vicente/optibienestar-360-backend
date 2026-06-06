@@ -17,6 +17,7 @@ import com.fenixcore.optisaludplus.modules.member.dto.MemberUpdateRequest;
 import com.fenixcore.optisaludplus.modules.member.entity.Member;
 import com.fenixcore.optisaludplus.modules.member.mapper.MemberMapper;
 import com.fenixcore.optisaludplus.modules.member.repository.BeneficiaryRepository;
+import com.fenixcore.optisaludplus.modules.member.repository.MedicalRecordRepository;
 import com.fenixcore.optisaludplus.modules.member.repository.MemberDocumentRepository;
 import com.fenixcore.optisaludplus.modules.member.repository.MemberRepository;
 import com.fenixcore.optisaludplus.modules.person.entity.Person;
@@ -74,6 +75,7 @@ public class MembersService {
     private final MemberRepository memberRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final MemberDocumentRepository documentRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
     private final PersonService personService;
     private final OccupationRepository occupationRepository;
     private final GenderRepository genderRepository;
@@ -205,9 +207,7 @@ public class MembersService {
     private MemberDetailDto toDetailWithCounts(Member member) {
         int beneficiariesCount = (int) beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId());
         int documentsCount     = (int) documentRepository.countByMemberIdAndActiveTrue(member.getId());
-        // MedicalRecord lookup not implemented yet; vertical-4 bullet for
-        // /v1/admin/members/{id}/medical-record will own that surface.
-        boolean hasMedicalRecord = false;
+        boolean hasMedicalRecord = medicalRecordRepository.existsByPersonId(member.getPerson().getId());
 
         MemberDetailDto base = mapper.toDetail(member);
         return new MemberDetailDto(
