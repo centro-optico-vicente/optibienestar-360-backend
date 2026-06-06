@@ -65,7 +65,7 @@
 - [x] [P0/C2] `/v1/admin/members/{id}/beneficiaries` CRUD — `AdminMemberBeneficiariesController` + `BeneficiariesService` (reutiliza `PersonService.findOrCreate` + readmission flow vía UNIQUE V18). Cap del plan diferido hasta V20. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C3] `/v1/admin/members/{id}/medical-record` (`@PreAuthorize`)
 - [ ] [P0/C2] `POST /v1/admin/members/{id}/upload-document`
-- [ ] [P0/C3] `/v1/me/member`
+- [x] [P0/C3] `/v1/me/member` — self-service del afiliado logueado. `MyMemberController.GET` guardado por `MEMBER_VIEW_OWN`; resuelve via `MemberRepository.findByUserUuid` (JPQL una sola query). 404 si no enrolled. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C2] Anonimización en queries de aliados (no expone MedicalRecord)
 
 ## Tarea 2.5 — Planes + Membresías
