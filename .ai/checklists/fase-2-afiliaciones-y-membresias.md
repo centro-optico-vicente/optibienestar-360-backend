@@ -19,7 +19,7 @@
 - [ ] [P0/C3] `V13__plans.sql`
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
 - [x] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (BaseEntity-style audit, sin demográficos). `member_documents` con CHECK constraint sobre `document_type` + `file_url` (R2 key). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
-- [ ] [P0/C3] `V18__beneficiaries.sql`
+- [x] [P0/C3] `V18__beneficiaries.sql` — FK a persons + UNIQUE(member_id, person_id) + `extra_inscription_paid` boolean v2 + `inscription_payment_id` BIGINT (FK pendiente para V21). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C3] `V19__medical_records.sql`
 - [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C3] `V21__payments.sql`

@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V21__payments.sql`
+- [ ] [P0/C3] `V21__payments.sql` _(Al final de V21 agregar el FK constraint diferido desde V18: `ALTER TABLE beneficiaries ADD CONSTRAINT fk_beneficiaries_inscription_payment FOREIGN KEY (inscription_payment_id) REFERENCES payments(payments_id);` — la columna `inscription_payment_id BIGINT` ya existe en beneficiaries sin FK por orden de carga.)_
 - [ ] [P0/C2] Índice: `payments(status)`
 
 ## Código
