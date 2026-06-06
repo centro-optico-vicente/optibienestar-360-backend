@@ -21,7 +21,7 @@ public record AdminUpdateUserRequest(
         @Size(max = 50) String lastName,
         @Size(max = 50) String secondLastName,
         @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
-        @Size(max = 20) String documentNumber,
+        @Size(max = 20) @com.fenixcore.optisaludplus.core.validation.VenezuelanDocumentNumber String documentNumber,
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}") String taxDocumentType,
         @Size(max = 20) String taxDocumentNumber,
         @Size(max = 30) String phone,
