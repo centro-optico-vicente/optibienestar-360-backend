@@ -6,7 +6,7 @@
 ## Migraciones
 
 - [x] [P0/C3] `V13__plans.sql` _(Tabla `plans` con TODOS los campos v2 baked-in desde día 1 — evita ALTER chains. Columnas: `code` UNIQUE (natural key estable para lookups hardcoded, e.g. "el plan Individual") + `name` (label renombrable) + `type` CHECK ENUM (INDIVIDUAL/FAMILIAR/CORPORATIVO); pricing `inscription_fee` + `monthly_fee` NUMERIC(10,2) ≥ 0; beneficiaries v2 `included_beneficiaries` INT default 0, `max_beneficiaries` INT NULL (sin tope = corporativo), `extra_beneficiary_inscription_fee` NUMERIC NULL; `grace_period_days` INT default 7 (configurable por plan); **`is_published` + `published_at`** (patrón v11 publishing — admin readea sin exponer); audit + soft-delete. CHECK constraints: max ≥ included; fees ≥ 0; grace ≥ 0. Índices: `(type)` para filtro por tipo, parcial `(is_active) WHERE is_active AND is_published` para directorio público. Seeds del flyer (Individual $10/$5, Familiar $20/$5, Corporativo TBD) van en V14 (bullet siguiente). contextLoads V1..V13 limpio.)_
-- [ ] [P0/C2] `V14__seed_plans.sql` — plan personal (Individual) $10 inscripción / $5 mensualidad _(v2: extender con Familiar y Corporativo + nuevos campos, ver Adicionales v2)_
+- [x] [P0/C2] `V14__seed_plans.sql` — plan personal (Individual) $10 inscripción / $5 mensualidad _(Seeds los 3 SKUs del flyer en V14: **Individual** (code='INDIVIDUAL', $10/$5, 0 beneficiarios, published=TRUE), **Familiar** (code='FAMILIAR', $20/$5, 3 incluidos, max 5, $5 extra, published=TRUE), **Corporativo** (code='CORPORATIVO', $5/$5 placeholders, sin tope, **published=FALSE** porque pricing TBD con cliente — no debe aparecer en directorio público hasta cierre). `grace_period_days=7` para los 3. `code` como natural key estable — services deben hacer lookup por code, no por UUID auto-generado. Description de Corporativo deja la nota TBD visible para que el admin la vea al previewer. contextLoads V1..V14 limpio.)_
 - [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C2] Índices: `memberships(status, next_due_date)`
 
@@ -35,9 +35,9 @@
 
 ### Migraciones — `V14__seed_plans.sql` ampliado
 
-- [ ] [v2] [P0/C2] Insert Plan **Individual**: type=INDIVIDUAL, inscription=$10, monthly=$5, included_beneficiaries=0, max_beneficiaries=0, extra_fee=NULL.
-- [ ] [v2] [P0/C2] Insert Plan **Familiar**: type=FAMILIAR, inscription=$20, monthly=$5, included_beneficiaries=3, max_beneficiaries=5 (TBD si el flyer dice otro), extra_fee=$5.
-- [ ] [v2] [P0/C3] Insert Plan **Corporativo**: type=CORPORATIVO, inscription=$5/persona (TBD), monthly=$5/persona, included_beneficiaries=0, max_beneficiaries=NULL, extra_fee=$5. **TBD pendiente: si la inscripción reducida se cobra una vez o por persona; si la mensualidad es por persona o por contrato.**
+- [x] [v2] [P0/C2] Insert Plan **Individual**: type=INDIVIDUAL, inscription=$10, monthly=$5, included_beneficiaries=0, max_beneficiaries=0, extra_fee=NULL. _(Insertado en V14 con `published=TRUE`.)_
+- [x] [v2] [P0/C2] Insert Plan **Familiar**: type=FAMILIAR, inscription=$20, monthly=$5, included_beneficiaries=3, max_beneficiaries=5 (TBD si el flyer dice otro), extra_fee=$5. _(Insertado en V14 con `published=TRUE`. `max_beneficiaries=5` sigue siendo TBD — confirmar con cliente; ajuste post-seed via `/v1/admin/plans` cuando exista.)_
+- [x] [v2] [P0/C3] Insert Plan **Corporativo**: type=CORPORATIVO, inscription=$5/persona (TBD), monthly=$5/persona, included_beneficiaries=0, max_beneficiaries=NULL, extra_fee=$5. **TBD pendiente: si la inscripción reducida se cobra una vez o por persona; si la mensualidad es por persona o por contrato.** _(Insertado en V14 con `published=FALSE` para que no aparezca en directorio público hasta cierre con cliente. Description deja la nota TBD visible al admin.)_
 
 ### Migraciones — Contratos Corporativos
 
