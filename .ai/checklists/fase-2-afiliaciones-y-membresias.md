@@ -16,7 +16,7 @@
 - [x] [P0/C3] `V10__health_catalogs.sql`: medical_specialties, service_categories, ally_types
 - [x] [P0/C3] `V11__allies.sql`: allies, ally_specialties, ally_services, ally_agreements + `ally_service_review_log` + workflow v2 (`PROPOSED → IN_REVIEW → APPROVED → REMOVED`, bypass REJECTED) + permiso `ALLY_SERVICE_APPROVE`. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [x] [P0/C3] `V12__ally_users.sql` — pivote N:M user↔ally con `ally_role` (OWNER/STAFF/VIEWER) + `is_primary`. Dropea `allies.manager_user_id` (V11) ahora redundante. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
-- [ ] [P0/C3] `V13__plans.sql`
+- [x] [P0/C3] `V13__plans.sql` — schema con todos los campos v2 (type ENUM check, included/max_beneficiaries, extra_beneficiary_inscription_fee) + is_published / published_at + grace_period_days. Seeds van en V14. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [ ] [P0/C2] `V14__seed_plans.sql`: plan personal $10/$5/$5
 - [x] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (BaseEntity-style audit, sin demográficos). `member_documents` con CHECK constraint sobre `document_type` + `file_url` (R2 key). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V18__beneficiaries.sql` — FK a persons + UNIQUE(member_id, person_id) + `extra_inscription_paid` boolean v2 + `inscription_payment_id` BIGINT (FK pendiente para V21). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).

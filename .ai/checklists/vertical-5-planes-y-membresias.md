@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V13__plans.sql` _(**Incluir desde el día 1** los campos `is_published BOOLEAN NOT NULL DEFAULT FALSE` + `published_at TIMESTAMPTZ` para que el admin controle visibilidad del plan en la web independientemente del estado del plan — mismo patrón que `allies` y `ally_services` en V11. Filtro público: `WHERE is_active AND is_published`. Decisión del 2026-06.)_
+- [x] [P0/C3] `V13__plans.sql` _(Tabla `plans` con TODOS los campos v2 baked-in desde día 1 — evita ALTER chains. Columnas: `code` UNIQUE (natural key estable para lookups hardcoded, e.g. "el plan Individual") + `name` (label renombrable) + `type` CHECK ENUM (INDIVIDUAL/FAMILIAR/CORPORATIVO); pricing `inscription_fee` + `monthly_fee` NUMERIC(10,2) ≥ 0; beneficiaries v2 `included_beneficiaries` INT default 0, `max_beneficiaries` INT NULL (sin tope = corporativo), `extra_beneficiary_inscription_fee` NUMERIC NULL; `grace_period_days` INT default 7 (configurable por plan); **`is_published` + `published_at`** (patrón v11 publishing — admin readea sin exponer); audit + soft-delete. CHECK constraints: max ≥ included; fees ≥ 0; grace ≥ 0. Índices: `(type)` para filtro por tipo, parcial `(is_active) WHERE is_active AND is_published` para directorio público. Seeds del flyer (Individual $10/$5, Familiar $20/$5, Corporativo TBD) van en V14 (bullet siguiente). contextLoads V1..V13 limpio.)_
 - [ ] [P0/C2] `V14__seed_plans.sql` — plan personal (Individual) $10 inscripción / $5 mensualidad _(v2: extender con Familiar y Corporativo + nuevos campos, ver Adicionales v2)_
 - [ ] [P0/C3] `V20__memberships.sql`
 - [ ] [P0/C2] Índices: `memberships(status, next_due_date)`
@@ -28,10 +28,10 @@
 
 ### Migraciones — `V13__plans.sql` ampliado
 
-- [ ] [v2] [P0/C2] Columna `type` ENUM ('INDIVIDUAL','FAMILIAR','CORPORATIVO').
-- [ ] [v2] [P0/C2] Columna `included_beneficiaries` INT (cuántos beneficiarios entran sin cargo extra). Default 0 para Individual; ej. 3 para Familiar.
-- [ ] [v2] [P0/C2] Columna `max_beneficiaries` INT (tope duro de beneficiarios). NULL = sin tope (caso Corporativo).
-- [ ] [v2] [P0/C2] Columna `extra_beneficiary_inscription_fee` NUMERIC (costo one-time por beneficiario adicional fuera del tope incluido). Default $5 según flyer.
+- [x] [v2] [P0/C2] Columna `type` ENUM ('INDIVIDUAL','FAMILIAR','CORPORATIVO'). _(Incluida en V13 desde día 1 como `VARCHAR(20) NOT NULL CHECK (type IN (...))`. Sin tipo SQL ENUM porque PG ENUMs son caros de evolucionar — VARCHAR + CHECK escala mejor a futuros tipos.)_
+- [x] [v2] [P0/C2] Columna `included_beneficiaries` INT (cuántos beneficiarios entran sin cargo extra). Default 0 para Individual; ej. 3 para Familiar. _(Default 0 a nivel columna; CHECK ≥ 0.)_
+- [x] [v2] [P0/C2] Columna `max_beneficiaries` INT (tope duro de beneficiarios). NULL = sin tope (caso Corporativo). _(CHECK adicional `max >= included` para coherencia.)_
+- [x] [v2] [P0/C2] Columna `extra_beneficiary_inscription_fee` NUMERIC (costo one-time por beneficiario adicional fuera del tope incluido). Default $5 según flyer. _(NUMERIC(10,2) nullable — `NULL` = "el plan no permite extras"; el seed V14 setea $5.00 para Familiar/Corporativo.)_
 
 ### Migraciones — `V14__seed_plans.sql` ampliado
 
