@@ -5,22 +5,25 @@ SET search_path TO app, public;
 -- (Centro Óptico Vicente, jun 2026).
 --
 -- Pricing per flyer:
---     Individual    $10 inscripción / $5 mensualidad
---     Familiar      $20 inscripción / $5 mensualidad — incluye 3 beneficiarios,
---                   tope 5, $5 por beneficiario extra
---     Corporativo   $5/persona — modelo exacto TBD con cliente (queda
---                   unpublished hasta confirmar)
+--     Individual   $10 inscription / $5 monthly
+--     Familiar     $20 inscription / $5 monthly — includes 3 beneficiaries,
+--                  cap at 5, $5 inscription per extra beneficiary
+--     Corporativo  $5 per person — exact model TBD with client (stays
+--                  unpublished until confirmed)
 --
 -- Publishing:
---     Individual + Familiar → is_published = TRUE: pricing solid per flyer,
---       el frontend público los muestra inmediatamente.
---     Corporativo           → is_published = FALSE: pricing TBD, no debe
---       aparecer en el directorio público hasta cierre con cliente.
+--     Individual + Familiar → is_published = TRUE: pricing solid per the
+--       flyer, the public landing renders them on fresh deploy.
+--     Corporativo           → is_published = FALSE: pricing TBD, hide it
+--       from the public directory until the client confirms.
 --
 -- The `code` column is the natural lookup key. Services / future code that
 -- needs "the Individual plan" should query by code = 'INDIVIDUAL', NOT by
--- UUID — UUIDs are generated per-row and can differ across fresh deploys;
--- code is the stable contract.
+-- UUID — UUIDs are generated per-row and differ across fresh deploys; code
+-- is the stable contract.
+--
+-- User-facing text (name + description) is in Spanish per ADR 0009 — the
+-- application's primary locale is es-VE.
 -- ────────────────────────────────────────────────────────────────────────────
 
 INSERT INTO plans (
@@ -37,9 +40,9 @@ VALUES
         'Cobertura individual para una persona. Incluye consultas oftalmológicas, monturas de lentes en clínicas seleccionadas, consultas de medicina general y descuentos en farmacias y servicios aliados.',
         'INDIVIDUAL',
         10.00, 5.00,
-        0,       -- sin beneficiarios incluidos
-        0,       -- tope 0 — Individual no admite beneficiarios extra
-        NULL,    -- por lo tanto no aplica fee extra
+        0,       -- no included beneficiaries
+        0,       -- cap 0 — Individual does not allow extras
+        NULL,    -- consequently no extra fee
         7,
         TRUE, NOW()
     ),
@@ -49,23 +52,21 @@ VALUES
         'Cobertura familiar — titular + hasta 3 beneficiarios incluidos sin costo extra. Permite hasta 5 beneficiarios en total; cada adicional paga $5 USD de inscripción una sola vez. Mensualidad fija independiente del número de beneficiarios.',
         'FAMILIAR',
         20.00, 5.00,
-        3,       -- 3 beneficiarios incluidos
-        5,       -- tope 5 (TBD a confirmar con cliente — flyer no lo aclara, vertical-5 TBD)
-        5.00,    -- $5 por beneficiario extra (flyer "Afiliado Adicional: $5")
+        3,       -- 3 included beneficiaries
+        5,       -- cap 5 — TBD with client; flyer does not specify (vertical-5 TBD)
+        5.00,    -- $5 per extra beneficiary (flyer "Afiliado Adicional: $5")
         7,
         TRUE, NOW()
     ),
     (
         'CORPORATIVO',
-        'Plan Corporativo — cobertura para empresas, escuelas y sindicatos. Pricing definitivo por confirmar con el cliente (ver vertical-5 TBDs). Por persona, sin tope de miembros; el contrato administra membresías masivas.',
-        -- Description deliberately calls out the TBD so the admin sees it
-        -- if they preview before the official launch.
-        'Plan Corporativo — pricing por persona. PRICING TBD con cliente (vertical-5 v2). Modelo: cobertura masiva para empresas, escuelas, sindicatos. La membresía se administra vía un contrato corporativo (corporate_contracts, planeado v2).',
+        'Plan Corporativo',
+        'Plan Corporativo — pricing por persona. PRICING TBD con cliente (ver vertical-5 v2). Modelo: cobertura masiva para empresas, escuelas y sindicatos. La membresía se administra vía un contrato corporativo (corporate_contracts, planeado v2).',
         'CORPORATIVO',
-        5.00, 5.00,    -- placeholders por persona; pueden cambiar
-        0,             -- no aplica el concepto "beneficiarios incluidos" — cada persona del contrato es member
-        NULL,          -- sin tope (escala vía contrato)
-        5.00,          -- si en el futuro un member corporativo agrega beneficiarios, $5 default
+        5.00, 5.00,    -- placeholders per person; may change with client confirmation
+        0,             -- no "included beneficiaries" concept — each person on the contract is a member
+        NULL,          -- no cap (scales via the contract)
+        5.00,          -- if a corporate member later adds beneficiaries, $5 default
         7,
-        FALSE, NULL    -- unpublished hasta confirmar pricing
+        FALSE, NULL    -- unpublished until pricing confirmed
     );
