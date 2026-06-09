@@ -3,8 +3,11 @@ package com.fenixcore.optisaludplus.modules.membership.repository;
 import com.fenixcore.optisaludplus.modules.membership.entity.Membership;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,4 +26,21 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
 
     /** History of subscriptions for a member, newest enrollment first. */
     List<Membership> findByMemberIdOrderByEnrolledAtDesc(Long memberId);
+
+    /**
+     * Candidates the daily status job needs to look at: live (is_active=TRUE)
+     * memberships in ACTIVE or SUSPENDED that have already crossed their
+     * next_due_date. EXPIRED + CANCELED are excluded (terminal for this
+     * sweep), as are not-yet-due rows.
+     *
+     * <p>The V21 partial composite index {@code (status, next_due_date)
+     * WHERE is_active = TRUE} covers this query.</p>
+     */
+    @Query("""
+            SELECT m FROM Membership m
+            WHERE m.active = true
+              AND m.status IN ('ACTIVE', 'SUSPENDED')
+              AND m.nextDueDate < :today
+            """)
+    List<Membership> findStatusEvaluationCandidates(@Param("today") LocalDate today);
 }
