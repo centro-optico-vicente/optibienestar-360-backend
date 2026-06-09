@@ -72,7 +72,7 @@
 
 - [x] [P0/C2] Entidades Plan, Membership — 2 entities en `modules/membership/entity/` con enum interno `PlanType` (INDIVIDUAL/FAMILIAR/CORPORATIVO) en Plan + `LifecycleStatus` (ACTIVE/SUSPENDED/EXPIRED/CANCELED) en Membership. Pricing snapshot copiado del plan al alta para inmunidad. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [x] [P0/C2] `/v1/admin/plans` CRUD — `AdminPlanController` (5 endpoints guardados por perms PLAN_*) + `PlansService` con pre-checks de unicidad del code y coherencia max≥included. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
-- [ ] [P0/C2] `POST /v1/admin/members/{id}/memberships`
+- [x] [P0/C2] `POST /v1/admin/members/{id}/memberships` — `AdminMemberMembershipsController` + `MembershipsService.enroll` con pricing snapshot del plan + status ACTIVE + next_due_date calendar +1 mes. Cancel/reactivate van en bullet siguiente. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [ ] [P0/C2] `PUT /v1/admin/memberships/{id}/cancel|reactivate`
 - [ ] [P0/C3] `MembershipStatusService` (ACTIVE/SUSPENDED/EXPIRED según pagos+grace)
 - [ ] [P0/C3] Job diario `@Scheduled` actualiza status, envía notificación
