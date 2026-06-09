@@ -5,8 +5,8 @@
 
 ## Migraciones
 
-- [ ] [P0/C2] `V27__notifications.sql`
-- [ ] [P0/C2] `V28__digital_cards_view.sql`
+- [ ] [P0/C2] `V28__notifications.sql`
+- [ ] [P0/C2] `V29__digital_cards_view.sql`
 
 ## Código
 

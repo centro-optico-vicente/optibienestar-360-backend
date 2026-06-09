@@ -40,19 +40,21 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 > 📌 **Renumeración del 2026-06:**
 > - 1ª: se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
 > - 2ª: se insertó `V20__bcrypt_helper.sql` (utilidad para seeds). Todo lo que era V20+ planeado se bumpeó +1. memberships pasó de V20 a V21.
+> - 3ª: se insertó `V22__scheduled_jobs.sql` (framework de tareas programadas — cron config + audit ledger + permisos `JOB_*`). Todo lo que era V22+ planeado se bumpeó +1. payments pasó de V22 a V23.
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
 | `V21__memberships.sql` | memberships | 5 — planes |
-| `V22__payments.sql` | payments | 6 — pagos |
-| `V23__benefit_usages.sql` | benefit_usages | 7 — validador |
-| `V24__promoters.sql` | promoters | 8 — promotores |
-| `V25__commissions.sql` | commissions | 8 — promotores |
-| `V26__referrals.sql` | referrals | 8 — promotores |
-| `V27__notifications.sql` | notifications | 9 — notificaciones |
-| `V28__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
-| `V29__audit_log.sql` | tabla audit_log | 10 — hardening |
-| `V30__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
+| `V22__scheduled_jobs.sql` | scheduled_jobs + scheduled_job_runs + permisos SCHEDULED_JOBS | cross-cutting (infra) |
+| `V23__payments.sql` | payments | 6 — pagos |
+| `V24__benefit_usages.sql` | benefit_usages | 7 — validador |
+| `V25__promoters.sql` | promoters | 8 — promotores |
+| `V26__commissions.sql` | commissions | 8 — promotores |
+| `V27__referrals.sql` | referrals | 8 — promotores |
+| `V28__notifications.sql` | notifications | 9 — notificaciones |
+| `V29__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
+| `V30__audit_log.sql` | tabla audit_log | 10 — hardening |
+| `V31__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
 ## Convenciones aplicadas a TODAS las tablas
 
