@@ -61,7 +61,7 @@ VALUES
     (
         'CORPORATIVO',
         'Plan Corporativo',
-        'Plan Corporativo — pricing por persona. PRICING TBD con cliente (ver vertical-5 v2). Modelo: cobertura masiva para empresas, escuelas y sindicatos. La membresía se administra vía un contrato corporativo (corporate_contracts, planeado v2).',
+        'Cobertura corporativa para empresas, escuelas y sindicatos. Tarifa por persona; las membresías se administran mediante un contrato único que agrupa a todos los miembros bajo la institución pagadora.',
         'CORPORATIVO',
         5.00, 5.00,    -- placeholders per person; may change with client confirmation
         0,             -- no "included beneficiaries" concept — each person on the contract is a member
