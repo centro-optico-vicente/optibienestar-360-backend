@@ -70,7 +70,7 @@
 
 ## Tarea 2.5 — Planes + Membresías
 
-- [ ] [P0/C2] Entidades Plan, Membership
+- [x] [P0/C2] Entidades Plan, Membership — 2 entities en `modules/membership/entity/` con enum interno `PlanType` (INDIVIDUAL/FAMILIAR/CORPORATIVO) en Plan + `LifecycleStatus` (ACTIVE/SUSPENDED/EXPIRED/CANCELED) en Membership. Pricing snapshot copiado del plan al alta para inmunidad. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [ ] [P0/C2] `/v1/admin/plans` CRUD
 - [ ] [P0/C2] `POST /v1/admin/members/{id}/memberships`
 - [ ] [P0/C2] `PUT /v1/admin/memberships/{id}/cancel|reactivate`

@@ -12,7 +12,7 @@
 
 ## Código
 
-- [ ] [P0/C2] Entidades Plan, Membership
+- [x] [P0/C2] Entidades Plan, Membership _(2 entities en `modules/membership/entity/`. **Plan** (mapea V13): code UNIQUE + name + description + `@Enumerated(STRING) PlanType` (INDIVIDUAL/FAMILIAR/CORPORATIVO) + pricing BigDecimal(10,2) + beneficiaries fields (incluido int, max Integer nullable, extra_fee BigDecimal nullable — nullability matchea V13) + grace_period_days + published flag. **Membership** (mapea V21): `@ManyToOne` Member + Plan (ambos LAZY, optional=false); lifecycle dates LocalDate (`enrolledAt` default ahora, `expiresAt`/`lastPaidThrough` nullable, `nextDueDate` requerido) + pricing snapshot BigDecimal copiado del plan al alta para inmunidad; `lastStatusChangeAt/Reason` para auditoría. `status` (lifecycle: ACTIVE/SUSPENDED/EXPIRED/CANCELED) hereda de BaseEntity como String — mismo patrón de AllyAgreement; se expone enum interno `LifecycleStatus` para que el service layer use `setStatus(LifecycleStatus.SUSPENDED.name())` con type safety. El CHECK constraint de V21 garantiza que solo los 4 valores entran al column. Hibernate validate verde — contextLoads OK con las 2 entities.)_
 - [ ] [P0/C2] `/v1/admin/plans` CRUD
 - [ ] [P0/C2] `POST /v1/admin/members/{id}/memberships`
 - [ ] [P0/C2] `PUT /v1/admin/memberships/{id}/cancel|reactivate`
