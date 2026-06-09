@@ -21,14 +21,14 @@
 - [x] [P0/C3] `V17__members.sql` + member_documents — `members.person_id` FK NOT NULL UNIQUE a `persons` (BaseEntity-style audit, sin demográficos). `member_documents` con CHECK constraint sobre `document_type` + `file_url` (R2 key). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V18__beneficiaries.sql` — FK a persons + UNIQUE(member_id, person_id) + `extra_inscription_paid` boolean v2 + `inscription_payment_id` BIGINT (FK pendiente para V21). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V19__medical_records.sql` — 1:1 con persons (blood_type CHECK + emergency contact estructurado + allergies/conditions/medications/notes TEXT). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
-- [ ] [P0/C3] `V20__memberships.sql`
-- [ ] [P0/C3] `V21__payments.sql`
-- [ ] [P0/C3] `V22__benefit_usages.sql`
-- [ ] [P0/C3] `V23__promoters.sql`
-- [ ] [P0/C3] `V24__commissions.sql`
-- [ ] [P0/C3] `V25__referrals.sql`
-- [ ] [P0/C2] `V26__notifications.sql`
-- [ ] [P0/C2] `V27__digital_cards_view.sql`
+- [x] [P0/C3] `V21__memberships.sql` — memberships con lifecycle ACTIVE/SUSPENDED/EXPIRED/CANCELED + partial UNIQUE 1-activa-por-member + pricing snapshot. Bumpeado desde V20 (V20 tomado por bcrypt_helper). Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
+- [ ] [P0/C3] `V22__payments.sql`
+- [ ] [P0/C3] `V23__benefit_usages.sql`
+- [ ] [P0/C3] `V24__promoters.sql`
+- [ ] [P0/C3] `V25__commissions.sql`
+- [ ] [P0/C3] `V26__referrals.sql`
+- [ ] [P0/C2] `V27__notifications.sql`
+- [ ] [P0/C2] `V28__digital_cards_view.sql`
 - [ ] [P0/C2] Índices clave: members(document), memberships(status, next_due), benefit_usages, payments(status)
 - [ ] [P1/C2] Índice GIN full-text en members.full_name con unaccent
 

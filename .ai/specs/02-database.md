@@ -24,32 +24,35 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V8__locations.sql` | countries, states, cities (seed Venezuela 24 estados + capitales) |
 | `V9__personal_catalogs.sql` | genders, document_types, marital_statuses, occupations |
 | `V10__health_catalogs.sql` | medical_specialties, service_categories, ally_types |
+| `V11__allies.sql` | allies, ally_specialties, ally_services, ally_agreements + ally_service_review_log + workflow PROPOSED/IN_REVIEW/APPROVED/REJECTED/REMOVED + permiso `ALLY_SERVICE_APPROVE` + publishing flags |
+| `V12__ally_users.sql` | ally_users (N:M pivote con `ally_role` enum + `is_primary`) + dropea `allies.manager_user_id` redundante |
+| `V13__plans.sql` | plans con campos v2 (type enum INDIVIDUAL/FAMILIAR/CORPORATIVO + included/max_beneficiaries + extra_beneficiary_inscription_fee + publishing) |
+| `V14__seed_plans.sql` | 3 SKUs del flyer: Individual ($10/$5, published), Familiar ($20/$5, published), Corporativo ($5/$5, unpublished — pricing TBD) |
+| `V15__persons.sql` | **persons** — identity hub (nombres partidos, doc, RIF, contacto, address, city_id FK) |
+| `V16__refactor_users_persons.sql` | backfill persons desde users + ALTER users (drop demográficos, add `person_id` FK NOT NULL UNIQUE) |
+| `V17__members.sql` | members (FK person_id, occupation, enrolled_at) + member_documents |
+| `V18__beneficiaries.sql` | beneficiaries (FK person_id; UNIQUE(member_id, person_id); v2 extra_inscription_paid + inscription_payment_id BIGINT sin FK pendiente para V22) |
+| `V19__medical_records.sql` | medical_records 1:1 con persons (audiencia restringida: MEDICAL_RECORD_VIEW/UPDATE) |
+| `V20__bcrypt_helper.sql` | función `app.bcrypt_hash(plain, strength)` compat con `BCryptPasswordEncoder` — permite seeds con plaintext password |
 
 ### Planeadas
 
-> 📌 **Renumeración del 2026-06:** se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
+> 📌 **Renumeración del 2026-06:**
+> - 1ª: se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
+> - 2ª: se insertó `V20__bcrypt_helper.sql` (utilidad para seeds). Todo lo que era V20+ planeado se bumpeó +1. memberships pasó de V20 a V21.
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V11__allies.sql` | allies, ally_specialties, ally_services, ally_agreements | 3 — aliados |
-| `V12__ally_users.sql` | ally_users | 3 — aliados |
-| `V13__plans.sql` | plans (+ seed plan personal base) | 5 — planes |
-| `V14__seed_plans.sql` | seed planes Individual / Familiar / Corporativo | 5 — planes |
-| `V15__persons.sql` | **persons** — identity hub (nombres partidos, doc, RIF, contacto, address, city_id FK) | cross-cutting (ADR 0011) |
-| `V16__refactor_users_persons.sql` | backfill persons desde users + ALTER users (drop demográficos, add `person_id` FK NOT NULL UNIQUE) | cross-cutting (ADR 0011) |
-| `V17__members.sql` | members (FK person_id), member_documents | 4 — afiliados |
-| `V18__beneficiaries.sql` | beneficiaries (FK person_id) | 4 — afiliados |
-| `V19__medical_records.sql` | medical_records | 4 — afiliados |
-| `V20__memberships.sql` | memberships | 5 — planes |
-| `V21__payments.sql` | payments | 6 — pagos |
-| `V22__benefit_usages.sql` | benefit_usages | 7 — validador |
-| `V23__promoters.sql` | promoters | 8 — promotores |
-| `V24__commissions.sql` | commissions | 8 — promotores |
-| `V25__referrals.sql` | referrals | 8 — promotores |
-| `V26__notifications.sql` | notifications | 9 — notificaciones |
-| `V27__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
-| `V28__audit_log.sql` | tabla audit_log | 10 — hardening |
-| `V29__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
+| `V21__memberships.sql` | memberships | 5 — planes |
+| `V22__payments.sql` | payments | 6 — pagos |
+| `V23__benefit_usages.sql` | benefit_usages | 7 — validador |
+| `V24__promoters.sql` | promoters | 8 — promotores |
+| `V25__commissions.sql` | commissions | 8 — promotores |
+| `V26__referrals.sql` | referrals | 8 — promotores |
+| `V27__notifications.sql` | notifications | 9 — notificaciones |
+| `V28__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
+| `V29__audit_log.sql` | tabla audit_log | 10 — hardening |
+| `V30__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
 ## Convenciones aplicadas a TODAS las tablas
 
