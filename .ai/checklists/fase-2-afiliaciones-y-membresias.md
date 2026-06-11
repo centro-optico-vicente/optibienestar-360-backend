@@ -22,7 +22,7 @@
 - [x] [P0/C3] `V18__beneficiaries.sql` — FK a persons + UNIQUE(member_id, person_id) + `extra_inscription_paid` boolean v2 + `inscription_payment_id` BIGINT (FK pendiente para V21). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V19__medical_records.sql` — 1:1 con persons (blood_type CHECK + emergency contact estructurado + allergies/conditions/medications/notes TEXT). Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `V21__memberships.sql` — memberships con lifecycle ACTIVE/SUSPENDED/EXPIRED/CANCELED + partial UNIQUE 1-activa-por-member + pricing snapshot. Bumpeado desde V20 (V20 tomado por bcrypt_helper). Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
-- [ ] [P0/C3] `V23__payments.sql`
+- [x] [P0/C3] `V23__payments.sql` — schema completo del workflow manual (PENDING/APPROVED/REJECTED) con proof of payment R2 + allocation (inscription/recurring) + review fields + 4 CHECK constraints de coherencia + 3 índices (pending queue, history, reports). Wires el FK diferido de V18 (beneficiaries.inscription_payment_id → payments). Ver detalle en [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [ ] [P0/C3] `V24__benefit_usages.sql`
 - [ ] [P0/C3] `V25__promoters.sql`
 - [ ] [P0/C3] `V26__commissions.sql`

@@ -31,9 +31,12 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V15__persons.sql` | **persons** — identity hub (nombres partidos, doc, RIF, contacto, address, city_id FK) |
 | `V16__refactor_users_persons.sql` | backfill persons desde users + ALTER users (drop demográficos, add `person_id` FK NOT NULL UNIQUE) |
 | `V17__members.sql` | members (FK person_id, occupation, enrolled_at) + member_documents |
-| `V18__beneficiaries.sql` | beneficiaries (FK person_id; UNIQUE(member_id, person_id); v2 extra_inscription_paid + inscription_payment_id BIGINT sin FK pendiente para V22) |
+| `V18__beneficiaries.sql` | beneficiaries (FK person_id; UNIQUE(member_id, person_id); v2 extra_inscription_paid + inscription_payment_id BIGINT — FK diferido aplicado en V23) |
 | `V19__medical_records.sql` | medical_records 1:1 con persons (audiencia restringida: MEDICAL_RECORD_VIEW/UPDATE) |
 | `V20__bcrypt_helper.sql` | función `app.bcrypt_hash(plain, strength)` compat con `BCryptPasswordEncoder` — permite seeds con plaintext password |
+| `V21__memberships.sql` | memberships con lifecycle ACTIVE/SUSPENDED/EXPIRED/CANCELED + pricing snapshot + partial UNIQUE 1-activa-por-member |
+| `V22__scheduled_jobs.sql` | scheduled_jobs + scheduled_job_runs (audit ledger JSONB) + dominio SCHEDULED_JOBS con 5 permisos `JOB_*` + seed MEMBERSHIP_STATUS_SWEEP |
+| `V23__payments.sql` | payments workflow manual (PENDING/APPROVED/REJECTED) con proof of payment R2 + allocation inscription/recurring + 4 CHECK coherence + 3 índices; wires FK diferido `beneficiaries.inscription_payment_id` → `payments` |
 
 ### Planeadas
 
@@ -44,9 +47,6 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V21__memberships.sql` | memberships | 5 — planes |
-| `V22__scheduled_jobs.sql` | scheduled_jobs + scheduled_job_runs + permisos SCHEDULED_JOBS | cross-cutting (infra) |
-| `V23__payments.sql` | payments | 6 — pagos |
 | `V24__benefit_usages.sql` | benefit_usages | 7 — validador |
 | `V25__promoters.sql` | promoters | 8 — promotores |
 | `V26__commissions.sql` | commissions | 8 — promotores |
