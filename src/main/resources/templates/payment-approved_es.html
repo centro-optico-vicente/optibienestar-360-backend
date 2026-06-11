@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a3f; border-bottom: 2px solid #1f7a3f; padding-bottom: 8px; }
+        .ok-box { background: #ecf8f0; padding: 14px; border-left: 4px solid #1f7a3f; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tu pago fue aprobado</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="ok-box">
+        <p>
+            Tu pago ha sido <strong>APROBADO</strong>. Tu membresía
+            queda al día y mantienes el acceso a todos los beneficios
+            del plan.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Plan:</span>
+        <span th:text="${planName}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Monto:</span>
+        <span th:text="${amount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field" th:if="${inscription}">
+        <span class="label">Tipo:</span>
+        <span>Cuota de inscripción</span>
+    </div>
+    <div class="field" th:if="${!inscription and appliedPeriod != null}">
+        <span class="label">Mes cubierto:</span>
+        <span th:text="${#temporals.format(appliedPeriod, 'MM/yyyy')}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Fecha del pago:</span>
+        <span th:text="${#temporals.format(paymentDate, 'dd/MM/yyyy')}"></span>
+    </div>
+    <div class="field" th:if="${reviewReason != null and !#strings.isEmpty(reviewReason)}">
+        <span class="label">Nota del revisor:</span>
+        <span th:text="${reviewReason}"></span>
+    </div>
+
+    <p>Gracias por tu confianza.</p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

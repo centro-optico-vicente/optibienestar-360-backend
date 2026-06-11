@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #b22222; border-bottom: 2px solid #b22222; padding-bottom: 8px; }
+        .alert-box { background: #fdecec; padding: 14px; border-left: 4px solid #b22222; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .reason-box { background: #fff5e1; padding: 12px; border-left: 4px solid #c98300; white-space: pre-wrap; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Your payment was rejected</h2>
+
+    <p>Hello <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            We are sorry to let you know that your payment could not
+            be approved. Please review the reason below and re-submit
+            with the corrected information.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Plan:</span>
+        <span th:text="${planName}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Amount:</span>
+        <span th:text="${amount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Payment date:</span>
+        <span th:text="${#temporals.format(paymentDate, 'yyyy-MM-dd')}"></span>
+    </div>
+
+    <p><strong>Reason for rejection:</strong></p>
+    <div class="reason-box" th:text="${reviewReason}"></div>
+
+    <p>
+        If you think this is a mistake, please contact Centro Óptico
+        Vicente and we will work the case out with you.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>
