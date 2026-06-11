@@ -1,12 +1,15 @@
 package com.fenixcore.optisaludplus.modules.payment.service;
 
+import com.fenixcore.optisaludplus.common.service.EmailService;
 import com.fenixcore.optisaludplus.common.service.StorageService;
 import com.fenixcore.optisaludplus.core.util.RsqlFieldValidator;
 import com.fenixcore.optisaludplus.core.util.SearchSpecifications;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
+import com.fenixcore.optisaludplus.modules.member.entity.Member;
 import com.fenixcore.optisaludplus.modules.membership.entity.Membership;
 import com.fenixcore.optisaludplus.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optisaludplus.modules.person.entity.Person;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentDto;
@@ -20,6 +23,7 @@ import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,7 +35,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -84,6 +92,8 @@ public class PaymentsService {
     private final UserRepository userRepository;
     private final PaymentMapper mapper;
     private final ObjectProvider<StorageService> storageProvider;
+    private final EmailService emailService;
+    private final MessageSource messageSource;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -160,6 +170,7 @@ public class PaymentsService {
         attachSupportFile(payment, supportFile);
 
         Payment saved = paymentRepository.save(payment);
+        dispatchNotification(saved, "payment-received", "email.payment.received.subject");
         return mapper.toDto(saved);
     }
 
@@ -235,6 +246,7 @@ public class PaymentsService {
         applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
                 request != null ? request.reason() : null);
 
+        dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         return mapper.toDto(payment);
     }
 
@@ -252,6 +264,7 @@ public class PaymentsService {
 
         applyReview(payment, PaymentStatus.REJECTED, actorUserUuid, request.reason());
 
+        dispatchNotification(payment, "payment-rejected", "email.payment.rejected.subject");
         return mapper.toDto(payment);
     }
 
@@ -327,5 +340,65 @@ public class PaymentsService {
     private static String safeName(String original) {
         if (original == null || original.isBlank()) return "proof";
         return original.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    /**
+     * Fires the templated notification email matching the payment event.
+     * Failures are logged + swallowed — the payment row mutation already
+     * landed (commit happens whether or not the SMTP call succeeds), and
+     * the affiliate can find the result in the admin queue / their own
+     * history. We never want a transient mail outage to roll back a
+     * registration or a review.
+     */
+    private void dispatchNotification(Payment payment, String template, String subjectKey) {
+        Person person = personFor(payment);
+        if (person == null) {
+            log.debug("Payment {} has no person attached — skipping notification", payment.getUuid());
+            return;
+        }
+        String to = person.getEmail();
+        if (to == null || to.isBlank()) {
+            log.debug("Payment {}: member {} has no email — skipping notification",
+                    payment.getUuid(), person.getUuid());
+            return;
+        }
+
+        Locale locale = resolveLocale(person);
+        String subject = messageSource.getMessage(subjectKey, null, locale);
+
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("fullName", Optional.ofNullable(person.getFullName()).orElse(""));
+        vars.put("planName", payment.getMembership().getPlan().getName());
+        vars.put("amount", payment.getAmount());
+        vars.put("currency", payment.getCurrency());
+        vars.put("paymentMethod", payment.getPaymentMethod().name());
+        vars.put("referenceNumber", payment.getReferenceNumber());
+        vars.put("paymentDate", payment.getPaymentDate());
+        vars.put("inscription", payment.isInscription());
+        vars.put("appliedPeriod", payment.getAppliedPeriod());
+        vars.put("reviewReason", payment.getReviewReason());
+
+        try {
+            emailService.sendTemplated(to, subject, template, locale, vars);
+        } catch (RuntimeException ex) {
+            log.error("Failed to dispatch {} email for payment {}", template, payment.getUuid(), ex);
+        }
+    }
+
+    private static Person personFor(Payment payment) {
+        Membership membership = payment.getMembership();
+        if (membership == null) return null;
+        Member member = membership.getMember();
+        return member != null ? member.getPerson() : null;
+    }
+
+    private static Locale resolveLocale(Person person) {
+        String tag = person.getLocale();
+        if (tag == null || tag.isBlank()) return Locale.forLanguageTag("es");
+        try {
+            return Locale.forLanguageTag(tag);
+        } catch (RuntimeException ex) {
+            return Locale.forLanguageTag("es");
+        }
     }
 }

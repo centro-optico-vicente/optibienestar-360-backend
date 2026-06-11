@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1a56a0; border-bottom: 2px solid #1a56a0; padding-bottom: 8px; }
+        .info-box { background: #eef4fb; padding: 14px; border-left: 4px solid #1a56a0; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Recibimos tu pago — pendiente de revisión</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box">
+        <p>
+            Registramos correctamente tu pago. Nuestro equipo lo
+            revisará y te avisaremos por correo cuando esté aprobado o
+            si necesitamos información adicional.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Plan:</span>
+        <span th:text="${planName}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Monto:</span>
+        <span th:text="${amount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Método de pago:</span>
+        <span th:text="${paymentMethod}"></span>
+    </div>
+    <div class="field" th:if="${referenceNumber != null and !#strings.isEmpty(referenceNumber)}">
+        <span class="label">Referencia:</span>
+        <span th:text="${referenceNumber}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Fecha del pago:</span>
+        <span th:text="${#temporals.format(paymentDate, 'dd/MM/yyyy')}"></span>
+    </div>
+
+    <p>
+        Si no realizaste este pago o crees que es un error, contacta a
+        Centro Óptico Vicente cuanto antes.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>
