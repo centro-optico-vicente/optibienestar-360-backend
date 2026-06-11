@@ -5,8 +5,10 @@ import com.fenixcore.optisaludplus.modules.auth.entity.User;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.membership.entity.Membership;
 import com.fenixcore.optisaludplus.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentDto;
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optisaludplus.modules.payment.mapper.PaymentMapper;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -105,6 +108,60 @@ public class PaymentsService {
 
         Payment saved = paymentRepository.save(payment);
         return mapper.toDto(saved);
+    }
+
+    // ─── Review workflow ───────────────────────────────────────────────────
+
+    /**
+     * Admin approves a pending payment. Status moves PENDING → APPROVED;
+     * reviewer + timestamp are stamped (V23 CHECK
+     * {@code chk_payments_review_consistency} requires them together with
+     * any non-PENDING status). Optional reason becomes the approval note.
+     *
+     * @return updated DTO with the new review state
+     */
+    @Transactional
+    public PaymentDto approve(UUID paymentUuid, PaymentApproveRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensurePending(payment);
+
+        applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
+                request != null ? request.reason() : null);
+
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Admin rejects a pending payment. Status moves PENDING → REJECTED;
+     * reviewer + timestamp + reason all required (V23 CHECK
+     * {@code chk_payments_rejection_has_reason} on top of the consistency
+     * check). The reason is also surfaced to the affiliate so they know
+     * what to fix and re-submit.
+     */
+    @Transactional
+    public PaymentDto reject(UUID paymentUuid, PaymentRejectRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensurePending(payment);
+
+        applyReview(payment, PaymentStatus.REJECTED, actorUserUuid, request.reason());
+
+        return mapper.toDto(payment);
+    }
+
+    private static void ensurePending(Payment payment) {
+        if (!PaymentStatus.PENDING.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.review.not_pending");
+        }
+    }
+
+    private void applyReview(Payment payment, PaymentStatus targetStatus,
+                             UUID actorUserUuid, String reason) {
+        User reviewer = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        payment.setStatus(targetStatus.name());
+        payment.setReviewedBy(reviewer);
+        payment.setReviewedAt(Instant.now());
+        payment.setReviewReason(reason);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

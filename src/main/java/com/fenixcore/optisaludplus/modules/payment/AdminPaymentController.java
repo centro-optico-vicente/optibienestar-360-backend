@@ -1,16 +1,22 @@
 package com.fenixcore.optisaludplus.modules.payment;
 
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentDto;
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optisaludplus.modules.payment.service.PaymentsService;
+import com.fenixcore.optisaludplus.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,5 +64,23 @@ public class AdminPaymentController {
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    @PutMapping("/{uuid}/approve")
+    @PreAuthorize("hasAuthority('PAYMENT_APPROVE')")
+    public ResponseEntity<PaymentDto> approve(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody(required = false) PaymentApproveRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.approve(uuid, request, actor.getUuid()));
+    }
+
+    @PutMapping("/{uuid}/reject")
+    @PreAuthorize("hasAuthority('PAYMENT_REJECT')")
+    public ResponseEntity<PaymentDto> reject(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody PaymentRejectRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.reject(uuid, request, actor.getUuid()));
     }
 }
