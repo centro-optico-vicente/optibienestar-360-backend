@@ -5,7 +5,7 @@
 
 ## Migraciones
 
-- [ ] [P0/C3] `V25__promoters.sql`
+- [x] [P0/C3] `V25__promoters.sql` _(Schema: `user_id` FK NULL + `person_id` FK NULL (ambos NULL = system row), `display_name` (default `persons.full_name` para humanos, label propio para system), `description` TEXT, **`referral_code VARCHAR(20) UNIQUE`** con CHECK regex `^[A-Z0-9-]{4,20}$` (v2 PDF #4 baked-in), **`is_system BOOLEAN`** (v2 PDF #5 baked-in), contact pair (`email CITEXT` + `phone`), snapshot counters (`total_referrals` + `total_commission_paid NUMERIC(12,2)` — cache para dashboard, no source of truth), audit BaseEntity-style con `status` CHECK (ACTIVE/INACTIVE/SUSPENDED). **CHECK constraints**: (1) `system_or_user` — `is_system=true` o `user_id+person_id` ambos NOT NULL; (2) `referral_code_format` regex. **3 índices**: partial UNIQUE `WHERE is_system=TRUE` (máximo uno INSTITUCION platform-wide); partial UNIQUE `(user_id) WHERE user_id IS NOT NULL AND is_active=TRUE` (auth pipeline lookup); `(total_commission_paid DESC) WHERE is_active AND NOT is_system` para leaderboard de promotores reales. **Seed INSTITUCION**: `referral_code='INSTITUCION'`, `is_system=TRUE` — anchor para enrollments sin código (PDF #5: 100% utilidad atribuida a admin central; comisiones se contabilizan a la institución, no a humano). **`members.promoter_id`** agregada al final como NULLABLE FK — schema permite NULL para legacy/back-fill; el service enforce NOT NULL behavior al enrollment (resolución real o INSTITUCION fallback). Índice partial `(promoter_id) WHERE NOT NULL` para portfolio del promotor. contextLoads V1..V25 limpio.)_
 - [ ] [P0/C3] `V26__commissions.sql`
 - [ ] [P0/C3] `V27__referrals.sql`
 
