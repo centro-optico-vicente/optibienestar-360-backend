@@ -1,6 +1,8 @@
 package com.fenixcore.optisaludplus.modules.payment.service;
 
 import com.fenixcore.optisaludplus.common.service.StorageService;
+import com.fenixcore.optisaludplus.core.util.RsqlFieldValidator;
+import com.fenixcore.optisaludplus.core.util.SearchSpecifications;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.membership.entity.Membership;
@@ -13,9 +15,13 @@ import com.fenixcore.optisaludplus.modules.payment.entity.Payment;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optisaludplus.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optisaludplus.modules.payment.repository.PaymentRepository;
+import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +30,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -54,6 +61,17 @@ public class PaymentsService {
     /** R2 key prefix for payment proofs. */
     private static final String STORAGE_PREFIX = "payments/proofs/";
 
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
+            "status", "paymentMethod", "currency",
+            "amount", "inscription",
+            "paymentDate", "receivedAt", "appliedPeriod", "reviewedAt",
+            "createdAt", "updatedAt", "active"
+    );
+
+    private static final String[] SEARCHABLE_FIELDS = {
+            "referenceNumber", "adminNotes", "supportFileName"
+    };
+
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
@@ -64,6 +82,23 @@ public class PaymentsService {
 
     public PaymentDto get(UUID uuid) {
         return mapper.toDto(findManaged(uuid));
+    }
+
+    public Page<PaymentDto> list(Pageable pageable, String filter, String q) {
+        Specification<Payment> spec = activeOnly();
+        if (filter != null && !filter.isBlank()) {
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
+                    "payment.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        return paymentRepository.findAll(spec, pageable).map(mapper::toDto);
+    }
+
+    private static Specification<Payment> activeOnly() {
+        return (root, query, cb) -> cb.isTrue(root.get("active"));
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────
