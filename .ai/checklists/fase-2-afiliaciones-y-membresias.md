@@ -25,7 +25,7 @@
 - [x] [P0/C3] `V23__payments.sql` — schema completo del workflow manual (PENDING/APPROVED/REJECTED) con proof of payment R2 + allocation (inscription/recurring) + review fields + 4 CHECK constraints de coherencia + 3 índices (pending queue, history, reports). Wires el FK diferido de V18 (beneficiaries.inscription_payment_id → payments). Ver detalle en [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [x] [P0/C3] `V24__benefit_usages.sql` — audit ledger del validador: FK membership + ally + service/operator opcionales + dual time + copay pareado + metadata JSONB per-ally type + status workflow + 4 índices. Ver [vertical-7-validador.md](vertical-7-validador.md).
 - [x] [P0/C3] `V25__promoters.sql` — promoters con v2 baked-in (`referral_code` UNIQUE + `is_system` flag) + seed INSTITUCION + agrega `members.promoter_id` NULLABLE. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
-- [ ] [P0/C3] `V26__commissions.sql`
+- [x] [P0/C3] `V26__commissions.sql` — commissions audit (promoter+payment+member FKs) con calculation snapshot (pct XOR flat + tier snapshot) + period bounds + workflow PENDING/PAID/VOIDED/DISPUTED + 5 CHECK coherence + 4 índices. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C3] `V27__referrals.sql`
 - [ ] [P0/C2] `V28__notifications.sql`
 - [ ] [P0/C2] `V29__digital_cards_view.sql`
