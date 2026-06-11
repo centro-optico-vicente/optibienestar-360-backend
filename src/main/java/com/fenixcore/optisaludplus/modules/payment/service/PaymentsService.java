@@ -19,6 +19,7 @@ import com.fenixcore.optisaludplus.modules.payment.entity.Payment;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optisaludplus.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optisaludplus.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optisaludplus.modules.validator.service.ValidatorCacheService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -94,6 +95,7 @@ public class PaymentsService {
     private final ObjectProvider<StorageService> storageProvider;
     private final EmailService emailService;
     private final MessageSource messageSource;
+    private final ValidatorCacheService validatorCacheService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -246,6 +248,7 @@ public class PaymentsService {
         applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
                 request != null ? request.reason() : null);
 
+        validatorCacheService.evictForMembership(payment.getMembership());
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         return mapper.toDto(payment);
     }
@@ -264,6 +267,7 @@ public class PaymentsService {
 
         applyReview(payment, PaymentStatus.REJECTED, actorUserUuid, request.reason());
 
+        validatorCacheService.evictForMembership(payment.getMembership());
         dispatchNotification(payment, "payment-rejected", "email.payment.rejected.subject");
         return mapper.toDto(payment);
     }

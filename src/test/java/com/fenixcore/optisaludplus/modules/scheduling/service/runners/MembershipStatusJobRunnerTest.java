@@ -11,6 +11,7 @@ import com.fenixcore.optisaludplus.modules.person.entity.Person;
 import com.fenixcore.optisaludplus.modules.scheduling.entity.ScheduledJob;
 import com.fenixcore.optisaludplus.modules.scheduling.repository.ScheduledJobRepository;
 import com.fenixcore.optisaludplus.modules.scheduling.service.JobRunResult;
+import com.fenixcore.optisaludplus.modules.validator.service.ValidatorCacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,7 @@ class MembershipStatusJobRunnerTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private MembershipStatusService statusService;
     @Mock private EmailService emailService;
+    @Mock private ValidatorCacheService validatorCacheService;
 
     private MessageSource messageSource;
 
@@ -63,7 +65,8 @@ class MembershipStatusJobRunnerTest {
         messageSource = ms;
 
         runner = new MembershipStatusJobRunner(
-                jobRepository, membershipRepository, statusService, emailService, messageSource);
+                jobRepository, membershipRepository, statusService,
+                emailService, messageSource, validatorCacheService);
     }
 
     @Test
