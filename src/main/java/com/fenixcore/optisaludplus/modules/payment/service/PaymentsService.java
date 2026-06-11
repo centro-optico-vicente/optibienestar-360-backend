@@ -11,6 +11,7 @@ import com.fenixcore.optisaludplus.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentDto;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentRejectRequest;
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optisaludplus.modules.payment.mapper.PaymentMapper;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
@@ -71,6 +73,11 @@ public class PaymentsService {
     private static final String[] SEARCHABLE_FIELDS = {
             "referenceNumber", "adminNotes", "supportFileName"
     };
+
+    /** Bounds for the presigned-URL TTL — clamps client-supplied values. */
+    private static final Duration MIN_PRESIGNED_TTL = Duration.ofMinutes(1);
+    private static final Duration MAX_PRESIGNED_TTL = Duration.ofHours(1);
+    private static final Duration DEFAULT_PRESIGNED_TTL = Duration.ofMinutes(5);
 
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
@@ -143,6 +150,60 @@ public class PaymentsService {
 
         Payment saved = paymentRepository.save(payment);
         return mapper.toDto(saved);
+    }
+
+    // ─── Support file (presigned download URL) ─────────────────────────────
+
+    /**
+     * Generates a short-lived presigned download URL for the
+     * proof-of-payment object in R2.
+     *
+     * <p>Failure modes (callers map these to HTTP):</p>
+     * <ul>
+     *   <li>Payment row missing → {@code payment.not_found} (404).</li>
+     *   <li>{@code support_file_url} is {@code null} (no proof was
+     *       attached, or the row was registered while R2 was off) →
+     *       {@code payment.support.not_available} (404).</li>
+     *   <li>{@link StorageService} bean not present (R2 disabled on this
+     *       replica) → {@code payment.support.storage_unavailable}
+     *       (422).</li>
+     * </ul>
+     *
+     * @param paymentUuid the payment row
+     * @param requestedTtl optional client-requested TTL. Clamped to
+     *                     [{@value #MIN_PRESIGNED_TTL_MIN},
+     *                     {@value #MAX_PRESIGNED_TTL_MIN}] minutes;
+     *                     {@code null} defaults to 5 minutes.
+     */
+    public PaymentSupportUrlDto generateSupportUrl(UUID paymentUuid, Duration requestedTtl) {
+        Payment payment = findManaged(paymentUuid);
+        String key = payment.getSupportFileUrl();
+        if (key == null || key.isBlank()) {
+            throw new NoSuchElementException("payment.support.not_available");
+        }
+
+        StorageService storage = storageProvider.getIfAvailable();
+        if (storage == null) {
+            throw new IllegalArgumentException("payment.support.storage_unavailable");
+        }
+
+        Duration ttl = clampTtl(requestedTtl);
+        String url = storage.generatePresignedUrl(key, ttl);
+        Instant expiresAt = Instant.now().plus(ttl);
+        return new PaymentSupportUrlDto(
+                url,
+                expiresAt,
+                ttl.toSeconds(),
+                payment.getSupportFileName(),
+                payment.getSupportFileContentType(),
+                payment.getSupportFileSizeBytes());
+    }
+
+    private static Duration clampTtl(Duration requested) {
+        if (requested == null) return DEFAULT_PRESIGNED_TTL;
+        if (requested.compareTo(MIN_PRESIGNED_TTL) < 0) return MIN_PRESIGNED_TTL;
+        if (requested.compareTo(MAX_PRESIGNED_TTL) > 0) return MAX_PRESIGNED_TTL;
+        return requested;
     }
 
     // ─── Review workflow ───────────────────────────────────────────────────
