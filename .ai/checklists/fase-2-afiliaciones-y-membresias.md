@@ -81,7 +81,7 @@
 ## Tarea 2.6 — Pagos manuales
 
 - [x] [P0/C2] Entidad Payment — `modules/payment/entity/Payment.java` extends BaseEntity con `@ManyToOne` Membership + payer/reviewer User; enum interno `PaymentMethod` (7 valores) + `PaymentStatus` (PENDING/APPROVED/REJECTED). Ver detalle en [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
-- [ ] [P0/C3] `POST /v1/admin/payments` (con soporte multipart → R2)
+- [x] [P0/C3] `POST /v1/admin/payments` (con soporte multipart → R2) — `AdminPaymentController` + `PaymentsService.register`. Multipart (JSON payment + opcional support file). R2 inyectado via `ObjectProvider<StorageService>` — file metadata siempre se persiste; bytes solo se uploadean si `storage.r2.enabled=true`. Status arranca PENDING. Ver detalle en [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [ ] [P0/C3] `PUT /v1/admin/payments/{id}/approve`
 - [ ] [P0/C2] `PUT /v1/admin/payments/{id}/reject`
 - [ ] [P0/C2] `GET /v1/admin/payments` + RSQL
