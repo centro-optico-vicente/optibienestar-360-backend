@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #c98300; border-bottom: 2px solid #c98300; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .alert-box { background: #fff5e1; padding: 14px; border-left: 4px solid #c98300; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Your membership is suspended due to non-payment</h2>
+
+    <p>Hello <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            We did not record a payment for your
+            <strong th:text="${planName}"></strong> plan
+            before <strong th:text="${#temporals.format(nextDueDate, 'yyyy-MM-dd')}"></strong>.
+        </p>
+        <p>
+            Your membership is now <strong>SUSPENDED</strong> and benefits
+            are paused until the payment is registered.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Grace period available:</span>
+        <span th:text="${gracePeriodDays} + ' days'"></span>
+    </div>
+
+    <p>
+        If you have already paid, please let us know through the usual
+        channels so we can verify and reactivate your membership.
+    </p>
+
+    <p>
+        If the grace period ends without a recorded payment, the membership
+        will automatically move to <strong>EXPIRED</strong> and a new
+        enrollment will be required.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>

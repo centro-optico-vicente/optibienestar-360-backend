@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #b22222; border-bottom: 2px solid #b22222; padding-bottom: 8px; }
+        .alert-box { background: #fdecec; padding: 14px; border-left: 4px solid #b22222; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tu membresía ha expirado</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            El período de gracia de tu plan
+            <strong th:text="${planName}"></strong>
+            finalizó sin que se registrara el pago correspondiente al
+            vencimiento del
+            <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
+        </p>
+        <p>
+            Tu membresía está ahora <strong>EXPIRADA</strong> y no tienes
+            acceso a los beneficios del plan.
+        </p>
+    </div>
+
+    <p>
+        Para recuperar el acceso necesitarás una nueva inscripción. Si
+        deseas continuar con tu cobertura, ponte en contacto con
+        Centro Óptico Vicente y te indicaremos los pasos.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

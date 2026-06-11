@@ -75,7 +75,7 @@
 - [x] [P0/C2] `POST /v1/admin/members/{id}/memberships` — `AdminMemberMembershipsController` + `MembershipsService.enroll` con pricing snapshot del plan + status ACTIVE + next_due_date calendar +1 mes. Cancel/reactivate van en bullet siguiente. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [x] [P0/C2] `PUT /v1/admin/memberships/{id}/cancel|reactivate` — `AdminMembershipController` + `MembershipLifecycleService` con state-machine: cancel desde cualquier estado, reactivate solo SUSPENDED/EXPIRED (CANCELED es terminal). Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [x] [P0/C3] `MembershipStatusService` (ACTIVE/SUSPENDED/EXPIRED según pagos+grace) — date-driven state-machine con `evaluate` pure-function + `applyTransition` mutate + `applyDueTransitions` batch (consumido por daily job). 9 unit tests cubriendo fronteras de grace, CANCELED/soft-deleted skip, grace=0. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
-- [ ] [P0/C3] Job diario `@Scheduled` actualiza status, envía notificación
+- [x] [P0/C3] Job diario `@Scheduled` actualiza status, envía notificación — reemplazado por el framework `scheduled_jobs` (V22 + módulo `modules/scheduling/`) + primer runner `MembershipStatusJobRunner` con templates email `membership-suspended/expired` _es/_en. Hot reload runtime, hybrid sync/async manual trigger, audit ledger JSONB. Ver detalle en [vertical-5-planes-y-membresias.md](vertical-5-planes-y-membresias.md).
 - [ ] [P1/C2] `GET /v1/admin/memberships/dashboard` KPIs
 
 ## Tarea 2.6 — Pagos manuales

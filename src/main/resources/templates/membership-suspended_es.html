@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #c98300; border-bottom: 2px solid #c98300; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .alert-box { background: #fff5e1; padding: 14px; border-left: 4px solid #c98300; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tu membresía está suspendida por falta de pago</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            Detectamos que la cuota de tu plan
+            <strong th:text="${planName}"></strong>
+            no fue registrada antes del
+            <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
+        </p>
+        <p>
+            Tu membresía ha quedado <strong>SUSPENDIDA</strong> y permanecerás
+            sin acceso a los beneficios mientras no regularices el pago.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Período de gracia disponible:</span>
+        <span th:text="${gracePeriodDays} + ' días'"></span>
+    </div>
+
+    <p>
+        Si ya realizaste el pago, por favor avísanos por los canales
+        habituales para verificar y reactivar tu membresía.
+    </p>
+
+    <p>
+        Si pasa el período de gracia sin registrar el pago, la membresía
+        cambiará automáticamente a <strong>EXPIRADA</strong> y se requerirá
+        una nueva inscripción.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>
