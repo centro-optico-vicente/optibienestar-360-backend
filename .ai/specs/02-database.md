@@ -39,6 +39,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V23__payments.sql` | payments workflow manual (PENDING/APPROVED/REJECTED) con proof of payment R2 + allocation inscription/recurring + 4 CHECK coherence + 3 índices; wires FK diferido `beneficiaries.inscription_payment_id` → `payments` |
 | `V24__benefit_usages.sql` | benefit_usages audit ledger (membership/ally/service/ally_user FKs) + dual time + copay pareado + metadata JSONB per-ally type (clinic/optical/pharmacy) + status (REGISTERED/REVERSED/DISPUTED) + 4 índices |
 | `V25__promoters.sql` | promoters con v2 baked-in (referral_code UNIQUE + is_system) + seed INSTITUCION + agrega `members.promoter_id` NULLABLE FK + 3 índices (partial unique system row, partial unique user_id, leaderboard de reales) |
+| `V26__commissions.sql` | commissions audit-ledger con promoter+payment+member FKs + calculation snapshot (pct XOR flat + tier name) + period bounds inclusive + workflow PENDING/PAID/VOIDED/DISPUTED + 5 CHECK coherence + 4 índices (partial unique non-voided per pago/promotor, liquidation, member history, payment fan-out) |
 
 ### Planeadas
 
@@ -49,7 +50,6 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V26__commissions.sql` | commissions | 8 — promotores |
 | `V27__referrals.sql` | referrals | 8 — promotores |
 | `V28__notifications.sql` | notifications | 9 — notificaciones |
 | `V29__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
