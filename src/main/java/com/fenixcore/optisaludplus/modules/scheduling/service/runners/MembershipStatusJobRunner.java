@@ -79,6 +79,7 @@ public class MembershipStatusJobRunner implements ScheduledJobRunner {
     private final MembershipStatusService statusService;
     private final EmailService emailService;
     private final MessageSource messageSource;
+    private final com.fenixcore.optisaludplus.modules.validator.service.ValidatorCacheService validatorCacheService;
 
     @Override
     public String code() {
@@ -104,6 +105,8 @@ public class MembershipStatusJobRunner implements ScheduledJobRunner {
             }
 
             statusService.applyTransition(membership, today);
+
+            validatorCacheService.evictForMembership(membership);
 
             try {
                 fireNotification(membership, target);

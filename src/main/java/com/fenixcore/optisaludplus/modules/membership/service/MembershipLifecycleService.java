@@ -48,6 +48,7 @@ public class MembershipLifecycleService {
 
     private final MembershipRepository repository;
     private final MembershipMapper mapper;
+    private final com.fenixcore.optisaludplus.modules.validator.service.ValidatorCacheService validatorCacheService;
 
     @Transactional
     public MembershipDto cancel(UUID uuid, MembershipCancelRequest request) {
@@ -66,6 +67,7 @@ public class MembershipLifecycleService {
                 "Cancelled by admin",
                 request != null ? request.reason() : null));
 
+        validatorCacheService.evictForMembership(membership);
         return mapper.toDto(membership);
     }
 
@@ -83,6 +85,7 @@ public class MembershipLifecycleService {
                 "Reactivated by admin",
                 request != null ? request.reason() : null));
 
+        validatorCacheService.evictForMembership(membership);
         return mapper.toDto(membership);
     }
 
