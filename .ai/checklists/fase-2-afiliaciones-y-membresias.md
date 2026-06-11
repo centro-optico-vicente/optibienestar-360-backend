@@ -85,7 +85,7 @@
 - [x] [P0/C3] `PUT /v1/admin/payments/{id}/approve` — body opcional con reason de aprobación; valida PENDING (422 si ya revisado); setea reviewedBy/At + status=APPROVED. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [x] [P0/C2] `PUT /v1/admin/payments/{id}/reject` — body requerido con `@NotBlank reason` (mirror CHECK V23 + UX al afiliado); valida PENDING; setea reviewedBy/At + status=REJECTED. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [x] [P0/C2] `GET /v1/admin/payments` + RSQL — `Page<PaymentDto>` default `receivedAt DESC` size 20; RSQL allowlist 12 campos + free-text `?q` sobre referenceNumber/adminNotes/supportFileName. Aprovecha índice V23 `(status, received_at DESC)`. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
-- [ ] [P0/C2] `GET /v1/admin/payments/{id}/support` (presigned URL)
+- [x] [P0/C2] `GET /v1/admin/payments/{id}/support` (presigned URL) — JSON `PaymentSupportUrlDto` con `url` + `expiresAt` + metadata; query `?ttlMinutes` clampeado [1..60] default 5; 422 si R2 off, 404 si no hay proof. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [ ] [P0/C2] `GET /v1/me/payments`
 - [ ] [P0/C2] Templates `payment-received.html` + `payment-approved.html` + `payment-rejected.html`
 

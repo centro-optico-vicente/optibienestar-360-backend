@@ -4,9 +4,12 @@ import com.fenixcore.optisaludplus.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentDto;
 import com.fenixcore.optisaludplus.modules.payment.dto.PaymentRejectRequest;
+import com.fenixcore.optisaludplus.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optisaludplus.modules.payment.service.PaymentsService;
 import com.fenixcore.optisaludplus.security.CustomUserDetails;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -105,5 +109,24 @@ public class AdminPaymentController {
             @Valid @RequestBody PaymentRejectRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.reject(uuid, request, actor.getUuid()));
+    }
+
+    /**
+     * Returns a short-lived presigned download URL for the proof of
+     * payment object in R2. The URL itself is opaque to the backend
+     * — the frontend opens it in a new tab or fetches the file directly.
+     *
+     * <p>The {@code ttlMinutes} query param lets the caller request a
+     * shorter or longer link; the service clamps it to [1, 60] minutes.
+     * Defaults to 5 minutes when omitted.</p>
+     */
+    @GetMapping("/{uuid}/support")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
+    public ResponseEntity<PaymentSupportUrlDto> getSupportUrl(
+            @PathVariable UUID uuid,
+            @RequestParam(value = "ttlMinutes", required = false)
+            @Min(1) @Max(60) Integer ttlMinutes) {
+        Duration ttl = ttlMinutes != null ? Duration.ofMinutes(ttlMinutes) : null;
+        return ResponseEntity.ok(paymentsService.generateSupportUrl(uuid, ttl));
     }
 }
