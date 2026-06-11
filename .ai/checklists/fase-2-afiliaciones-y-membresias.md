@@ -86,7 +86,7 @@
 - [x] [P0/C2] `PUT /v1/admin/payments/{id}/reject` — body requerido con `@NotBlank reason` (mirror CHECK V23 + UX al afiliado); valida PENDING; setea reviewedBy/At + status=REJECTED. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [x] [P0/C2] `GET /v1/admin/payments` + RSQL — `Page<PaymentDto>` default `receivedAt DESC` size 20; RSQL allowlist 12 campos + free-text `?q` sobre referenceNumber/adminNotes/supportFileName. Aprovecha índice V23 `(status, received_at DESC)`. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [x] [P0/C2] `GET /v1/admin/payments/{id}/support` (presigned URL) — JSON `PaymentSupportUrlDto` con `url` + `expiresAt` + metadata; query `?ttlMinutes` clampeado [1..60] default 5; 422 si R2 off, 404 si no hay proof. Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
-- [ ] [P0/C2] `GET /v1/me/payments`
+- [x] [P0/C2] `GET /v1/me/payments` — self-service del afiliado. `MyPaymentsController` guardado por `PAYMENT_VIEW_OWN`; single-JPQL `findOwnByUserUuid` que walks user→person→member→membership→payment. Sort `receivedAt DESC`. Sin RSQL (full history para el afiliado). Ver [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [ ] [P0/C2] Templates `payment-received.html` + `payment-approved.html` + `payment-rejected.html`
 
 ## Tarea 2.7 — Promotores + Comisiones + Referidos

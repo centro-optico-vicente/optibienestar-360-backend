@@ -91,6 +91,17 @@ public class PaymentsService {
         return mapper.toDto(findManaged(uuid));
     }
 
+    /**
+     * Powers {@code GET /v1/me/payments} — only the payments tied to the
+     * caller's membership history are returned. Same sort default as the
+     * admin list ({@code receivedAt DESC}) so the affiliate sees newest
+     * first; no RSQL filter on this surface — the affiliate's view is
+     * the full history, not a curated query.
+     */
+    public Page<PaymentDto> listForUser(UUID userUuid, Pageable pageable) {
+        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(mapper::toDto);
+    }
+
     public Page<PaymentDto> list(Pageable pageable, String filter, String q) {
         Specification<Payment> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
