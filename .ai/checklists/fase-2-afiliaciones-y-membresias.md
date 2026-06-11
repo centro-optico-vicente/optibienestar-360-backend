@@ -80,7 +80,7 @@
 
 ## Tarea 2.6 — Pagos manuales
 
-- [ ] [P0/C2] Entidad Payment
+- [x] [P0/C2] Entidad Payment — `modules/payment/entity/Payment.java` extends BaseEntity con `@ManyToOne` Membership + payer/reviewer User; enum interno `PaymentMethod` (7 valores) + `PaymentStatus` (PENDING/APPROVED/REJECTED). Ver detalle en [vertical-6-pagos-manuales.md](vertical-6-pagos-manuales.md).
 - [ ] [P0/C3] `POST /v1/admin/payments` (con soporte multipart → R2)
 - [ ] [P0/C3] `PUT /v1/admin/payments/{id}/approve`
 - [ ] [P0/C2] `PUT /v1/admin/payments/{id}/reject`

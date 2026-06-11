@@ -10,7 +10,7 @@
 
 ## Código
 
-- [ ] [P0/C2] Entidad Payment
+- [x] [P0/C2] Entidad Payment _(JPA entity en `modules/payment/entity/Payment.java`. `extends BaseEntity` con `@AttributeOverride id→payments_id`. **Relaciones**: `@ManyToOne` Membership (LAZY, optional=false; FK `membership_id`), `@ManyToOne` User payer (LAZY, NULL; FK `payer_user_id`), `@ManyToOne` User reviewer (LAZY, NULL; FK `reviewed_by`). **Money**: `BigDecimal amount` precision=10/scale=2, `String currency` default 'USD'. **Method + reference**: `@Enumerated(STRING) PaymentMethod paymentMethod` inner enum 7 valores (BANK_TRANSFER/CASH/ZELLE/PAGO_MOVIL/CRYPTO/INTERNATIONAL_TRANSFER/OTHER — matches V23 CHECK), `String referenceNumber`. **Dates**: `LocalDate paymentDate` (settlement bank), `Instant receivedAt` default ahora. **Allocation**: `boolean inscription` default false, `LocalDate appliedPeriod` (primer día del mes para recurring; nullable). **Proof of payment R2**: `supportFileUrl/Name/ContentType/SizeBytes`. **Review workflow**: `Instant reviewedAt`, `String reviewReason` (TEXT). **Status** (PENDING/APPROVED/REJECTED) hereda de BaseEntity como String — mismo patrón Membership.LifecycleStatus; expone enum interno `PaymentStatus` para type safety en service (`payment.setStatus(PaymentStatus.APPROVED.name())`). El CHECK V23 garantiza que solo los 3 valores entran al column. Hibernate validate verde — contextLoads OK con la entity nueva.)_
 - [ ] [P0/C3] `POST /v1/admin/payments` (multipart soporte → R2)
 - [ ] [P0/C3] `PUT /v1/admin/payments/{id}/approve`
 - [ ] [P0/C2] `PUT /v1/admin/payments/{id}/reject`
