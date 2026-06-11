@@ -16,12 +16,15 @@ import com.fenixcore.optisaludplus.modules.membership.entity.Membership;
 import com.fenixcore.optisaludplus.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optisaludplus.modules.membership.repository.MembershipRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 /**
  * Application service for {@link BenefitUsage}. This commit ships only
@@ -48,6 +51,17 @@ public class BenefitUsagesService {
     private final AllyServiceRepository allyServiceRepository;
     private final AllyUserRepository allyUserRepository;
     private final BenefitUsageMapper mapper;
+
+    /**
+     * Powers {@code GET /v1/ally/usage-history}. Returns every benefit
+     * usage registered at any ally the current user is an active operator
+     * on (handles the N:M {@code AllyUser} pivot through a JPQL subquery).
+     * Read-only, no scope check beyond the repository query — the JPQL
+     * naturally restricts results to the user's own allies.
+     */
+    public Page<BenefitUsageDto> listForAllyUser(UUID userUuid, Pageable pageable) {
+        return usageRepository.findByAllyUserUuid(userUuid, pageable).map(mapper::toDto);
+    }
 
     @Transactional
     public BenefitUsageDto register(BenefitUsageRegisterRequest request) {
