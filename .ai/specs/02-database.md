@@ -56,6 +56,23 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V30__audit_log.sql` | tabla audit_log | 10 — hardening |
 | `V31__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
+## Decisiones diferidas y pendientes de análisis
+
+> **Patrón general del proyecto** (aplicable a toda migración / schema work, no solo a una vertical específica): cada vez que una migración deja un **FK diferido**, un **trigger no implementado**, una **columna `_id` sin la tabla destino**, una **política de snapshot vs live** a confirmar, o una **decisión de diseño** que requiere más data productiva para validarse — se captura acá, agrupado por la migración que originó la deuda. Se revisan cuando hay ventana de análisis; **no bloquean el flujo principal**.
+>
+> El bullet ideal es **resolvible**: tiene un trigger claro de cierre (*"cuando V27 traiga `commission_tiers`..."*) o una decisión explícita a tomar (*"DB trigger vs service code"*). Si el item solo dice *"revisar X"* sin condición de cierre, hay que afinarlo o eliminarlo.
+>
+> **Convención de localización**: esta sección documenta solo la **doctrina general** (la regla del proyecto). Los **items específicos por migración** viven en el checklist de la vertical que owns esa migración — son los devs de esa vertical los que mejor pueden cerrar el item al implementar el próximo bullet. Cada checklist de vertical que tenga deuda diferida abre su sección **"## Pendientes de análisis / Decisiones diferidas"** con un cross-ref a esta doctrina y la lista de items resolvibles agrupados por migración.
+
+### Índice por migración → vertical donde viven los items
+
+| Migración | Vertical | Sección del checklist |
+|---|---|---|
+| `V25__promoters.sql` | 8 — promotores | [vertical-8 § Pendientes de análisis](../checklists/vertical-8-promotores-comisiones-referidos.md#pendientes-de-an%C3%A1lisis--decisiones-diferidas) |
+| `V26__commissions.sql` | 8 — promotores | [vertical-8 § Pendientes de análisis](../checklists/vertical-8-promotores-comisiones-referidos.md#pendientes-de-an%C3%A1lisis--decisiones-diferidas) |
+
+> Cuando una nueva migración deja deuda diferida, agregar (a) el bullet o sección en su vertical, y (b) una fila en este índice para trazabilidad cross-vertical.
+
 ## Convenciones aplicadas a TODAS las tablas
 
 Por [ADR 0006](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md):
