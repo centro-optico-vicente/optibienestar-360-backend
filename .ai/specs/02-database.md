@@ -40,6 +40,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V24__benefit_usages.sql` | benefit_usages audit ledger (membership/ally/service/ally_user FKs) + dual time + copay pareado + metadata JSONB per-ally type (clinic/optical/pharmacy) + status (REGISTERED/REVERSED/DISPUTED) + 4 índices |
 | `V25__promoters.sql` | promoters con v2 baked-in (referral_code UNIQUE + is_system) + seed INSTITUCION + agrega `members.promoter_id` NULLABLE FK + 3 índices (partial unique system row, partial unique user_id, leaderboard de reales) |
 | `V26__commissions.sql` | commissions audit-ledger con promoter+payment+member FKs + calculation snapshot (pct XOR flat + tier name) + period bounds inclusive + workflow PENDING/PAID/VOIDED/DISPUTED + 5 CHECK coherence + 4 índices (partial unique non-voided per pago/promotor, liquidation, member history, payment fan-out) |
+| `V27__referrals.sql` | referrals afiliado-a-afiliado (referrer+referred FKs, lifecycle 5-state, reward pct XOR flat) + 8 CHECK coherence + 5 índices + `members.referral_code` UNIQUE partial |
 
 ### Planeadas
 
@@ -50,7 +51,6 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V27__referrals.sql` | referrals | 8 — promotores |
 | `V28__notifications.sql` | notifications | 9 — notificaciones |
 | `V29__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
 | `V30__audit_log.sql` | tabla audit_log | 10 — hardening |
@@ -70,6 +70,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 |---|---|---|
 | `V25__promoters.sql` | 8 — promotores | [vertical-8 § Pendientes de análisis](../checklists/vertical-8-promotores-comisiones-referidos.md#pendientes-de-an%C3%A1lisis--decisiones-diferidas) |
 | `V26__commissions.sql` | 8 — promotores | [vertical-8 § Pendientes de análisis](../checklists/vertical-8-promotores-comisiones-referidos.md#pendientes-de-an%C3%A1lisis--decisiones-diferidas) |
+| `V27__referrals.sql` | 8 — promotores | [vertical-8 § Pendientes de análisis](../checklists/vertical-8-promotores-comisiones-referidos.md#pendientes-de-an%C3%A1lisis--decisiones-diferidas) |
 
 > Cuando una nueva migración deja deuda diferida, agregar (a) el bullet o sección en su vertical, y (b) una fila en este índice para trazabilidad cross-vertical.
 
