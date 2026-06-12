@@ -56,6 +56,30 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V30__audit_log.sql` | tabla audit_log | 10 — hardening |
 | `V31__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
 
+## Decisiones diferidas y pendientes de análisis
+
+> **Patrón general del proyecto** (aplicable a toda migración / schema work, no solo a una vertical específica): cada vez que una migración deja un **FK diferido**, un **trigger no implementado**, una **columna `_id` sin la tabla destino**, una **política de snapshot vs live** a confirmar, o una **decisión de diseño** que requiere más data productiva para validarse — se captura acá, agrupado por la migración que originó la deuda. Se revisan cuando hay ventana de análisis; **no bloquean el flujo principal**.
+>
+> El bullet ideal es **resolvible**: tiene un trigger claro de cierre (*"cuando V27 traiga `commission_tiers`..."*) o una decisión explícita a tomar (*"DB trigger vs service code"*). Si el item solo dice *"revisar X"* sin condición de cierre, hay que afinarlo o eliminarlo.
+>
+> Esta sección vive en el spec del schema porque sobrevive a refactors de las verticales (un vertical puede dividirse, fusionarse o reorganizarse — la migración + su deuda técnica no). Las verticales pueden agregar bullets a esta sección con un cross-ref desde sus checklists.
+
+### V25 — `promoters`
+
+- [ ] [diferido] **Snapshot counters `promoters.total_referrals` + `total_commission_paid`**: ¿se actualizan vía TRIGGER en `commissions` (más simple pero acopla schemas) o vía service code en el `CommissionService` cuando una commission pasa a `PAID` (más explícito, permite batch + reintentos)? **Trigger de cierre**: definir antes de implementar `PUT /v1/admin/commissions/{uuid}/mark-paid` o el batch de payout, ese es el momento natural en que el counter avanza.
+- [ ] [diferido] **Sincronización `promoters.display_name` ↔ `persons.full_name`**: hoy se setea al crear el promotor (default `person.full_name`) pero NO se mantiene sincronizado si el `Person` se edita después. ¿Es deseado divergir (admin puede personalizar) o sincronizar al cambiar el Person? **Trigger de cierre**: surge cuando aparezca un caso real de admin que pide editar el nombre del promotor sin tocar el Person.
+- [ ] [diferido] **Workflow de `promoters.status=SUSPENDED`**: el CHECK constraint lo permite (ACTIVE/INACTIVE/SUSPENDED) pero **no hay endpoint que lo aplique**. **Trigger de cierre**: agregar `PUT /v1/admin/promoters/{uuid}/suspend` con razón obligatoria cuando aparezca el caso de uso real (fraude detectado, contrato terminado). Hasta entonces, INACTIVE vía soft-delete cubre el flow.
+- [ ] [diferido] **`members.promoter_id` schema NULLABLE vs service NOT NULL**: el service enforce NOT NULL al alta, pero NO hay constraint que prevenga `UPDATE members SET promoter_id = NULL` via SQL directo. ¿Agregar CHECK constraint que enforce NOT NULL cuando el row es ACTIVE/ENROLLED, o confiar en el service? **Trigger de cierre**: revisar cuando llegue el endpoint de assign-promoter — si necesita UNSET temporal, CHECK no sirve.
+
+### V26 — `commissions`
+
+- [ ] [diferido] **FK `commissions.commission_tier_id` → `commission_tiers`**: la columna existe como BIGINT sin REFERENCES porque la tabla `commission_tiers` no existe todavía (planeada v2). **Trigger de cierre**: cuando llegue V27+ con `commission_tiers`, agregar `ALTER TABLE commissions ADD CONSTRAINT fk_commissions_tier FOREIGN KEY (commission_tier_id) REFERENCES commission_tiers(commission_tiers_id);` al final de esa migración (mismo patrón que el FK diferido V18→V23 de `beneficiaries.inscription_payment_id`).
+- [ ] [diferido] **Tabla `commission_payouts` futura vs `payout_reference VARCHAR` actual**: hoy el row de commission referencia el cobro batch via string libre. ¿Vale la pena promover a tabla `commission_payouts` (uuid, executed_at, total_amount, currency, bank_reference, ...) cuando aparezca el bullet de "cierre de período + CSV + email promotor"? Si sí, migrar `payout_reference` a `payout_id BIGINT FK`. **Trigger de cierre**: análisis al implementar `POST /v1/admin/commissions/payout`.
+- [ ] [diferido] **Política de void: VOIDED row vs commission negativa**: cuando un payment se revierte/refunda, las commissions tied a él necesitan compensación. **Opción A** — VOIDED status sobre el row original (audit limpio, una sola fila por evento). **Opción B** — nueva fila con monto negativo (suma agregada = 0; mismo patrón contable que doble entrada). **Trigger de cierre**: depende de qué requiere contabilidad — definir cuando llegue el bullet del commission engine + audit con contador.
+- [ ] [diferido] **Rango `commission_pct ≤ 100` (CHECK actual)**: el constraint rechaza > 100%, pero v2 menciona "premios doble pago" (ej. bono semestral 200% sobre basis). ¿Flexibilizar el CHECK o usar `flat_amount` para bonos > 100%? **Trigger de cierre**: cuando v2 `commission_tiers` introduzca el caso explícito de premio multiplicador, posiblemente bumpear el CHECK a `≤ 500` o quitarlo.
+- [ ] [diferido] **Trigger automático `commissions.status=PAID` → `promoters.total_commission_paid +=`**: relacionado con el primer item de V25. **Decisión**: depende de la resolución TRIGGER-vs-service del item correspondiente de promoters.
+- [ ] [diferido] **Index strategy `(promoter_id, status, period_start)` vs partial por status**: hoy el partial es solo `WHERE is_active`. Si el 99% de queries son `status='PENDING'`, podría convenir partial adicional `WHERE status='PENDING' AND is_active`. **Trigger de cierre**: cuando haya volumen real de commissions, correr `EXPLAIN ANALYZE` sobre la query de liquidation; si bitmap heap scan domina, agregar el partial.
+
 ## Convenciones aplicadas a TODAS las tablas
 
 Por [ADR 0006](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md):
