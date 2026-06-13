@@ -91,7 +91,7 @@
 
 ## Tarea 2.7 — Promotores + Comisiones + Referidos
 
-- [ ] [P0/C2] Entidades Promoter, Commission, Referral
+- [x] [P0/C2] Entidades Promoter, Commission, Referral — 3 entities en `modules/promoter/entity/` con enums internos (`PromoterStatus`, `AppliesTo`+`PeriodStrategy`+`CommissionStatus`, `ReferralStatus`). `Member.promoter_id`/`referral_code` columns dejan sin mapear hasta que el service los necesite. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C3] `/v1/admin/promoters` CRUD
 - [ ] [P0/C3] `CommissionService` calcula al aprobar pago inicial
 - [ ] [P0/C2] `GET /v1/admin/commissions`
