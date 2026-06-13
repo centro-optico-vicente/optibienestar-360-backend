@@ -93,7 +93,7 @@
 
 - [x] [P0/C2] Entidades Promoter, Commission, Referral — 3 entities en `modules/promoter/entity/` con enums internos (`PromoterStatus`, `AppliesTo`+`PeriodStrategy`+`CommissionStatus`, `ReferralStatus`). `Member.promoter_id`/`referral_code` columns dejan sin mapear hasta que el service los necesite. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C3] `/v1/admin/promoters` CRUD — 5 endpoints + RSQL/q; system-row INSTITUCION protegida (seed-only, no mutaciones via API); update bloquea cambios a user/person/referralCode/is_system. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
-- [ ] [P0/C3] `CommissionService` calcula al aprobar pago inicial
+- [x] [P0/C3] `CommissionService` calcula al aprobar pago inicial — calc table hardcoded v1 por plan type, INSTITUCION fallback, wired en `PaymentsService.approve` best-effort. Member entity ahora mapea `promoter` + `referralCode`. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C2] `GET /v1/admin/commissions`
 - [ ] [P0/C2] `POST /v1/admin/commissions/payout` cierre ciclo
 - [ ] [P0/C2] `GET /v1/promoter/dashboard`

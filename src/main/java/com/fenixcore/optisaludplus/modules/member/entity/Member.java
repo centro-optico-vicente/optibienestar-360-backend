@@ -3,6 +3,7 @@ package com.fenixcore.optisaludplus.modules.member.entity;
 import com.fenixcore.optisaludplus.core.entity.BaseEntity;
 import com.fenixcore.optisaludplus.modules.catalog.entity.Occupation;
 import com.fenixcore.optisaludplus.modules.person.entity.Person;
+import com.fenixcore.optisaludplus.modules.promoter.entity.Promoter;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,6 +58,28 @@ public class Member extends BaseEntity {
 
     @Column(columnDefinition = "text")
     private String notes;
+
+    /**
+     * Permanent attribution link to the sales-network promoter (V25).
+     * Schema-nullable to let back-fill scripts land, but the enrollment
+     * service enforces NOT NULL — every new member resolves to either a
+     * real promoter (by {@code referral_code} on the request) or the
+     * INSTITUCION fallback. Reassigning this link is admin-only via
+     * {@code POST /v1/admin/members/{uuid}/assign-promoter}
+     * (future bullet, v2 PDF 2.a "permanent link").
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promoter_id")
+    private Promoter promoter;
+
+    /**
+     * Member's own short code (V27) for the affiliate-to-affiliate
+     * referral program. The service generates a 6-8 char UPPER
+     * alphanumeric tag at enrollment with collision retry. NULL only
+     * for back-fill rows.
+     */
+    @Column(name = "referral_code", length = 20)
+    private String referralCode;
 
     // ─── Reverse sides ──────────────────────────────────────────────────────
 
