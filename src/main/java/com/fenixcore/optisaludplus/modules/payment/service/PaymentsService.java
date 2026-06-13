@@ -19,6 +19,7 @@ import com.fenixcore.optisaludplus.modules.payment.entity.Payment;
 import com.fenixcore.optisaludplus.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optisaludplus.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optisaludplus.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optisaludplus.modules.promoter.service.CommissionService;
 import com.fenixcore.optisaludplus.modules.validator.service.ValidatorCacheService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
@@ -96,6 +97,7 @@ public class PaymentsService {
     private final EmailService emailService;
     private final MessageSource messageSource;
     private final ValidatorCacheService validatorCacheService;
+    private final CommissionService commissionService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -249,8 +251,23 @@ public class PaymentsService {
                 request != null ? request.reason() : null);
 
         validatorCacheService.evictForMembership(payment.getMembership());
+        attributeCommission(payment);
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         return mapper.toDto(payment);
+    }
+
+    /**
+     * Fires the commission engine for the approved payment. Best-effort —
+     * a failure to attribute (no promoter resolvable, calc error) is
+     * logged and swallowed so the payment review stays committed. Admin
+     * tooling can re-attribute via a future endpoint if necessary.
+     */
+    private void attributeCommission(Payment payment) {
+        try {
+            commissionService.calculateAndPersistFor(payment);
+        } catch (RuntimeException ex) {
+            log.error("Failed to attribute commission for payment {}", payment.getUuid(), ex);
+        }
     }
 
     /**
