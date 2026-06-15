@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 640px; margin: 0 auto; }
+        h2    { color: #1f7a3f; border-bottom: 2px solid #1f7a3f; padding-bottom: 8px; }
+        .ok-box { background: #ecf8f0; padding: 14px; border-left: 4px solid #1f7a3f; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 160px; }
+        .csv-box {
+            background: #f5f5f5; padding: 12px; border-left: 4px solid #888;
+            font-family: 'Courier New', monospace; font-size: 12px;
+            white-space: pre; overflow-x: auto;
+        }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Commission payout</h2>
+
+    <p>Hello <span th:text="${promoterName}"></span>,</p>
+
+    <div class="ok-box">
+        <p>
+            We've closed a new commission period. Your payout breakdown
+            is below; the total amount has been processed under the
+            payout reference shown.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Period covered:</span>
+        <span th:text="${#temporals.format(periodStart, 'yyyy-MM-dd')} + ' — ' + ${#temporals.format(periodEnd, 'yyyy-MM-dd')}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Commission count:</span>
+        <span th:text="${commissionCount}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Total paid out:</span>
+        <span th:text="${totalAmount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Payout reference:</span>
+        <span th:text="${payoutReference}"></span>
+    </div>
+
+    <p><strong>Breakdown (CSV):</strong></p>
+    <div class="csv-box" th:text="${csv}"></div>
+
+    <p>
+        If you find any discrepancy between this breakdown and the
+        payments you received, contact administration with the payout
+        reference.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>
