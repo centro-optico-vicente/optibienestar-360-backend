@@ -48,13 +48,13 @@
 
 ## Tarea 2.3 — Aliados
 
-- [ ] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser
-- [ ] [P0/C2] Repos + Services (findByDocument, searchByLocationAndSpecialty)
-- [ ] [P0/C2] DTOs (Create, Update, ListItem, Detail, Agreement)
-- [ ] [P0/C3] `/v1/admin/allies` CRUD + RSQL
-- [ ] [P0/C2] `/v1/admin/allies/{id}/specialties|services|agreements|users`
-- [ ] [P0/C2] `GET /v1/public/allies` (directorio público)
-- [ ] [P0/C2] `GET /v1/public/allies/{id}`
+- [x] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser — 4 entities en `modules/ally/entity/` (Ally + AllyService + AllyAgreement + AllyUser con enums internos `ReviewStatus` / `AgreementType` / `AllyRole`); `AllyType` + `MedicalSpecialty` viven en `modules/catalog/entity/` desde V8/V10. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C2] Repos + Services (findByDocument, searchByLocationAndSpecialty) — 4 repositories + `AlliesService` (plural, evita colisión con entity `AllyService`). Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C2] DTOs (Create, Update, ListItem, Detail, Agreement) — 7 records en `modules/ally/dto/` + `AllyMapper` MapStruct con counts via lazy-load (single detail) y listings sin counts (queries rápidas). Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C3] `/v1/admin/allies` CRUD + RSQL — `AdminAllyController` 5 endpoints (GET list + GET detail + POST + PUT PATCH + DELETE soft + auto-unpublish), pre-check RIF duplicado. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C2] `/v1/admin/allies/{id}/specialties|services|agreements|users` — 4 sub-resource controllers + 3 nuevos services. Invariantes service-side: dedupe AllyUser, primary requires OWNER, único primary activo per ally. Scope-check en cada find anti URL-tampering. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C2] `GET /v1/public/allies` (directorio público) — `PublicAllyController` sin auth, filtros `cityUuid/specialtyUuid/q` combinados con AND, `PublicAllyListItemDto` sanitizado (sin RIF/email/audit/manager). Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
+- [x] [P0/C2] `GET /v1/public/allies/{id}` — `PublicAllyDetailDto` sanitizado + filtro v2 `active AND published AND reviewStatus=APPROVED` sobre services expuestos. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [ ] [P0/C2] Upload logo aliado vía StorageService → R2
 
 ## Tarea 2.4 — Afiliados + Familia
