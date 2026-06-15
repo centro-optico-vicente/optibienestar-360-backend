@@ -33,4 +33,22 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
 
     /** All commissions of a payment (for the void fan-out path). */
     List<Commission> findByPaymentId(Long paymentId);
+
+    /**
+     * Powers the period payout — every PENDING commission whose period
+     * falls inside the requested range. Joins the partial composite
+     * index {@code idx_commissions_promoter_status_period} via the
+     * predicate {@code status='PENDING'} plus the period bounds.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status = 'PENDING'
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            ORDER BY c.promoter.id, c.earnedAt
+            """)
+    List<Commission> findPendingForPeriod(
+            @org.springframework.data.repository.query.Param("periodStart") java.time.LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   java.time.LocalDate periodEnd);
 }

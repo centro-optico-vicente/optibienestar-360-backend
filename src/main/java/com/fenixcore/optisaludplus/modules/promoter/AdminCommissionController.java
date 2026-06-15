@@ -1,7 +1,11 @@
 package com.fenixcore.optisaludplus.modules.promoter;
 
 import com.fenixcore.optisaludplus.modules.promoter.dto.CommissionDto;
+import com.fenixcore.optisaludplus.modules.promoter.dto.CommissionPayoutRequest;
+import com.fenixcore.optisaludplus.modules.promoter.dto.CommissionPayoutResponse;
+import com.fenixcore.optisaludplus.modules.promoter.service.CommissionPayoutService;
 import com.fenixcore.optisaludplus.modules.promoter.service.CommissionsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +39,7 @@ import java.util.UUID;
 public class AdminCommissionController {
 
     private final CommissionsService commissionsService;
+    private final CommissionPayoutService commissionPayoutService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
@@ -47,5 +54,18 @@ public class AdminCommissionController {
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
     public ResponseEntity<CommissionDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(commissionsService.get(uuid));
+    }
+
+    /**
+     * Closes a period: marks every PENDING commission inside the date
+     * range as PAID, generates a CSV breakdown per promoter, and emails
+     * each promoter the summary + CSV. Pass {@code dryRun=true} to
+     * preview totals without committing.
+     */
+    @PostMapping("/payout")
+    @PreAuthorize("hasAuthority('COMMISSION_PAYOUT')")
+    public ResponseEntity<CommissionPayoutResponse> payout(
+            @Valid @RequestBody CommissionPayoutRequest request) {
+        return ResponseEntity.ok(commissionPayoutService.execute(request));
     }
 }

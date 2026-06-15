@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 640px; margin: 0 auto; }
+        h2    { color: #1f7a3f; border-bottom: 2px solid #1f7a3f; padding-bottom: 8px; }
+        .ok-box { background: #ecf8f0; padding: 14px; border-left: 4px solid #1f7a3f; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 160px; }
+        .csv-box {
+            background: #f5f5f5; padding: 12px; border-left: 4px solid #888;
+            font-family: 'Courier New', monospace; font-size: 12px;
+            white-space: pre; overflow-x: auto;
+        }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Liquidación de comisiones</h2>
+
+    <p>Hola <span th:text="${promoterName}"></span>,</p>
+
+    <div class="ok-box">
+        <p>
+            Cerramos un nuevo período de comisiones. El detalle de tu
+            liquidación está abajo; el monto total fue procesado con la
+            referencia de pago indicada.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Período cubierto:</span>
+        <span th:text="${#temporals.format(periodStart, 'dd/MM/yyyy')} + ' — ' + ${#temporals.format(periodEnd, 'dd/MM/yyyy')}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Cantidad de comisiones:</span>
+        <span th:text="${commissionCount}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Monto total liquidado:</span>
+        <span th:text="${totalAmount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Referencia de pago:</span>
+        <span th:text="${payoutReference}"></span>
+    </div>
+
+    <p><strong>Detalle (CSV):</strong></p>
+    <div class="csv-box" th:text="${csv}"></div>
+
+    <p>
+        Si encontrás alguna diferencia entre este detalle y los pagos que
+        recibiste, contacta a la administración con la referencia de pago.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiSalud Plus<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>
