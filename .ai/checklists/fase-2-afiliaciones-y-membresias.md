@@ -48,7 +48,7 @@
 
 ## Tarea 2.3 — Aliados
 
-- [ ] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser
+- [x] [P0/C2] Entidades Ally, AllyType, MedicalSpecialty, AllyService, AllyAgreement, AllyUser — 4 entities en `modules/ally/entity/` (Ally + AllyService + AllyAgreement + AllyUser con enums internos `ReviewStatus` / `AgreementType` / `AllyRole`); `AllyType` + `MedicalSpecialty` viven en `modules/catalog/entity/` desde V8/V10. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [ ] [P0/C2] Repos + Services (findByDocument, searchByLocationAndSpecialty)
 - [ ] [P0/C2] DTOs (Create, Update, ListItem, Detail, Agreement)
 - [ ] [P0/C3] `/v1/admin/allies` CRUD + RSQL
