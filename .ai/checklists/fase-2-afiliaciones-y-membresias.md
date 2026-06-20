@@ -97,7 +97,7 @@
 - [x] [P0/C2] `GET /v1/admin/commissions` — `AdminCommissionController` (list + single) + `CommissionsService` plural (separado del singular que owns calc). RSQL 15 fields + free-text 4 fields. Default earnedAt DESC. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C2] `POST /v1/admin/commissions/payout` cierre ciclo — period close + CSV per-promoter + email dispatch. Dry-run preview. Email failure no rollbackea. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C2] `GET /v1/promoter/dashboard`
-- [ ] [P0/C3] `ReferralService` valida code + aplica descuento
+- [x] [P0/C3] `ReferralService` valida code + aplica descuento — 2 operaciones (registerOnEnrollment + applyRewardsTo) + discountFor pure-function. Self-ref + dedup guards + FIFO reward FIFO oldest-first. v1 hardcoded 10% USD. 14 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C2] `POST /v1/admin/referral-codes`
 - [ ] [P0/C2] `GET /v1/me/referrals`
 
