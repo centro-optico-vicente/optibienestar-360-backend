@@ -98,7 +98,7 @@
 - [x] [P0/C2] `POST /v1/admin/commissions/payout` cierre ciclo — period close + CSV per-promoter + email dispatch. Dry-run preview. Email failure no rollbackea. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C2] `GET /v1/promoter/dashboard`
 - [x] [P0/C3] `ReferralService` valida code + aplica descuento — 2 operaciones (registerOnEnrollment + applyRewardsTo) + discountFor pure-function. Self-ref + dedup guards + FIFO reward FIFO oldest-first. v1 hardcoded 10% USD. 14 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
-- [ ] [P0/C2] `POST /v1/admin/referral-codes`
+- [x] [P0/C2] `POST /v1/admin/referral-codes` — admin issue/regen del `members.referral_code`. Auto-gen 8-char alphabet sin 0/O/1/I/L o custom vanity con `@Pattern` UPPER_ALPHANUM_DASH; cross-table uniqueness (promoters + members); idempotent en re-issue del mismo code. 11 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [ ] [P0/C2] `GET /v1/me/referrals`
 
 ## Tarea 2.8 — Validador (CRÍTICO p95 < 200ms)
