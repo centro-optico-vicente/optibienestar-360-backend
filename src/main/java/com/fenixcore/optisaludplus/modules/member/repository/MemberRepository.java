@@ -22,6 +22,14 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     Optional<Member> findByPersonId(Long personId);
 
     /**
+     * Affiliate-side referral code lookup (V27 {@code members.referral_code}).
+     * Used by {@code ReferralService} to resolve a code captured at
+     * enrollment to the referrer Member. The unique partial index in V27
+     * keeps this O(log n) without conflict against null / back-fill rows.
+     */
+    Optional<Member> findByReferralCode(String referralCode);
+
+    /**
      * Resolve the member of the user identified by JWT subject. Backs
      * {@code GET /v1/me/member} — walks the {@code user.person} link to find
      * the matching {@link Member} in a single query without loading the User.
