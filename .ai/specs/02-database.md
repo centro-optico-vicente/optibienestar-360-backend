@@ -41,6 +41,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 | `V25__promoters.sql` | promoters con v2 baked-in (referral_code UNIQUE + is_system) + seed INSTITUCION + agrega `members.promoter_id` NULLABLE FK + 3 índices (partial unique system row, partial unique user_id, leaderboard de reales) |
 | `V26__commissions.sql` | commissions audit-ledger con promoter+payment+member FKs + calculation snapshot (pct XOR flat + tier name) + period bounds inclusive + workflow PENDING/PAID/VOIDED/DISPUTED + 5 CHECK coherence + 4 índices (partial unique non-voided per pago/promotor, liquidation, member history, payment fan-out) |
 | `V27__referrals.sql` | referrals afiliado-a-afiliado (referrer+referred FKs, lifecycle 5-state, reward pct XOR flat) + 8 CHECK coherence + 5 índices + `members.referral_code` UNIQUE partial |
+| `V28__notifications.sql` | notifications cola persistente outbound (channel EMAIL v1, recipient snapshot CITEXT, template_code open + JSONB vars, source_module + source_entity_uuid para dedup, status PENDING/SENDING/SENT/FAILED/DEAD_LETTER, retry policy con attempt_count/max_attempts/next_retry_at + last_error_message) + 4 CHECK coherence + 5 índices partial (worker poll, retry poll, recipient history, source dedup, dead-letter triage) + dominio NOTIFICATIONS con 3 perms (`NOTIFICATION_VIEW_ALL`/`RESEND`/`VIEW_OWN`) — VIEW_OWN distribuido a AFILIADO+PROMOTOR+ALIADO+SYSTEM+ADMINISTRADOR (mirror REFERRAL_CODE_VIEW_OWN) |
 
 ### Planeadas
 
@@ -51,7 +52,6 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 | Migration | Tablas/cambios | Vertical |
 |---|---|---|
-| `V28__notifications.sql` | notifications | 9 — notificaciones |
 | `V29__digital_cards_view.sql` | vista digital_cards_v | 9 — notificaciones |
 | `V30__audit_log.sql` | tabla audit_log | 10 — hardening |
 | `V31__indexes_optimization.sql` | índices adicionales según EXPLAIN | 10 — hardening |
@@ -145,7 +145,61 @@ Spec funcional: [`05-roles-permissions.md`](05-roles-permissions.md).
 
 ### `notifications`
 
-(pendiente)
+Cola persistente de notificaciones outbound. La aplicación enquea una fila por evento (welcome email, recordatorio de pago, membresía suspendida, recompensa de referido, recibo de payout de comisión, etc.); un worker (`NotificationService`, vertical-9) pollea filas PENDING cuyo `scheduled_for` ya pasó, renderiza el template, y entrega vía el canal (v1: SMTP/EmailService).
+
+**Por qué cola persistente vs el path previo "fire-and-forget @Async"**: sobrevive a restart del JVM (no se pierde mail enqueueado en deploy), retry policy con exponential backoff visible en la fila, audit trail per-recipient y per-source, admin queue UI puede mostrar "qué falló, por qué, reintentarlo".
+
+**Lifecycle** (`status`):
+
+```
+PENDING  →  SENDING        (worker reclamó la fila)
+SENDING  →  SENT           (canal ACKeó delivery)
+         →  FAILED         (error de delivery, next_retry_at fijado si quedan attempts, sino DEAD_LETTER)
+FAILED   →  SENDING        (ciclo de retry la levanta otra vez)
+         →  DEAD_LETTER    (attempt_count alcanzó max_attempts)
+```
+
+**Diseño clave**:
+
+- **`channel`** whitelisted (v1 `EMAIL` only). Agregar `SMS` / `PUSH` después es un ALTER + CHECK update, no un rewrite.
+- **`recipient_email CITEXT`** + **`recipient_user_id BIGINT NULL`**: el email es snapshot al enqueue (cambios posteriores no redirigen mail ya queueado); el FK opcional preserva navegabilidad para admin drill-downs y para el endpoint `VIEW_OWN`.
+- **`recipient_locale`**: 'es' / 'en' — pickea la variante `*_es.html` / `*_en.html` del template.
+- **`template_code VARCHAR(80)` open** sin CHECK whitelist — mismo patrón que `scheduled_jobs.code`: resuelve a Thymeleaf template en classpath al render, nuevos templates landean por archivo, no por migración.
+- **`subject VARCHAR(200)`** pre-renderizado al enqueue desde i18n bundle. Stored inline para que el queue se replay sin re-resolver message keys; templates se re-renderizan per-attempt pero el subject queda fijo desde enqueue.
+- **`template_vars JSONB`** per-template (e.g. `payment-approved` lleva `{paymentDate, amount, currency}`, `commission-payout` lleva `{periodStart, periodEnd, total, csv}`). Hibernate 6 mapea con `@JdbcTypeCode(SqlTypes.JSON)` sobre `Map<String,Object>`.
+- **`source_module VARCHAR(40)`** + **`source_entity_uuid UUID`**: traceability + idempotency. Composite `(source_module, source_entity_uuid, template_code)` permite check "ya enqueueamos `payment-approved` para este payment?" sin necesidad de columna dedicada `idempotency_key`.
+- **Retry policy per-row**: `max_attempts` configurable (alerta crítica one-shot → `max_attempts=1`; recordatorio rutinario → `max_attempts=5`, service default). `next_retry_at` fijado por el service en exponential backoff (60s × 2^(attempt-1) clamped a 1h típicamente).
+
+**4 CHECK constraints de coherencia**:
+
+1. `chk_notifications_sent_has_sent_at` — `SENT` ⇒ `sent_at NOT NULL`.
+2. `chk_notifications_failed_has_error` — `FAILED`/`DEAD_LETTER` ⇒ `last_error_message NOT NULL`.
+3. `chk_notifications_attempt_bounds` — `attempt_count <= max_attempts`.
+4. `chk_notifications_dead_letter_exhausted` — `DEAD_LETTER` ⇒ `attempt_count >= max_attempts`.
+
+**5 índices partial** (todos `WHERE` filtrados para mantenerlos chicos a escala):
+
+| Índice | Predicado | Para |
+|---|---|---|
+| `idx_notifications_pending_due` | `(scheduled_for) WHERE status='PENDING' AND is_active` | Worker poll |
+| `idx_notifications_retry_due` | `(next_retry_at) WHERE status='FAILED' AND next_retry_at IS NOT NULL AND is_active` | Retry poll (separado del PENDING para no competir scans) |
+| `idx_notifications_recipient_created` | `(recipient_user_id, created_at DESC) WHERE recipient_user_id IS NOT NULL AND is_active` | "Todo lo enviado al usuario X, más reciente primero" — admin drill + `VIEW_OWN` |
+| `idx_notifications_source` | `(source_module, source_entity_uuid, template_code) WHERE source_entity_uuid IS NOT NULL` | Pre-check idempotente al enqueue |
+| `idx_notifications_dead_letter` | `(created_at) WHERE status='DEAD_LETTER'` | Triage admin del backlog (oldest first) |
+
+**Trigger** `set_updated_at()` reutilizado de V2.
+
+**Permission catalog extendido** (3 perms en dominio `NOTIFICATIONS` icono `i-lucide-bell` order 120):
+
+- `NOTIFICATION_VIEW_ALL` — admin ve toda la cola y el historial.
+- `NOTIFICATION_RESEND` — admin reintenta manualmente una notificación FAILED/DEAD_LETTER.
+- `NOTIFICATION_VIEW_OWN` — usuario ve sus propias notificaciones (futuro `GET /v1/me/notifications`).
+
+**Distribución de grants** (mirror exacto de `REFERRAL_CODE_VIEW_OWN` per V6):
+
+- `SYSTEM` + `ADMINISTRADOR` → todos los 3 perms (VIEW_ALL + RESEND + VIEW_OWN).
+- `AFILIADO` + `PROMOTOR` + `ALIADO` → solo VIEW_OWN.
+- `OPERADOR*` → excluidos (actúan en nombre de otros, no reciben notificaciones personales).
 
 ### `audit_log`
 

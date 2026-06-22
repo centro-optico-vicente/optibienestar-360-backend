@@ -27,7 +27,7 @@
 - [x] [P0/C3] `V25__promoters.sql` — promoters con v2 baked-in (`referral_code` UNIQUE + `is_system` flag) + seed INSTITUCION + agrega `members.promoter_id` NULLABLE. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C3] `V26__commissions.sql` — commissions audit (promoter+payment+member FKs) con calculation snapshot (pct XOR flat + tier snapshot) + period bounds + workflow PENDING/PAID/VOIDED/DISPUTED + 5 CHECK coherence + 4 índices. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C3] `V27__referrals.sql` — affiliate-to-affiliate referrals (referrer+referred FKs, lifecycle PENDING/REGISTERED/EXPIRED/REWARD_GRANTED/VOIDED, reward pct XOR flat, 8 CHECK coherence + 5 índices) + agrega `members.referral_code` UNIQUE partial. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
-- [ ] [P0/C2] `V28__notifications.sql`
+- [x] [P0/C2] `V28__notifications.sql` — cola persistente outbound (24 cols: channel EMAIL v1, recipient snapshot CITEXT + user FK, template_code open + JSONB vars, source dedup, retry policy con max_attempts per-row + exponential backoff), 4 CHECK coherence, 5 índices partial (worker poll, retry poll, recipient history, source dedup, dead-letter triage), dominio `NOTIFICATIONS` + 3 perms (`VIEW_ALL`/`RESEND`/`VIEW_OWN`). Schema validado contra Postgres 15 real. Ver [vertical-9-notificaciones-y-carnet.md](vertical-9-notificaciones-y-carnet.md).
 - [ ] [P0/C2] `V29__digital_cards_view.sql`
 - [ ] [P0/C2] Índices clave: members(document), memberships(status, next_due), benefit_usages, payments(status)
 - [ ] [P1/C2] Índice GIN full-text en members.full_name con unaccent
