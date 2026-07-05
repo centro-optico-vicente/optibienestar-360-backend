@@ -73,7 +73,11 @@ public interface MemberMapper {
 
     // ─── MedicalRecord → DTO ────────────────────────────────────────────────
 
+    // exists=true is the invariant when we're mapping an actual entity — the
+    // "empty" DTO for the no-record case is built by hand in the service
+    // (see MedicalRecordService.emptyDto), not through this mapper.
     @Mapping(target = "personUuid", source = "person.uuid")
+    @Mapping(target = "exists", constant = "true")
     MedicalRecordDto toMedicalRecordDto(MedicalRecord record);
 
     // ─── Nested catalog DTOs (default methods, mirror AllyMapper pattern) ─

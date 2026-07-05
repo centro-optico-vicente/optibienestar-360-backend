@@ -13,6 +13,15 @@ import java.util.UUID;
  * beneficiary). {@code personUuid} is exposed so the frontend can correlate
  * with other person-scoped surfaces if needed.</p>
  *
+ * <p><b>Empty-record contract:</b> {@code GET} always returns 200 with a
+ * DTO. When the member has no filled-in medical record yet (or the row was
+ * soft-deleted), the service returns an <i>empty</i> instance:
+ * {@code uuid=null}, {@code personUuid=<known>}, all clinical fields
+ * {@code null}, {@code active=true}, timestamps {@code null}, and the
+ * {@code exists} flag set to {@code false}. Frontends should key their
+ * "empty state vs populated form" branch on {@code exists} rather than on
+ * HTTP status — 404 is reserved for a member UUID that does not resolve.</p>
+ *
  * <p><b>PRIVACY:</b> never serialize this DTO from ally-facing
  * controllers — enforce at the route layer via the
  * {@code MEDICAL_RECORD_VIEW} permission, which the V6 seed grants only to
@@ -36,5 +45,7 @@ public record MedicalRecordDto(
         boolean active,
         String status,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+
+        boolean exists
 ) {}
