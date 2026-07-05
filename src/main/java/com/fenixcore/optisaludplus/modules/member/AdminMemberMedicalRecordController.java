@@ -24,11 +24,18 @@ import java.util.UUID;
  * <p>Three endpoints (no list, no /uuid path — there's exactly one record
  * per person):</p>
  * <ul>
- *   <li>{@code GET}     — returns the record or 404.</li>
- *   <li>{@code PUT}     — upsert: creates on first call, updates on subsequent
- *       calls with PATCH-style field merging.</li>
- *   <li>{@code DELETE}  — soft-deletes (the row stays for audit but GET
- *       returns 404; subsequent PUT reactivates).</li>
+ *   <li>{@code GET}     — always returns 200 with a DTO when the member
+ *       exists. The DTO's {@code exists} flag is {@code true} when a real
+ *       row is returned, {@code false} for the "no history yet" case (no
+ *       row, or the row was soft-deleted). 404 is reserved for a
+ *       {@code memberUuid} that doesn't resolve — that's a real
+ *       "resource missing" error.</li>
+ *   <li>{@code PUT}     — upsert: creates on first call, updates on
+ *       subsequent calls with PATCH-style field merging. Reactivates
+ *       soft-deleted rows.</li>
+ *   <li>{@code DELETE}  — soft-deletes (the row stays for audit; subsequent
+ *       GET returns the empty DTO with {@code exists=false}; PUT
+ *       reactivates).</li>
  * </ul>
  *
  * <p><b>PRIVACY:</b> guarded by the V6-seeded {@code MEDICAL_RECORD_VIEW}
