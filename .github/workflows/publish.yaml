@@ -107,7 +107,13 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=ref,event=tag,suffix=-alpine
+            # Read the version from github.event.release.tag_name — the workflow
+            # trigger is `release: published`, so github.ref is `refs/heads/main`
+            # (the release's target branch), NOT `refs/tags/<version>`. That means
+            # `type=ref,event=tag` returns empty on this trigger and no versioned
+            # tag would be pushed. `type=semver` reads github.event.release.tag_name
+            # instead, which is the actual release name (e.g. "0.0.035").
+            type=semver,pattern={{version}},suffix=-alpine
             type=raw,value=alpine,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and Push Docker Alpine image
@@ -165,7 +171,10 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=ref,event=tag
+            # Read the version from github.event.release.tag_name — see the
+            # same block in the Alpine job above for why type=ref,event=tag
+            # returns empty on release: published triggers.
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and Push Docker Debian image
