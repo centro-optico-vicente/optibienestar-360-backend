@@ -107,13 +107,16 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            # Read the version from github.event.release.tag_name — the workflow
-            # trigger is `release: published`, so github.ref is `refs/heads/main`
-            # (the release's target branch), NOT `refs/tags/<version>`. That means
-            # `type=ref,event=tag` returns empty on this trigger and no versioned
-            # tag would be pushed. `type=semver` reads github.event.release.tag_name
-            # instead, which is the actual release name (e.g. "0.0.035").
-            type=semver,pattern={{version}},suffix=-alpine
+            # docker/metadata-action tag extractors read from github.ref by
+            # DEFAULT — including type=ref,event=tag AND type=semver. On a
+            # `release: published` trigger github.ref is `refs/heads/main`
+            # (the release's target branch), NOT `refs/tags/<version>`, so
+            # both extractors match nothing and emit no versioned tag.
+            #
+            # Fix: use type=raw with value read explicitly from
+            # github.event.release.tag_name, which is the release name (e.g.
+            # "0.0.035") on the release event payload.
+            type=raw,value=${{ github.event.release.tag_name }},suffix=-alpine
             type=raw,value=alpine,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and Push Docker Alpine image
@@ -172,9 +175,10 @@ jobs:
             latest=false
           tags: |
             # Read the version from github.event.release.tag_name — see the
-            # same block in the Alpine job above for why type=ref,event=tag
-            # returns empty on release: published triggers.
-            type=semver,pattern={{version}}
+            # same block in the Alpine job above for why every extractor
+            # that reads from github.ref (type=ref, type=semver) returns
+            # empty on release: published triggers.
+            type=raw,value=${{ github.event.release.tag_name }}
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and Push Docker Debian image
