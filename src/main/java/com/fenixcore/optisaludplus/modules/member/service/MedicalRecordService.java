@@ -57,6 +57,11 @@ public class MedicalRecordService {
      * <p>404 stays reserved for a {@code memberUuid} that doesn't resolve
      * to any member — that's a real "resource missing" error, distinct
      * from "resource exists conceptually but has no data yet".</p>
+     *
+     * <p>This behavior applies the project-wide convention defined in
+     * {@code .ai/decisions/0012-empty-state-http-conventions.md}
+     * (sub-resource 1:1 → 200 with {@code exists} flag, never 404 for
+     * "empty yet"). New sub-resources should follow the same pattern.</p>
      */
     public MedicalRecordDto getForMember(UUID memberUuid) {
         Member member = findMember(memberUuid);
