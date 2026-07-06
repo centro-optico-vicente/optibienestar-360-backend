@@ -132,7 +132,11 @@ public class MembersService {
         personSeed.setBirthDate(req.birthDate());
         personSeed.setGender(resolveGender(req.genderUuid()));
         personSeed.setMaritalStatus(resolveMaritalStatus(req.maritalStatusUuid()));
+        personSeed.setBirthplace(req.birthplace());
+        personSeed.setNumberOfChildren(req.numberOfChildren());
+        personSeed.setSpouseName(req.spouseName());
         personSeed.setPhone(req.phone());
+        personSeed.setLandlinePhone(req.landlinePhone());
         personSeed.setEmail(req.email());
         personSeed.setLocale(req.locale());
         personSeed.setAddress(req.address());
@@ -155,6 +159,9 @@ public class MembersService {
         Member member = new Member();
         member.setPerson(person);
         member.setOccupation(resolveOccupation(req.occupationUuid()));
+        member.setEmployerName(req.employerName());
+        member.setJobPosition(req.jobPosition());
+        member.setEmployerAddress(req.employerAddress());
         if (req.enrolledAt() != null) {
             member.setEnrolledAt(req.enrolledAt());
         }
@@ -183,14 +190,21 @@ public class MembersService {
         if (req.birthDate()         != null) person.setBirthDate(req.birthDate());
         if (req.genderUuid()        != null) person.setGender(resolveGender(req.genderUuid()));
         if (req.maritalStatusUuid() != null) person.setMaritalStatus(resolveMaritalStatus(req.maritalStatusUuid()));
+        if (req.birthplace()        != null) person.setBirthplace(req.birthplace());
+        if (req.numberOfChildren()  != null) person.setNumberOfChildren(req.numberOfChildren());
+        if (req.spouseName()        != null) person.setSpouseName(req.spouseName());
         if (req.phone()             != null) person.setPhone(req.phone());
+        if (req.landlinePhone()     != null) person.setLandlinePhone(req.landlinePhone());
         if (req.email()             != null) person.setEmail(req.email());
         if (req.locale()            != null) person.setLocale(req.locale());
         if (req.address()           != null) person.setAddress(req.address());
         if (req.cityUuid()          != null) person.setCity(resolveCity(req.cityUuid()));
 
         // Member-side updates.
-        if (req.occupationUuid() != null) member.setOccupation(resolveOccupation(req.occupationUuid()));
+        if (req.occupationUuid()  != null) member.setOccupation(resolveOccupation(req.occupationUuid()));
+        if (req.employerName()    != null) member.setEmployerName(req.employerName());
+        if (req.jobPosition()     != null) member.setJobPosition(req.jobPosition());
+        if (req.employerAddress() != null) member.setEmployerAddress(req.employerAddress());
         if (req.enrolledAt()     != null) member.setEnrolledAt(req.enrolledAt());
         if (req.notes()          != null) member.setNotes(req.notes());
         if (req.active()         != null) member.setActive(req.active());
@@ -232,9 +246,11 @@ public class MembersService {
                 base.documentType(), base.documentNumber(),
                 base.taxDocumentType(), base.taxDocumentNumber(),
                 base.birthDate(), base.gender(), base.maritalStatus(),
-                base.phone(), base.email(), base.locale(),
+                base.birthplace(), base.numberOfChildren(), base.spouseName(),
+                base.phone(), base.landlinePhone(), base.email(), base.locale(),
                 base.address(), base.city(),
-                base.occupation(), base.enrolledAt(), base.notes(),
+                base.occupation(), base.employerName(), base.jobPosition(), base.employerAddress(),
+                base.enrolledAt(), base.notes(),
                 beneficiariesCount, documentsCount, hasMedicalRecord,
                 base.active(), base.status(), base.createdAt(), base.updatedAt()
         );

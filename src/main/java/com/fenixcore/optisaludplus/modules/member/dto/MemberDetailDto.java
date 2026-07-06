@@ -37,7 +37,13 @@ public record MemberDetailDto(
         GenderDto gender,
         MaritalStatusDto maritalStatus,
 
+        // ─── Inscription-form demographics (planilla) ──────────────────────
+        String birthplace,
+        Integer numberOfChildren,
+        String spouseName,
+
         String phone,
+        String landlinePhone,
         String email,
         String locale,
         String address,
@@ -45,6 +51,9 @@ public record MemberDetailDto(
 
         // ─── Member-specific ───────────────────────────────────────────────
         OccupationDto occupation,
+        String employerName,
+        String jobPosition,
+        String employerAddress,
         LocalDate enrolledAt,
         String notes,
 

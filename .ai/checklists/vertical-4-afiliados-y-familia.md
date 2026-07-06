@@ -47,3 +47,13 @@
 ### Validación
 
 - [ ] [v2] [P0/C2] Bloquear creación si `member.activeBeneficiaries() >= plan.max_beneficiaries` (422 `member.beneficiary.cap_exceeded`).
+
+## Adicionales v2 — Digitalización de la Planilla de Inscripción
+
+> **Fuente:** PDF "Planilla de Inscripción" (Centro Óptico Vicente / OPTIBIENESTAR 360, jul 2026) en `centro-optico-vicente-web/info/`. Digitaliza los campos del formulario en papel que no tenían columna. Split igual que V15: datos personales del titular → `persons`; snapshot laboral → `members`.
+
+- [x] [v2] [P0/C2] `V29__inscription_form_fields.sql` — agrega a `persons`: `birthplace` (Lugar de Nacimiento), `number_of_children` (Cantidad de Hijos, CHECK ≥ 0), `landline_phone` (Teléfono Fijo — el `phone` existente queda como Celular), `spouse_name` (Cónyuge, texto literal del form). A `members`: `employer_name` (Lugar de Trabajo), `job_position` (Cargo, distinto de `occupation`), `employer_address` (Dirección Empresa). Todas nullable/aditivas. _(Verificado: Flyway V1..V29 aplica limpio en Postgres 15; columnas + CHECK confirmados.)_
+- [x] [v2] [P0/C2] Cableado end-to-end: entidades `Person`/`Member`, `MemberCreateRequest`/`MemberUpdateRequest` (con `@Size`/`@PositiveOrZero`/`@Max`), `MemberDetailDto`, `MemberMapper`, `MembersService` (create/update + reconstrucción `toDetailWithCounts`). `GET /v1/me/member` los expone sin cambios (reusa `MemberDetailDto`). _(compileJava verde.)_
+- [ ] [v2] [P0/C2] **Frontend:** agregar los 7 campos al formulario de alta/edición de afiliados (panel admin) para que el operador los capture. Backend ya los acepta.
+- [ ] [v2] [P1/C1] **Nota Cónyuge:** `spouse_name` es captura fiel del papel; si el cónyuge se afilia también existe como `Beneficiary` (relationship=SPOUSE). No se sincronizan — evaluar si conviene derivar uno del otro.
+- [ ] [v2] [P2/C1] **Fuera de alcance de V29** (artefactos de papel / pendientes de decisión): "Número de Afiliado" legible (hoy UUID), firma/huellas dactilares/sello de validación (manejables como PDF firmado subido vía `member_documents`).

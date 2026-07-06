@@ -3,7 +3,9 @@ package com.fenixcore.optisaludplus.modules.member.dto;
 import com.fenixcore.optisaludplus.core.validation.MinimumAge;
 import com.fenixcore.optisaludplus.core.validation.VenezuelanDocumentNumber;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -38,7 +40,13 @@ public record MemberUpdateRequest(
         UUID genderUuid,
         UUID maritalStatusUuid,
 
+        // ─── Inscription-form demographics (planilla) ──────────────────────
+        @Size(max = 120) String birthplace,
+        @PositiveOrZero @Max(50) Integer numberOfChildren,
+        @Size(max = 210) String spouseName,
+
         @Size(max = 30) String phone,
+        @Size(max = 30) String landlinePhone,
         @Email @Size(max = 255) String email,
         @Pattern(regexp = "^(es|es-VE|en)$", message = "{validation.locale.allowed}") String locale,
 
@@ -47,6 +55,9 @@ public record MemberUpdateRequest(
 
         // ─── Member-specific ───────────────────────────────────────────────
         UUID occupationUuid,
+        @Size(max = 150) String employerName,
+        @Size(max = 100) String jobPosition,
+        String employerAddress,
         LocalDate enrolledAt,
         String notes,
         Boolean active,
