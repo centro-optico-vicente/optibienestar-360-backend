@@ -88,10 +88,32 @@ public class Person extends BaseEntity {
     @JoinColumn(name = "marital_status_id")
     private MaritalStatus maritalStatus;
 
+    /** "Lugar de Nacimiento" on the inscription form — free text (city/state). */
+    @Column(name = "birthplace", length = 120)
+    private String birthplace;
+
+    /** "Cantidad de Hijos" on the inscription form. Non-negative when present. */
+    @Column(name = "number_of_children")
+    private Integer numberOfChildren;
+
+    /**
+     * "Cónyuge" on the inscription form — the literal spouse-name line. If the
+     * spouse is affiliated they also appear as a {@code Beneficiary} with
+     * relationship SPOUSE; this field is the paper-faithful capture and is not
+     * kept in sync with that row.
+     */
+    @Column(name = "spouse_name", length = 210)
+    private String spouseName;
+
     // ─── Contact ────────────────────────────────────────────────────────────
 
+    /** Canonical contact number — the "Celular" slot on the inscription form. */
     @Column(length = 30)
     private String phone;
+
+    /** "Teléfono Fijo" on the inscription form — landline, distinct from {@link #phone}. */
+    @Column(name = "landline_phone", length = 30)
+    private String landlinePhone;
 
     @Column(columnDefinition = "citext")
     private String email;

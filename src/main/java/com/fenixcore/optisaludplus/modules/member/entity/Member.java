@@ -53,6 +53,22 @@ public class Member extends BaseEntity {
     @JoinColumn(name = "occupation_id")
     private Occupation occupation;
 
+    /**
+     * Employment snapshot from the inscription form, taken at affiliation time
+     * (like {@link #occupation}, not tracked if the titular changes jobs).
+     * "Lugar de Trabajo" — the employer / workplace name.
+     */
+    @Column(name = "employer_name", length = 150)
+    private String employerName;
+
+    /** "Cargo" on the inscription form — job title, distinct from the occupation catalog. */
+    @Column(name = "job_position", length = 100)
+    private String jobPosition;
+
+    /** "Dirección Empresa" on the inscription form — the employer's address. */
+    @Column(name = "employer_address", columnDefinition = "text")
+    private String employerAddress;
+
     @Column(name = "enrolled_at", nullable = false)
     private LocalDate enrolledAt = LocalDate.now();
 
