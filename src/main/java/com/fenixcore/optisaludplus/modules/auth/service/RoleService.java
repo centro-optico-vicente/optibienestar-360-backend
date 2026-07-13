@@ -6,6 +6,7 @@ import com.fenixcore.optisaludplus.modules.auth.dto.UpdateRoleRequest;
 import com.fenixcore.optisaludplus.modules.auth.entity.Permission;
 import com.fenixcore.optisaludplus.modules.auth.entity.Role;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
+import com.fenixcore.optisaludplus.modules.auth.entity.UserRole;
 import com.fenixcore.optisaludplus.modules.auth.mapper.UserMapper;
 import com.fenixcore.optisaludplus.modules.auth.repository.PermissionRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.RoleRepository;
@@ -60,7 +61,8 @@ public class RoleService {
      * Replace the permission set of {@code roleUuid} with exactly the supplied
      * UUIDs. Guards:
      * <ul>
-     *   <li>The {@code SYSTEM} role is not editable — always rejects with 403.</li>
+     *   <li>The {@code SYSTEM} role is editable only by a {@code SYSTEM} actor;
+     *       any other caller is rejected with 403.</li>
      *   <li>Every UUID in the request must exist in {@code permissions}; any
      *       unknown UUID rejects the whole call with 422.</li>
      *   <li>Anti-lockout: if the actor currently has {@code ROLE_PERMISSION_EDIT}
@@ -73,7 +75,7 @@ public class RoleService {
     public void updateRolePermissions(UUID roleUuid, Set<UUID> permissionUuids, UUID actorUuid) {
         Role role = findRole(roleUuid);
 
-        if (SYSTEM_ROLE_NAME.equals(role.getName())) {
+        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !isSystemActor(actorUuid)) {
             throw new AccessDeniedException("role.system.not_editable");
         }
 
@@ -116,12 +118,13 @@ public class RoleService {
     /**
      * Update name and description. Same uniqueness guard as
      * {@link #create(CreateRoleRequest)} but excluding self, so a no-op rename
-     * (same name) is allowed. The {@code SYSTEM} role is immutable.
+     * (same name) is allowed. The {@code SYSTEM} role is editable only by a
+     * {@code SYSTEM} actor.
      */
     @Transactional
-    public RoleDto update(UUID uuid, UpdateRoleRequest req) {
+    public RoleDto update(UUID uuid, UpdateRoleRequest req, UUID actorUuid) {
         Role role = findRole(uuid);
-        if (SYSTEM_ROLE_NAME.equals(role.getName())) {
+        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !isSystemActor(actorUuid)) {
             throw new AccessDeniedException("role.system.not_editable");
         }
         roleRepository.findByName(req.name())
@@ -138,13 +141,16 @@ public class RoleService {
      * referential integrity and historical FK references. If the role is
      * completely unreferenced, hard-delete the row to keep the table tidy.
      *
-     * <p>The {@code SYSTEM} role is never deletable — same guard as update.</p>
+     * <p>The {@code SYSTEM} role is never deletable — by anyone, including a
+     * {@code SYSTEM} actor. Deletion is strictly more dangerous than editing
+     * (it would strip the technical-admin tier of all its permissions), so this
+     * guard stays absolute rather than actor-scoped like update.</p>
      */
     @Transactional
     public void delete(UUID uuid) {
         Role role = findRole(uuid);
         if (SYSTEM_ROLE_NAME.equals(role.getName())) {
-            throw new AccessDeniedException("role.system.not_editable");
+            throw new AccessDeniedException("role.system.not_deletable");
         }
         if (userRoleRepository.existsByRoleId(role.getId())) {
             role.setActive(false);
@@ -196,6 +202,19 @@ public class RoleService {
             throw new IllegalArgumentException("role.permission.uuid.unknown");
         }
         return found;
+    }
+
+    /**
+     * @return {@code true} if the actor currently holds the {@code SYSTEM} role.
+     *         Role names are absent from the JWT / authorities, so the SYSTEM
+     *         check must load the actor's role assignments from the DB.
+     */
+    private boolean isSystemActor(UUID actorUuid) {
+        return userRepository.findWithRolesByUuid(actorUuid)
+                .map(actor -> actor.getUserRoles().stream()
+                        .filter(UserRole::isActive)
+                        .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName())))
+                .orElse(false);
     }
 
     private void ensureActorKeepsPermissionEditAfterUpdate(UUID actorUuid, Role editedRole, Set<Permission> newPermissions) {

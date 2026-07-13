@@ -1,5 +1,6 @@
 package com.fenixcore.optisaludplus.modules.auth.service;
 
+import com.fenixcore.optisaludplus.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optisaludplus.modules.auth.entity.Role;
 import com.fenixcore.optisaludplus.modules.auth.entity.User;
@@ -31,13 +32,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure unit tests for the [P2/C2] anti-lockout guards added to
+ * Pure unit tests for the SYSTEM-role authorization and anti-lockout guards on
+ * {@link UserService}: self-edit/anti-lockout on
  * {@link UserService#updateUser(UUID, AdminUpdateUserRequest, UUID)} and
- * {@link UserService#deleteUser(UUID, UUID)}.
+ * {@link UserService#deleteUser(UUID, UUID)}, plus the actor-scoped SYSTEM
+ * guards — only a SYSTEM actor may view/edit a SYSTEM user
+ * ({@link UserService#getUser(UUID, UUID)}) or assign the SYSTEM role on
+ * create/update.
  *
- * <p>Scope: the 6 reject-paths only. The happy path (admin edits a non-SYSTEM
- * non-self user) is covered indirectly by all existing integration-style
- * usage of the service.</p>
+ * <p>Scope: reject-paths plus the SYSTEM-actor allow-paths. The generic happy
+ * path (admin edits a non-SYSTEM non-self user) is covered indirectly by all
+ * existing integration-style usage of the service.</p>
  */
 @ExtendWith(MockitoExtension.class)
 class UserServiceLockoutGuardsTest {
@@ -52,6 +57,8 @@ class UserServiceLockoutGuardsTest {
 
     @InjectMocks private UserService userService;
 
+    private static final UUID SYSTEM_ROLE_UUID = UUID.fromString("00000000-0000-0000-0000-0000000000aa");
+
     private UUID targetUuid;
     private UUID otherActorUuid;
 
@@ -64,9 +71,12 @@ class UserServiceLockoutGuardsTest {
     // ─── SYSTEM user immutability ───────────────────────────────────────────
 
     @Test
-    void updateUser_rejectsWhenTargetIsSystemUser() {
+    void updateUser_rejectsWhenNonSystemActorEditsSystemUser() {
         User systemUser = userWithRole(targetUuid, "SYSTEM");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemUser));
+        // The actor is a non-SYSTEM admin → the guard fires.
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
 
         AdminUpdateUserRequest request = minimalUpdateFirstName("Renamed");
 
@@ -76,6 +86,21 @@ class UserServiceLockoutGuardsTest {
 
         verify(userRepository, never()).save(any());
         verify(blacklistService, never()).markUserInvalidatedNow(any());
+    }
+
+    @Test
+    void updateUser_allowsSystemActorToEditSystemUser() {
+        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "SYSTEM")));
+
+        AdminUpdateUserRequest request = updateProfileFields("Renamed", null);
+
+        // Should NOT throw — a SYSTEM actor may edit a SYSTEM user.
+        userService.updateUser(targetUuid, request, otherActorUuid);
+
+        verify(userRepository).save(any());
     }
 
     @Test
@@ -160,6 +185,70 @@ class UserServiceLockoutGuardsTest {
         verify(blacklistService, never()).markUserInvalidatedNow(any());
     }
 
+    // ─── SYSTEM user visibility (getUser) ───────────────────────────────────
+
+    @Test
+    void getUser_rejectsNonSystemActorViewingSystemUser() {
+        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+
+        assertThatThrownBy(() -> userService.getUser(targetUuid, otherActorUuid))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("user.system.not_viewable");
+    }
+
+    @Test
+    void getUser_allowsSystemActorToViewSystemUser() {
+        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "SYSTEM")));
+
+        // Should NOT throw — a SYSTEM actor may view a SYSTEM user.
+        userService.getUser(targetUuid, otherActorUuid);
+
+        verify(userMapper).toDto(systemTarget);
+    }
+
+    // ─── SYSTEM role assignment gated to SYSTEM actors ──────────────────────
+
+    @Test
+    void updateUser_rejectsSystemRoleAssignmentByNonSystemActor() {
+        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+        when(roleRepository.findByName("SYSTEM")).thenReturn(Optional.of(systemRole()));
+
+        AdminUpdateUserRequest request = updateWithRoleIds(List.of(SYSTEM_ROLE_UUID));
+
+        assertThatThrownBy(() -> userService.updateUser(targetUuid, request, otherActorUuid))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("user.system.role_not_assignable");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createUser_rejectsSystemRoleAssignmentByNonSystemActor() {
+        when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
+        when(roleRepository.findByName("SYSTEM")).thenReturn(Optional.of(systemRole()));
+        when(userRepository.findWithRolesByUuid(otherActorUuid))
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+
+        AdminCreateUserRequest request = new AdminCreateUserRequest(
+                "new@example.com", "First", null, "Last", null, "password1",
+                "V", "12345678", null, null, null, List.of(SYSTEM_ROLE_UUID));
+
+        assertThatThrownBy(() -> userService.createUser(request, otherActorUuid))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("user.system.role_not_assignable");
+
+        verify(userRepository, never()).save(any());
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     /**
@@ -181,6 +270,14 @@ class UserServiceLockoutGuardsTest {
         roles.add(ur);
         u.setUserRoles(roles);
         return u;
+    }
+
+    /** A Role entity standing in for the seeded SYSTEM role (name + uuid only). */
+    private Role systemRole() {
+        Role role = new Role();
+        role.setName("SYSTEM");
+        role.setUuid(SYSTEM_ROLE_UUID);
+        return role;
     }
 
     private Person emptyPerson() {

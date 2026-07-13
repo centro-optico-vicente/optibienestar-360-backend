@@ -75,8 +75,9 @@ public class AdminRoleController {
     @PutMapping("/{uuid}")
     @PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")
     public ResponseEntity<RoleDto> update(@PathVariable UUID uuid,
-                                          @Valid @RequestBody UpdateRoleRequest request) {
-        return ResponseEntity.ok(roleService.update(uuid, request));
+                                          @Valid @RequestBody UpdateRoleRequest request,
+                                          @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(roleService.update(uuid, request, actor.getUuid()));
     }
 
     @DeleteMapping("/{uuid}")
