@@ -20,6 +20,7 @@ import com.fenixcore.optisaludplus.modules.auth.repository.SecurityPolicyReposit
 import com.fenixcore.optisaludplus.modules.auth.repository.UserPasswordHistoryRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserRepository;
 import com.fenixcore.optisaludplus.modules.auth.repository.UserSessionLogRepository;
+import com.fenixcore.optisaludplus.security.PermissionResolver;
 import com.fenixcore.optisaludplus.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.MessageSource;
@@ -57,6 +58,7 @@ public class AuthService {
     private final UserPasswordHistoryRepository passwordHistoryRepository;
     private final UserSessionLogRepository sessionLogRepository;
     private final JwtService jwtService;
+    private final PermissionResolver permissionResolver;
     private final TokenBlacklistService blacklistService;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
@@ -331,13 +333,10 @@ public class AuthService {
     }
 
     private List<String> collectPermissions(User user) {
-        return user.getUserRoles().stream()
-                .filter(ur -> ur.isActive()
-                        && (ur.getExpiresAt() == null || ur.getExpiresAt().isAfter(Instant.now())))
-                .flatMap(ur -> ur.getRole().getPermissions().stream())
-                .map(p -> p.getName())
-                .distinct()
-                .toList();
+        // Delegates to PermissionResolver so SYSTEM users receive the full
+        // permission catalog (superuser) and this stays in sync with the
+        // authority resolution in UserDetailsServiceImpl.
+        return permissionResolver.resolvePermissionNames(user);
     }
 
     private void logSession(User user, String jti, HttpServletRequest req, String loginLocale) {

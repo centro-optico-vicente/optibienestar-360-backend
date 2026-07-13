@@ -9,7 +9,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -17,16 +16,16 @@ import java.util.List;
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final PermissionResolver permissionResolver;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmailAndActiveTrue(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-        List<SimpleGrantedAuthority> authorities = user.getUserRoles().stream()
-                .filter(ur -> ur.isActive() && (ur.getExpiresAt() == null || ur.getExpiresAt().isAfter(Instant.now())))
-                .flatMap(ur -> ur.getRole().getPermissions().stream())
-                .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+        // Same resolution as the JWT claim: SYSTEM users get the full catalog.
+        List<SimpleGrantedAuthority> authorities = permissionResolver.resolvePermissionNames(user).stream()
+                .map(SimpleGrantedAuthority::new)
                 .toList();
 
         return new CustomUserDetails(
