@@ -58,11 +58,15 @@ public class UserService {
 
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
-    public Page<UserDto> listUsers(String filter, Pageable pageable) {
+    public Page<UserDto> listUsers(String filter, Pageable pageable, UUID actorUuid) {
         Specification<User> spec = (root, query, cb) -> null;
         if (filter != null && !filter.isBlank()) {
             validateFilterFields(filter);
             spec = RSQLJPASupport.toSpecification(filter);
+        }
+        // Only SYSTEM actors may see SYSTEM users; hide them from everyone else.
+        if (!isSystemActor(actorUuid)) {
+            spec = spec.and(excludeSystemUsers());
         }
         return userRepository.findAll(spec, pageable).map(userMapper::toDto);
     }
@@ -83,16 +87,25 @@ public class UserService {
         }
     }
 
-    public UserDto getUser(UUID uuid) {
+    public UserDto getUser(UUID uuid, UUID actorUuid) {
         User user = userRepository.findWithRolesByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        // A non-SYSTEM actor cannot view a SYSTEM user's detail.
+        if (hasSystemRole(user) && !isSystemActor(actorUuid)) {
+            throw new AccessDeniedException("user.system.not_viewable");
+        }
         return userMapper.toDto(user);
     }
 
     @Transactional
-    public UserDto createUser(AdminCreateUserRequest request) {
+    public UserDto createUser(AdminCreateUserRequest request, UUID actorUuid) {
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException("user.email.exists");
+        }
+
+        // Only a SYSTEM actor may create a user carrying the SYSTEM role.
+        if (requestsSystemRole(request.roleIds()) && !isSystemActor(actorUuid)) {
+            throw new AccessDeniedException("user.system.role_not_assignable");
         }
 
         // Resolve or create the Person hub for this cédula. If a Member or
@@ -123,14 +136,15 @@ public class UserService {
     }
 
     /**
-     * Admin update. Two anti-lockout guards:
+     * Admin update. Three guards:
      * <ul>
-     *   <li><b>SYSTEM user immutability</b> — the seeded bootstrap user (the
-     *       one carrying the {@code SYSTEM} role) is hardcoded immutable
-     *       regardless of who edits it. Mirrors {@code RoleService}'s
-     *       {@code SYSTEM} role guard, but at the user layer so the seed
-     *       account survives even if an admin somehow obtains
-     *       {@code USER_UPDATE}.</li>
+     *   <li><b>SYSTEM user protection</b> — a user carrying the {@code SYSTEM}
+     *       role may be edited <em>only</em> by another {@code SYSTEM} actor.
+     *       Any non-SYSTEM admin that somehow obtains {@code USER_UPDATE} is
+     *       still blocked, so the technical-admin tier stays self-governing.</li>
+     *   <li><b>SYSTEM role assignment</b> — granting the {@code SYSTEM} role to
+     *       the target requires the actor to be a {@code SYSTEM} user; a
+     *       non-SYSTEM admin cannot escalate anyone (incl. self) to SYSTEM.</li>
      *   <li><b>Self-edit restrictions</b> — when {@code actorUuid == uuid}:
      *       the actor cannot deactivate themselves, change their own status
      *       to anything other than ACTIVE, or alter their own roles. The
@@ -146,7 +160,12 @@ public class UserService {
         User user = userRepository.findWithRolesByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
-        if (hasSystemRole(user)) {
+        // Whether the actor holds the SYSTEM role. For self-edits the target is
+        // the actor, so reuse the already-loaded entity instead of a 2nd lookup.
+        boolean actorIsSystem = uuid.equals(actorUuid) ? hasSystemRole(user) : isSystemActor(actorUuid);
+
+        // SYSTEM users are editable only by other SYSTEM users.
+        if (hasSystemRole(user) && !actorIsSystem) {
             throw new AccessDeniedException("user.system.not_editable");
         }
 
@@ -160,6 +179,11 @@ public class UserService {
             if (request.roleIds() != null && !request.roleIds().isEmpty()) {
                 throw new IllegalArgumentException("user.self.cannot_change_own_roles");
             }
+        }
+
+        // Only a SYSTEM actor may grant the SYSTEM role to the target.
+        if (requestsSystemRole(request.roleIds()) && !actorIsSystem) {
+            throw new AccessDeniedException("user.system.role_not_assignable");
         }
 
         // Person fields → mutate the linked persons row (managed → dirty-check on commit)
@@ -235,6 +259,52 @@ public class UserService {
         return user.getUserRoles().stream()
                 .filter(UserRole::isActive)
                 .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()));
+    }
+
+    /**
+     * @return {@code true} if the actor identified by {@code actorUuid}
+     *         currently holds the {@code SYSTEM} role. Loads the actor with its
+     *         roles; returns {@code false} if the actor no longer exists. This
+     *         is the only reliable SYSTEM check for the actor — role names are
+     *         not carried in the JWT / {@code CustomUserDetails}, only permissions.
+     */
+    private boolean isSystemActor(UUID actorUuid) {
+        return userRepository.findWithRolesByUuid(actorUuid)
+                .map(this::hasSystemRole)
+                .orElse(false);
+    }
+
+    /**
+     * @return {@code true} if {@code roleIds} contains the {@code SYSTEM} role.
+     *         Used to gate SYSTEM-role assignment on create/update. A {@code null}
+     *         or empty list, or an environment with no SYSTEM role, yields
+     *         {@code false}.
+     */
+    private boolean requestsSystemRole(List<UUID> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return false;
+        }
+        return roleRepository.findByName(SYSTEM_ROLE_NAME)
+                .map(systemRole -> roleIds.contains(systemRole.getUuid()))
+                .orElse(false);
+    }
+
+    /**
+     * Specification excluding any user with an active assignment to the
+     * {@code SYSTEM} role — the list-endpoint counterpart of the detail-view
+     * guard. Correlated {@code NOT EXISTS} against {@code user_roles}, so it
+     * composes with the RSQL filter and survives the pagination count query.
+     */
+    private Specification<User> excludeSystemUsers() {
+        return (root, query, cb) -> {
+            var sub = query.subquery(Long.class);
+            var urRoot = sub.from(UserRole.class);
+            sub.select(urRoot.get("id")).where(
+                    cb.equal(urRoot.get("user"), root),
+                    cb.isTrue(urRoot.get("active")),
+                    cb.equal(urRoot.get("role").get("name"), SYSTEM_ROLE_NAME));
+            return cb.not(cb.exists(sub));
+        };
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

@@ -111,7 +111,7 @@ class GlobalExceptionHandlerIT {
         mockMvc.perform(get("/test-throw/access-denied").header("Accept-Language", "en"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Forbidden"))
-                .andExpect(jsonPath("$.detail").value("The SYSTEM role is not editable"));
+                .andExpect(jsonPath("$.detail").value("Only SYSTEM users can edit the SYSTEM role"));
     }
 
     @Test

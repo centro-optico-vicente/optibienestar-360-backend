@@ -38,20 +38,23 @@ public class AdminUserController {
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
     public ResponseEntity<Page<UserDto>> list(
             @RequestParam(required = false) String filter,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return ResponseEntity.ok(userService.listUsers(filter, pageable));
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(userService.listUsers(filter, pageable, actor.getUuid()));
     }
 
     @GetMapping("/{uuid}")
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
-    public ResponseEntity<UserDto> get(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(userService.getUser(uuid));
+    public ResponseEntity<UserDto> get(@PathVariable UUID uuid,
+                                       @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(userService.getUser(uuid, actor.getUuid()));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('USER_CREATE')")
-    public ResponseEntity<UserDto> create(@Valid @RequestBody AdminCreateUserRequest request) {
-        UserDto created = userService.createUser(request);
+    public ResponseEntity<UserDto> create(@Valid @RequestBody AdminCreateUserRequest request,
+                                          @AuthenticationPrincipal CustomUserDetails actor) {
+        UserDto created = userService.createUser(request, actor.getUuid());
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
