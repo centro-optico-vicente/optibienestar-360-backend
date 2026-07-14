@@ -1,10 +1,10 @@
 # `.ai/` — Brief para asistencia IA (backend)
 
-> Brief específico del repo `optisalud-plus-backend`. Para visión cross-stack y decisiones globales, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](../../centro-optico-vicente/.ai/).
+> Brief específico del repo `optibienestar-360-backend`. Para visión cross-stack y decisiones globales, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](../../centro-optico-vicente/.ai/).
 
 ## Qué es este repo
 
-Backend REST API del ecosistema OptiSalud Plus. Implementa lógica de negocio, persistencia, auth, jobs scheduleados, comunicaciones email para las fases del producto (FASE 1 bootstrap + FASE 5 afiliaciones/membresías).
+Backend REST API del ecosistema OptiBienestar 360. Implementa lógica de negocio, persistencia, auth, jobs scheduleados, comunicaciones email para las fases del producto (FASE 1 bootstrap + FASE 5 afiliaciones/membresías).
 
 ## Stack confirmado
 
@@ -17,8 +17,8 @@ Ver `CLAUDE.md` root del repo. Resumen:
 ## Estructura de paquetes (objetivo)
 
 ```
-com.fenixcore.optisaludplus/
-├── OptiSaludPlusApplication.java
+com.fenixcore.optibienestar360/
+├── OptiBienestar360Application.java
 ├── core/                 # Cross-cutting (config, exceptions, auditing)
 ├── security/             # Auth, JWT, filters
 ├── common/               # Servicios compartidos (storage, email)

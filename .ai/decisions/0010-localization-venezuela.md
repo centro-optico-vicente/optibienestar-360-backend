@@ -6,11 +6,11 @@
 
 **Estado:** Aceptado
 **Fecha:** 2026-05-24
-**Decisores:** equipo OptiSalud Plus
+**Decisores:** equipo OptiBienestar 360
 
 ## Contexto
 
-El ecosistema OptiSalud Plus / Centro Óptico Vicente está pensado **exclusivamente** para operar en Venezuela: el negocio físico está en Venezuela, los afiliados, aliados, titulares y promotores son residentes venezolanos, los pagos manuales se hacen en bolívares y USD (Zelle, principalmente, por contexto cambiario), y la regulación de fondo (salud, consumidor, datos personales) es venezolana.
+El ecosistema OptiBienestar 360 / Centro Óptico Vicente está pensado **exclusivamente** para operar en Venezuela: el negocio físico está en Venezuela, los afiliados, aliados, titulares y promotores son residentes venezolanos, los pagos manuales se hacen en bolívares y USD (Zelle, principalmente, por contexto cambiario), y la regulación de fondo (salud, consumidor, datos personales) es venezolana.
 
 Sin congelar esto como decisión, cada vertical (backend, frontend, landing, docs) podría adoptar defaults distintos para idioma, zona horaria, moneda, formato de fecha o teléfono, generando inconsistencias visibles al usuario y bugs sutiles (ej. dates en UTC mostradas como si fueran locales, o `Intl.NumberFormat('en-US')` separando miles con coma cuando el usuario espera punto).
 

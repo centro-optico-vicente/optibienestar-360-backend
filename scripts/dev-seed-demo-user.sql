@@ -1,6 +1,6 @@
 SET search_path TO app, public;
 
--- Creates the OptiSalud demo user (cédula V-3, password 'optisalud') with
+-- Creates the OptiBienestar demo user (cédula V-3, password 'optibienestar360') with
 -- default role ADMINISTRADOR and links it to every role except SYSTEM.
 --
 -- After the V16 refactor, demographic data (full_name, document, phone,
@@ -8,10 +8,10 @@ SET search_path TO app, public;
 -- persons via person_id (NOT NULL UNIQUE). Hence the person is inserted
 -- first, then the user.
 --
--- password_hash: app.bcrypt_hash('optisalud') yields a BCrypt $2a$ strength-12
+-- password_hash: app.bcrypt_hash('optibienestar360') yields a BCrypt $2a$ strength-12
 -- hash, compatible with Spring's BCryptPasswordEncoder(12) (see V20__bcrypt_helper.sql).
 WITH new_person AS (
-    -- persons requires first_name + last_name NOT NULL: 'OptiSalud' is split
+    -- persons requires first_name + last_name NOT NULL: 'OptiBienestar' is split
     -- into a placeholder first/last name (same as the 'System'/'Administrador' seeds).
     INSERT INTO persons (
         first_name,
@@ -21,10 +21,10 @@ WITH new_person AS (
         email
     )
     VALUES (
-        'OptiSalud',
+        'OptiBienestar',
         'Demo',
         'V', '3',
-        'optisalud@gmail.com'
+        'optibienestar360@gmail.com'
     )
     RETURNING persons_id
 ),
@@ -39,8 +39,8 @@ new_user AS (
     )
     SELECT
         np.persons_id,
-        'optisalud@gmail.com',
-        app.bcrypt_hash('optisalud'),   -- BCrypt $2a$ strength 12 (see V20)
+        'optibienestar360@gmail.com',
+        app.bcrypt_hash('optibienestar360'),   -- BCrypt $2a$ strength 12 (see V20)
         r.roles_id,            -- default_role_id = ADMINISTRADOR
         'ACTIVE',
         FALSE

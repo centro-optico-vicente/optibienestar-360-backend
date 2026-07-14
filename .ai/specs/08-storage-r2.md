@@ -114,7 +114,7 @@ public class StorageService {
 ## Estructura de keys
 
 ```
-optisalud-prod/
+optibienestar-360-prod/
 ├── allies/{ally_id}/logo.{ext}
 ├── members/{member_id}/
 │   ├── documents/{ts}_{type}.{ext}
@@ -161,7 +161,7 @@ Tamaños recomendados por tipo:
 STORAGE_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 STORAGE_R2_ACCESS_KEY=<from R2 dashboard>
 STORAGE_R2_SECRET_KEY=<from R2 dashboard>
-STORAGE_R2_BUCKET=optisalud-prod
+STORAGE_R2_BUCKET=optibienestar-360-prod
 STORAGE_R2_REGION=auto
 ```
 
@@ -186,7 +186,7 @@ services:
 storage.r2.endpoint=http://localhost:9000
 storage.r2.access-key=minioadmin
 storage.r2.secret-key=minioadmin
-storage.r2.bucket=optisalud-dev
+storage.r2.bucket=optibienestar-360-dev
 ```
 
 ## Referencias

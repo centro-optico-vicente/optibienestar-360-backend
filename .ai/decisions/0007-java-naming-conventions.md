@@ -24,7 +24,7 @@ Todo código Java en este repositorio sigue las convenciones del ADR 0009 del hu
 | Parámetros | `camelCase` | `userUuid`, `refreshToken` |
 | Constantes estáticas (`static final`) | `UPPER_SNAKE_CASE` | `BEARER_PREFIX`, `BLACKLIST_PREFIX`, `MAX_ATTEMPTS` |
 | Valores de `enum` | `UPPER_SNAKE_CASE` | `ACTIVE`, `PENDING_REVIEW`, `USER_LOGOUT` |
-| Paquetes | `lowercase.dotted` | `com.fenixcore.optisaludplus.modules.auth` |
+| Paquetes | `lowercase.dotted` | `com.fenixcore.optibienestar360.modules.auth` |
 | Archivos de migración Flyway | `V{N}__{snake_case}.sql` | `V5__users_and_roles.sql` |
 
 ### Naming descriptivo

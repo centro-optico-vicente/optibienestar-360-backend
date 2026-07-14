@@ -1,6 +1,6 @@
 # `.ai/` — Contexto IA del backend
 
-Esta carpeta contiene la documentación específica del repo `optisalud-plus-backend` para asistencia IA. Para visión cross-stack, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](../../centro-optico-vicente/.ai/).
+Esta carpeta contiene la documentación específica del repo `optibienestar-360-backend` para asistencia IA. Para visión cross-stack, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](../../centro-optico-vicente/.ai/).
 
 ## Estructura
 

@@ -11,9 +11,9 @@ Estructura modular del backend para facilitar:
 ## Estructura
 
 ```
-com.fenixcore.optisaludplus/
+com.fenixcore.optibienestar360/
 │
-├── OptiSaludPlusApplication.java       # Bootstrap @SpringBootApplication
+├── OptiBienestar360Application.java       # Bootstrap @SpringBootApplication
 │
 ├── core/                               # CROSS-CUTTING (config, infra interna)
 │   ├── audit/

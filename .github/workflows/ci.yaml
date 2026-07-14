@@ -27,7 +27,7 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: optisalud_test
+          POSTGRES_DB: optibienestar360_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
@@ -55,7 +55,7 @@ jobs:
           SPRING_PROFILES_ACTIVE: dev
           DATABASE_HOST: localhost
           DATABASE_PORT: 5432
-          DATABASE_NAME: optisalud_test
+          DATABASE_NAME: optibienestar360_test
           DATABASE_SSL_MODE: disable
           DATABASE_USER: postgres
           DATABASE_PASSWORD: postgres

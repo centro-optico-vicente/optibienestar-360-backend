@@ -16,7 +16,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 |---|---|
 | `V1__initial_extensions.sql` | pgcrypto, unaccent, citext, schema `app` |
 | `V2__base_audit_function.sql` | función `set_updated_at()` |
-| `V3__app_roles.sql` | DB roles `optisalud_migration`/`optisalud_app`/`optisalud_readonly` con CONNECTION LIMIT + statement_timeout + idle_in_transaction_timeout; REVOKE PUBLIC; ALTER ROLE search_path |
+| `V3__app_roles.sql` | DB roles `optibienestar360_migration`/`optibienestar360_app`/`optibienestar360_readonly` con CONNECTION LIMIT + statement_timeout + idle_in_transaction_timeout; REVOKE PUBLIC; ALTER ROLE search_path |
 | `V4__contact_messages.sql` | contact_messages (landing) |
 | `V5__users_and_roles.sql` | security_policies, roles, **permission_domains** (10 seed), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log |
 | `V6__seed_roles.sql` | 7 roles + 50 permisos (incluye `ROLE_PERMISSION_EDIT`) + asignación rol→permisos + security_policies default |

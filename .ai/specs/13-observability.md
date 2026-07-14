@@ -22,7 +22,7 @@ management.health.livenessstate.enabled=true
 management.health.readinessstate.enabled=true
 management.info.env.enabled=true
 management.info.git.mode=full
-management.metrics.tags.application=optisalud-plus-backend
+management.metrics.tags.application=optibienestar-360-backend
 management.metrics.tags.environment=${SPRING_PROFILES_ACTIVE}
 ```
 
@@ -94,7 +94,7 @@ DB health ya está provisto por Spring Boot Actuator.
     <springProfile name="prod">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-                <customFields>{"application":"optisalud-plus-backend"}</customFields>
+                <customFields>{"application":"optibienestar-360-backend"}</customFields>
             </encoder>
         </appender>
         <root level="INFO">

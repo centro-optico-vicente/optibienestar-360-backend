@@ -1,4 +1,4 @@
-# Checklist operacional — OptiSalud Plus Backend
+# Checklist operacional — OptiBienestar 360 Backend
 
 > **Propósito:** dashboard de progreso global. Los checkboxes canónicos viven en los archivos de fase y vertical en [`checklists/`](checklists/).
 >

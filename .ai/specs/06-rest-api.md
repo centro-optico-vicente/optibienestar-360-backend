@@ -211,7 +211,7 @@ public class OpenApiConfig {
     OpenAPI customOpenAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("OptiSalud Plus API")
+                .title("OptiBienestar 360 API")
                 .version("1.0.0")
                 .contact(new Contact().email("dev@solopsoftware.com"))
             )

@@ -26,12 +26,12 @@
 - [x] [P0/C2] Endpoint `POST /v1/public/contact` (form landing → email + persistencia) — 2026-05-21
 - [x] [P0/C2] Migration `V1__initial_extensions.sql`: pgcrypto, unaccent, citext + `CREATE SCHEMA IF NOT EXISTS app` — 2026-05-21
 - [x] [P0/C2] Migration `V2__base_audit_function.sql`: `set_updated_at()` trigger en esquema `app` — 2026-05-21
-- [x] [P0/C2] Migration `V3__app_roles.sql`: roles de BD `optisalud_migration` (DDL), `optisalud_app` (DML), `optisalud_readonly` (SELECT) + hardening esquema — 2026-05-23
+- [x] [P0/C2] Migration `V3__app_roles.sql`: roles de BD `optibienestar360_migration` (DDL), `optibienestar360_app` (DML), `optibienestar360_readonly` (SELECT) + hardening esquema — 2026-05-23
 - [x] [P0/C2] Migration `V4__contact_messages.sql` — 2026-05-21
 - [x] [P0/C2] Health checks Actuator: `/actuator/health/liveness`, `/actuator/health/readiness` — 2026-05-21
 - [x] [P1/C2] Logging estructurado JSON (logback-spring.xml) — 2026-05-21
 - [x] [P0/C2] `docker/alpine.Dockerfile` + `docker/debian.Dockerfile` multi-stage (JDK 25 builder + JRE 25 runtime, `--mount=type=cache` Gradle) — 2026-05-19
-- [x] [P0/C2] `.github/workflows/publish.yaml`: build + test + push Docker Hub `fenixcoreenterprises/optisalud-plus-backend` (Alpine + Debian, prerelease-aware tags) — 2026-05-19
+- [x] [P0/C2] `.github/workflows/publish.yaml`: build + test + push Docker Hub `fenixcoreenterprises/optibienestar-360-backend` (Alpine + Debian, prerelease-aware tags) — 2026-05-19
 - [x] [P0/C2] `.github/workflows/ci.yaml`: CI independiente (push/PR a main), cancela runs en paralelo — 2026-05-19
 - [x] [P1/C2] Cache Gradle en CI vía `actions/setup-java cache: gradle` (`~/.gradle/caches` + `~/.gradle/wrapper`) — 2026-05-20
 - [x] [P1/C2] Cache Docker en CI: `docker-build-check` usa JAR precompilado (`from-prebuilt` target) en lugar de re-compilar con Gradle — 2026-05-20

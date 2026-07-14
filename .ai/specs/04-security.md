@@ -223,7 +223,7 @@ Implementación: AOP aspect `@AuditAction`.
 
 ```
 JWT_SECRET=<32+ random bytes base64>
-JWT_ISSUER=optisalud-plus
+JWT_ISSUER=optibienestar-360
 JWT_ACCESS_EXPIRATION_MINUTES=15
 JWT_REFRESH_EXPIRATION_DAYS=30
 ```

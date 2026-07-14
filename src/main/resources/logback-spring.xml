@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="optisaludplus"/>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="optibienestar360"/>
 
     <!-- ── DEV: human-readable console ── -->
     <springProfile name="dev">

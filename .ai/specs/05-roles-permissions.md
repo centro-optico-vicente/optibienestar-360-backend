@@ -167,7 +167,7 @@ Los `@PreAuthorize` usan `hasAuthority('PERMISSION')` y el JWT lleva el claim `p
 
 ### Comparativa de modelos
 
-| Modelo | Qué es | Ventajas | Desventajas | Encaje en OptiSalud |
+| Modelo | Qué es | Ventajas | Desventajas | Encaje en OptiBienestar |
 |---|---|---|---|---|
 | **RBAC granular** *(actual)* | Permisos agrupados en roles; autorización por permiso. Permisos fijos en código, roles en BD. | Simple y predecible; fácil de auditar; nativo en Spring (`@PreAuthorize`); sin lookups extra (permisos en el JWT); ya implementado. | Permisos no editables en runtime; los casos contextuales (p. ej. "solo sus propios afiliados") requieren checks ad-hoc en service; puede crecer el nº de permisos. | ✅ Cubre ~95% de los casos. Los `VIEW_OWN` ya se resuelven con components custom (`@memberSecurity.canRead`). **Recomendado mantener.** |
 | **ABAC** (Attribute-Based) | Decisiones por atributos (usuario, recurso, entorno) evaluados en reglas. Ej.: "ver si `recurso.region == usuario.region` y en horario laboral". | Muy flexible; reglas contextuales sin tocar código por cada caso; escala a políticas complejas. | Alta complejidad (motor de reglas + gestión de políticas); más difícil de auditar/razonar; riesgo de reglas contradictorias; evaluación por request. | ⚠️ Los pocos casos contextuales actuales ya se cubren con checks puntuales → ABAC completo es sobre-ingeniería hoy. |

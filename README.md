@@ -1,6 +1,6 @@
-# OptiSalud-Plus Backend
+# OptiBienestar-Plus Backend
 
-OptiSalud+ Backend.
+OptiBienestar 360 Backend.
 
 ## Local clone setup (one-time)
 
@@ -54,9 +54,9 @@ default** and are supplied as Docker file-secrets via the `*_FILE` variants
 |---|---|---|
 | `DATABASE_HOST` | `localhost` | Postgres host (required in `prod`). |
 | `DATABASE_PORT` | `5432` | Postgres port. |
-| `DATABASE_NAME` | `optisalud` | Database name (required in `prod`). |
+| `DATABASE_NAME` | `optibienestar360` | Database name (required in `prod`). |
 | `DATABASE_SSL_MODE` | `disable` | JDBC `sslmode` (required in `prod`). |
-| `DATABASE_USER` | `optisalud_app` | Runtime DML role used by the app. |
+| `DATABASE_USER` | `optibienestar360_app` | Runtime DML role used by the app. |
 | `DATABASE_PASSWORD` | `changeme-dev` | Password for the app role (file-secret in `prod`). |
 | `DATABASE_MIGRATION_USER` | `postgres` | Flyway migration role (DDL privileges). |
 | `DATABASE_MIGRATION_PASSWORD` | `changeme-dev` | Migration role password (file-secret in `prod`). |
@@ -94,7 +94,7 @@ does nothing until re-bootstrap or a manual `ALTER ROLE`.
 | `SMTP_USER` | — | SMTP username. |
 | `SMTP_PASSWORD` | — | SMTP password (file-secret in `prod`). |
 | `MAIL_FROM` | `noreply@centroopticovicente.com` | Sender of outgoing emails. |
-| `MAIL_FROM_NAME` | `OptiSalud Plus` | Sender display name. |
+| `MAIL_FROM_NAME` | `OptiBienestar 360` | Sender display name. |
 | `MAIL_ADMIN` | `admin@centroopticovicente.com` | Administrative inbox. |
 
 ### JWT
@@ -102,7 +102,7 @@ does nothing until re-bootstrap or a manual `ALTER ROLE`.
 | Variable | Default | Description |
 |---|---|---|
 | `JWT_SECRET` | `changeme-…` | HMAC signing secret (file-secret in `prod`, ≥ 32 bytes). |
-| `JWT_ISSUER` | `optisalud-plus` | Issuer claim in emitted tokens. |
+| `JWT_ISSUER` | `optibienestar-360` | Issuer claim in emitted tokens. |
 | `JWT_ACCESS_EXPIRATION_MINUTES` | `15` | Access token TTL (minutes). |
 | `JWT_REFRESH_EXPIRATION_DAYS` | `30` | Refresh token TTL (days). |
 
@@ -117,7 +117,7 @@ does nothing until re-bootstrap or a manual `ALTER ROLE`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PROBLEMS_BASE_URL` | `https://problems-optisalud.centroopticovicente.com` | Base domain for `problem+json` error types. |
+| `PROBLEMS_BASE_URL` | `https://problems-optibienestar360.centroopticovicente.com` | Base domain for `problem+json` error types. |
 
 ### Storage (Cloudflare R2 / S3-compatible)
 
@@ -131,5 +131,5 @@ credentials. Dev defaults target a local MinIO.
 | `STORAGE_R2_ENDPOINT` | `http://localhost:9000` | S3-compatible endpoint (MinIO in dev, R2 in prod). |
 | `STORAGE_R2_ACCESS_KEY` | `minioadmin` | Access key (file-secret in `prod`). |
 | `STORAGE_R2_SECRET_KEY` | `minioadmin` | Secret key (file-secret in `prod`). |
-| `STORAGE_R2_BUCKET` | `optisalud-dev` | Bucket name (`optisalud-prod` in prod). |
+| `STORAGE_R2_BUCKET` | `optibienestar-360-dev` | Bucket name (`optibienestar-360-prod` in prod). |
 | `STORAGE_R2_REGION` | `auto` | Region (Cloudflare R2 uses `auto`). |
