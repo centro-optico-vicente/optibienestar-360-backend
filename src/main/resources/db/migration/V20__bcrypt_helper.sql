@@ -9,7 +9,7 @@ SET search_path TO app, public;
 --
 -- Lets SQL seeds insert plaintext passwords without precomputing the hash in
 -- the app:
---   INSERT INTO users (..., password_hash) VALUES (..., app.bcrypt_hash('optisalud'));
+--   INSERT INTO users (..., password_hash) VALUES (..., app.bcrypt_hash('optibienestar360'));
 --   SELECT app.bcrypt_hash('myPass', 12);   -- explicit strength
 --
 -- VOLATILE because gen_salt() is non-deterministic (random salt per call).
