@@ -2,7 +2,7 @@
 
 > **Actualizado:** 2026-05-31
 >
-> Qué existe HOY en `optisalud-plus-backend`. Actualizar al cierre de cada sesión productiva.
+> Qué existe HOY en `optibienestar-360-backend`. Actualizar al cierre de cada sesión productiva.
 
 ## Resumen
 
@@ -66,7 +66,7 @@ com.h2database:h2
 
 **`application.properties`:**
 ```properties
-spring.application.name=optisaludplus
+spring.application.name=optibienestar360
 ```
 
 **`application-dev.properties`:**
@@ -75,7 +75,7 @@ server.port=${SERVER_PORT:8080}
 server.jetty.threads.min=10
 server.jetty.threads.max=100
 
-spring.datasource.url=jdbc:postgresql://localhost:5432/optisalud
+spring.datasource.url=jdbc:postgresql://localhost:5432/optibienestar-360
 spring.datasource.username=${DATABASE_USER}
 spring.datasource.password=${DATABASE_PASSWORD}
 spring.jpa.hibernate.ddl-auto=update    # ⚠️ debe cambiarse a validate
@@ -93,12 +93,12 @@ logging.level.com.fenixcore=INFO
 
 ### Código actual
 
-`OptiSaludPlusApplication.java`:
+`OptiBienestar360Application.java`:
 ```java
 @SpringBootApplication
-public class OptiSaludPlusApplication {
+public class OptiBienestar360Application {
     public static void main(String[] args) {
-        SpringApplication.run(OptiSaludPlusApplication.class, args);
+        SpringApplication.run(OptiBienestar360Application.class, args);
     }
 }
 ```
@@ -106,14 +106,14 @@ public class OptiSaludPlusApplication {
 ### Estructura del repo
 
 ```
-optisalud-plus-backend/
+optibienestar-360-backend/
 ├── CLAUDE.md                                  ← creado 2026-05-18
 ├── .ai/                                       ← creado 2026-05-18
 ├── build.gradle, settings.gradle
 ├── README.md, HELP.md
 ├── src/main/
-│   ├── java/com/fenixcore/optisaludplus/
-│   │   └── OptiSaludPlusApplication.java     ← ÚNICA clase
+│   ├── java/com/fenixcore/optibienestar360/
+│   │   └── OptiBienestar360Application.java     ← ÚNICA clase
 │   └── resources/
 │       ├── application.properties
 │       ├── application-dev.properties

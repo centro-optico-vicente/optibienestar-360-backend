@@ -24,7 +24,7 @@ spring.mail.properties.mail.smtp.timeout=5000
 spring.mail.properties.mail.smtp.writetimeout=5000
 
 mail.from=${MAIL_FROM:noreply@dominio.com}
-mail.from-name=${MAIL_FROM_NAME:OptiSalud Plus}
+mail.from-name=${MAIL_FROM_NAME:OptiBienestar 360}
 ```
 
 ## EmailService
@@ -164,7 +164,7 @@ templates/
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Bienvenido a OptiSalud Plus</title>
+    <title>Bienvenido a OptiBienestar 360</title>
 </head>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <div th:replace="~{shared/header :: header}"></div>
@@ -172,7 +172,7 @@ templates/
     <main style="padding: 20px;">
         <h1>¡Bienvenido/a, <span th:text="${memberName}">[Nombre]</span>!</h1>
 
-        <p>Tu membresía OptiSalud Plus está activa.</p>
+        <p>Tu membresía OptiBienestar 360 está activa.</p>
 
         <div style="background: #F2F9DF; padding: 15px; border-radius: 8px;">
             <p><strong>Plan:</strong> <span th:text="${planName}">[Plan]</span></p>
@@ -255,7 +255,7 @@ SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASSWORD=...
 MAIL_FROM=noreply@dominio.com
-MAIL_FROM_NAME=OptiSalud Plus
+MAIL_FROM_NAME=OptiBienestar 360
 ```
 
 ## Decisión SMTP provider

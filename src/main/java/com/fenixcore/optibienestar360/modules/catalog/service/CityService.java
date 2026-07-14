@@ -1,0 +1,116 @@
+package com.fenixcore.optibienestar360.modules.catalog.service;
+
+import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.entity.City;
+import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.StateRepository;
+import io.github.perplexhub.rsql.RSQLJPASupport;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class CityService {
+
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("name", "state");
+    private static final String[] SEARCHABLE_FIELDS = {"name"};
+
+    private final CityRepository repository;
+    private final StateRepository stateRepository;
+
+    @Autowired @Lazy
+    private CityService self;
+
+    public Page<CityDto> list(Pageable pageable, String filter, String q,
+                              UUID stateUuid, String stateCode) {
+        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q, stateUuid, stateCode)) {
+            return new PageImpl<>(self.loadAllForDropdown());
+        }
+        Specification<City> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        if (filter != null && !filter.isBlank()) {
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "city.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (stateUuid != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("state").get("uuid"), stateUuid));
+        } else if (stateCode != null && !stateCode.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("state").get("code"), stateCode));
+        }
+        return repository.findAll(spec, pageable).map(CityService::toDto);
+    }
+
+    @Cacheable(value = "catalogs", key = "'city:all'")
+    public List<CityDto> loadAllForDropdown() {
+        return repository.findAllByActiveTrueOrderByName().stream()
+                .map(CityService::toDto)
+                .toList();
+    }
+
+    public CityDto get(UUID uuid) {
+        return toDto(find(uuid));
+    }
+
+    @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public CityDto create(CityCreateRequest req) {
+        State state = stateRepository.findByUuid(req.stateUuid())
+                .orElseThrow(() -> new NoSuchElementException("State not found: " + req.stateUuid()));
+        City c = new City();
+        c.setState(state);
+        c.setName(req.name());
+        return toDto(repository.save(c));
+    }
+
+    @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public CityDto update(UUID uuid, CityUpdateRequest req) {
+        City c = find(uuid);
+        c.setName(req.name());
+        return toDto(repository.save(c));
+    }
+
+    @Transactional
+    @CacheEvict(value = "catalogs", allEntries = true)
+    public void delete(UUID uuid) {
+        City c = find(uuid);
+        c.setActive(false);
+        repository.save(c);
+    }
+
+    private City find(UUID uuid) {
+        return repository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("City not found: " + uuid));
+    }
+
+    static CityDto toDto(City c) {
+        State s = c.getState();
+        return new CityDto(c.getUuid(), c.getName(),
+                s.getUuid(), s.getCode(), c.isActive());
+    }
+}

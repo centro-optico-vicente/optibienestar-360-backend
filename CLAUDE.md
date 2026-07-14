@@ -1,6 +1,6 @@
-# optisalud-plus-backend
+# optibienestar-360-backend
 
-Backend REST API del ecosistema **OptiSalud Plus / Centro Óptico Vicente**. Spring Boot 4.0.6 + Java 25 + PostgreSQL 15 + Redis 7 + Cloudflare R2.
+Backend REST API del ecosistema **OptiBienestar 360 / Centro Óptico Vicente**. Spring Boot 4.0.6 + Java 25 + PostgreSQL 15 + Redis 7 + Cloudflare R2.
 
 **Parte del ecosistema:** [centro-optico-vicente](https://github.com/fenix-core/centro-optico-vicente) (hub maestro)
 

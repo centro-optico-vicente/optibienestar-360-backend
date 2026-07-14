@@ -17,13 +17,13 @@
 BEGIN;
 
 -- ── Parameters (edit here) ──────────────────────────────────────────────────
-SET LOCAL app.p_first_name            = 'OptiSalud';
+SET LOCAL app.p_first_name            = 'OptiBienestar';
 SET LOCAL app.p_last_name             = 'Demo';
 SET LOCAL app.p_document_type         = 'V';
 SET LOCAL app.p_document_number       = '3';
-SET LOCAL app.p_email                 = 'optisalud@gmail.com';
+SET LOCAL app.p_email                 = 'optibienestar360@gmail.com';
 -- Plaintext password; hashed with app.bcrypt_hash() (BCrypt, see V20).
-SET LOCAL app.p_password              = 'optisalud';
+SET LOCAL app.p_password              = 'optibienestar360';
 SET LOCAL app.p_default_role          = 'ADMINISTRADOR';
 SET LOCAL app.p_status                = 'ACTIVE';
 SET LOCAL app.p_password_never_expires = 'false';   -- 'true' / 'false'

@@ -3,10 +3,10 @@
 	"configurations": [
 		{
 			"type": "java",
-			"name": "Launch OptiSalud+",
+			"name": "Launch OptiBienestar 360",
 			"request": "launch",
-			"mainClass": "com.fenixcore.optisaludplus.OptiSaludPlusApplication",
-			"projectName": "optisalud-plus-backend",
+			"mainClass": "com.fenixcore.optibienestar360.OptiBienestar360Application",
+			"projectName": "optibienestar-360-backend",
 			"args": "",
 			"env": {
 				"SPRING_PROFILES_ACTIVE": "dev"

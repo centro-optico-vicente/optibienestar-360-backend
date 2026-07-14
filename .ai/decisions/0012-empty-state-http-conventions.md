@@ -2,7 +2,7 @@
 
 **Estado:** Aceptado
 **Fecha:** 2026-07-05
-**Decisores:** equipo OptiSalud Plus
+**Decisores:** equipo OptiBienestar 360
 
 ## Contexto
 

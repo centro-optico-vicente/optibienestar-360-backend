@@ -127,10 +127,10 @@ JPA debe coincidir exactamente con el schema (Hibernate validate fallaría al ar
 ./gradlew flywayMigrate -i
 
 # Verificar
-psql -d optisalud -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
+psql -d optibienestar360 -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
 
 # Validar JPA mappea bien
-./gradlew test --tests "OptiSaludPlusApplicationTests"
+./gradlew test --tests "OptiBienestar360ApplicationTests"
 ```
 
 ### 6. Verificar antes de commit
@@ -246,16 +246,16 @@ Flyway re-aplica si el checksum cambia. Útil para vistas evolutivas.
 
 ```bash
 # 1. Ver historial Flyway
-psql -d optisalud -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
+psql -d optibienestar360 -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
 
 # 2. Verificar schema
-psql -d optisalud -c "\d+ {tabla_nueva}"
+psql -d optibienestar360 -c "\d+ {tabla_nueva}"
 
 # 3. Verificar índices
-psql -d optisalud -c "\di {tabla_nueva}*"
+psql -d optibienestar360 -c "\di {tabla_nueva}*"
 
 # 4. Verificar JPA arranca
-./gradlew test --tests "OptiSaludPlusApplicationTests"
+./gradlew test --tests "OptiBienestar360ApplicationTests"
 ```
 
 ## Cuando algo sale mal

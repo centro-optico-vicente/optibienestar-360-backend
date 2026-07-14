@@ -6,7 +6,7 @@
 
 **Estado:** Aceptado
 **Fecha:** 2026-05-18
-**Decisores:** equipo OptiSalud Plus
+**Decisores:** equipo OptiBienestar 360
 
 ## Contexto
 
@@ -27,14 +27,14 @@ El equipo trabaja en español pero la mayoría de la documentación técnica del
 | **Documentación `.ai/`** (specs, ADRs, playbooks) | **Español** | Audiencia es el equipo. |
 | **README.md de repos** | **Español** o **Inglés** | A discreción, optar por español para audiencia interna. |
 | **Commit messages** | **Inglés** | Compatible con herramientas, convencional commits, futuros colaboradores. |
-| **Nombres propios** (BCV, BCRA, Zelle, OptiSalud, etc.) | **Sin traducir** | Son nombres propios. |
+| **Nombres propios** (BCV, BCRA, Zelle, OptiBienestar, etc.) | **Sin traducir** | Son nombres propios. |
 | **Términos del glosario del dominio** | Ver `centro-optico-vicente/.ai/context/domain-glossary.md` | Cada término tiene su contraparte EN para código. |
 
 ### Convención de naming
 
 | Tipo | Convención | Ejemplo |
 |---|---|---|
-| **Java packages** | `lowercase.dotted` | `com.fenixcore.optisaludplus.modules.members` |
+| **Java packages** | `lowercase.dotted` | `com.fenixcore.optibienestar360.modules.members` |
 | **Java clases** | `PascalCase` | `MemberService`, `JwtAuthenticationFilter` |
 | **Java methods** | `camelCase` | `findMemberByDocument()` |
 | **Java fields/variables** | `camelCase` | `memberId`, `currentBalance` |
@@ -143,8 +143,8 @@ Marketing copy puro. El TBD del pricing se señala vía `is_published = FALSE` (
 ### Estructura de paquetes Java
 
 ```
-com.fenixcore.optisaludplus/
-├── OptiSaludPlusApplication.java
+com.fenixcore.optibienestar360/
+├── OptiBienestar360Application.java
 ├── core/                    # Cross-cutting (config, exceptions, auditing)
 │   ├── audit/
 │   ├── config/
@@ -175,7 +175,7 @@ com.fenixcore.optisaludplus/
 ### Estructura de carpetas Nuxt (frontend admin)
 
 ```
-optisalud-plus-frontend/
+optibienestar-360-frontend/
 ├── pages/
 │   ├── admin/
 │   ├── aliado/
