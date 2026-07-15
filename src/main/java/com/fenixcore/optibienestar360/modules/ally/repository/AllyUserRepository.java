@@ -45,4 +45,26 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
            "  AND au.active = true")
     Optional<AllyUser> findActiveByAllyUuidAndUserUuid(@Param("allyUuid") UUID allyUuid,
                                                       @Param("userUuid") UUID userUuid);
+
+    /**
+     * Backs {@code GET /v1/me/allies}: every ally the given user can operate
+     * on, resolved from the JWT subject alone. Fetch-joins the parent ally and
+     * its type so the portal picker renders without an N+1 walk over the
+     * lazy {@code ally} relation.
+     *
+     * <p>Soft-deleted allies are excluded even when the pivot row is still
+     * active — a membership on a deleted ally is not operable, and returning
+     * it would let the portal POST usages against it.</p>
+     *
+     * <p>Unordered by design; {@link
+     * com.fenixcore.optibienestar360.modules.ally.service.MyAlliesService}
+     * applies the primary-first ordering in Java.</p>
+     */
+    @Query("SELECT au FROM AllyUser au " +
+           "JOIN FETCH au.ally a " +
+           "LEFT JOIN FETCH a.allyType " +
+           "WHERE au.user.uuid = :userUuid " +
+           "  AND au.active = true " +
+           "  AND a.active = true")
+    List<AllyUser> findActiveByUserUuid(@Param("userUuid") UUID userUuid);
 }
