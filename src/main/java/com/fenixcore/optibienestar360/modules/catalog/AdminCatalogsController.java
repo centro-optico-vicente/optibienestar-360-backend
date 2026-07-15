@@ -64,14 +64,19 @@ import java.util.UUID;
 /**
  * Admin CRUD over catalog tables.
  *
- * <p>Authorization pragmatic mapping (no dedicated CATALOG_* permissions exist
- * in V6 seed yet — see follow-up in vertical-2 checklist):
+ * <p>Authorization:
  * <ul>
  *   <li><b>READ</b> requires {@code USER_VIEW_ALL} — anyone in the admin area
  *       can list/get catalogs (SYSTEM, ADMINISTRADOR, OPERADOR variants).</li>
- *   <li><b>WRITE</b> requires {@code USER_CHANGE_ROLE} — only SYSTEM can
- *       create/update/delete; catalogs are sensitive reference data.</li>
+ *   <li><b>WRITE</b> requires {@code CATALOG_WRITE} — only SYSTEM holds it by
+ *       default; catalogs are sensitive reference data.</li>
  * </ul>
+ *
+ * <p>{@code CATALOG_WRITE} was renamed from {@code USER_CHANGE_ROLE} in V32:
+ * that permission never guarded user-role assignment (which goes through
+ * {@code USER_UPDATE}) and existed only as a de-facto "SYSTEM only" marker for
+ * these writes, so its name invited granting it to ADMINISTRADOR and silently
+ * handing over catalog writes.</p>
  */
 @RestController
 @RequestMapping("/v1/admin/catalogs")
@@ -79,7 +84,7 @@ import java.util.UUID;
 public class AdminCatalogsController {
 
     private static final String READ_AUTH = "hasAuthority('USER_VIEW_ALL')";
-    private static final String WRITE_AUTH = "hasAuthority('USER_CHANGE_ROLE')";
+    private static final String WRITE_AUTH = "hasAuthority('CATALOG_WRITE')";
 
     private final CountryService countryService;
     private final StateService stateService;

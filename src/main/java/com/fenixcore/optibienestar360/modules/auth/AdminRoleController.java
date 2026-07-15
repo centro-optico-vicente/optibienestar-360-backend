@@ -35,13 +35,13 @@ public class AdminRoleController {
     private final RoleService roleService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<List<RoleDto>> list() {
         return ResponseEntity.ok(roleService.listActiveRoles());
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<RoleDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(roleService.getRole(uuid));
     }
@@ -62,7 +62,7 @@ public class AdminRoleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")
+    @PreAuthorize("hasAuthority('ROLE_CREATE')")
     public ResponseEntity<RoleDto> create(@Valid @RequestBody CreateRoleRequest request) {
         RoleDto created = roleService.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -73,7 +73,7 @@ public class AdminRoleController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")
+    @PreAuthorize("hasAuthority('ROLE_UPDATE')")
     public ResponseEntity<RoleDto> update(@PathVariable UUID uuid,
                                           @Valid @RequestBody UpdateRoleRequest request,
                                           @AuthenticationPrincipal CustomUserDetails actor) {
@@ -81,7 +81,7 @@ public class AdminRoleController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ROLE_PERMISSION_EDIT')")
+    @PreAuthorize("hasAuthority('ROLE_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         roleService.delete(uuid);
         return ResponseEntity.noContent().build();
