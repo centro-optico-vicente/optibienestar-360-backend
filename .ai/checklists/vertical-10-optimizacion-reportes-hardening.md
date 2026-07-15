@@ -17,8 +17,43 @@
 
 ## Reportes
 
-- [ ] [P1/C3] `GET /v1/admin/reports/memberships|allies|commissions`
-- [ ] [P1/C2] `GET /v1/admin/reports/export?type=...&format=csv`
+> Diseño congelado en [ADR 0012](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0012-reporting-documents-engine.md) · spec técnica: [`../specs/15-reporting-documents.md`](../specs/15-reporting-documents.md).
+> Motor único para dos familias: **analítica** (listados/KPIs → XLSX/CSV) y **transaccional** (recibo/cobro/planilla/carnet → PDF/ticket). Agregar un reporte = un bean provider (+ plantilla), sin DDL.
+
+### Motor
+
+- [ ] [P1/C2] Dependencias nuevas: `openhtmltopdf` (+pdfbox), `fastexcel`, `commons-csv` + TTF Unicode (DejaVu/Noto) en `resources/fonts/` — sin ella los acentos y `Bs.` salen rotos. Todas OSS ([ADR 0004](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0004-only-free-tools.md))
+- [ ] [P1/C3] `V31__generated_documents.sql` — tabla (`document_type`, `category`, `format`, `storage_key`, `status`, `params JSONB`, `source_module`+`source_entity_uuid`, `trigger_source`, `generated_by`, `expires_at`, `error_message`) + CHECKs de coherencia (`READY ⇒ storage_key`, `FAILED ⇒ error_message`) + 5 índices parciales + **seed del dominio de permisos `DOCUMENTS`** (`DOCUMENT_VIEW_ALL`/`VIEW_OWN`/`GENERATE`, patrón V22/V28). Molde: `V28__notifications.sql`
+- [ ] [P1/C3] Interfaces: `ReportDataProvider` (`code`+`fetch`), `DocumentRenderer` (`format`+`render`), `DocumentModel` sealed (`TabularModel` | `TemplateModel`), `DocumentService` orquestador
+- [ ] [P1/C2] Registros indexados en `@PostConstruct` con fail-fast ante `code()`/`format()` duplicados (copiar `JobExecutionService.buildRunnerIndex`); validar `format ∈ supportedFormats` antes de renderizar (422 limpio)
+- [ ] [P1/C3] Renderers: `PdfRenderer` (Thymeleaf→HTML→jsoup→`PdfRendererBuilder`), `XlsxRenderer` (fastexcel streaming), `CsvRenderer` (commons-csv, BOM UTF-8 para Excel-VE), `TicketPdfRenderer` (mismo PDF con perfil CSS 58/80 mm)
+- [ ] [P2/C3] `TICKET_ESCPOS` — **diferido**: entra tras la misma interfaz `DocumentRenderer` sin tocar el motor, cuando haya térmica POS real. Requiere agente local/WebUSB + dialecto por fabricante (Epson/Star)
+
+### Entrega
+
+- [ ] [P1/C2] Storage: key `reports/{yyyy}/{MM}/{documentType}/{uuid}-{safeName}.{ext}` (reusar `PaymentsService.safeName`) + `ObjectProvider<StorageService>` (422 limpio con R2 off) + reuso de `clampTtl` + lifecycle rule del prefijo `reports/` en R2 (90d analíticos / sin borrado automático para legales)
+- [ ] [P1/C2] `EmailService.sendTemplatedWithAttachment(...)` — el `MimeMessageHelper(msg, true, "UTF-8")` **ya es multipart**, solo falta `addAttachment(fileName, ByteArrayResource, contentType)`
+- [ ] [P1/C2] Modo `EMAIL_LINK`: el correo enlaza al endpoint autenticado `GET /v1/documents/{uuid}/download` (presigned fresca por llamada), **no** una URL firmada larga — el presign de R2 topa a 7 días y "acceder después" debe sobrevivirlo
+- [ ] [P1/C3] Async híbrido *sync-then-202* (copiar `max_sync_seconds` de `JobExecutionService`) sobre un `reportExecutor` dedicado; el SPA hace polling hasta `READY`
+
+### Endpoints
+
+- [ ] [P1/C3] `GET /v1/admin/reports/memberships|allies|commissions` + `GET /v1/admin/dashboard` (KPIs JSON, `REPORT_VIEW_DASHBOARD`)
+- [ ] [P1/C2] `GET /v1/admin/reports/export?type=...&format=csv|xlsx` (`REPORT_EXPORT`) — el `format=csv` reservado **se absorbe** como el CSV renderer del motor: se extiende el enum, no se duplica el contrato
+- [ ] [P1/C3] `POST /v1/documents` (200 o 202) · `GET /v1/documents` (RSQL) · `GET /v1/documents/{uuid}` (polling) · `GET /v1/documents/{uuid}/download?ttlMinutes=` · `POST /v1/documents/{uuid}/email`
+- [ ] [P2/C2] Azúcar por entidad: `POST /v1/admin/payments/{uuid}/receipt?format=pdf|ticket&delivery=...`
+- [ ] [P1/C2] **Auth efectiva = permiso de documento ∧ permiso de la entidad origen** (un recibo exige además `PAYMENT_VIEW_ALL`/`PAYMENT_VIEW_OWN`; el AFILIADO usa `DOCUMENT_VIEW_OWN` y **nunca** recibe `REPORT_EXPORT`)
+
+### Documentos del negocio
+
+- [ ] [P1/C3] `PAYMENT_RECEIPT` (PDF + `TICKET_PDF`) — provider + plantillas `_es`/`_en` + hook en `PaymentsService.approve` + reemisión manual. Entrega: adjunto + persistido
+- [ ] [P1/C2] `CHARGE_NOTICE` (cobro, PDF + ticket) — manual o evento de vencimiento
+- [ ] [P1/C3] `ACCOUNTS_PAYABLE` (XLSX + PDF resumen) = **comisiones a promotores**: el provider reusa el agrupamiento de `CommissionPayoutService` (comisiones `PENDING` por promotor/ciclo) + `AccountsPayableReportJobRunner implements ScheduledJobRunner` + fila semilla en `scheduled_jobs` (cron mensual, `America/Caracas`) → email con **enlace** a finanzas. No hay módulo de payables de proveedores
+- [ ] [P1/C2] `MEMBER_REGISTRATION_FORM` (planilla, PDF) — evento de alta de afiliado + manual; persistido (auditoría)
+- [ ] [P2/C2] Listados analíticos: `MEMBERS_LISTING`, `ALLIES_USAGE`, `COMMISSIONS_BY_PROMOTER` (XLSX/CSV)
+- [ ] [P2/C1] Migrar el correo transaccional a la cola persistente `notifications` cuando aterrice `NotificationService` ([vertical-9](vertical-9-notificaciones-y-carnet.md)) — el motor **no** debe re-implementar reintentos/backoff
+
+> El carnet (`MEMBER_CARD`, PDF) ya vive en [vertical-9](vertical-9-notificaciones-y-carnet.md); al implementarlo, generarlo con este motor en vez de una ruta aparte.
 
 ## Hardening y QA
 
