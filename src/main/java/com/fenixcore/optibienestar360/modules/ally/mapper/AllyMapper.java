@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
@@ -87,6 +88,21 @@ public interface AllyMapper {
     @Mapping(target = "userEmail",    source = "user.email")
     @Mapping(target = "userFullName", source = "user.person.fullName")
     AllyUserDto toAllyUserDto(AllyUser allyUser);
+
+    /**
+     * Self-service projection for {@code GET /v1/me/allies}. Flips the
+     * perspective of {@link #toAllyUserDto}: the identity fields come from
+     * the parent ally (the portal already knows who the caller is), while
+     * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
+     * {@code uuid} is deliberately the ally's — see {@link MyAllyDto}.
+     */
+    @Mapping(target = "uuid",         source = "ally.uuid")
+    @Mapping(target = "name",         source = "ally.name")
+    @Mapping(target = "allyTypeUuid", source = "ally.allyType.uuid")
+    @Mapping(target = "allyTypeName", source = "ally.allyType.name")
+    @Mapping(target = "logoUrl",      source = "ally.logoUrl")
+    @Mapping(target = "phone",        source = "ally.phone")
+    MyAllyDto toMyAllyDto(AllyUser allyUser);
 
     // ─── Nested catalog DTOs (default methods consumed by the generated impl) ─
 
