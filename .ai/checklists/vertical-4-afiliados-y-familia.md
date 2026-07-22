@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 26 | 12 | 14 | 46% | 🟠 |
+| 26 | 13 | 13 | 50% | 🟠 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -39,7 +39,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ### Migraciones
 
-- [ ] [v2] [P0/C2] `beneficiaries` ampliada: `extra_inscription_paid` boolean default false, `inscription_payment_id` FK opcional a `payments` (rastreo del cobro one-time del extra).
+- [x] [v2] [P0/C2] `beneficiaries` ampliada: `extra_inscription_paid` boolean default false, `inscription_payment_id` FK opcional a `payments` (rastreo del cobro one-time del extra). _(Ya estaba completo end-to-end: **V18** crea `extra_inscription_paid BOOLEAN NOT NULL DEFAULT FALSE` + `inscription_payment_id BIGINT` (los "v2 fields baked in desde día 1") y el índice parcial `idx_beneficiaries_extra_unpaid ON (member_id) WHERE is_active AND NOT extra_inscription_paid` para la consulta de cobranza pendiente; **V23** cableó el FK diferido → `payments(payments_id)`. La entidad `Beneficiary` mapea ambos, los DTOs (`BeneficiaryCreateRequest`/`UpdateRequest`/`Dto`) los exponen y `BeneficiariesService` los setea en create/update. De paso se corrigieron 4 comentarios que aún decían "FK pendiente en V21" — la numeración se corrió +2 y el FK entró en V23.)_
 
 ### Reglas de cobro (definidas por el flyer Centro Óptico Vicente)
 
