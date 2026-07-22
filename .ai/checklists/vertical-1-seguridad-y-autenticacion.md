@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 44 | 39 | 5 | 89% | 🟡 hardening/tests |
+| 44 | 40 | 4 | 91% | 🟡 hardening/tests |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -87,7 +87,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ### Tests
 
-- [ ] [P2/C2] Integración `PermissionControllerIT` — GET catálogo devuelve 10 dominios ordenados por `display_order` con 49 permisos repartidos; sin token devuelve 401; con token sin `ROLE_PERMISSION_EDIT` devuelve 403
+- [x] [P2/C2] Integración `PermissionControllerIT` — cubre el **contrato de autorización** de `GET /v1/admin/permissions`: sin token → **401** (entry point, se aplica `springSecurity()` para ejercer la cadena de filtros real), autenticado sin `ROLE_PERMISSION_EDIT` → **403** (method security niega antes de tocar el service), con el permiso → **200** con los dominios en orden de `display_order` y sus permisos anidados. El `PermissionService` se **mockea**: el perfil `test` corre sobre H2 con Flyway off, y como todos los `@SpringBootTest` fijan `@ActiveProfiles("test")`, el seed no existe ni local ni en CI. Los conteos "10 dominios / 49 permisos" del ítem estaban **desactualizados** (hoy son **13 dominios** — V5 sembró 10 + `SCHEDULED_JOBS`/`NOTIFICATIONS`/`CATALOGS` de V22/V28/V32 — y el catálogo de permisos crece con cada migración); no se hardcodean porque harían el test frágil. Requirió sumar `spring-security-test` a `build.gradle`.
 - [ ] [P2/C2] Integración `AdminRoleControllerIT` — PUT exitoso a rol no-SYSTEM aplica cambio (verificable con GET siguiente); PUT a rol SYSTEM devuelve 403 con mensaje claro; PUT con permissionUuid inexistente devuelve 400; PUT que dejaría al actor sin `ROLE_PERMISSION_EDIT` devuelve 400 con mensaje "auto-lockout"
 
 ### Documentación
