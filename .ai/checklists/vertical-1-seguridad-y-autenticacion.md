@@ -92,5 +92,5 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ### Documentación
 
-- [ ] [P2/C1] `playbooks/edit-role-permissions.md` — flujo operativo del admin (paso a paso desde el panel); documentar la ventana de propagación de 15 min y cómo forzar refresh inmediato si urge (revocar `refresh:<user_uuid>` en Redis con `redis-cli DEL`)
+- [x] [P2/C1] [`playbooks/edit-role-permissions.md`](../playbooks/edit-role-permissions.md) — flujo del admin desde el panel + propagación. **Corrige la premisa del ítem contra el código real**: la propagación es **inmediata** (el `JwtAuthenticationFilter` compara `iat < user_inv:<userUuid>` en cada request → 401 → refresh transparente que relee permisos de BD), no una ventana de 15 min. El "15 min" es el TTL del access token y solo aplica si Redis estaba caído al guardar (el fan-out es best-effort). La clave es **`user_inv:<userUuid>`** (TTL 24h), no `refresh:<user_uuid>`; y forzar es **`SET`** (re-armar el marcador), no `DEL` — borrarlo haría lo contrario.
 - [ ] [P2/C1] Actualizar `.ai/specs/05-roles-permissions.md` — marcar la fase mínima como implementada; documentar la nueva tabla `permission_domains`, los 3 endpoints nuevos y el permiso `ROLE_PERMISSION_EDIT`
