@@ -50,4 +50,16 @@ class I18nConfigTest {
         String msg = messageSource.getMessage("validation.iso_code.alpha2", null, Locale.forLanguageTag("es"));
         assertThat(msg).isNotBlank();
     }
+
+    @Test
+    void permission_uuids_required_message_is_localized() {
+        // El @NotNull de UpdateRolePermissionsRequest usa esta clave. Debe resolver en
+        // ambos idiomas y ser distinto en cada uno — así probamos que la clave existe en
+        // los 3 bundles (paridad) y que no cae al placeholder crudo.
+        String es = messageSource.getMessage("validation.permission_uuids.required", null, Locale.forLanguageTag("es"));
+        String en = messageSource.getMessage("validation.permission_uuids.required", null, Locale.forLanguageTag("en"));
+        assertThat(es).contains("permisos");
+        assertThat(en).contains("permission");
+        assertThat(es).isNotEqualTo(en);
+    }
 }
