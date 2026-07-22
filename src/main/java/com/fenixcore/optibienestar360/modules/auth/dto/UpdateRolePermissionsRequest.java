@@ -10,5 +10,5 @@ import java.util.UUID;
  * UUIDs. An empty list strips all permissions; null is rejected by validation.
  */
 public record UpdateRolePermissionsRequest(
-        @NotNull List<UUID> permissionUuids
+        @NotNull(message = "{validation.permission_uuids.required}") List<UUID> permissionUuids
 ) {}
