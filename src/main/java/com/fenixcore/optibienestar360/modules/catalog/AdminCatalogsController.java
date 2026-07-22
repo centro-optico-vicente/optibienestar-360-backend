@@ -66,10 +66,13 @@ import java.util.UUID;
  *
  * <p>Authorization:
  * <ul>
- *   <li><b>READ</b> requires {@code USER_VIEW_ALL} — anyone in the admin area
- *       can list/get every catalog. Reads stay coarse on purpose: forms across
- *       the app populate their dropdowns from these same endpoints, so a
- *       per-catalog read key would break unrelated screens.</li>
+ *   <li><b>READ</b> requires {@code CATALOG_VIEW_ALL} (V34) — one coarse read key
+ *       for all catalogs. Reads stay coarse on purpose: forms across the app
+ *       populate their dropdowns from these same endpoints, so a per-catalog read
+ *       key would break unrelated screens. V34 grants this to every role that
+ *       previously read catalogs via {@code USER_VIEW_ALL} plus every catalog
+ *       writer, so the switch is behavior-preserving and no longer borrows a
+ *       USERS-domain permission.</li>
  *   <li><b>WRITE</b> requires that catalog's own {@code CATALOG_*_WRITE} key
  *       (V33). One key per catalog so access can be delegated per catalog — an
  *       HR-style role can be granted occupations without also getting countries.</li>
@@ -80,7 +83,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminCatalogsController {
 
-    private static final String READ_AUTH = "hasAuthority('USER_VIEW_ALL')";
+    private static final String READ_AUTH = "hasAuthority('CATALOG_VIEW_ALL')";
 
     private static final String COUNTRY_WRITE            = "hasAuthority('CATALOG_COUNTRY_WRITE')";
     private static final String STATE_WRITE              = "hasAuthority('CATALOG_STATE_WRITE')";

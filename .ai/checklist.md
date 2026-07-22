@@ -53,7 +53,7 @@
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|---|---|---|
 | 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 44 | 39 | 5 | 89% | 🟡 hardening/tests |
-| 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 8 | 1 | 89% | 🟡 read perms |
+| 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 9 | 0 | 100% | ✅ Completa |
 | 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 21 | 14 | 7 | 67% | 🟡 |
 | 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 25 | 11 | 14 | 44% | 🟠 |
 | 5 | Planes y Membresías | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 32 | 17 | 15 | 53% | 🟡 |
@@ -62,7 +62,7 @@
 | 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 57 | 11 | 46 | 19% | 🟠 |
 | 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 10 | 1 | 9 | 10% | 🟠 |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 37 | 1 | 36 | 3% | 🔴 |
-| **TOTAL Fase 2** | | | **254** | **118** | **136** | **46%** | 🟡 |
+| **TOTAL Fase 2** | | | **254** | **119** | **135** | **47%** | 🟡 |
 
 > **% avance** = round(100 × hechas / tareas), redondeado al entero más cercano, contando checkboxes `- [ ]` / `- [x]` en cada archivo vertical (el método de "Conteo rápido" abajo). Cada archivo repite su fila como tabla de totales al inicio. Bandas del estado: ✅ 100% · 🟡 50–99% · 🟠 10–49% · 🔴 <10%.
 > Los conteos previos estaban desactualizados (marcaban 0 hechas en verticales ya construidos) y usaban una granularidad de tarea distinta a la de los archivos; esta tabla se recalculó desde los checkboxes reales.
