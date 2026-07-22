@@ -36,7 +36,7 @@ const ESTADO = {
   'fase-1-bootstrap-backend-spring-boot': '✅ Completa',
   'fase-2-afiliaciones-y-membresias': '🟡',
   'vertical-1-seguridad-y-autenticacion': '🟡 hardening/tests',
-  'vertical-2-catalogos': '🟡 read perms',
+  'vertical-2-catalogos': '✅ Completa',
   'vertical-3-aliados': '🟡',
   'vertical-4-afiliados-y-familia': '🟠',
   'vertical-5-planes-y-membresias': '🟡',
