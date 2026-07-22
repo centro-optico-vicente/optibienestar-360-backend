@@ -28,9 +28,10 @@ import lombok.Setter;
  *
  * <p>{@code extraInscriptionPaid} + {@code inscriptionPaymentId} (v2)
  * track the one-time inscription fee triggered when a member exceeds the
- * plan's {@code included_beneficiaries} cap. The FK to payments lives on
- * the column but lacks a DB constraint until V21 lands; the entity exposes
- * it as a plain Long for now.</p>
+ * plan's {@code included_beneficiaries} cap. The columns ship since V18; the
+ * FK constraint to {@code payments} was wired by V23 once that table existed.
+ * The entity still exposes the reference as a plain Long (no {@code @ManyToOne})
+ * to keep the member module from depending on the payment module.</p>
  */
 @Getter
 @Setter
@@ -57,8 +58,9 @@ public class Beneficiary extends BaseEntity {
     private boolean extraInscriptionPaid = false;
 
     /**
-     * Forward reference to the payments table (V21, planned). Plain Long
-     * for now — the FK constraint will be added via ALTER TABLE in V21.
+     * Reference to the payments table. Kept as a plain Long rather than a
+     * {@code @ManyToOne} so the member module doesn't depend on the payment
+     * module; the DB-level FK constraint was added by V23.
      */
     @Column(name = "inscription_payment_id")
     private Long inscriptionPaymentId;

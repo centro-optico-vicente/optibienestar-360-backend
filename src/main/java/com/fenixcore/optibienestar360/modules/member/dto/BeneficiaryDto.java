@@ -16,8 +16,8 @@ import java.util.UUID;
  * <p>{@code extraInscriptionPaid} (v2) tracks whether the one-time
  * inscription fee triggered when this beneficiary exceeded the plan's
  * {@code included_beneficiaries} cap has been collected.
- * {@code inscriptionPaymentId} is the FK to payments (V21, planned) — it
- * stays {@code null} until that table exists or until the admin pairs the
+ * {@code inscriptionPaymentId} references the payment that settled it (FK
+ * constraint wired by V23) — it stays {@code null} until the admin pairs the
  * row with a recorded payment.</p>
  */
 public record BeneficiaryDto(
