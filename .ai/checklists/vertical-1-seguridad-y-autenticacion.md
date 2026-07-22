@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 44 | 40 | 4 | 91% | 🟡 hardening/tests |
+| 44 | 41 | 3 | 93% | 🟡 hardening/tests |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -88,7 +88,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 ### Tests
 
 - [x] [P2/C2] Integración `PermissionControllerIT` — cubre el **contrato de autorización** de `GET /v1/admin/permissions`: sin token → **401** (entry point, se aplica `springSecurity()` para ejercer la cadena de filtros real), autenticado sin `ROLE_PERMISSION_EDIT` → **403** (method security niega antes de tocar el service), con el permiso → **200** con los dominios en orden de `display_order` y sus permisos anidados. El `PermissionService` se **mockea**: el perfil `test` corre sobre H2 con Flyway off, y como todos los `@SpringBootTest` fijan `@ActiveProfiles("test")`, el seed no existe ni local ni en CI. Los conteos "10 dominios / 49 permisos" del ítem estaban **desactualizados** (hoy son **13 dominios** — V5 sembró 10 + `SCHEDULED_JOBS`/`NOTIFICATIONS`/`CATALOGS` de V22/V28/V32 — y el catálogo de permisos crece con cada migración); no se hardcodean porque harían el test frágil. Requirió sumar `spring-security-test` a `build.gradle`.
-- [ ] [P2/C2] Integración `AdminRoleControllerIT` — PUT exitoso a rol no-SYSTEM aplica cambio (verificable con GET siguiente); PUT a rol SYSTEM devuelve 403 con mensaje claro; PUT con permissionUuid inexistente devuelve 400; PUT que dejaría al actor sin `ROLE_PERMISSION_EDIT` devuelve 400 con mensaje "auto-lockout"
+- [x] [P2/C2] Cobertura del PUT de permisos de rol, en dos niveles: **`RoleServiceGuardsTest`** (Mockito, lógica real) prueba las 4 reglas — SYSTEM editado por actor no-SYSTEM → `AccessDeniedException` (403); permissionUuid inexistente → `IllegalArgumentException` (**422**, no 400: el service lanza IllegalArgumentException que el handler mapea a 422); update que dejaría al actor sin `ROLE_PERMISSION_EDIT` → `IllegalArgumentException("role.auto_lockout")` (**422**); update válido aplica el set nuevo y hace fan-out de invalidación. **`AdminRoleControllerIT`** (MockMvc + `springSecurity()`, service mockeado) cubre el authz del endpoint (401 anónimo / 403 sin `ROLE_PERMISSION_EDIT` / 204 ok) y el mapeo de esas excepciones a 403/422. La verificación de persistencia "con GET siguiente" queda cubierta a nivel de servicio (el happy-path asserta que el set queda aplicado); un roundtrip real por HTTP necesitaría Testcontainers (el perfil `test` corre H2 sin seed) — diferido. Requirió `spring-security-test` (ya presente desde #138).
 
 ### Documentación
 
