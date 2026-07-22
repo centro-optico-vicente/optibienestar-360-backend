@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 26 | 13 | 13 | 50% | 🟠 |
+| 26 | 14 | 12 | 54% | 🟠 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -43,7 +43,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ### Reglas de cobro (definidas por el flyer Centro Óptico Vicente)
 
-- [ ] [v2] [P0/C2] **Mensualidad del titular NO cambia al agregar beneficiarios extra** — siempre paga el mismo `plan.monthly_fee` ($5/mes según flyer).
+- [x] [v2] [P0/C2] **Mensualidad del titular NO cambia al agregar beneficiarios extra** — siempre paga el mismo `plan.monthly_fee` ($5/mes según flyer). _(La regla ya se cumplía **por construcción**: `MembershipsService.enroll` hace `membership.setMonthlyFee(plan.getMonthlyFee())` — copia directa sin ajuste por beneficiarios — y `BeneficiariesService` ni siquiera tiene acceso a memberships ni plans (sus deps son member/beneficiary repos + PersonService), así que **no puede** alterar el precio. El cargo por extra es `extra_beneficiary_inscription_fee`, one-time de inscripción, no mensual. Fijada con `MembershipPricingInvariantsTest` (2 casos: el snapshot es exactamente `plan.monthlyFee` sin inflarse con el cargo extra, y es idéntico entre un plan Individual sin beneficiarios y uno Familiar con extras pagos). **Verificado que el test detecta la regresión**: al hacer que `enroll` sumara el cargo extra a la mensualidad, ambos casos fallan.)_
 - [ ] [v2] [P0/C2] **Cada beneficiario adicional paga su propia inscripción** UNA vez ($5 según flyer "Afiliado Adicional"), parametrizable en `plan.extra_beneficiary_inscription_fee` (definido en vertical-5).
 - [ ] [v2] [P0/C2] **Tope de beneficiarios incluidos sin cobro** = `plan.included_beneficiaries` (ej. plan Individual=0, Familiar=3, Corporativo=N parametrizable). Más allá del tope, dispara cobro de inscripción extra. Tope DURO = `plan.max_beneficiaries`.
 
