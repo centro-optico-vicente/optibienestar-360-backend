@@ -52,7 +52,7 @@
 
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|---|---|---|
-| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 44 | 42 | 2 | 95% | 🟡 hardening/tests |
+| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 44 | 43 | 1 | 98% | 🟡 hardening/tests |
 | 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 9 | 0 | 100% | ✅ Completa |
 | 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 21 | 14 | 7 | 67% | 🟡 |
 | 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 25 | 11 | 14 | 44% | 🟠 |

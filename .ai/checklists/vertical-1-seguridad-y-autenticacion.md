@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 44 | 42 | 2 | 95% | 🟡 hardening/tests |
+| 44 | 43 | 1 | 98% | 🟡 hardening/tests |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -93,4 +93,4 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 ### Documentación
 
 - [x] [P2/C1] [`playbooks/edit-role-permissions.md`](../playbooks/edit-role-permissions.md) — flujo del admin desde el panel + propagación. **Corrige la premisa del ítem contra el código real**: la propagación es **inmediata** (el `JwtAuthenticationFilter` compara `iat < user_inv:<userUuid>` en cada request → 401 → refresh transparente que relee permisos de BD), no una ventana de 15 min. El "15 min" es el TTL del access token y solo aplica si Redis estaba caído al guardar (el fan-out es best-effort). La clave es **`user_inv:<userUuid>`** (TTL 24h), no `refresh:<user_uuid>`; y forzar es **`SET`** (re-armar el marcador), no `DEL` — borrarlo haría lo contrario.
-- [ ] [P2/C1] Actualizar `.ai/specs/05-roles-permissions.md` — marcar la fase mínima como implementada; documentar la nueva tabla `permission_domains`, los 3 endpoints nuevos y el permiso `ROLE_PERMISSION_EDIT`
+- [x] [P2/C1] [`.ai/specs/05-roles-permissions.md`](../specs/05-roles-permissions.md) actualizado — fase mínima marcada **implementada**; `permission_domains` (13 dominios) + los 3 endpoints (`GET /v1/admin/permissions`, `GET`/`PUT /v1/admin/roles/{uuid}/permissions`) + `ROLE_PERMISSION_EDIT` documentados. **Reconcilió datos stale**: `ROLE_PERMISSION_EDIT` ahora es SYSTEM+ADMINISTRADOR (V31), `USER_CHANGE_ROLE` ya no existe (renombrado V32/partido V33), y el token-staleness dejó de ser "ventana de 15 min" → propagación inmediata vía `user_inv:` per-request. (Los conteos de permisos por rol quedan como ítem aparte.)

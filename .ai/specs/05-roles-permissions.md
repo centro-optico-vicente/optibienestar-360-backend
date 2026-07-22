@@ -68,6 +68,8 @@ Detalle de cada perfil en [hub `stakeholders.md`](../../../centro-optico-vicente
 
 ## Asignación rol → permisos
 
+> Los conteos de abajo son la **baseline del seed V6** (~50 permisos) y quedaron desactualizados: migraciones posteriores sumaron permisos por dominio (`JOB_*` V22, `NOTIFICATION_*` V28, `ROLE_*` V32, `CATALOG_*_WRITE` V33, `CATALOG_VIEW_ALL` V34) y SYSTEM los recibe automáticamente (trigger V30). Fuente de verdad del catálogo vivo: `GET /v1/admin/permissions` y las migraciones `db/migration/`. Actualizar estos números es un ítem aparte.
+
 ### SYSTEM (49 permisos)
 Todos los permisos sin excepción. CROSS JOIN en el seed.
 
@@ -150,12 +152,16 @@ Cambios de roles/permisos:
 
 ## RBAC dinámico y modelos de autorización (evaluación)
 
-> **Estado (2026-05-31):** fase mínima implementada parcialmente. Lo concretado:
-> - Tabla `permission_domains` (en V5) — agrupador de permisos con `code`/`name`/`icon`/`display_order` para alimentar el panel admin con labels en español + iconos.
-> - Permiso nuevo `ROLE_PERMISSION_EDIT` (en V6), asignado solo a SYSTEM. Granular distinto a `USER_CHANGE_ROLE` (asignar roles a usuarios).
-> - Endpoint `GET /v1/admin/permissions` (read-only) que devuelve el catálogo agrupado dominios → permisos, ordenado y listo para renderizar.
+> **Estado (2026-07-22):** fase mínima **implementada** — roles con permisos editables desde el panel.
 >
-> Pendiente: `GET /v1/admin/roles/{uuid}/permissions` (set actual) + `PUT /v1/admin/roles/{uuid}/permissions` (reemplazar set, con guard SYSTEM + anti-lockout). Ver tareas en [`../checklists/vertical-1-seguridad-y-autenticacion.md`](../checklists/vertical-1-seguridad-y-autenticacion.md) sección "RBAC con permisos por rol editables — Implementación".
+> - **Tabla `permission_domains`** (V5) — agrupa los permisos por dominio con `code`/`name`/`icon`/`display_order`, para que el panel los renderice con label en español + icono y en orden. Hoy son **13 dominios**: los 10 de V5 (`USERS`, `MEMBERS`, `ALLIES`, `PLANS`, `MEMBERSHIPS`, `PAYMENTS`, `PROMOTERS`, `COMMISSIONS`, `REFERRALS`, `REPORTS`) + `SCHEDULED_JOBS` (V22), `NOTIFICATIONS` (V28) y `CATALOGS` (V32). Cada `permission` tiene su `domain_id` FK.
+> - **Permiso `ROLE_PERMISSION_EDIT`** — es el gate de la edición de permisos de rol. Sembrado a **SYSTEM** en V6 y otorgado a **ADMINISTRADOR** en V31 (ADMINISTRADOR edita cualquier rol **salvo SYSTEM**, que queda reservado a actores SYSTEM). Nota de reconciliación: el `USER_CHANGE_ROLE` que la versión anterior de este doc citaba como contraparte **ya no existe** — V32 lo renombró a `CATALOG_WRITE` y V33 lo partió en `CATALOG_<entidad>_WRITE`; la escritura de catálogos y la gestión de roles son hoy permisos separados y sin relación (ver [`../playbooks/edit-role-permissions.md`](../playbooks/edit-role-permissions.md)).
+> - **Los 3 endpoints** de la superficie de edición, todos implementados y gateados por `ROLE_PERMISSION_EDIT`:
+>   - `GET /v1/admin/permissions` — catálogo agrupado dominios → permisos, ordenado y listo para renderizar (`PermissionController`).
+>   - `GET /v1/admin/roles/{uuid}/permissions` — el set actual de UUIDs de permisos del rol.
+>   - `PUT /v1/admin/roles/{uuid}/permissions` — reemplaza el set (semántica de reemplazo), con **guard SYSTEM** (403 `role.system.not_editable` si un actor no-SYSTEM edita SYSTEM), **anti-lockout** (422 `role.auto_lockout` si el actor se quitaría a sí mismo `ROLE_PERMISSION_EDIT`) y validación de permisos (422 `role.permission.uuid.unknown` si un UUID no existe). Cubierto por `RoleServiceGuardsTest` (lógica) + `AdminRoleControllerIT` (authz + mapeo HTTP).
+>
+> Más allá de la fase mínima, V32 sumó el **CRUD de roles** (`GET`/`POST`/`PUT`/`DELETE /v1/admin/roles`) con permisos propios `ROLE_VIEW` / `ROLE_CREATE` / `ROLE_UPDATE` / `ROLE_DELETE`.
 
 ### Punto clave: la autorización ya es *por permiso*, no por rol
 
@@ -163,7 +169,7 @@ Los `@PreAuthorize` usan `hasAuthority('PERMISSION')` y el JWT lleva el claim `p
 
 - **Roles editables ya son compatibles sin tocar ningún `@PreAuthorize`.** Si un admin crea/edita un rol y le asigna permisos existentes, solo cambia qué permisos acumula el usuario; el código de autorización no se entera.
 - **Restricción:** los **permisos permanecen fijos en código** (cada string de `hasAuthority('X')` debe existir y estar referenciado). Crear permisos en runtime no sirve — no habría `@PreAuthorize` que los use. Por eso el modelo dinámico sería: **permisos = catálogo fijo (solo lectura)**, **roles = contenedores editables** de esos permisos.
-- **El verdadero punto difícil es el _token staleness_:** al cambiar los permisos de un rol, los `accessToken` activos (TTL 15 min) siguen con los permisos viejos hasta el refresh. Decisión: aceptar la ventana de 15 min, o forzar invalidación (revocar refresh tokens / blacklist) de los usuarios afectados (ver "Auditoría" arriba).
+- **El _token staleness_ ya está resuelto:** al cambiar los permisos de un rol, `RoleService.updateRolePermissions` marca a cada usuario afectado (`user_inv:<userUuid>` en Redis con el epoch actual), y el `JwtAuthenticationFilter` compara en **cada request** el `iat` del access token contra esa marca → rechaza el token emitido antes del cambio → el cliente refresca y el refresh **relee los permisos de BD**. **La propagación es inmediata**, no la ventana de 15 min que consideraba la versión anterior de este doc. Detalle operativo y el único modo de falla (Redis caído al guardar → el marcador best-effort se salta) en [`../playbooks/edit-role-permissions.md`](../playbooks/edit-role-permissions.md).
 
 ### Comparativa de modelos
 
