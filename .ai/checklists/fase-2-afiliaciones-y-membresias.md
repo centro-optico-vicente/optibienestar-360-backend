@@ -1,11 +1,19 @@
 # Checklist — FASE 2: Afiliaciones y Membresías
 
 > Formato `[P/C]`: Prioridad (P0/P1/P2/P3) + Complejidad (C1-C5). Marcar `- [x]` con fecha al completar.
-> Índice: [../checklist.md](../checklist.md) | Orden de ejecución: [../checklist-vertical.md](../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md) | Orden de ejecución: [../checklist.md#dependencias-entre-verticales](../checklist.md#dependencias-entre-verticales)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 104 | 65 | 39 | 63% | 🟡 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Tarea 2.1 — Modelo de datos (migraciones Flyway)
 
-> Las migraciones se ejecutan por alcance junto a su código — ver [checklist-vertical.md](../checklist-vertical.md).
+> Las migraciones se ejecutan por alcance junto a su código — ver [Dependencias entre verticales](../checklist.md#dependencias-entre-verticales).
 
 > Numeración alineada con migraciones reales en disco. V1–V4 son bootstrap Phase 1; V7 es `seed_users` supplementary.
 

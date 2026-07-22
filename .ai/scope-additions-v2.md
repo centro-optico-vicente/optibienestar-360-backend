@@ -91,7 +91,7 @@
 
 ## Cambios al índice global
 
-- [`../checklist-vertical.md`](../checklist-vertical.md) — agregar vertical-12 a la lista.
+- [`checklist.md`](checklist.md) — vertical-12 listado en la sección "Cross-cutting y adicionales v2".
 
 ## Auditoría de cobertura (jun 2026)
 

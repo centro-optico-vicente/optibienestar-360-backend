@@ -1,7 +1,15 @@
 # Alcance 1 — Seguridad y Autenticación
 
 > Desbloquea todos los demás: sin login no hay panel de administración.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 44 | 39 | 5 | 89% | 🟡 hardening/tests |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

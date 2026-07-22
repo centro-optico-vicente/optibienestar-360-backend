@@ -1,7 +1,15 @@
 # Alcance 8 — Promotores, Comisiones y Referidos
 
 > Red de ventas: comisión automática al aprobar pago inicial + códigos de descuento.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 57 | 11 | 46 | 19% | 🟠 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 
