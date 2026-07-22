@@ -62,7 +62,7 @@
 | 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 57 | 11 | 46 | 19% | 🟠 |
 | 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 10 | 1 | 9 | 10% | 🟠 |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 37 | 1 | 36 | 3% | 🔴 |
-| **TOTAL Fase 2** | | | **254** | **122** | **132** | **48%** | 🟡 |
+| **TOTAL Fase 2** | | | **254** | **123** | **131** | **48%** | 🟡 |
 
 > **% avance** = round(100 × hechas / tareas), redondeado al entero más cercano, contando checkboxes `- [ ]` / `- [x]` en cada archivo vertical (el método de "Conteo rápido" abajo). Cada archivo repite su fila como tabla de totales al inicio. Bandas del estado: ✅ 100% · 🟡 50–99% · 🟠 10–49% · 🔴 <10%.
 > Los conteos previos estaban desactualizados (marcaban 0 hechas en verticales ya construidos) y usaban una granularidad de tarea distinta a la de los archivos; esta tabla se recalculó desde los checkboxes reales.
