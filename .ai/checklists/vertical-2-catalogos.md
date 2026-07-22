@@ -1,7 +1,15 @@
 # Alcance 2 — Catálogos
 
 > Datos de referencia necesarios para Aliados y Afiliados.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 9 | 8 | 1 | 89% | 🟡 read perms |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

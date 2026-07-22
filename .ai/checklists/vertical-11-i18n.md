@@ -5,7 +5,15 @@
 > Cross-cutting: retrofitea ~50 strings hardcoded en `auth`, `catalog`, `core/exception`, `common`. Sin tareas de servicio nuevas — solo se cambia el origen del texto, no la semántica de los endpoints existentes.
 >
 > Plan detallado: `/home/edwin/.claude/plans/vivid-wandering-dijkstra.md`.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 42 | 41 | 1 | 98% | 🟡 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Fase 1 — Bootstrap Spring i18n (foundation)
 

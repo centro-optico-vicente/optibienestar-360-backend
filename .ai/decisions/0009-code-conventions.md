@@ -102,7 +102,7 @@ Reglas adicionales para strings que se INSERTAN en la BD como contenido visible 
 2. **Marketing copy únicamente.** Describe el producto al consumidor. NO describe el estado del desarrollo, ni el estado del backlog, ni decisiones pendientes con el cliente.
 
 3. **Sin referencias internas del repositorio.** Prohibido en data persistida:
-   - Nombres de checklists: `vertical-5`, `fase-2`, `checklist-vertical.md`, etc.
+   - Nombres de checklists: `vertical-5`, `fase-2`, `checklist.md`, etc.
    - Nombres de branches: `feature/...`, `chore/...`.
    - Nombres de PRs / issues / tickets: `#42`, `#PR-123`.
    - Nombres de migraciones futuras: `V20__memberships.sql`, `corporate_contracts planeado v2`.

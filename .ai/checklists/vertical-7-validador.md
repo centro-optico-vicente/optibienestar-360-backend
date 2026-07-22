@@ -1,7 +1,15 @@
 # Alcance 7 — Validador en tiempo real
 
 > **CRÍTICO: p95 < 200ms.** El aliado verifica vigencia del afiliado antes de aplicar descuento.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 9 | 6 | 3 | 67% | 🟡 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

@@ -2,9 +2,17 @@
 
 > 🆕 **Vertical nuevo, parte de Adicionales v2.** Ítem PDF #1 — "Gestión de Subsidios y Exoneraciones".
 > Ver mapa completo en [`../scope-additions-v2.md`](../scope-additions-v2.md).
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
 >
 > **Caso de uso (PDF):** controles para omitir o subsidiar el pago de mensualidades a perfiles especiales (fundaciones, iglesias, casos de bajos recursos) manteniendo el registro formal en auditoría.
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 20 | 0 | 20 | 0% | 🔲 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

@@ -1,7 +1,15 @@
 # Alcance 10 — Optimización, Reportes y Hardening
 
 > Cierre de Fase 2. Requiere datos reales para EXPLAIN y cobertura de tests.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 37 | 1 | 36 | 3% | 🔴 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Optimización
 

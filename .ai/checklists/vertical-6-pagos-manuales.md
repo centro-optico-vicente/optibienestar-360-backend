@@ -1,7 +1,15 @@
 # Alcance 6 — Pagos manuales
 
 > Flujo: registro → revisión humana → aprobación/rechazo + email + comisión.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 10 | 10 | 0 | 100% | ✅ Completa |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

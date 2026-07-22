@@ -1,7 +1,15 @@
 # Alcance 5 — Planes y Membresías
 
 > Núcleo del negocio: suscripción + ciclo ACTIVE → SUSPENDED → EXPIRED.
-> Índice: [../../checklist-vertical.md](../../checklist-vertical.md)
+> Índice: [../checklist.md](../checklist.md)
+
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 32 | 17 | 15 | 53% | 🟡 |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
 
 ## Migraciones
 

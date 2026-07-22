@@ -3,6 +3,14 @@
 > Formato `[P/C]`: Prioridad (P0/P1/P2/P3) + Complejidad (C1-C5). Marcar `- [x]` con fecha al completar.
 > Índice: [../checklist.md](../checklist.md)
 
+<!-- resumen-totales:start -->
+| Tareas | Hechas | Pendientes | % avance | Estado |
+|---|---|---|---|---|
+| 37 | 37 | 0 | 100% | ✅ Completa |
+
+_Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
+<!-- resumen-totales:end -->
+
 ## Tarea 1.7 — Cimientos infrastructure & config
 
 - [x] [P0/C2] Agregar Flyway al `build.gradle`: `flyway-core`, `flyway-database-postgresql` — 2026-05-19
