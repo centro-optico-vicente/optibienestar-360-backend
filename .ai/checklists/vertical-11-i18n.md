@@ -10,7 +10,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 42 | 41 | 1 | 98% | 🟡 |
+| 42 | 42 | 0 | 100% | ✅ Completa |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->

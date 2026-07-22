@@ -45,7 +45,7 @@ const ESTADO = {
   'vertical-8-promotores-comisiones-referidos': '🟠',
   'vertical-9-notificaciones-y-carnet': '🟠',
   'vertical-10-optimizacion-reportes-hardening': '🔴',
-  'vertical-11-i18n': '🟡',
+  'vertical-11-i18n': '✅ Completa',
   'vertical-12-subsidios-y-exoneraciones': '🔲',
 }
 
