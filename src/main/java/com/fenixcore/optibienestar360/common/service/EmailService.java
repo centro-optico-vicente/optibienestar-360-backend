@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -90,9 +91,19 @@ public class EmailService {
             helper.setText(html, true);
             mailSender.send(msg);
             log.debug("Templated email [{}] sent to {}", resolvedTemplate, to);
-        } catch (MailException | MessagingException | java.io.UnsupportedEncodingException e) {
+        } catch (MailException e) {
             log.error("Failed to send templated email [{}] to {}: {}", resolvedTemplate, to, e.getMessage());
-            if (e instanceof MailException mailEx) throw mailEx;
+            throw e;
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            // Message *preparation* failed (bad address, encoding, template output) —
+            // everything before mailSender.send(). These used to be logged and
+            // swallowed, so @Retryable never saw them and the caller was told the
+            // mail went out. Wrap in MailPreparationException, which is a
+            // MailException, so the retry policy applies and the failure surfaces
+            // instead of vanishing.
+            log.error("Failed to prepare templated email [{}] to {}: {}", resolvedTemplate, to, e.getMessage());
+            throw new MailPreparationException(
+                    "Failed to prepare templated email [" + resolvedTemplate + "] to " + to, e);
         }
     }
 

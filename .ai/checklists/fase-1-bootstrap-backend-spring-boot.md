@@ -12,7 +12,7 @@
 - [x] [P0/C2] `core.config.JacksonConfig`: ISO 8601, Decimal sin notación científica — 2026-05-20
 - [x] [P0/C2] `core.config.CorsConfig`: allowedOrigins, métodos, headers, credentials — 2026-05-20
 - [x] [P0/C3] `core.exception.GlobalExceptionHandler`: RFC 7807 problem+json para 400/401/403/404/409/422/500 — 2026-05-20
-- [ ] [P1/C1] `GlobalExceptionHandler` — inyección de `problemsBase` por constructor (no field `@Value`) para ser testeable sin contexto Spring (spring-boot-engineer)
+- [x] [P1/C1] `GlobalExceptionHandler` — inyección de `problemsBase` por constructor (no field `@Value`) para ser testeable sin contexto Spring (spring-boot-engineer) _(ya construido: constructor con `@Value("${problems.base-url}") String problemsBase` — verificado en `GlobalExceptionHandler.java:36`. Punto que estaba hecho sin marcar.)_
 - [x] [P0/C3] `security.SecurityConfig`: filter chain JWT, endpoints públicos — 2026-05-20
 - [x] [P0/C3] `security.jwt.JwtService`: gen + validación (15min access / 30d refresh) — 2026-05-20
 - [x] [P0/C2] `security.jwt.JwtAuthenticationFilter` extends OncePerRequestFilter — 2026-05-20
@@ -43,5 +43,5 @@
 - [x] [P0/C2] `common.service.EmailService`: `sendSimple`, `sendTemplated` (Thymeleaf) — 2026-05-21
 - [x] [P0/C2] Template `contact-form-received.html` — 2026-05-21
 - [x] [P1/C2] Cola async con `@Async` + reintentos exponenciales — 2026-05-24
-- [ ] [P1/C1] `EmailService.sendTemplated` — envolver `MessagingException` en `MailPreparationException` antes de re-throw para que `@Retryable` lo capture (actualmente se traga en silencio sin reintento) (spring-boot-engineer)
-- [ ] [P1/C1] `AsyncConfig.emailExecutor` — agregar `setRejectedExecutionHandler(new CallerRunsPolicy())` — cola llena actualmente dispara `AbortPolicy` como 500 al caller (spring-boot-engineer)
+- [x] [P1/C1] `EmailService.sendTemplated` — envolver `MessagingException` en `MailPreparationException` antes de re-throw para que `@Retryable` lo capture (actualmente se traga en silencio sin reintento) (spring-boot-engineer) _(el `catch` combinado solo re-lanzaba `MailException`; `MessagingException`/`UnsupportedEncodingException` se logueaban y se tragaban → `@Retryable` nunca los veía y el caller creía que el correo salió. Ahora catch separado que envuelve en `MailPreparationException` (es-a `MailException`, así aplica el retry). Cubierto por `EmailServiceTest.whenPreparationFails_throwsMailPreparationException` — verificado que el test falla contra el código viejo.)_
+- [x] [P1/C1] `AsyncConfig.emailExecutor` — agregar `setRejectedExecutionHandler(new CallerRunsPolicy())` — cola llena actualmente dispara `AbortPolicy` como 500 al caller (spring-boot-engineer) _(`queueCapacity=50` sin handler → `AbortPolicy` por defecto: cola llena + 5 hilos ocupados lanzaba `RejectedExecutionException` al request thread (p.ej. aprobar pago) como 500 sobre una operación ya exitosa. `CallerRunsPolicy`: el caller manda el correo él mismo — más lento bajo carga, pero no falla.)_
