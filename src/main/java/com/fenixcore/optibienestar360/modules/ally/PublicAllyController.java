@@ -2,7 +2,9 @@ package com.fenixcore.optibienestar360.modules.ally;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicServicesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +38,7 @@ import java.util.UUID;
 public class PublicAllyController {
 
     private final AlliesService alliesService;
+    private final PublicServicesService publicServicesService;
 
     @GetMapping
     public ResponseEntity<Page<PublicAllyListItemDto>> directory(
@@ -56,5 +59,22 @@ public class PublicAllyController {
     @GetMapping("/{uuid}")
     public ResponseEntity<PublicAllyDetailDto> detail(@PathVariable UUID uuid) {
         return ResponseEntity.ok(alliesService.publicGetByUuid(uuid));
+    }
+
+    /**
+     * One ally's public offerings as a dedicated, paginated, filterable list —
+     * the same data the detail nests, but standalone (useful when the detail
+     * payload would be too heavy or the client only needs the services). 404s
+     * when the ally doesn't exist or is not publicly visible. Services are
+     * pre-filtered to active + published + APPROVED. Optional filters:
+     * {@code categoryUuid}, free-text {@code q}.
+     */
+    @GetMapping("/{uuid}/services")
+    public ResponseEntity<Page<PublicAllyServiceDto>> services(
+            @PathVariable UUID uuid,
+            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(publicServicesService.listByAlly(uuid, categoryUuid, q, pageable));
     }
 }
