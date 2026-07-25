@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
+import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.mapper.PlanMapper;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
@@ -64,6 +65,33 @@ public class PlansService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return repository.findAll(spec, pageable).map(mapper::toDto);
+    }
+
+    // ─── Public read (anonymous pricing surface) ─────────────────────────────
+
+    /**
+     * Published + active plans for the anonymous pricing page
+     * ({@code GET /v1/public/plans}). Returns the sanitized {@link PublicPlanDto}
+     * — audit / status / publishing internals stay out. Backed by the V13
+     * partial index {@code (is_active) WHERE is_active AND is_published},
+     * created specifically for this public directory.
+     */
+    public Page<PublicPlanDto> publicList(Pageable pageable) {
+        return repository.findAll(publiclyVisible(), pageable).map(mapper::toPublicDto);
+    }
+
+    /**
+     * A single plan for an anonymous detail / deep-link view. 404s when the
+     * plan doesn't exist OR is not publicly visible (inactive / unpublished) —
+     * anonymous callers never learn that an unpublished plan exists, matching
+     * the {@code PublicAllyController} contract.
+     */
+    public PublicPlanDto publicGetByUuid(UUID uuid) {
+        Plan plan = repository.findByUuid(uuid)
+                .filter(Plan::isActive)
+                .filter(Plan::isPublished)
+                .orElseThrow(() -> new NoSuchElementException("plan.not_found"));
+        return mapper.toPublicDto(plan);
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────
@@ -162,5 +190,10 @@ public class PlansService {
 
     private static Specification<Plan> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /** Plans an anonymous caller may see: active AND published. */
+    private static Specification<Plan> publiclyVisible() {
+        return (root, query, cb) -> cb.and(cb.isTrue(root.get("active")), cb.isTrue(root.get("published")));
     }
 }
