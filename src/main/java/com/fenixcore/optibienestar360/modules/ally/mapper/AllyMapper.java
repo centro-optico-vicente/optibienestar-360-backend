@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicServiceListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
@@ -60,6 +61,20 @@ public interface AllyMapper {
 
     @Mapping(target = "categoryName", source = "serviceCategory.name")
     PublicAllyServiceDto toPublicServiceDto(AllyService service);
+
+    /**
+     * Cross-ally public catalog row — see {@link PublicServiceListItemDto}.
+     * Flattens a compact slice of the parent ally's public identity onto the
+     * service so a {@code GET /v1/public/services} result stands on its own.
+     */
+    @Mapping(target = "categoryName", source = "serviceCategory.name")
+    @Mapping(target = "allyUuid",     source = "ally.uuid")
+    @Mapping(target = "allyName",     source = "ally.name")
+    @Mapping(target = "allyTypeName", source = "ally.allyType.name")
+    @Mapping(target = "allyCityName", source = "ally.city.name")
+    @Mapping(target = "allyLogoUrl",  source = "ally.logoUrl")
+    @Mapping(target = "allyPhone",    source = "ally.phone")
+    PublicServiceListItemDto toPublicServiceListItem(AllyService service);
 
     @Mapping(target = "allyType",    source = "allyType")
     @Mapping(target = "city",        source = "city")

@@ -2,6 +2,10 @@ package com.fenixcore.optibienestar360.modules.ally.repository;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +19,20 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
         JpaSpecificationExecutor<AllyService> {
 
     Optional<AllyService> findByUuid(UUID uuid);
+
+    /**
+     * Overrides the inherited spec-paged {@code findAll} to eager-fetch the
+     * to-one associations the public projections read
+     * ({@link com.fenixcore.optibienestar360.modules.ally.dto.PublicServiceListItemDto}
+     * flattens the parent ally's identity), avoiding an N+1 over the page rows.
+     * All fetched paths are {@code @ManyToOne}, so in-DB pagination is safe (no
+     * collection fetch → no HHH000104 in-memory paging). This method has no
+     * other callers today — the admin/propose services use named finders — so
+     * the eager graph does not over-fetch anywhere else.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"ally", "ally.allyType", "ally.city", "serviceCategory"})
+    Page<AllyService> findAll(Specification<AllyService> spec, Pageable pageable);
 
     List<AllyService> findByAllyIdAndActiveTrue(Long allyId);
 
