@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 57 | 23 | 34 | 40% | 🟠 |
+| 66 | 32 | 34 | 48% | 🟠 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -73,6 +73,20 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [v2] [P0/C3] Tabla `commission_period_summary` (materializada o vista): por período (según el grano del tier) y promotor, totales (count, %, monto). Base para leaderboard.
 - [ ] [v2] [P0/C2] `GET /v1/admin/leaderboard?period=2026-06&strategy=MONTHLY` — top promotores reales (excluye `is_system=true`) ordenados por monto comisión (default top 3 con premio 1ro/2do/3ro), filtrable por estrategia de período.
 - [ ] [v2] [P0/C2] Asignación automática de premios al top 3 al cierre del período (configurable en `leaderboard_prizes`: lugar, monto premio, period_strategy).
+
+#### Motor de bonos por metas configurables (PDF #5 — Premiaciones)
+
+> Bonos por **umbral de suscriptores** (distintos de las tarifas por pago de `commission_tiers`, líneas de arriba, y del ranking top-3): "cada 500 nuevos → $100", "300 activos/mes → $50", "campaña fin de mes, cada 50 nuevos → $200". Cuatro perillas — `metric × accrual × window × reward` — cubren los tres casos y cualquier combinación; reglas combinables, montos/porcentajes y cantidades configurables, varios promotores ganan varios premios por período.
+
+- [x] [v2] [P0/C3] Tabla `commission_bonus_rules` (V37): regla configurable — `metric` (NEW_SUBSCRIBERS/ACTIVE_SUBSCRIBERS), `accrual` (PER_BLOCK repetible / THRESHOLD una vez), `threshold_count`, `window_strategy` (LIFETIME/DAILY/WEEKLY/BIWEEKLY/MONTHLY/QUARTERLY/SEMIANNUAL/ANNUAL/CAMPAIGN), `campaign_start/end`, `reward_type` (FLAT/PERCENTAGE) + `flat_amount` XOR `reward_pct` + `reward_currency`, `include_system_promoters`. _(BaseEntity-shaped; 3 CHECK: coherencia de premio flat-xor-pct con rango pct≤100, coherencia de fechas de campaña (⟺ CAMPAIGN + orden), `threshold_count>0`. Entidad `CommissionBonusRule` con 4 enums internos.)_
+- [x] [v2] [P0/C3] Tabla `promoter_bonus_awards` (V37): ledger insert-de-premios con snapshot de premio inline (audit + idempotencia) — `bonus_rule_id`/`promoter_id` FK, `window_start/end`, `blocks_awarded`, `metric_count`, snapshot `reward_type`/`flat_amount`/`reward_pct`/`basis_amount`/`amount`/`reward_currency`/`rule_name_snapshot`, lifecycle `status` (PENDING/PAID/VOIDED) + payout fields. _(3 índices: dedup `(rule, promoter, window)`, self-service `(promoter, created_at DESC)`, cola de pago `(status, created_at DESC)`. Entidad `PromoterBonusAward` (enum `AwardStatus`).)_
+- [x] [v2] [P0/C2] Permisos `BONUS_RULE_MANAGE` / `BONUS_AWARD_VIEW_ALL` / `BONUS_VIEW_OWN` (V37, dominio COMMISSIONS; SYSTEM vía trigger V30, ADMINISTRADOR los 3, PROMOTOR solo VIEW_OWN) + DO-block de verificación.
+- [x] [v2] [P0/C3] `BonusEvaluationService` — el motor: por cada regla activa cuenta la métrica por promotor en **una** query agrupada (`MemberRepository.countNew/ActiveSubscribersByPromoter`), y otorga premios. **PER_BLOCK**: `floor(count/threshold)` bloques, otorga solo el **delta** no premiado (por ventana, o acumulado para LIFETIME) → idempotente. **THRESHOLD**: un premio al alcanzar el umbral, una vez por ventana (o una vez para LIFETIME). Reward FLAT (×bloques) o PERCENTAGE (% de las comisiones del promotor en la ventana, reusa `sumForPromoterInPeriod`). Excluye `is_system` salvo `include_system_promoters`. Tests: `BonusEvaluationServiceTest` (7 — per-block lifetime, idempotencia, bajo umbral, multi-promotor, threshold mensual, threshold idempotente, dry-run).
+- [x] [v2] [P0/C2] Cálculo de ventanas por enum (`windowFor`): LIFETIME=acumulado (epoch..asOf), DAILY/WEEKLY(lun-dom)/BIWEEKLY(1-15/16-fin)/MONTHLY/QUARTERLY/SEMIANNUAL/ANNUAL=períodos calendario fijos, CAMPAIGN=rango fijo (null si aún no arranca). Sin ventanas móviles (reportes alineables con contabilidad).
+- [x] [v2] [P0/C2] `BonusRulesService` — CRUD admin (`POST/GET/PUT/DELETE /v1/admin/bonus-rules`, `BONUS_RULE_MANAGE`) con validaciones cross-field (flat-xor-pct, PER_BLOCK⇒FLAT, coherencia de fechas de campaña) → 422 localizados. Tests: `BonusRulesServiceTest` (7).
+- [x] [v2] [P0/C2] `POST /v1/admin/bonus-rules/evaluate` — disparo manual del motor (con `dryRun` para previsualizar sin persistir). `AdminBonusRuleController` + IT `AdminBonusRuleControllerIT` (7 — authz CRUD + evaluate).
+- [x] [v2] [P0/C2] `BonusAwardsService` + `GET /v1/admin/bonus-awards` (cola admin RSQL, `BONUS_AWARD_VIEW_ALL`) + `GET /v1/promoter/me/bonuses` (self-service, `BONUS_VIEW_OWN`, 404 si no es promotor). IT `PromoterBonusesControllerIT` (4 — authz + 200 + 404).
+- [x] [v2] [P0/C2] `BonusEvaluationJobRunner` (motor **automatizado**) — runner programado `BONUS_EVALUATION`, seed en `scheduled_jobs` (cron mensual `0 0 4 1 * *` America/Caracas, tras el barrido de estatus) → evalúa y otorga sin request; idempotente en re-run.
 
 ## Pendientes de análisis / Decisiones diferidas
 

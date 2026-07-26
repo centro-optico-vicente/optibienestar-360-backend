@@ -2,12 +2,14 @@ package com.fenixcore.optibienestar360.modules.member.repository;
 
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,4 +61,43 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
             ORDER BY m.person.fullName
             """)
     List<PromoterMemberRow> findPromoterPortfolio(@Param("promoterId") Long promoterId);
+
+    /**
+     * Bonus-engine metric: new subscribers per promoter enrolled within a window
+     * (by {@code enrolled_at}). One grouped row per promoter with ≥1 new member.
+     * {@code includeSystem=false} excludes the INSTITUCION system row so lifetime
+     * / campaign milestones only reward humans.
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount(
+                m.promoter.id, COUNT(m.id))
+            FROM Member m
+            WHERE m.active = true
+              AND m.promoter.id IS NOT NULL
+              AND m.enrolledAt BETWEEN :start AND :end
+              AND (:includeSystem = true OR m.promoter.system = false)
+            GROUP BY m.promoter.id
+            """)
+    List<PromoterMetricCount> countNewSubscribersByPromoter(@Param("start") LocalDate start,
+                                                            @Param("end") LocalDate end,
+                                                            @Param("includeSystem") boolean includeSystem);
+
+    /**
+     * Bonus-engine metric: active subscribers per promoter — members whose
+     * currently-active membership is in status ACTIVE. The V21 partial UNIQUE
+     * (one active membership per member) keeps the DISTINCT count exact.
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount(
+                m.promoter.id, COUNT(DISTINCT m.id))
+            FROM Membership ms
+            JOIN ms.member m
+            WHERE ms.active = true
+              AND ms.status = 'ACTIVE'
+              AND m.active = true
+              AND m.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR m.promoter.system = false)
+            GROUP BY m.promoter.id
+            """)
+    List<PromoterMetricCount> countActiveSubscribersByPromoter(@Param("includeSystem") boolean includeSystem);
 }
