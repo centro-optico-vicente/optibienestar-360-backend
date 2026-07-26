@@ -17,17 +17,19 @@ import java.util.UUID;
  * API (the partial UNIQUE in V25 enforces "at most one" at the DB level;
  * the service surfaces a clean 422 if anyone tries).</p>
  *
- * <p>{@code referralCode} follows the same UPPER_ALPHANUM pattern the V25
- * CHECK enforces. The service additionally rejects codes that collide
- * with an existing {@code members.referral_code} (cross-table
- * uniqueness, service-side per V27 design).</p>
+ * <p>{@code referralCode} is <b>optional</b> (v2 PDF #4 "el promotor genera su
+ * código único"): omit it (or send blank) and the service auto-generates a
+ * short 6-char code; supply one to pick a vanity code. Either way it follows the
+ * UPPER_ALPHANUM pattern the V25 CHECK enforces, and the service rejects codes
+ * that collide with an existing {@code promoters}/{@code members.referral_code}
+ * (cross-table uniqueness, service-side per V27 design). The {@code ^$} branch
+ * lets a blank value through validation so the service can auto-generate.</p>
  */
 public record PromoterCreateRequest(
         @NotBlank @Size(max = 120) String displayName,
         String description,
 
-        @NotBlank
-        @Pattern(regexp = "^[A-Z0-9-]{4,20}$", message = "{promoter.referral_code.format}")
+        @Pattern(regexp = "^$|^[A-Z0-9-]{4,20}$", message = "{promoter.referral_code.format}")
         String referralCode,
 
         @NotNull UUID userUuid,
