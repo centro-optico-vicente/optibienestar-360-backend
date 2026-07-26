@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.payment.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -81,6 +82,17 @@ public class Payment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_user_id")
     private User payerUser;
+
+    /**
+     * Set only for INSTITUTION_BULK corporate payments (V38) — the money is
+     * billed to the contract rather than to the individual member.
+     * {@code null} for ordinary affiliate payments and for INDIVIDUAL_PAYER
+     * corporate members (who pay like any affiliate). Populated by
+     * {@code CorporateBillingResolver} at registration time.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "corporate_contract_id")
+    private CorporateContract corporateContract;
 
     // ─── Money ─────────────────────────────────────────────────────────────
 

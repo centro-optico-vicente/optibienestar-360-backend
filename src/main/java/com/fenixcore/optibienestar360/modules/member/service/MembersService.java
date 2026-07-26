@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.GenderRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.OccupationRepository;
+import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberListItemDto;
@@ -122,6 +123,51 @@ public class MembersService {
 
     @Transactional
     public MemberDetailDto create(MemberCreateRequest req) {
+        Person person = resolvePerson(req);
+
+        // Member-side dedupe — UNIQUE(person_id) on V17 would catch it
+        // anyway, but pre-checking lets us return a clean 422 instead of
+        // the misleading 409 from the unique violation.
+        if (memberRepository.existsByPersonId(person.getId())) {
+            throw new IllegalArgumentException("member.person.already_enrolled");
+        }
+
+        Member saved = memberRepository.save(buildMember(req, person));
+        return toDetailWithCounts(saved);
+    }
+
+    /**
+     * Enrolls one person under a corporate contract (V38 bulk flow). Shares the
+     * person-resolution and member-building logic with {@link #create} but
+     * differs in the duplicate case: instead of throwing (which would poison
+     * the surrounding bulk transaction), an already-enrolled person yields
+     * {@code null} so the caller can record a skip and keep going. The FK to
+     * the contract is stamped here; the caller keeps {@code actual_member_count}
+     * in sync.
+     *
+     * @return the persisted member, or {@code null} when the person is already
+     *         enrolled and was skipped
+     */
+    @Transactional
+    public Member enrollForCorporate(MemberCreateRequest req, CorporateContract contract) {
+        Person person = resolvePerson(req);
+        if (memberRepository.existsByPersonId(person.getId())) {
+            return null;   // skip duplicate — never throw inside the batch tx
+        }
+        Member member = buildMember(req, person);
+        member.setCorporateContract(contract);
+        return memberRepository.save(member);
+    }
+
+    /**
+     * Builds (or reuses) the {@link Person} identity-hub row for an enrollment
+     * request. {@code findOrCreate} dedupes by (document_type, document_number):
+     * when the person already exists (e.g. they were a User or a Beneficiary of
+     * another titular first), the seed payload is ignored and the existing
+     * managed row is returned — admin must update demographics explicitly via
+     * PUT.
+     */
+    private Person resolvePerson(MemberCreateRequest req) {
         Person personSeed = new Person();
         personSeed.setFirstName(req.firstName());
         personSeed.setMiddleName(req.middleName());
@@ -143,21 +189,16 @@ public class MembersService {
         personSeed.setLocale(req.locale());
         personSeed.setAddress(req.address());
         personSeed.setCity(resolveCity(req.cityUuid()));
+        return personService.findOrCreate(personSeed);
+    }
 
-        // findOrCreate dedupes by (document_type, document_number). When the
-        // person already exists (e.g. they were a User or a Beneficiary of
-        // another titular first), the seed payload is ignored and the
-        // existing managed row is returned — admin must update the person
-        // explicitly via PUT to change demographics.
-        Person person = personService.findOrCreate(personSeed);
-
-        // Member-side dedupe — UNIQUE(person_id) on V17 would catch it
-        // anyway, but pre-checking lets us return a clean 422 instead of
-        // the misleading 409 from the unique violation.
-        if (memberRepository.existsByPersonId(person.getId())) {
-            throw new IllegalArgumentException("member.person.already_enrolled");
-        }
-
+    /**
+     * Assembles a new {@link Member} from the request and its resolved person,
+     * including the permanent promoter attribution (v2 PDF #4/#5): the referral
+     * code resolves to a promoter (promoter-table precedence) or falls back to
+     * the INSTITUCION system promoter. Does not persist — the caller decides.
+     */
+    private Member buildMember(MemberCreateRequest req, Person person) {
         Member member = new Member();
         member.setPerson(person);
         member.setOccupation(resolveOccupation(req.occupationUuid()));
@@ -168,15 +209,8 @@ public class MembersService {
             member.setEnrolledAt(req.enrolledAt());
         }
         member.setNotes(req.notes());
-
-        // Permanent promoter attribution (v2 PDF #4/#5): resolve the referral
-        // code to a promoter (promoter-table precedence) or fall back to the
-        // INSTITUCION system promoter. Reassigning later is admin-only via
-        // POST /v1/admin/members/{uuid}/assign-promoter.
         member.setPromoter(promoterResolver.resolveForEnrollment(req.referralCode()));
-
-        Member saved = memberRepository.save(member);
-        return toDetailWithCounts(saved);
+        return member;
     }
 
     // ─── Update ─────────────────────────────────────────────────────────────
