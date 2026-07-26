@@ -16,9 +16,9 @@ import java.util.UUID;
  * <p>{@code extraInscriptionPaid} (v2) tracks whether the one-time
  * inscription fee triggered when this beneficiary exceeded the plan's
  * {@code included_beneficiaries} cap has been collected.
- * {@code inscriptionPaymentId} references the payment that settled it (FK
- * constraint wired by V23) — it stays {@code null} until the admin pairs the
- * row with a recorded payment.</p>
+ * {@code inscriptionPaymentUuid} references the payment that settles it — the
+ * PENDING charge auto-generated when the beneficiary exceeds the included cap,
+ * or {@code null} for included beneficiaries (no extra fee due).</p>
  */
 public record BeneficiaryDto(
         UUID uuid,
@@ -39,7 +39,7 @@ public record BeneficiaryDto(
 
         Relationship relationship,
         boolean extraInscriptionPaid,
-        Long inscriptionPaymentId,
+        UUID inscriptionPaymentUuid,
 
         boolean active,
         String status,
