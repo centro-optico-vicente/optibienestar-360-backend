@@ -1,12 +1,14 @@
 package com.fenixcore.optibienestar360.modules.member.repository;
 
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,4 +39,24 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     @Query("SELECT m FROM Member m WHERE m.person.id = " +
            "(SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)")
     Optional<Member> findByUserUuid(@Param("userUuid") UUID userUuid);
+
+    /**
+     * A promoter's portfolio for the self-service dashboard
+     * ({@code GET /v1/promoter/me}): every active member attributed to the
+     * promoter, each with the status of its currently-active membership (via a
+     * LEFT JOIN so members without one still appear, with null membership
+     * fields). Returns the flat {@link PromoterMemberRow} projection so the
+     * status join costs no N+1. The V21 partial UNIQUE
+     * {@code (member_id) WHERE is_active=TRUE} guarantees at most one active
+     * membership per member, so no row duplication.
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow(
+                m.uuid, m.person.fullName, ms.status, ms.nextDueDate, ms.monthlyFee)
+            FROM Member m
+            LEFT JOIN Membership ms ON ms.member = m AND ms.active = true
+            WHERE m.active = true AND m.promoter.id = :promoterId
+            ORDER BY m.person.fullName
+            """)
+    List<PromoterMemberRow> findPromoterPortfolio(@Param("promoterId") Long promoterId);
 }

@@ -22,6 +22,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRe
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -81,6 +82,7 @@ public class MembersService {
     private final GenderRepository genderRepository;
     private final MaritalStatusRepository maritalStatusRepository;
     private final CityRepository cityRepository;
+    private final PromoterResolver promoterResolver;
     private final MemberMapper mapper;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -166,6 +168,12 @@ public class MembersService {
             member.setEnrolledAt(req.enrolledAt());
         }
         member.setNotes(req.notes());
+
+        // Permanent promoter attribution (v2 PDF #4/#5): resolve the referral
+        // code to a promoter (promoter-table precedence) or fall back to the
+        // INSTITUCION system promoter. Reassigning later is admin-only via
+        // POST /v1/admin/members/{uuid}/assign-promoter.
+        member.setPromoter(promoterResolver.resolveForEnrollment(req.referralCode()));
 
         Member saved = memberRepository.save(member);
         return toDetailWithCounts(saved);

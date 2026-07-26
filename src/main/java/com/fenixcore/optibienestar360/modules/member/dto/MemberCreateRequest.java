@@ -69,5 +69,15 @@ public record MemberCreateRequest(
         @Size(max = 100) String jobPosition,
         String employerAddress,
         LocalDate enrolledAt,
-        String notes
+        String notes,
+
+        /**
+         * Optional referral code the affiliate arrived with — a promoter's
+         * {@code referral_code} (sales-network tracking). When it resolves to an
+         * active promoter, the member is permanently attributed to them; else
+         * attribution falls back to the INSTITUCION system promoter. Free-text
+         * lookup key (normalized/uppercased on resolution), so it is only
+         * length-bounded here, never rejected on mismatch.
+         */
+        @Size(max = 20) String referralCode
 ) {}

@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,4 +53,23 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
     List<Commission> findPendingForPeriod(
             @org.springframework.data.repository.query.Param("periodStart") java.time.LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   java.time.LocalDate periodEnd);
+
+    /**
+     * Commissions a promoter earned within a period, for the self-service
+     * dashboard ({@code GET /v1/promoter/me}). Sums non-voided rows whose
+     * period falls inside the range; {@code COALESCE} keeps it 0 (never null)
+     * when the promoter has none.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COALESCE(SUM(c.amount), 0) FROM Commission c
+            WHERE c.active = true
+              AND c.promoter.id = :promoterId
+              AND c.status <> 'VOIDED'
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            """)
+    BigDecimal sumForPromoterInPeriod(
+            @org.springframework.data.repository.query.Param("promoterId") Long promoterId,
+            @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
 }
