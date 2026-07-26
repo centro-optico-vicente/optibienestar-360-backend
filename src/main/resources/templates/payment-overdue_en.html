@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #b23b3b; border-bottom: 2px solid #b23b3b; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .alert-box { background: #fdeaea; padding: 14px; border-left: 4px solid #b23b3b; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Payment overdue — settle before it expires</h2>
+
+    <p>Hi <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            The fee for your <strong th:text="${planName}"></strong> plan was due on
+            <strong th:text="${#temporals.format(nextDueDate, 'yyyy-MM-dd')}"></strong>
+            and your membership is <strong>SUSPENDED</strong> within the grace period.
+        </p>
+        <p>
+            You can still reactivate it by registering the payment before the grace
+            period ends; otherwise the membership will move to <strong>EXPIRED</strong>
+            and a new enrollment will be required.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Amount due:</span>
+        <span th:text="'$' + ${monthlyFee}"></span>
+    </div>
+
+    <p>
+        If you already paid, let us know through the usual channels so we can
+        verify it and reactivate your membership.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>

@@ -71,6 +71,22 @@ public class BeneficiariesService {
                 .toList();
     }
 
+    /**
+     * Self-service "my family" ({@code GET /v1/me/family}) — the beneficiaries
+     * of the JWT-authenticated user's own member record. Resolves the member via
+     * the {@code user.person → member.person} link; a user who is not an active
+     * affiliate 404s with {@code me.member.not_enrolled}, same contract as
+     * {@code GET /v1/me/member}.
+     */
+    public List<BeneficiaryDto> listForUser(UUID userUuid) {
+        Member member = memberRepository.findByUserUuid(userUuid)
+                .filter(Member::isActive)
+                .orElseThrow(() -> new NoSuchElementException("me.member.not_enrolled"));
+        return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     public BeneficiaryDto get(UUID memberUuid, UUID beneficiaryUuid) {
         return toDto(findUnderMember(memberUuid, beneficiaryUuid));
     }

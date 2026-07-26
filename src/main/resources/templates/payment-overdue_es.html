@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #b23b3b; border-bottom: 2px solid #b23b3b; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .alert-box { background: #fdeaea; padding: 14px; border-left: 4px solid #b23b3b; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Pago vencido — regulariza antes de que expire</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="alert-box">
+        <p>
+            La cuota de tu plan <strong th:text="${planName}"></strong>
+            venció el
+            <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>
+            y tu membresía está <strong>SUSPENDIDA</strong> dentro del período de gracia.
+        </p>
+        <p>
+            Aún puedes reactivarla registrando el pago antes de que finalice la
+            gracia; de lo contrario la membresía pasará a <strong>EXPIRADA</strong>
+            y requerirá una nueva inscripción.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Monto pendiente:</span>
+        <span th:text="'$' + ${monthlyFee}"></span>
+    </div>
+
+    <p>
+        Si ya realizaste el pago, avísanos por los canales habituales para
+        verificarlo y reactivar tu membresía.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

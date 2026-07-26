@@ -77,6 +77,20 @@ public class EmailService {
     )
     public void sendTemplated(String to, String subject, String template, Locale locale,
                               Map<String, Object> variables) {
+        sendTemplatedSync(to, subject, template, locale, variables);
+    }
+
+    /**
+     * Synchronous render-and-send: same work as {@link #sendTemplated} but
+     * without {@code @Async} / {@code @Retryable}, so it runs on the caller's
+     * thread and propagates a {@link MailException} on failure. This is the
+     * entry point for callers that manage their own retry/backoff and need to
+     * observe the outcome — notably the persistent notification-queue worker
+     * ({@code NotificationService}), which records SENT / FAILED /
+     * DEAD_LETTER per row rather than relying on fire-and-forget retries.
+     */
+    public void sendTemplatedSync(String to, String subject, String template, Locale locale,
+                                  Map<String, Object> variables) {
         String resolvedTemplate = resolveLocalizedTemplate(template, locale);
         try {
             Context ctx = new Context(locale);

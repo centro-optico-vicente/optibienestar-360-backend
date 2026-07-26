@@ -63,6 +63,16 @@ public class BenefitUsagesService {
         return usageRepository.findByAllyUserUuid(userUuid, pageable).map(mapper::toDto);
     }
 
+    /**
+     * Powers {@code GET /v1/me/usage-history} (vertical-9). The member's own
+     * benefit-consumption feed across every ally, scoped to the caller via the
+     * {@code user.person → member.person → membership} chain in the repository
+     * query. Read-only, newest usage first (caller's Pageable default).
+     */
+    public Page<BenefitUsageDto> listForMemberUser(UUID userUuid, Pageable pageable) {
+        return usageRepository.findByMemberUserUuid(userUuid, pageable).map(mapper::toDto);
+    }
+
     @Transactional
     public BenefitUsageDto register(BenefitUsageRegisterRequest request) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())

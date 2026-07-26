@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>¡Ganaste una recompensa por referir!</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box">
+        <p>
+            Gracias por recomendar OptiBienestar 360. Un nuevo afiliado se unió
+            usando tu código de referido y acreditamos tu recompensa.
+        </p>
+    </div>
+
+    <div class="field" th:if="${rewardDescription}">
+        <span class="label">Recompensa:</span>
+        <span th:text="${rewardDescription}"></span>
+    </div>
+
+    <p>Sigue compartiendo tu código para seguir sumando beneficios.</p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

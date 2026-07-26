@@ -21,18 +21,25 @@ import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepos
 import com.fenixcore.optibienestar360.modules.member.repository.MedicalRecordRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.notification.dto.NotificationEnqueueCommand;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationService;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -84,6 +91,8 @@ public class MembersService {
     private final MaritalStatusRepository maritalStatusRepository;
     private final CityRepository cityRepository;
     private final PromoterResolver promoterResolver;
+    private final NotificationService notificationService;
+    private final MessageSource messageSource;
     private final MemberMapper mapper;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -133,7 +142,38 @@ public class MembersService {
         }
 
         Member saved = memberRepository.save(buildMember(req, person));
+        enqueueWelcome(saved);
         return toDetailWithCounts(saved);
+    }
+
+    /**
+     * Enqueues the welcome notification (vertical-9) onto the persistent queue.
+     * Idempotent by (member uuid, template) so it fires at most once per member.
+     * A missing email is a silent skip — enrollment succeeds regardless.
+     */
+    private void enqueueWelcome(Member member) {
+        Person person = member.getPerson();
+        if (person == null) return;
+        String email = person.getEmail();
+        if (email == null || email.isBlank()) return;
+
+        Locale locale = localeOf(person.getLocale());
+        String subject = messageSource.getMessage("email.welcome.subject", null, locale);
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("fullName", Optional.ofNullable(person.getFullName()).orElse(""));
+
+        notificationService.enqueue(new NotificationEnqueueCommand(
+                email, null, locale.getLanguage(), "welcome", subject, vars,
+                "member", member.getUuid(), null, true));
+    }
+
+    private static Locale localeOf(String tag) {
+        if (tag == null || tag.isBlank()) return Locale.forLanguageTag("es");
+        try {
+            return Locale.forLanguageTag(tag);
+        } catch (RuntimeException ex) {
+            return Locale.forLanguageTag("es");
+        }
     }
 
     /**
