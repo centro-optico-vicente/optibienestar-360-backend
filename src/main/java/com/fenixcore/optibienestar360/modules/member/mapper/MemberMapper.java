@@ -19,6 +19,8 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.UUID;
+
 @Mapper(componentModel = "spring")
 public interface MemberMapper {
 
@@ -61,19 +63,20 @@ public interface MemberMapper {
 
     // ─── Beneficiary → DTO ──────────────────────────────────────────────────
 
-    @Mapping(target = "memberUuid",       source = "member.uuid")
-    @Mapping(target = "personUuid",       source = "person.uuid")
-    @Mapping(target = "firstName",        source = "person.firstName")
-    @Mapping(target = "middleName",       source = "person.middleName")
-    @Mapping(target = "lastName",         source = "person.lastName")
-    @Mapping(target = "secondLastName",   source = "person.secondLastName")
-    @Mapping(target = "fullName",         source = "person.fullName")
-    @Mapping(target = "documentType",     source = "person.documentType")
-    @Mapping(target = "documentNumber",   source = "person.documentNumber")
-    @Mapping(target = "birthDate",        source = "person.birthDate")
-    @Mapping(target = "phone",            source = "person.phone")
-    @Mapping(target = "email",            source = "person.email")
-    BeneficiaryDto toBeneficiaryDto(Beneficiary beneficiary);
+    @Mapping(target = "memberUuid",             source = "beneficiary.member.uuid")
+    @Mapping(target = "personUuid",             source = "beneficiary.person.uuid")
+    @Mapping(target = "firstName",              source = "beneficiary.person.firstName")
+    @Mapping(target = "middleName",             source = "beneficiary.person.middleName")
+    @Mapping(target = "lastName",               source = "beneficiary.person.lastName")
+    @Mapping(target = "secondLastName",         source = "beneficiary.person.secondLastName")
+    @Mapping(target = "fullName",               source = "beneficiary.person.fullName")
+    @Mapping(target = "documentType",           source = "beneficiary.person.documentType")
+    @Mapping(target = "documentNumber",         source = "beneficiary.person.documentNumber")
+    @Mapping(target = "birthDate",              source = "beneficiary.person.birthDate")
+    @Mapping(target = "phone",                  source = "beneficiary.person.phone")
+    @Mapping(target = "email",                  source = "beneficiary.person.email")
+    @Mapping(target = "inscriptionPaymentUuid", source = "inscriptionPaymentUuid")
+    BeneficiaryDto toBeneficiaryDto(Beneficiary beneficiary, UUID inscriptionPaymentUuid);
 
     // ─── MedicalRecord → DTO ────────────────────────────────────────────────
 

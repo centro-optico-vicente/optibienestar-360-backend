@@ -13,6 +13,11 @@ import java.time.LocalDate;
  * PATCH semantics — non-null fields applied. The (member, person) pair
  * itself is immutable on update; to swap a beneficiary, delete + add (the
  * v2 "sustitución de beneficiarios" UX flow).
+ *
+ * <p>The extra-inscription payment link is set automatically by {@code add}
+ * when the beneficiary exceeds the plan's included cap, so it is not editable
+ * here; {@code extraInscriptionPaid} stays toggleable so the admin can mark the
+ * charge collected once the linked payment is approved.</p>
  */
 public record BeneficiaryUpdateRequest(
         // Person fields — flow through to the linked persons row
@@ -31,7 +36,6 @@ public record BeneficiaryUpdateRequest(
         // Beneficiary-specific
         Relationship relationship,
         Boolean extraInscriptionPaid,
-        Long inscriptionPaymentId,
         Boolean active,
         String status
 ) {}

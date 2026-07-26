@@ -8,12 +8,17 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
+import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.payment.service.BeneficiaryInscriptionBiller;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -36,11 +41,15 @@ import java.util.UUID;
  *       (member, person) pair reactivates the soft-deleted row instead of
  *       letting the DB throw a 409 from the V18 unique index. Implements
  *       the readmission flow noted in the V18 migration comments.</li>
- *   <li><b>Plan-based cap (deferred)</b> — {@code plan.max_beneficiaries}
- *       enforcement was the third leg of the validations bullet. Plan
- *       doesn't exist yet (V20 planned), so this service does NOT check
- *       the cap; when Plan lands, add the check before
- *       {@code beneficiaryRepository.save(...)} in {@link #add}.</li>
+ *   <li><b>Plan-based cap + extra-inscription billing (v2)</b> — the
+ *       titular's active membership plan drives two rules on {@link #add}:
+ *       a hard cap ({@code plan.max_beneficiaries}, {@code null} = no cap →
+ *       Corporativo) rejected with 422 {@code member.beneficiary.cap_exceeded},
+ *       and a one-time extra inscription fee
+ *       ({@code plan.extra_beneficiary_inscription_fee}) charged when the new
+ *       beneficiary lands beyond {@code plan.included_beneficiaries}. The
+ *       charge is a PENDING inscription payment linked to the beneficiary; the
+ *       monthly fee never depends on the beneficiary count.</li>
  * </ol>
  */
 @Service
@@ -50,23 +59,32 @@ public class BeneficiariesService {
 
     private final MemberRepository memberRepository;
     private final BeneficiaryRepository beneficiaryRepository;
+    private final MembershipRepository membershipRepository;
     private final PersonService personService;
+    private final BeneficiaryInscriptionBiller inscriptionBiller;
     private final MemberMapper mapper;
 
     public List<BeneficiaryDto> listForMember(UUID memberUuid) {
         Member member = findMember(memberUuid);
         return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()).stream()
-                .map(mapper::toBeneficiaryDto)
+                .map(this::toDto)
                 .toList();
     }
 
     public BeneficiaryDto get(UUID memberUuid, UUID beneficiaryUuid) {
-        return mapper.toBeneficiaryDto(findUnderMember(memberUuid, beneficiaryUuid));
+        return toDto(findUnderMember(memberUuid, beneficiaryUuid));
     }
 
     @Transactional
     public BeneficiaryDto add(UUID memberUuid, BeneficiaryCreateRequest req) {
         Member member = findMember(memberUuid);
+
+        // A beneficiary is covered under the titular's plan — resolve it from
+        // the active membership. Without one there is no plan to price the cap
+        // or the extra inscription against, so adding is rejected.
+        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
+                .orElseThrow(() -> new IllegalArgumentException("member.beneficiary.no_active_membership"));
+        Plan plan = membership.getPlan();
 
         Person personSeed = new Person();
         personSeed.setFirstName(req.firstName());
@@ -85,8 +103,20 @@ public class BeneficiariesService {
         // existing row instead of inserting another.
         Optional<Beneficiary> existing =
                 beneficiaryRepository.findByMemberIdAndPersonId(member.getId(), person.getId());
-
         Beneficiary beneficiary = existing.orElseGet(Beneficiary::new);
+
+        // Only a beneficiary that isn't already active consumes a new slot —
+        // an idempotent re-add of an already-active row triggers neither the
+        // cap nor a second charge.
+        boolean consumesNewSlot = !beneficiary.isActive();
+        long activeCount = beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId());
+
+        // Hard cap (max_beneficiaries NULL = no cap, e.g. Corporativo).
+        if (consumesNewSlot && plan.getMaxBeneficiaries() != null
+                && activeCount >= plan.getMaxBeneficiaries()) {
+            throw new IllegalArgumentException("member.beneficiary.cap_exceeded");
+        }
+
         beneficiary.setMember(member);
         beneficiary.setPerson(person);
         beneficiary.setRelationship(req.relationship());
@@ -95,11 +125,20 @@ public class BeneficiariesService {
         }
         beneficiary.setActive(true);
 
-        // TODO: when V20 plans lands, enforce plan.max_beneficiaries here:
-        // count active beneficiaries of the member's plan and reject if
-        // adding this one exceeds the cap (422 member.beneficiary.cap_exceeded).
+        // Extra inscription: charged once when this new slot lands beyond the
+        // plan's included cap and it hasn't been settled already (admin marked
+        // it paid, or a prior charge is still linked from a past enrollment).
+        boolean beyondIncluded = activeCount >= plan.getIncludedBeneficiaries();
+        boolean alreadySettled = beneficiary.isExtraInscriptionPaid()
+                || beneficiary.getInscriptionPaymentId() != null;
+        BigDecimal fee = plan.getExtraBeneficiaryInscriptionFee();
+        if (consumesNewSlot && beyondIncluded && !alreadySettled
+                && fee != null && fee.signum() > 0) {
+            beneficiary.setInscriptionPaymentId(inscriptionBiller.chargeExtraInscription(membership, fee));
+            beneficiary.setExtraInscriptionPaid(false);   // PENDING until the charge is approved
+        }
 
-        return mapper.toBeneficiaryDto(beneficiaryRepository.save(beneficiary));
+        return toDto(beneficiaryRepository.save(beneficiary));
     }
 
     @Transactional
@@ -119,11 +158,10 @@ public class BeneficiariesService {
 
         if (req.relationship()           != null) beneficiary.setRelationship(req.relationship());
         if (req.extraInscriptionPaid()   != null) beneficiary.setExtraInscriptionPaid(req.extraInscriptionPaid());
-        if (req.inscriptionPaymentId()   != null) beneficiary.setInscriptionPaymentId(req.inscriptionPaymentId());
         if (req.active()                 != null) beneficiary.setActive(req.active());
         if (req.status()                 != null) beneficiary.setStatus(req.status());
 
-        return mapper.toBeneficiaryDto(beneficiary);  // managed → dirty-check on commit
+        return toDto(beneficiary);  // managed → dirty-check on commit
     }
 
     @Transactional
@@ -133,6 +171,11 @@ public class BeneficiariesService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /** Maps a beneficiary, resolving its linked inscription payment id to the external UUID. */
+    private BeneficiaryDto toDto(Beneficiary beneficiary) {
+        return mapper.toBeneficiaryDto(beneficiary, inscriptionBiller.resolveUuid(beneficiary.getInscriptionPaymentId()));
+    }
 
     private Member findMember(UUID uuid) {
         return memberRepository.findByUuid(uuid)
