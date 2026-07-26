@@ -15,7 +15,7 @@
 
 | # | Ítem PDF | Vertical (dónde vive) | Modo de cambio | Estado |
 |---|---|---|---|---|
-| 1 | Gestión de Subsidios y Exoneraciones (incl. **Motor de Solvencia**) | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) + cross-ref [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🆕 **nuevo vertical** + extensión | Decidido: permisos `SUBSIDY_APPROVE` + `ALLOWS_DISCOUNT`; admin autoriza. `MembershipStatusService` reconoce subsidio 100% como SOLVENT sin payment. |
+| 1 | Gestión de Subsidios y Exoneraciones (incl. **Motor de Solvencia**) | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) + cross-ref [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🆕 **nuevo vertical** + extensión | ✅ **Implementado (V41).** Modelo ampliado: 2 porcentajes independientes (mensualidad/inscripción), `valid_until` opcional, `max_exonerated_beneficiaries` + tabla `subsidy_beneficiaries`. `SUBSIDY_APPROVE`/`VIEW_ALL`/`VIEW_OWN` + `ALLOWS_DISCOUNT`. `MembershipStatusService` reconoce subsidio 100% de mensualidad como ACTIVE sin payment. |
 | 2 | Manejo de Descuentos por Referidos + **Cobranza Delegada** + **Enlace Permanente** | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | Decidido: metas configurables + estrategia `EXPIRES`/`ACCUMULATES`; tipo de beneficio elegido al canjear; tabla `promoter_member_contacts` con endpoints reminder/payment-promise; `Member.promoter_id` enlace permanente (solo cambia vía assign-promoter explícito) |
 | 3 | Planes Corporativos y Masivos | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🔄 extiende | Parcial: `Plan.type` enum + `corporate_contracts` + `payer_mode`. **TBD:** monto exacto del corporativo + payer_mode default + naming 1+/2+/3+ vs flyer |
 | 4 | Módulo de Promotores y Asesores | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | Decidido: dashboard `/v1/promoter/me` + `referral_code` único; collection-score endpoint |
@@ -81,7 +81,7 @@
 | Plan Corporativo — "$5/persona" | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | ¿$5 es solo mensualidad, solo inscripción, o ambas? |
 | Plan Corporativo — `payer_mode` default | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | ¿Se decide por contrato (sin mixto) o se permite que algunos miembros del mismo contrato paguen individual? |
 | Naming planes "1+, 2+, 3+ (Premium)" | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | El PDF menciona "1+/2+/3+ Premium" pero el flyer comercial dice Individual/Familiar/Corporativo + Adicional. ¿Son alias del mismo set? ¿Tiers ortogonales (un `Plan.tier` ENUM BASIC/PLUS/PREMIUM además de `type`)? ¿Reemplazo total del naming actual? |
-| Subsidios — alcance | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | ¿Solo exoneración 100% o también parciales (X%)? La columna `percentage` ya lo soporta — pregunta para contratos comerciales |
+| ~~Subsidios — alcance~~ | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | ✅ **Resuelto (V41):** soporta ambos — `monthly_percentage`/`inscription_percentage` aceptan 0–100 (100 = exoneración total, X% = parcial) |
 | Subsidios — notificación | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | ¿Se notifica al titular cuando se le otorga/revoca un subsidio? |
 
 ## Cambios al checklist v1

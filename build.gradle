@@ -86,4 +86,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// The @SpringBootTest controller ITs each cache a full ApplicationContext
+	// (Hibernate SessionFactory + metamodel). As the suite grew across verticals
+	// the default fork heap ran out (OutOfMemoryError building a fresh context).
+	maxHeapSize = '2g'
 }

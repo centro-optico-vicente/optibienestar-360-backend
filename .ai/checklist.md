@@ -56,13 +56,13 @@
 | 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 9 | 0 | 100% | ✅ Completa |
 | 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 23 | 22 | 1 | 96% | 🟡 |
 | 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 26 | 20 | 6 | 77% | 🟠 |
-| 5 | Planes y Membresías | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 33 | 24 | 9 | 73% | 🟡 |
+| 5 | Planes y Membresías | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 33 | 28 | 5 | 85% | 🟡 |
 | 6 | Pagos manuales | [vertical-6](checklists/vertical-6-pagos-manuales.md) | 10 | 10 | 0 | 100% | ✅ Completa |
 | 7 | Validador | [vertical-7](checklists/vertical-7-validador.md) | 9 | 6 | 3 | 67% | 🟡 |
 | 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 66 | 32 | 34 | 48% | 🟠 |
 | 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 10 | 10 | 0 | 100% | ✅ Completa |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 37 | 1 | 36 | 3% | 🔴 |
-| **TOTAL Fase 2** | | | **267** | **177** | **90** | **66%** | 🟡 |
+| **TOTAL Fase 2** | | | **267** | **181** | **86** | **68%** | 🟡 |
 
 > **% avance** = round(100 × hechas / tareas), redondeado al entero más cercano, contando checkboxes `- [ ]` / `- [x]` en cada archivo vertical (el método de "Conteo rápido" abajo). Cada archivo repite su fila como tabla de totales al inicio. Bandas del estado: ✅ 100% · 🟡 50–99% · 🟠 10–49% · 🔴 <10%.
 > Los conteos previos estaban desactualizados (marcaban 0 hechas en verticales ya construidos) y usaban una granularidad de tarea distinta a la de los archivos; esta tabla se recalculó desde los checkboxes reales.
@@ -74,7 +74,7 @@
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|---|---|---|
 | 11 | Internacionalización (i18n) — `es` + `en`, locale híbrido (JWT > header > es-VE) | [vertical-11](checklists/vertical-11-i18n.md) | 42 | 42 | 0 | 100% | ✅ Completa |
-| 12 | **[v2]** Subsidios y Exoneraciones | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | 20 | 0 | 20 | 0% | 🔲 |
+| 12 | **[v2]** Subsidios y Exoneraciones | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | 20 | 19 | 1 | 95% | 🟡 |
 
 ---
 

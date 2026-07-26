@@ -1,0 +1,111 @@
+package com.fenixcore.optibienestar360.modules.payment.service;
+
+import com.fenixcore.optibienestar360.common.service.EmailService;
+import com.fenixcore.optibienestar360.common.service.StorageService;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
+import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
+import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for the one-off payment discount (V41, permission
+ * {@code ALLOWS_DISCOUNT}): only PENDING payments are eligible, the amount
+ * cannot exceed the payment total, and the discount is captured on the row.
+ */
+@ExtendWith(MockitoExtension.class)
+class PaymentsServiceTest {
+
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private MembershipRepository membershipRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private PaymentMapper mapper;
+    @Mock private ObjectProvider<StorageService> storageProvider;
+    @Mock private EmailService emailService;
+    @Mock private MessageSource messageSource;
+    @Mock private ValidatorCacheService validatorCacheService;
+    @Mock private CommissionService commissionService;
+    @Mock private CorporateBillingResolver corporateBillingResolver;
+
+    private PaymentsService sut() {
+        return new PaymentsService(paymentRepository, membershipRepository, userRepository, mapper,
+                storageProvider, emailService, messageSource, validatorCacheService,
+                commissionService, corporateBillingResolver);
+    }
+
+    private static final UUID ACTOR = UUID.randomUUID();
+
+    @Test
+    void applyDiscount_setsFields_onPendingPayment() {
+        Payment payment = pending(new BigDecimal("20.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+        // mapper.toDto returns null by default — the test asserts on the entity, not the DTO.
+
+        sut().applyDiscount(payment.getUuid(), new PaymentDiscountRequest(new BigDecimal("5.00"), "Ajuste"), ACTOR);
+
+        assertThat(payment.getDiscountAmount()).isEqualByComparingTo("5.00");
+        assertThat(payment.getDiscountReason()).isEqualTo("Ajuste");
+        assertThat(payment.getDiscountedBy()).isNotNull();
+        assertThat(payment.getDiscountedAt()).isNotNull();
+    }
+
+    @Test
+    void applyDiscount_rejects_whenNotPending() {
+        Payment payment = pending(new BigDecimal("20.00"));
+        payment.setStatus(PaymentStatus.APPROVED.name());
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().applyDiscount(payment.getUuid(),
+                new PaymentDiscountRequest(new BigDecimal("5.00"), "Ajuste"), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.discount.not_pending");
+    }
+
+    @Test
+    void applyDiscount_rejects_whenExceedsAmount() {
+        Payment payment = pending(new BigDecimal("20.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().applyDiscount(payment.getUuid(),
+                new PaymentDiscountRequest(new BigDecimal("25.00"), "Ajuste"), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.discount.exceeds_amount");
+    }
+
+    private static Payment pending(BigDecimal amount) {
+        Payment p = new Payment();
+        p.setUuid(UUID.randomUUID());
+        p.setAmount(amount);
+        p.setStatus(PaymentStatus.PENDING.name());
+        return p;
+    }
+
+    private static User user() {
+        User u = new User();
+        u.setId(1L);
+        u.setUuid(UUID.randomUUID());
+        return u;
+    }
+}

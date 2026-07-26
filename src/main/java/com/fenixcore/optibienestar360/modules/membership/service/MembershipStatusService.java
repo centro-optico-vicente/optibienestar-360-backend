@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.membership.service;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidyResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Date-driven lifecycle engine. Given a {@link Membership} and today's date,
@@ -42,19 +44,43 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class MembershipStatusService {
 
-    private static final String REASON_SUSPENDED = "Past due date";
-    private static final String REASON_EXPIRED   = "Past grace period";
+    private static final String REASON_SUSPENDED      = "Past due date";
+    private static final String REASON_EXPIRED        = "Past grace period";
+    private static final String REASON_ACTIVE_SUBSIDY = "Active by full subsidy";
 
     private final MembershipRepository repository;
+    private final SubsidyResolver subsidyResolver;
 
     /**
-     * Pure evaluator — no DB writes, safe to call from read-only paths.
-     * Returns {@code null} when the row is outside the date-driven sweep
+     * Evaluator — no DB writes to the membership, safe to call from read-only
+     * paths. Returns {@code null} when the row is outside the date-driven sweep
      * (soft-deleted or already {@code CANCELED}).
+     *
+     * <p>Subsidy-aware (vertical-5 #1 / PDF #1.b): a member with a full monthly
+     * exoneration active today stays {@code ACTIVE} regardless of
+     * {@code next_due_date} — no payment row required. A partial subsidy
+     * (&lt; 100%) still owes the reduced amount, so the date logic applies
+     * unchanged (#2).</p>
      */
     public LifecycleStatus evaluate(Membership membership, LocalDate today) {
         if (!membership.isActive()) return null;
         if (LifecycleStatus.CANCELED.name().equals(membership.getStatus())) return null;
+        boolean fullyExonerated =
+                subsidyResolver.fullMonthlyExoneration(membership.getMember().getId(), today);
+        return evaluateCore(membership, today, fullyExonerated);
+    }
+
+    /**
+     * Core state machine with the full-exoneration flag supplied by the caller —
+     * lets the batch sweep pass a value pre-loaded in one query (no N+1).
+     */
+    private LifecycleStatus evaluateCore(Membership membership, LocalDate today, boolean fullyExonerated) {
+        if (!membership.isActive()) return null;
+        if (LifecycleStatus.CANCELED.name().equals(membership.getStatus())) return null;
+
+        if (fullyExonerated) {
+            return LifecycleStatus.ACTIVE;
+        }
 
         LocalDate nextDue = membership.getNextDueDate();
         if (!today.isAfter(nextDue)) {
@@ -97,10 +123,17 @@ public class MembershipStatusService {
     @Transactional
     public BatchResult applyDueTransitions(LocalDate today) {
         List<Membership> candidates = repository.findStatusEvaluationCandidates(today);
+
+        // One query for the whole batch: which candidate members have a full
+        // monthly exoneration today (vertical-5 #3 — subsidy check before EXPIRED).
+        Set<Long> exonerated = subsidyResolver.memberIdsWithFullMonthlyExoneration(
+                candidates.stream().map(m -> m.getMember().getId()).toList(), today);
+
         int suspended = 0;
         int expired   = 0;
         for (Membership membership : candidates) {
-            LifecycleStatus target = evaluate(membership, today);
+            boolean fullyExonerated = exonerated.contains(membership.getMember().getId());
+            LifecycleStatus target = evaluateCore(membership, today, fullyExonerated);
             if (target == null || target.name().equals(membership.getStatus())) continue;
 
             membership.setStatus(target.name());
@@ -114,7 +147,12 @@ public class MembershipStatusService {
     }
 
     private static String reasonFor(LifecycleStatus target) {
-        return target == LifecycleStatus.SUSPENDED ? REASON_SUSPENDED : REASON_EXPIRED;
+        return switch (target) {
+            case SUSPENDED -> REASON_SUSPENDED;
+            case EXPIRED   -> REASON_EXPIRED;
+            case ACTIVE    -> REASON_ACTIVE_SUBSIDY;   // only reached via subsidy short-circuit
+            default        -> null;
+        };
     }
 
     /** Summary returned by {@link #applyDueTransitions(LocalDate)}. */

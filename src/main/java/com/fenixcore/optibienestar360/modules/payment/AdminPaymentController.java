@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.payment;
 
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
@@ -109,6 +110,20 @@ public class AdminPaymentController {
             @Valid @RequestBody PaymentRejectRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.reject(uuid, request, actor.getUuid()));
+    }
+
+    /**
+     * Applies a one-off discount to a PENDING payment (v2 PDF item #1). Distinct
+     * from a recurring subsidy — this condones/reduces this single charge.
+     * Gated by {@code ALLOWS_DISCOUNT}; a {@code reason} is mandatory.
+     */
+    @PostMapping("/{uuid}/discount")
+    @PreAuthorize("hasAuthority('ALLOWS_DISCOUNT')")
+    public ResponseEntity<PaymentDto> applyDiscount(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody PaymentDiscountRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.applyDiscount(uuid, request, actor.getUuid()));
     }
 
     /**

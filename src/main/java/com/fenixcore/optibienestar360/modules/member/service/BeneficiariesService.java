@@ -14,11 +14,13 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.payment.service.BeneficiaryInscriptionBiller;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidyResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -62,6 +64,7 @@ public class BeneficiariesService {
     private final MembershipRepository membershipRepository;
     private final PersonService personService;
     private final BeneficiaryInscriptionBiller inscriptionBiller;
+    private final SubsidyResolver subsidyResolver;
     private final MemberMapper mapper;
 
     public List<BeneficiaryDto> listForMember(UUID memberUuid) {
@@ -144,14 +147,23 @@ public class BeneficiariesService {
         }
         beneficiary.setActive(true);
 
+        // A subsidy may fully exonerate this beneficiary's extra inscription
+        // (v2 subsidies, V41). Only meaningful on reactivation of an existing
+        // beneficiary already listed under an active subsidy — a brand-new row
+        // has no id yet, so no subsidy line can reference it (returns false).
+        boolean inscriptionExonerated = beneficiary.getId() != null
+                && subsidyResolver.beneficiaryInscriptionExonerated(beneficiary.getId(), LocalDate.now());
+
         // Extra inscription: charged once when this new slot lands beyond the
         // plan's included cap and it hasn't been settled already (admin marked
-        // it paid, or a prior charge is still linked from a past enrollment).
+        // it paid, a prior charge is still linked, or a subsidy exonerates it).
         boolean beyondIncluded = activeCount >= plan.getIncludedBeneficiaries();
         boolean alreadySettled = beneficiary.isExtraInscriptionPaid()
                 || beneficiary.getInscriptionPaymentId() != null;
         BigDecimal fee = plan.getExtraBeneficiaryInscriptionFee();
-        if (consumesNewSlot && beyondIncluded && !alreadySettled
+        if (inscriptionExonerated) {
+            beneficiary.setExtraInscriptionPaid(true);   // covered by the subsidy, no charge
+        } else if (consumesNewSlot && beyondIncluded && !alreadySettled
                 && fee != null && fee.signum() > 0) {
             beneficiary.setInscriptionPaymentId(inscriptionBiller.chargeExtraInscription(membership, fee));
             beneficiary.setExtraInscriptionPaid(false);   // PENDING until the charge is approved

@@ -171,6 +171,28 @@ public class Payment extends BaseEntity {
     @Column(name = "review_reason", columnDefinition = "text")
     private String reviewReason;
 
+    // ─── One-off discount (V41, permission ALLOWS_DISCOUNT) ────────────────
+
+    /**
+     * One-time discount applied to this single PENDING payment (distinct from a
+     * recurring {@code Subsidy}). {@code null} = no discount. Audited inline:
+     * {@link #discountReason} / {@link #discountedBy} / {@link #discountedAt} are
+     * all required together (V41 CHECK {@code chk_payments_discount_coherence});
+     * the amount cannot exceed {@link #amount} (V41 CHECK).
+     */
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(name = "discount_reason", columnDefinition = "text")
+    private String discountReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discounted_by")
+    private User discountedBy;
+
+    @Column(name = "discounted_at")
+    private Instant discountedAt;
+
     // ─── Inner enums (V23 CHECK constraint values) ─────────────────────────
 
     /**

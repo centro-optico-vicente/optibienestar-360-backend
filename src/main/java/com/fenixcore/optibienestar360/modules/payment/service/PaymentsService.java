@@ -13,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
@@ -295,6 +296,32 @@ public class PaymentsService {
         validatorCacheService.evictForMembership(payment.getMembership());
         dispatchNotification(payment, "payment-rejected", "email.payment.rejected.subject");
         return mapper.toDto(payment);
+    }
+
+    /**
+     * Applies a one-off discount to a single PENDING payment (v2 PDF item #1,
+     * permission {@code ALLOWS_DISCOUNT}) — condone or reduce this specific
+     * charge, distinct from a recurring subsidy. Only PENDING rows are eligible
+     * (a reviewed payment is settled); the amount cannot exceed the payment
+     * total. Audited inline via the {@code discount_*} columns.
+     */
+    @Transactional
+    public PaymentDto applyDiscount(UUID paymentUuid, PaymentDiscountRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        if (!PaymentStatus.PENDING.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.discount.not_pending");
+        }
+        if (request.amount().compareTo(payment.getAmount()) > 0) {
+            throw new IllegalArgumentException("payment.discount.exceeds_amount");
+        }
+        User actor = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+
+        payment.setDiscountAmount(request.amount());
+        payment.setDiscountReason(request.reason());
+        payment.setDiscountedBy(actor);
+        payment.setDiscountedAt(Instant.now());
+        return mapper.toDto(payment);   // managed → dirty-check on commit
     }
 
     private static void ensurePending(Payment payment) {

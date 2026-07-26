@@ -15,6 +15,7 @@ public interface PaymentMapper {
     @Mapping(target = "planCode",             source = "membership.plan.code")
     @Mapping(target = "payerUserUuid",        source = "payerUser.uuid")
     @Mapping(target = "reviewedByUserUuid",   source = "reviewedBy.uuid")
+    @Mapping(target = "discountedByUserUuid", source = "discountedBy.uuid")
     @Mapping(target = "supportFileAvailable", source = "supportFileUrl", qualifiedByName = "isPresent")
     PaymentDto toDto(Payment payment);
 

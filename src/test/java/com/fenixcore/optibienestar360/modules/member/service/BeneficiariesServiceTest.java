@@ -13,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.payment.service.BeneficiaryInscriptionBiller;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidyResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -49,11 +51,12 @@ class BeneficiariesServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private PersonService personService;
     @Mock private BeneficiaryInscriptionBiller inscriptionBiller;
+    @Mock private SubsidyResolver subsidyResolver;
     @Mock private MemberMapper mapper;
 
     private BeneficiariesService sut() {
         return new BeneficiariesService(memberRepository, beneficiaryRepository, membershipRepository,
-                personService, inscriptionBiller, mapper);
+                personService, inscriptionBiller, subsidyResolver, mapper);
     }
 
     private static final BigDecimal FEE = new BigDecimal("5.00");
@@ -136,6 +139,22 @@ class BeneficiariesServiceTest {
 
         assertThat(existing.isActive()).isTrue();
         assertThat(existing.getInscriptionPaymentId()).isEqualTo(42L);   // untouched
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+    }
+
+    @Test
+    void add_beneficiaryInscriptionExoneratedBySubsidy_noCharge() {
+        Member member = member();
+        Beneficiary existing = new Beneficiary();
+        existing.setId(99L);
+        existing.setUuid(UUID.randomUUID());
+        existing.setActive(false);   // soft-deleted → reactivation would consume a slot + charge
+        stubEnrollment(member, plan(0, 5, FEE), 0L, person(), Optional.of(existing));
+        when(subsidyResolver.beneficiaryInscriptionExonerated(eq(99L), any())).thenReturn(true);
+
+        sut().add(member.getUuid(), req(null));
+
+        assertThat(existing.isExtraInscriptionPaid()).isTrue();   // covered by the subsidy
         verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
     }
 
