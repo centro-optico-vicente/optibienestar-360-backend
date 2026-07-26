@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -179,7 +180,8 @@ class BeneficiariesServiceTest {
         when(personService.findOrCreate(any())).thenReturn(person);
         when(beneficiaryRepository.findByMemberIdAndPersonId(anyLong(), anyLong())).thenReturn(existing);
         when(beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId())).thenReturn(activeCount);
-        when(beneficiaryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // lenient: the cap-exceeded path throws before reaching save().
+        lenient().when(beneficiaryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         return ms;
     }
 
