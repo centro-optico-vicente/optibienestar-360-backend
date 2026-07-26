@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 57 | 17 | 40 | 30% | 🟠 |
+| 57 | 23 | 34 | 40% | 🟠 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -53,12 +53,12 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 #### Gestión de Cobranza Delegada (PDF 2.b)
 
-- [ ] [v2] [P0/C2] Tabla `promoter_member_contacts`: `uuid`, `promoter_id` FK, `member_id` FK, `type` ENUM ('REMINDER','PAYMENT_PROMISE','NOTE'), `note` TEXT, `promised_amount` NUMERIC NULL, `promised_at_date` DATE NULL (solo PAYMENT_PROMISE), `created_at`. Auditoría de las gestiones que hace el promotor sobre su cartera.
-- [ ] [v2] [P0/C2] `POST /v1/promoter/me/contacts/{memberUuid}/reminder` — el promotor registra que contactó al afiliado por cobranza (tipo REMINDER).
-- [ ] [v2] [P0/C2] `POST /v1/promoter/me/contacts/{memberUuid}/payment-promise` — registra promesa de pago con `promised_amount` + `promised_at_date`.
-- [ ] [v2] [P0/C2] `GET /v1/promoter/me/contacts?memberUuid=...` — historial de gestiones del promotor con un afiliado.
-- [ ] [v2] [P0/C2] `GET /v1/promoter/me/collection-score` — % de cartera al día (auto-evaluación del promotor; base para un futuro bono por cobranza diferenciado del bono por venta).
-- [ ] [v2] [P0/C2] Guard: el promotor solo puede registrar contacts sobre **sus propios afiliados** (`member.promoter_id = currentPromoter.id`); admin puede registrar para cualquier promotor.
+- [x] [v2] [P0/C2] Tabla `promoter_member_contacts`: `uuid`, `promoter_id` FK, `member_id` FK, `type` ENUM ('REMINDER','PAYMENT_PROMISE','NOTE'), `note` TEXT, `promised_amount` NUMERIC NULL, `promised_at_date` DATE NULL (solo PAYMENT_PROMISE), `created_at`. Auditoría de las gestiones que hace el promotor sobre su cartera. _(**V36** `promoter_member_contacts` (BaseEntity cols + FKs + `type VARCHAR(20) CHECK`, `note TEXT`, `promised_amount NUMERIC(10,2)`, `promised_at_date DATE`). **2 CHECK**: coherence — `type='PAYMENT_PROMISE'` ⟺ `promised_amount` + `promised_at_date` NOT NULL (los otros tipos ambos NULL); `promised_amount > 0` cuando presente. Índice `(promoter_id, member_id, created_at DESC)` para el historial. Entity `PromoterMemberContact` (enum interno `ContactType`) + `PromoterMemberContactRepository` (insert-only). contextLoads con la entity nueva.)_
+- [x] [v2] [P0/C2] `POST /v1/promoter/me/contacts/{memberUuid}/reminder` — el promotor registra que contactó al afiliado por cobranza (tipo REMINDER). _(`PromoterContactsController` + `PromoterCollectionService.registerReminder`. `@PreAuthorize('PROMOTER_CONTACT_OWN')` (perm nuevo V36). Body `ReminderRequest` (note opcional, `@RequestBody(required=false)`). 201 + `PromoterMemberContactDto`.)_
+- [x] [v2] [P0/C2] `POST /v1/promoter/me/contacts/{memberUuid}/payment-promise` — registra promesa de pago con `promised_amount` + `promised_at_date`. _(`registerPaymentPromise`, `@PreAuthorize('PROMOTER_CONTACT_OWN')`. Body `PaymentPromiseRequest` (`promisedAmount` `@NotNull @DecimalMin(0.01) @Digits(8,2)`, `promisedAtDate` `@NotNull @FutureOrPresent`, note opcional). Persiste `type=PAYMENT_PROMISE` con amount+date (el CHECK V36 garantiza coherencia). 201 + DTO.)_
+- [x] [v2] [P0/C2] `GET /v1/promoter/me/contacts?memberUuid=...` — historial de gestiones del promotor con un afiliado. _(`listContacts`, `@PreAuthorize('PROMOTER_VIEW_OWN')` (reusa el perm de lectura V35). Devuelve `List<PromoterMemberContactDto>` newest-first (índice V36). Aplica el guard de propiedad sobre el `memberUuid`.)_
+- [x] [v2] [P0/C2] `GET /v1/promoter/me/collection-score` — % de cartera al día (auto-evaluación del promotor; base para un futuro bono por cobranza diferenciado del bono por venta). _(`collectionScore`, `@PreAuthorize('PROMOTER_VIEW_OWN')`. Reusa `MemberRepository.findPromoterPortfolio` (misma proyección del panel), bucketiza y computa `scorePct = round2(100 * upToDate / activeAffiliates)` (0.00 si cartera vacía). `CollectionScoreDto` con totales + pct.)_
+- [x] [v2] [P0/C2] Guard: el promotor solo puede registrar contacts sobre **sus propios afiliados** (`member.promoter_id = currentPromoter.id`); admin puede registrar para cualquier promotor. _(`PromoterCollectionService.ownedMember(promoter, memberUuid)`: resuelve el member y verifica `member.promoter.id == currentPromoter.id`; 404 `promoter.member.not_in_portfolio` si no (mismo 404 que member inexistente → anti-enumeración de cartera ajena). El promotor se resuelve del JWT (`findActiveByUserUuid`; 404 `me.promoter.not_found` si el user no es promotor). Tests: `PromoterCollectionServiceTest` (7 — reminder/promise happy, 404 no-cartera, 404 no-promotor, historial, score, score-vacío) + `PromoterContactsControllerIT` (8 — authz de los 4 endpoints + 404 propiedad). **Salvedad**: el "admin puede registrar para cualquier promotor" NO se construyó — todos los endpoints son self-service `/me`; requeriría un path admin `/v1/admin/promoters/{uuid}/contacts` (follow-up).)_
 
 ### Ítem PDF #5 — Motor Automatizado de Comisiones y Premiaciones
 
