@@ -62,6 +62,12 @@ public record PaymentDto(
         Instant reviewedAt,
         String reviewReason,
 
+        // One-off discount (V41; null when none applied)
+        BigDecimal discountAmount,
+        String discountReason,
+        UUID discountedByUserUuid,
+        Instant discountedAt,
+
         // Audit
         boolean active,
         Instant createdAt,
