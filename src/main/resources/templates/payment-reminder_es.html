@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #eef7f1; padding: 14px; border-left: 4px solid #1f7a4d; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Recordatorio: tu cuota vence pronto</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box">
+        <p>
+            Te recordamos que la cuota mensual de tu plan
+            <strong th:text="${planName}"></strong>
+            vence el
+            <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Monto:</span>
+        <span th:text="'$' + ${monthlyFee}"></span>
+    </div>
+
+    <p>
+        Realiza tu pago a tiempo para mantener tu membresía activa y seguir
+        disfrutando de todos los beneficios sin interrupciones.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

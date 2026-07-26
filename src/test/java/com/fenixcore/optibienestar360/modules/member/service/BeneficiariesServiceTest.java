@@ -21,6 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -163,6 +165,29 @@ class BeneficiariesServiceTest {
 
         assertThat(b.isActive()).isFalse();
         verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+    }
+
+    // ─── self-service (/v1/me/family) ─────────────────────────────────────────
+
+    @Test
+    void listForUser_returnsOwnFamily() {
+        Member member = member();
+        UUID userUuid = UUID.randomUUID();
+        when(memberRepository.findByUserUuid(userUuid)).thenReturn(Optional.of(member));
+        when(beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()))
+                .thenReturn(List.of(new Beneficiary()));
+
+        assertThat(sut().listForUser(userUuid)).hasSize(1);
+    }
+
+    @Test
+    void listForUser_404_whenNotEnrolled() {
+        UUID userUuid = UUID.randomUUID();
+        when(memberRepository.findByUserUuid(userUuid)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut().listForUser(userUuid))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("me.member.not_enrolled");
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

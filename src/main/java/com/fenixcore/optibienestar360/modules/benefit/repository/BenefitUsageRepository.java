@@ -40,4 +40,20 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
               )
             """)
     Page<BenefitUsage> findByAllyUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
+
+    /**
+     * Powers {@code GET /v1/me/usage-history} (vertical-9) — every benefit usage
+     * on the caller's own membership history. Walks {@code user.person →
+     * member.person → membership → benefit_usage} so a member sees their whole
+     * consumption feed regardless of which ally registered it. {@code bu.active}
+     * filters reversed / soft-deleted rows; the caller's {@link Pageable}
+     * supplies the sort (default {@code usageDate DESC}).
+     */
+    @Query("""
+            SELECT bu FROM BenefitUsage bu
+            WHERE bu.active = true
+              AND bu.membership.member.person.id =
+                  (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)
+            """)
+    Page<BenefitUsage> findByMemberUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
 }

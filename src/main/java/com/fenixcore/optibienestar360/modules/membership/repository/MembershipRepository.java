@@ -43,4 +43,20 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
               AND m.nextDueDate < :today
             """)
     List<Membership> findStatusEvaluationCandidates(@Param("today") LocalDate today);
+
+    /**
+     * Payment-reminder job (vertical-9): live ACTIVE memberships whose
+     * {@code next_due_date} falls exactly on {@code dueDate} (the job passes
+     * {@code today + 3} so the reminder fires once, three days ahead of the
+     * due date). Backed by the V21 partial composite index.
+     */
+    List<Membership> findByActiveTrueAndStatusAndNextDueDate(String status, LocalDate dueDate);
+
+    /**
+     * Grace-period job (vertical-9): all live SUSPENDED memberships (past due,
+     * still inside the grace window). The set is small — the runner filters in
+     * memory to the per-membership "N days before expiry" nudge day, since the
+     * grace length is a per-row snapshot.
+     */
+    List<Membership> findByActiveTrueAndStatus(String status);
 }

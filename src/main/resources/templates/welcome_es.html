@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f5c99; border-bottom: 2px solid #1f5c99; padding-bottom: 8px; }
+        .info-box { background: #eef3fa; padding: 14px; border-left: 4px solid #1f5c99; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>¡Bienvenido a OptiBienestar 360!</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box">
+        <p>
+            Tu afiliación fue registrada con éxito. Ya formas parte del programa
+            de bienestar de <strong>Centro Óptico Vicente</strong>.
+        </p>
+    </div>
+
+    <p>
+        Desde tu portal de afiliado podrás consultar tu carnet digital, tu grupo
+        familiar y el historial de uso de tus beneficios, además de recibir
+        recordatorios de pago para mantener tu membresía siempre activa.
+    </p>
+
+    <p>¡Gracias por confiar en nosotros para cuidar tu salud visual y bienestar!</p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>
