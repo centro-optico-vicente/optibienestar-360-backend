@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 104 | 65 | 39 | 63% | 🟡 |
+| 104 | 71 | 33 | 68% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -71,7 +71,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P0/C3] Validaciones custom: cédula VE (V-/E-), edad min 18, max 3 beneficiarios — `@VenezuelanDocumentNumber` + `@MinimumAge` (2 de 3 reglas con Jakarta Validation); tope beneficiarios queda service-side al implementar Plan. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `/v1/admin/members` CRUD + RSQL — `AdminMemberController` (5 endpoints guardados por perms MEMBER_*) + `MembersService` que orquesta `PersonService.findOrCreate` para dedupe por cédula. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C2] `/v1/admin/members/{id}/beneficiaries` CRUD — `AdminMemberBeneficiariesController` + `BeneficiariesService` (reutiliza `PersonService.findOrCreate` + readmission flow vía UNIQUE V18). Cap del plan diferido hasta V20. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
-- [ ] [P0/C3] `/v1/admin/members/{id}/medical-record` (`@PreAuthorize`)
+- [x] [P0/C3] `/v1/admin/members/{id}/medical-record` (`@PreAuthorize`) _(hecho — `AdminMemberMedicalRecordController` GET/PUT/DELETE (`MEDICAL_RECORD_VIEW`/`_UPDATE`); ver [vertical-4](vertical-4-afiliados-y-familia.md))_
 - [ ] [P0/C2] `POST /v1/admin/members/{id}/upload-document`
 - [x] [P0/C3] `/v1/me/member` — self-service del afiliado logueado. `MyMemberController.GET` guardado por `MEMBER_VIEW_OWN`; resuelve via `MemberRepository.findByUserUuid` (JPQL una sola query). 404 si no enrolled. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C2] Anonimización en queries de aliados (no expone MedicalRecord)
@@ -104,17 +104,20 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P0/C3] `CommissionService` calcula al aprobar pago inicial — calc table hardcoded v1 por plan type, INSTITUCION fallback, wired en `PaymentsService.approve` best-effort. Member entity ahora mapea `promoter` + `referralCode`. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C2] `GET /v1/admin/commissions` — `AdminCommissionController` (list + single) + `CommissionsService` plural (separado del singular que owns calc). RSQL 15 fields + free-text 4 fields. Default earnedAt DESC. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C2] `POST /v1/admin/commissions/payout` cierre ciclo — period close + CSV per-promoter + email dispatch. Dry-run preview. Email failure no rollbackea. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
-- [ ] [P0/C2] `GET /v1/promoter/dashboard`
+- [x] [P0/C2] `GET /v1/promoter/dashboard` _(implementado como `GET /v1/promoter/me` — un solo endpoint self-service resuelto desde el JWT; ver [vertical-8](vertical-8-promotores-comisiones-referidos.md))_
 - [x] [P0/C3] `ReferralService` valida code + aplica descuento — 2 operaciones (registerOnEnrollment + applyRewardsTo) + discountFor pure-function. Self-ref + dedup guards + FIFO reward FIFO oldest-first. v1 hardcoded 10% USD. 14 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C2] `POST /v1/admin/referral-codes` — admin issue/regen del `members.referral_code`. Auto-gen 8-char alphabet sin 0/O/1/I/L o custom vanity con `@Pattern` UPPER_ALPHANUM_DASH; cross-table uniqueness (promoters + members); idempotent en re-issue del mismo code. 11 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 - [x] [P0/C2] `GET /v1/me/referrals` — affiliate ve sus propios referrals como referrer; paginado default 20 sort `createdAt DESC` (uniforme entre statuses, matchea índice V27); MapStruct null-safe para PENDING/EXPIRED sin referred. Mirror exacto de `MyPaymentsController`. 4 unit tests. Ver [vertical-8-promotores-comisiones-referidos.md](vertical-8-promotores-comisiones-referidos.md).
 
 ## Tarea 2.8 — Validador (CRÍTICO p95 < 200ms)
 
-- [ ] [P0/C3] `GET /v1/ally/validate/{document}`
-- [ ] [P0/C3] Cache Redis `validator:{document}` TTL 60s + invalidación al cambiar membership status
-- [ ] [P0/C2] `POST /v1/ally/benefit-usage`
-- [ ] [P0/C2] `GET /v1/ally/usage-history`
+- [x] [P0/C3] `GET /v1/ally/validate/{document}`
+- [x] [P0/C3] Cache Redis `validator:{document}` TTL 60s + invalidación al cambiar membership status
+- [x] [P0/C2] `POST /v1/ally/benefit-usage`
+- [x] [P0/C2] `GET /v1/ally/usage-history`
+
+> Hecho + mergeado. Fuente de verdad detallada: [vertical-7-validador](vertical-7-validador.md) (este archivo `fase-2` es overview desactualizado — usar los verticales).
+
 - [ ] [P0/C2] Métricas Redis contador validaciones/día
 - [ ] [P1/C2] Rate limit por aliado (1000/día default)
 - [ ] [P1/C3] `GET /v1/admin/usage-metrics`
