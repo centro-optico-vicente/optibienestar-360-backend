@@ -103,12 +103,15 @@ public class BeneficiariesService {
         // existing row instead of inserting another.
         Optional<Beneficiary> existing =
                 beneficiaryRepository.findByMemberIdAndPersonId(member.getId(), person.getId());
+
+        // A brand-new row, or the reactivation of a soft-deleted one, consumes a
+        // new active slot; an idempotent re-add of an already-active beneficiary
+        // does not — so it triggers neither the cap nor a second charge. Derive
+        // this from the existing row's state (a fresh entity defaults to active
+        // via BaseEntity, so we cannot read it off the target entity).
+        boolean consumesNewSlot = existing.map(b -> !b.isActive()).orElse(true);
         Beneficiary beneficiary = existing.orElseGet(Beneficiary::new);
 
-        // Only a beneficiary that isn't already active consumes a new slot —
-        // an idempotent re-add of an already-active row triggers neither the
-        // cap nor a second charge.
-        boolean consumesNewSlot = !beneficiary.isActive();
         long activeCount = beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId());
 
         // Hard cap (max_beneficiaries NULL = no cap, e.g. Corporativo).
