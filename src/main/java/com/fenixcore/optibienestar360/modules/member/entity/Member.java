@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.member.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Occupation;
+import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import jakarta.persistence.AttributeOverride;
@@ -96,6 +97,16 @@ public class Member extends BaseEntity {
      */
     @Column(name = "referral_code", length = 20)
     private String referralCode;
+
+    /**
+     * Corporate contract this member was enrolled under (V38), or {@code null}
+     * for ordinary Individual / Familiar affiliates. Set only through the
+     * bulk-enroll flow ({@code POST /v1/admin/corporate-contracts/{uuid}/members});
+     * drives payment billing via {@code CorporateBillingResolver}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "corporate_contract_id")
+    private CorporateContract corporateContract;
 
     // ─── Reverse sides ──────────────────────────────────────────────────────
 

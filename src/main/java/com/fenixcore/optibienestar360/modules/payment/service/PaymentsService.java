@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -98,6 +99,7 @@ public class PaymentsService {
     private final MessageSource messageSource;
     private final ValidatorCacheService validatorCacheService;
     private final CommissionService commissionService;
+    private final CorporateBillingResolver corporateBillingResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -170,6 +172,12 @@ public class PaymentsService {
 
         payment.setAdminNotes(request.adminNotes());
         payment.setStatus(PaymentStatus.PENDING.name());
+
+        // Corporate billing (V38): if the member belongs to an INSTITUTION_BULK
+        // contract, bill the payment to the contract (and default the payer to
+        // the contract's contact user when none was supplied). No-op for
+        // ordinary affiliates and INDIVIDUAL_PAYER corporate members.
+        corporateBillingResolver.applyBilling(payment);
 
         attachSupportFile(payment, supportFile);
 

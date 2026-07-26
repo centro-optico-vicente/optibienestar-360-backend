@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.member.repository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +26,12 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
 
     /** Used by the validator + the digital card flow to resolve a member from their cédula. */
     Optional<Member> findByPersonId(Long personId);
+
+    /** A corporate contract's active member portfolio (V38) — backs the list endpoint. */
+    Page<Member> findByCorporateContractIdAndActiveTrue(Long corporateContractId, Pageable pageable);
+
+    /** Live enrolled headcount for a contract — the service syncs {@code actual_member_count} to this. */
+    long countByCorporateContractIdAndActiveTrue(Long corporateContractId);
 
     /**
      * Affiliate-side referral code lookup (V27 {@code members.referral_code}).
