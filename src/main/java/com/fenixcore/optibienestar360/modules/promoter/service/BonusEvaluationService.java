@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse.RuleOutcome;
@@ -25,8 +26,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.IsoFields;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -237,36 +236,23 @@ public class BonusEvaluationService {
     // ─── Window computation ───────────────────────────────────────────────────
 
     /**
-     * Calendar bounds the rule evaluates over, containing {@code asOf}. We use
-     * fixed calendar periods (no sliding windows) so awards line up with
-     * accounting. Returns null when a CAMPAIGN has not started yet.
+     * Calendar bounds the rule evaluates over, containing {@code asOf}. The seven
+     * fixed calendar strategies delegate to the shared {@link PeriodStrategies}
+     * (no sliding windows — awards line up with accounting); LIFETIME and CAMPAIGN
+     * are bonus-specific. Returns null when a CAMPAIGN has not started yet.
      */
     private static BonusWindow windowFor(CommissionBonusRule rule, LocalDate asOf) {
-        return switch (rule.getWindowStrategy()) {
-            case LIFETIME -> new BonusWindow(LIFETIME_START, asOf);
-            case DAILY -> new BonusWindow(asOf, asOf);
-            case WEEKLY -> new BonusWindow(
-                    asOf.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)),
-                    asOf.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY)));
-            case BIWEEKLY -> asOf.getDayOfMonth() <= 15
-                    ? new BonusWindow(asOf.withDayOfMonth(1), asOf.withDayOfMonth(15))
-                    : new BonusWindow(asOf.withDayOfMonth(16), asOf.with(TemporalAdjusters.lastDayOfMonth()));
-            case MONTHLY -> new BonusWindow(
-                    asOf.withDayOfMonth(1), asOf.with(TemporalAdjusters.lastDayOfMonth()));
-            case QUARTERLY -> {
-                LocalDate start = asOf.with(IsoFields.DAY_OF_QUARTER, 1);
-                yield new BonusWindow(start, start.plusMonths(3).minusDays(1));
-            }
-            case SEMIANNUAL -> asOf.getMonthValue() <= 6
-                    ? new BonusWindow(asOf.withDayOfYear(1), LocalDate.of(asOf.getYear(), 6, 30))
-                    : new BonusWindow(LocalDate.of(asOf.getYear(), 7, 1),
-                            asOf.with(TemporalAdjusters.lastDayOfYear()));
-            case ANNUAL -> new BonusWindow(
-                    asOf.withDayOfYear(1), asOf.with(TemporalAdjusters.lastDayOfYear()));
-            case CAMPAIGN -> asOf.isBefore(rule.getCampaignStart())
+        WindowStrategy strategy = rule.getWindowStrategy();
+        if (strategy == WindowStrategy.LIFETIME) {
+            return new BonusWindow(LIFETIME_START, asOf);
+        }
+        if (strategy == WindowStrategy.CAMPAIGN) {
+            return asOf.isBefore(rule.getCampaignStart())
                     ? null
                     : new BonusWindow(rule.getCampaignStart(), rule.getCampaignEnd());
-        };
+        }
+        PeriodStrategies.Window w = PeriodStrategies.window(strategy.name(), asOf);
+        return new BonusWindow(w.start(), w.end());
     }
 
     private static RuleOutcome emptyOutcome(CommissionBonusRule rule) {
