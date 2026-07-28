@@ -1,14 +1,18 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,26 +23,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Covers the plan-type → calculation table, the promoter resolution
- * (real → INSTITUCION fallback), and the skip paths (already exists,
- * unresolvable promoter, missing plan).
+ * Tier-driven commission engine (V42). Base tiers (threshold 0) reproduce the v1
+ * per-plan rates; a volume tier is applied when the promoter's new-subscriber
+ * count meets its threshold. Also covers promoter resolution and skip paths.
  */
 @ExtendWith(MockitoExtension.class)
 class CommissionServiceTest {
 
     @Mock private CommissionRepository commissionRepository;
+    @Mock private CommissionTierRepository tierRepository;
     @Mock private PromoterRepository promoterRepository;
+    @Mock private MemberRepository memberRepository;
 
     @InjectMocks private CommissionService service;
 
@@ -51,56 +59,98 @@ class CommissionServiceTest {
         institucion = promoter("INSTITUCION", true);
     }
 
-    // ─── Plan-type calculation table ────────────────────────────────────────
+    // ─── Base tiers reproduce the v1 rates ────────────────────────────────────
 
     @Test
-    void individual_inscription_yields_20_percent() {
+    void individual_inscription_appliesBaseTier_20_percent() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(false);
-        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
-        Optional<Commission> result = service.calculateAndPersistFor(payment);
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
-        assertThat(result).isPresent();
-        Commission c = result.get();
-        assertThat(c.getAmount()).isEqualByComparingTo("2.00");  // 20% of $10
+        assertThat(c.getAmount()).isEqualByComparingTo("2.00");   // 20% of $10
         assertThat(c.getCommissionPct()).isEqualByComparingTo("20.00");
         assertThat(c.getFlatAmount()).isNull();
-        assertThat(c.getTierNameSnapshot()).isEqualTo("v1-individual-20pct");
+        assertThat(c.getTierNameSnapshot()).isEqualTo("Individual base 20%");
         assertThat(c.getAppliesTo()).isEqualTo(AppliesTo.INSCRIPTION);
         assertThat(c.getPromoter()).isEqualTo(humanPromoter);
     }
 
     @Test
-    void familiar_monthly_yields_25_percent() {
+    void familiar_monthly_appliesBaseTier_25_percent() {
         Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(false);
-        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.FAMILIAR, "25.00", null, "Familiar base 25%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
-        assertThat(c.getAmount()).isEqualByComparingTo("5.00");  // 25% of $20
+        assertThat(c.getAmount()).isEqualByComparingTo("5.00");   // 25% of $20
         assertThat(c.getCommissionPct()).isEqualByComparingTo("25.00");
-        assertThat(c.getFlatAmount()).isNull();
-        assertThat(c.getTierNameSnapshot()).isEqualTo("v1-familiar-25pct");
         assertThat(c.getAppliesTo()).isEqualTo(AppliesTo.MONTHLY);
     }
 
     @Test
-    void corporativo_yields_flat_5() {
+    void corporativo_appliesBaseTier_flat_5() {
         Payment payment = paymentFor(PlanType.CORPORATIVO, new BigDecimal("500.00"), false);
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(false);
-        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.CORPORATIVO), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.CORPORATIVO, null, "5.00", "Corporativo base $5")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
-        assertThat(c.getAmount()).isEqualByComparingTo("5.00");  // flat, regardless of basis
+        assertThat(c.getAmount()).isEqualByComparingTo("5.00");   // flat, regardless of basis
         assertThat(c.getCommissionPct()).isNull();
         assertThat(c.getFlatAmount()).isEqualByComparingTo("5.00");
-        assertThat(c.getTierNameSnapshot()).isEqualTo("v1-corporativo-5flat");
+    }
+
+    // ─── Volume tier ──────────────────────────────────────────────────────────
+
+    @Test
+    void volumeTier_appliedWhenThresholdMet() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        stubExistsFalseAndSave();
+        // Candidates highest-threshold first: a volume tier (10 → 30%) then the base (0 → 20%).
+        CommissionTier volume = tier(PlanType.INDIVIDUAL, "30.00", null, 10, "Volume 10+ 30%");
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+                .thenReturn(List.of(volume, baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+        when(memberRepository.countNewSubscribersForPromoter(eq(humanPromoter.getId()), any(), any()))
+                .thenReturn(15L);   // ≥ 10 → qualifies for the volume tier
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getAmount()).isEqualByComparingTo("3.00");   // 30% of $10
+        assertThat(c.getTierNameSnapshot()).isEqualTo("Volume 10+ 30%");
+    }
+
+    @Test
+    void volumeTier_skippedWhenThresholdNotMet_fallsToBase() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        stubExistsFalseAndSave();
+        CommissionTier volume = tier(PlanType.INDIVIDUAL, "30.00", null, 10, "Volume 10+ 30%");
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+                .thenReturn(List.of(volume, baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+        when(memberRepository.countNewSubscribersForPromoter(eq(humanPromoter.getId()), any(), any()))
+                .thenReturn(3L);    // < 10 → base tier wins
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getAmount()).isEqualByComparingTo("2.00");   // base 20%
+        assertThat(c.getTierNameSnapshot()).isEqualTo("Individual base 20%");
+    }
+
+    @Test
+    void noApplicableTier_skipsSilently() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong())).thenReturn(false);
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any())).thenReturn(List.of());
+
+        Optional<Commission> result = service.calculateAndPersistFor(payment);
+
+        assertThat(result).isEmpty();
+        verify(commissionRepository, never()).save(any());
     }
 
     // ─── Promoter resolution ────────────────────────────────────────────────
@@ -108,12 +158,11 @@ class CommissionServiceTest {
     @Test
     void member_without_promoter_falls_back_to_institucion() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
-        payment.getMembership().getMember().setPromoter(null);  // no direct promoter
-        when(promoterRepository.findByReferralCode("INSTITUCION"))
-                .thenReturn(Optional.of(institucion));
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(false);
-        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        payment.getMembership().getMember().setPromoter(null);
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
@@ -125,45 +174,36 @@ class CommissionServiceTest {
     void no_promoter_and_no_institucion_seed_skips_silently() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         payment.getMembership().getMember().setPromoter(null);
-        when(promoterRepository.findByReferralCode("INSTITUCION"))
-                .thenReturn(Optional.empty());
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.empty());
 
-        Optional<Commission> result = service.calculateAndPersistFor(payment);
-
-        assertThat(result).isEmpty();
+        assertThat(service.calculateAndPersistFor(payment)).isEmpty();
         verify(commissionRepository, never()).save(any());
     }
 
     @Test
     void inactive_direct_promoter_falls_back_to_institucion() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
-        humanPromoter.setActive(false);  // direct promoter soft-deleted
-        when(promoterRepository.findByReferralCode("INSTITUCION"))
-                .thenReturn(Optional.of(institucion));
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(false);
-        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        humanPromoter.setActive(false);
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
         assertThat(c.getPromoter()).isEqualTo(institucion);
     }
 
-    // ─── Idempotency ────────────────────────────────────────────────────────
+    // ─── Idempotency + defensive paths ────────────────────────────────────────
 
     @Test
     void already_existing_commission_skips_without_creating_another() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
-        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong()))
-                .thenReturn(true);
+        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong())).thenReturn(true);
 
-        Optional<Commission> result = service.calculateAndPersistFor(payment);
-
-        assertThat(result).isEmpty();
+        assertThat(service.calculateAndPersistFor(payment)).isEmpty();
         verify(commissionRepository, never()).save(any());
     }
-
-    // ─── Defensive paths ────────────────────────────────────────────────────
 
     @Test
     void null_payment_returns_empty() {
@@ -173,15 +213,37 @@ class CommissionServiceTest {
     @Test
     void payment_without_plan_type_skips() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
-        payment.getMembership().getPlan().setType(null);  // type missing
+        payment.getMembership().getPlan().setType(null);
+        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong())).thenReturn(false);
 
-        Optional<Commission> result = service.calculateAndPersistFor(payment);
-
-        assertThat(result).isEmpty();
+        assertThat(service.calculateAndPersistFor(payment)).isEmpty();
         verify(commissionRepository, never()).save(any());
     }
 
     // ─── helpers ────────────────────────────────────────────────────────────
+
+    private void stubExistsFalseAndSave() {
+        when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong())).thenReturn(false);
+        when(commissionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+    }
+
+    private static CommissionTier baseTier(PlanType planType, String pct, String flat, String name) {
+        return tier(planType, pct, flat, 0, name);
+    }
+
+    private static CommissionTier tier(PlanType planType, String pct, String flat, int threshold, String name) {
+        CommissionTier t = new CommissionTier();
+        t.setId((long) name.hashCode());
+        t.setUuid(UUID.randomUUID());
+        t.setName(name);
+        t.setPlanType(planType);
+        t.setThresholdCount(threshold);
+        t.setCommissionPct(pct != null ? new BigDecimal(pct) : null);
+        t.setFlatAmount(flat != null ? new BigDecimal(flat) : null);
+        t.setPeriodStrategy(PeriodStrategy.MONTHLY);
+        t.setAppliesTo(CommissionTier.AppliesTo.BOTH);
+        return t;
+    }
 
     private Payment paymentFor(PlanType planType, BigDecimal amount, boolean inscription) {
         Plan plan = new Plan();

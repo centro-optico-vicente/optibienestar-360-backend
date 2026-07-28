@@ -91,6 +91,21 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
                                                             @Param("includeSystem") boolean includeSystem);
 
     /**
+     * Commission-tier engine: how many new subscribers a single promoter enrolled
+     * within a period ({@code enrolled_at} inclusive). Drives tier qualification
+     * (threshold_count) when an approved payment is attributed.
+     */
+    @Query("""
+            SELECT COUNT(m) FROM Member m
+            WHERE m.active = true
+              AND m.promoter.id = :promoterId
+              AND m.enrolledAt BETWEEN :start AND :end
+            """)
+    long countNewSubscribersForPromoter(@Param("promoterId") Long promoterId,
+                                        @Param("start") LocalDate start,
+                                        @Param("end") LocalDate end);
+
+    /**
      * Bonus-engine metric: active subscribers per promoter — members whose
      * currently-active membership is in status ACTIVE. The V21 partial UNIQUE
      * (one active membership per member) keeps the DISTINCT count exact.
