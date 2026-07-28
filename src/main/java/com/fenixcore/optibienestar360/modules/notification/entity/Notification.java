@@ -50,7 +50,7 @@ public class Notification extends BaseEntity {
 
     // ─── Recipient (snapshot) ────────────────────────────────────────────────
 
-    @Column(name = "recipient_email", nullable = false)
+    @Column(name = "recipient_email", nullable = false, columnDefinition = "citext")
     private String recipientEmail;
 
     @Column(name = "recipient_user_id")
