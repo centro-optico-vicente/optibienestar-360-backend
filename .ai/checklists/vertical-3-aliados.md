@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 23 | 22 | 1 | 96% | 🟡 |
+| 30 | 22 | 8 | 73% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -52,3 +52,20 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 ### Permisos (V6 ampliación o nueva migración)
 
 - [x] [v2] [P0/C1] Permiso `ALLY_SERVICE_APPROVE` (asignado a ADMINISTRADOR + SYSTEM). _(Seed en V11 vía `INSERT INTO permissions` + `role_permissions` join — usa el `permission_domains.code='ALLIES'` ya existente del V5 seed. Asignado solo a SYSTEM + ADMINISTRADOR; el aliado nunca aprueba sus propios servicios.)_
+
+## Adicionales v3 — Fidelidad y cortesías de aliados
+
+> Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) (ítems D1/D2) + [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) §5. Premio parametrizable en **voucher canjeable**; cortesía validable por el validador (vertical-7). Reusa el ledger `benefit_usages` (V24).
+
+### Ítem D1 — Fidelidad por consumo/compras (voucher parametrizable)
+
+- [ ] [v3] [P1/C2] Extender `benefit_usages` (V24): `consumption_amount` NUMERIC(10,2) NULL + `consumption_currency` — snapshot del valor de consumo/compra al registrar el uso (hoy solo `copay_amount`). Habilita "por cada $100 de consumo". _(Los usos previos a la migración no tendrán monto — solo cuentan para PURCHASE_COUNT.)_
+- [ ] [v3] [P1/C2] Agregaciones en `BenefitUsageRepository`: `SUM(consumption_amount)` y `COUNT(*)` por `(membership, ally, período)`. Base para los umbrales de fidelidad. _(Hoy solo hay queries de historial paginado, sin SUM/COUNT.)_
+- [ ] [v3] [P1/C3] Tabla `ally_loyalty_programs` (migración V44+): `uuid`, `ally_id` FK NULL (=global), `metric` ('CONSUMPTION_AMOUNT'/'PURCHASE_COUNT'), `threshold` NUMERIC ($100 / 50 compras), `period_strategy`, `reward_type` ('FREE_SERVICE'/'DISCOUNT'/'BENEFIT' — parametrizable), `reward_value` (ref a servicio / % / descripción), `active`. Premio parametrizable por programa. CRUD admin (`ALLY_LOYALTY_MANAGE`).
+- [ ] [v3] [P1/C3] Ledger `loyalty_vouchers` (migración V44+): al cruzar el umbral en el período (PER_BLOCK, patrón motor V37) se emite un voucher canjeable con el premio snapshoteado inline; lifecycle (PENDING/REDEEMED/EXPIRED); idempotente por `(membership, program, período, bloque)`. El canje se registra en `benefit_usages` y lo reconoce el validador (ver [vertical-7](vertical-7-validador.md)). `GET /v1/me/loyalty-vouchers` (`LOYALTY_VIEW_OWN`).
+- [ ] [v3] [P1/C2] Evaluador `AllyLoyaltyEvaluationService` + runner programado (`scheduled_jobs`, cron mensual `America/Caracas`): cuenta consumo/compras por afiliado-período y emite vouchers; dispara también la rama de cortesía por consumo (D2). _(Espeja `BonusEvaluationService`/`LeaderboardPrizeJobRunner`.)_
+
+### Ítem D2 — Cortesía de aliado (regalo validable)
+
+- [ ] [v3] [P1/C2] Tabla `ally_courtesy_grants` (migración V44+): el aliado regala una cortesía (p. ej. 1ª consulta gratis) a **1 persona** de una membresía; `uuid`, `ally_id` FK, `membership_id` FK, `beneficiary_id` FK NULL, `service_ref`, `reason`, `granted_by` FK, lifecycle (PENDING/REDEEMED/EXPIRED). El validador la reconoce **una sola vez** (ver [vertical-7](vertical-7-validador.md)). También emitible automáticamente por umbral de consumo del período (comparte evaluador con D1). `POST /v1/aliado/courtesy-grants` (`ALLY_COURTESY_GRANT`). _(Decisión Q3: cortesía validable, disparable por período. TBD: ¿titular o cualquier beneficiario? — ver scope-additions-v3.)_
+- [ ] [v3] [P0/C1] Permisos v3 (dominio a definir, patrón V22/V28): `ALLY_LOYALTY_MANAGE` (admin config de programas), `ALLY_COURTESY_GRANT` (aliado otorga cortesía), `LOYALTY_VIEW_OWN` (afiliado ve sus vouchers). _(Nombres exactos = TBD, ver scope-additions-v3.)_

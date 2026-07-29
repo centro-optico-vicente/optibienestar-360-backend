@@ -54,15 +54,15 @@
 |---|---|---|---|---|---|---|---|
 | 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 44 | 43 | 1 | 98% | 🟡 hardening/tests |
 | 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 9 | 0 | 100% | ✅ Completa |
-| 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 23 | 22 | 1 | 96% | 🟡 |
+| 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 30 | 22 | 8 | 73% | 🟡 |
 | 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 26 | 20 | 6 | 77% | 🟠 |
 | 5 | Planes y Membresías | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 33 | 28 | 5 | 85% | 🟡 |
 | 6 | Pagos manuales | [vertical-6](checklists/vertical-6-pagos-manuales.md) | 10 | 10 | 0 | 100% | ✅ Completa |
-| 7 | Validador | [vertical-7](checklists/vertical-7-validador.md) | 9 | 6 | 3 | 67% | 🟡 |
-| 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 66 | 42 | 24 | 64% | 🟡 |
+| 7 | Validador | [vertical-7](checklists/vertical-7-validador.md) | 10 | 6 | 4 | 60% | 🟡 |
+| 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 78 | 42 | 36 | 54% | 🟡 |
 | 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 10 | 10 | 0 | 100% | ✅ Completa |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 37 | 1 | 36 | 3% | 🔴 |
-| **TOTAL Fase 2** | | | **267** | **191** | **76** | **72%** | 🟡 |
+| **TOTAL Fase 2** | | | **287** | **191** | **96** | **67%** | 🟡 |
 
 > **% avance** = round(100 × hechas / tareas), redondeado al entero más cercano, contando checkboxes `- [ ]` / `- [x]` en cada archivo vertical (el método de "Conteo rápido" abajo). Cada archivo repite su fila como tabla de totales al inicio. Bandas del estado: ✅ 100% · 🟡 50–99% · 🟠 10–49% · 🔴 <10%.
 > Los conteos previos estaban desactualizados (marcaban 0 hechas en verticales ya construidos) y usaban una granularidad de tarea distinta a la de los archivos; esta tabla se recalculó desde los checkboxes reales.
@@ -74,7 +74,7 @@
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|---|---|---|
 | 11 | Internacionalización (i18n) — `es` + `en`, locale híbrido (JWT > header > es-VE) | [vertical-11](checklists/vertical-11-i18n.md) | 42 | 42 | 0 | 100% | ✅ Completa |
-| 12 | **[v2]** Subsidios y Exoneraciones | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | 20 | 19 | 1 | 95% | 🟡 |
+| 12 | **[v2]** Subsidios y Exoneraciones | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) | 21 | 19 | 2 | 90% | 🟡 |
 
 ---
 
@@ -105,6 +105,12 @@ Cada alcance entrega migraciones Flyway + entidades JPA + servicios + endpoints 
 > **Convención:** los ítems v2 dentro de cada vertical están marcados con tag `[v2]` y agrupados en una sección "Adicionales v2" al final del archivo. Vertical-12 es íntegramente v2 (nuevo).
 >
 > Verticales afectados por v2 sin cambiar su numeración: 3, 4, 5, 8. Vertical nuevo: 12. Versionado escalable — futuras v3 usarán `[v3]` y `scope-additions-v3.md`.
+
+## Adicionales v3
+
+> Motor de incentivos (mesa técnica jul 2026): comisiones escaladas + bono por escala, comisión de cobranza por días, referido-prosumidor (saltar mensualidad) y fidelidad de aliados. Decisión congelada: [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md). Mapa de trazabilidad: [`scope-additions-v3.md`](scope-additions-v3.md).
+>
+> **Convención:** ítems marcados `[v3]` y agrupados en una sección "Adicionales v3" al final del vertical. **Sin vertical nuevo** (decisión del dueño) — los ítems viven embebidos en verticales existentes: **8** (comisiones A/B + referido C), **3** (fidelidad de aliados D), con notas cruzadas en **12** (subsidio destino del referido) y **7** (validador canjea vouchers/cortesías). Buena parte concreta la visión v2 (#2 referidos, #5 comisiones). Los conteos de esos verticales ya incluyen los ítems `[v3]` en la tabla de arriba.
 
 ---
 

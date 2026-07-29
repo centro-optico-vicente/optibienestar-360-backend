@@ -17,7 +17,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 20 | 19 | 1 | 95% | 🟡 |
+| 21 | 19 | 2 | 90% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -60,6 +60,12 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 - [x] [v2] [P0/C1] **TBD:** ¿parciales (X% off) o solo 100%? _(Resuelto por el diseño: `monthly_percentage`/`inscription_percentage` soportan 0–100 → ambos casos.)_
 - [ ] [v2] [P0/C1] **TBD:** ¿se notifica al titular cuando se le otorga/revoca un subsidio? (email/in-app). _(Follow-up: `NotificationService` ya existe (vertical-9) — falta encolar `subsidy-granted`/`subsidy-revoked`.)_
+
+## Adicionales v3 — Subsidio como destino del auto-otorgamiento por referidos
+
+> Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) (ítem C) + [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) §4.
+
+- [ ] [v3] [P1/C1] El subsidio de mensualidad es el **destino del auto-otorgamiento por referidos** (puente C, ver [vertical-8](vertical-8-promotores-comisiones-referidos.md)): `ReferralRewardJobRunner` inserta `subsidies` (`monthly_percentage=100`, `valid_from`=próximo ciclo, ventana = meses ganados por `blocks × months_per_block`) sin intervención manual, reusando el motor V41 **sin cambios de schema**. El motor de solvencia (`MembershipStatusService`) ya honra el subsidio 100% como ACTIVE sin pago. Idempotente por `(member, período)`. _(No acumulable: el conteo de referidos resetea por mes.)_
 
 ## Cambios asociados en otros verticals
 
