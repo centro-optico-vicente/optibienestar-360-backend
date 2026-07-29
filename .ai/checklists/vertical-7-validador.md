@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 9 | 6 | 3 | 67% | 🟡 |
+| 10 | 6 | 4 | 60% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -25,3 +25,9 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [P0/C2] Métricas Redis: contador validaciones/día por aliado
 - [ ] [P1/C2] Rate limit por aliado (1 000 validaciones/día default)
 - [ ] [P1/C3] `GET /v1/admin/usage-metrics`
+
+## Adicionales v3 — Canje de vouchers de fidelidad y cortesías
+
+> Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) (ítems D1/D2) + [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) §5.
+
+- [ ] [v3] [P1/C2] El validador reconoce **vouchers de fidelidad** y **cortesías de aliado** (ver [vertical-3](vertical-3-aliados.md)): al validar, expone/consume el voucher o cortesía vigente del afiliado para ese aliado/servicio (una sola vez para la cortesía); el canje se registra en `benefit_usages` (con `consumption_amount` snapshot). _(Reusa el validador V-7 + ledger V24; el canje es el evento que también alimenta el conteo de fidelidad.)_

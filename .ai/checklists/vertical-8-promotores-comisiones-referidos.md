@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 66 | 42 | 24 | 64% | 🟡 |
+| 78 | 42 | 36 | 54% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -34,6 +34,8 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 > Ver [`../scope-additions-v2.md`](../scope-additions-v2.md) (ítems PDF #2, #4, #5).
 
 ### Ítem PDF #2 — Manejo de Descuentos por Referidos (con metas)
+
+> **⚠️ Superseded parcialmente por v3 (Ítem C, más abajo).** El diseño de recompensa por referido se concreta en v3 como **salto de mensualidad** (subsidio `monthly_percentage=100`, reusa V41) en lugar del reward "10% off 1 pago FIFO". La tabla `referral_reward_programs` (v3) refina este `referral_programs`. Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) § Ítem C y [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) §4.
 
 - [ ] [v2] [P0/C3] Tabla `referral_programs`: `uuid`, `name`, `goal_count` INT (cantidad de referidos para canjear, default 10), `expiration_strategy` ENUM ('EXPIRES','ACCUMULATES'), `expires_after_days` INT NULL (solo si EXPIRES), `active` bool. Metas configurables por programa, no hardcoded a 10.
 - [ ] [v2] [P0/C3] Tabla `referral_rewards`: `uuid`, `referral_program_id` FK, `referrer_user_id` FK, `goal_reached_at`, `claimed_at` NULL, `expires_at` NULL (solo EXPIRES), `reward_type` ENUM ('DISCOUNT_PCT','EXONERATION_MONTH','FREE_CONSULTATION', otros — extensible), `reward_value`, `claimed_payment_id` FK NULL.
@@ -87,6 +89,31 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [v2] [P0/C2] `POST /v1/admin/bonus-rules/evaluate` — disparo manual del motor (con `dryRun` para previsualizar sin persistir). `AdminBonusRuleController` + IT `AdminBonusRuleControllerIT` (7 — authz CRUD + evaluate).
 - [x] [v2] [P0/C2] `BonusAwardsService` + `GET /v1/admin/bonus-awards` (cola admin RSQL, `BONUS_AWARD_VIEW_ALL`) + `GET /v1/promoter/me/bonuses` (self-service, `BONUS_VIEW_OWN`, 404 si no es promotor). IT `PromoterBonusesControllerIT` (4 — authz + 200 + 404).
 - [x] [v2] [P0/C2] `BonusEvaluationJobRunner` (motor **automatizado**) — runner programado `BONUS_EVALUATION`, seed en `scheduled_jobs` (cron mensual `0 0 4 1 * *` America/Caracas, tras el barrido de estatus) → evalúa y otorga sin request; idempotente en re-run.
+
+## Adicionales v3 — Escala de comisión, cobranza por días y referido-prosumidor
+
+> Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) (ítems A/B/C) + [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md). Concreta la visión v2 (#2 referidos, #5 comisiones) con los números reales del negocio y agrega la comisión de cobranza.
+
+### Ítem A — Escala de comisión por inscripción (retroactiva) + bono por escala
+
+- [ ] [v3] [P1/C2] Re-seed `commission_tiers` con la escala por conteo mensual de inscripciones: bandas `threshold_count` 0/41/61/76/101 → `commission_pct` 25/30/35/35/35, `applies_to=INSCRIPTION`, `period_strategy=MONTHLY`, `plan_type=NULL` (todos). Reemplaza los tiers base plan-scoped (INDIVIDUAL 20 / FAMILIAR 25). Base de cálculo = inscripción real ($25–$35 según beneficiarios, ya en `BeneficiariesService`). _(Reusa el motor tier-driven V42; solo cambia el seed. Tabla del negocio: 40→25%, 41-60→30%, 61+→35%.)_
+- [ ] [v3] [P1/C3] Re-rating retroactivo al cierre de mes: `CommissionService`/runner de cierre recalcula TODAS las comisiones `INSCRIPTION` **PENDING** del período a la banda más alta alcanzada (mínimo de la escala), para que 60 inscripciones cobren 60×30% (=$450) y no un mix progresivo. Interinamente PENDING a la banda vigente; se finalizan al cierre. **Solo re-ratea PENDING, no PAID.** _(Cambia el timing actual per-pago a liquidación de período. TBD: ¿tocar PAID? default no — ver scope-additions-v3.)_
+- [ ] [v3] [P1/C2] Contar nuevos suscriptores por inscripción **confirmada** (pago aprobado), no por `Member.enrolled_at`: ajustar `MemberRepository.countNewSubscribersForPromoter` (hoy cuenta `enrolled_at`) a contar inscripciones con `payment` aprobado en la ventana. _(Corrección de definición: el esquema dice "confirmados en el periodo del mes".)_
+- [ ] [v3] [P1/C2] Seed de 4 reglas `commission_bonus_rules` (motor V37): `accrual=THRESHOLD`, `metric=NEW_SUBSCRIBERS`, `window_strategy=MONTHLY`, `reward_type=FLAT` en `threshold_count` 41/61/76/101 → $100/$100/$150/$300. El motor ya las **suma** (stack aditivo intra-mes) y resetea por ventana mensual → 120 inscripciones = $650 de bono. **Sin cambio de motor.** _(Confirma la tabla: 75→$856.25 = 75×$8.75 + $100 + $100.)_
+
+### Ítem B — Comisión de cobranza con % decreciente por días
+
+- [ ] [v3] [P1/C3] Tabla `collection_commission_tiers` (migración V43+): `uuid`, `name`, `max_days` INT, `commission_pct` NUMERIC(5,2), `is_active`, audit BaseEntity. Se aplica el bucket de menor `max_days ≥` los días-hasta-cobrar. Seed: 5→35%, 10→30%, 15→25%, 20→20%, 25→15%, 9999→10%. CRUD admin (reusa `COMMISSION_TIER_MANAGE`). _(Comisión sobre la mensualidad de $5: 1-5 días → 35% = $1.75, 30+ días → 10% = $0.50.)_
+- [ ] [v3] [P1/C2] Columna `memberships.billing_start_day` SMALLINT NULL (1–28, CHECK) — día de corte de cobro configurable; default = día de `enrolled_at`. Permite "inscrito el 3, cobro desde el 1" para facilitar la gestión al asesor. _(Ancla del cálculo de días.)_
+- [ ] [v3] [P1/C3] Comisión de cobranza en `CommissionService`: al aprobar un pago MONTHLY, `días = max(0, payment.paymentDate − fecha_cobro_programada_del_período)`; selecciona el tier por `max_days`; monto = `pct × monthlyFee`. Reemplaza el % plano MONTHLY para comisiones de cobranza. Snapshot en `commissions`: nuevas columnas `collection_days` INT NULL + `collection_tier_id` BIGINT FK NULL. _(Reusa `Membership.nextDueDate`/`Payment.paymentDate`.)_
+
+### Ítem C — Referido-prosumidor → subsidio de mensualidad
+
+- [ ] [v3] [P0/C2] Despertar el motor de referidos (hoy dormido): cablear `ReferralService.registerOnEnrollment` en el alta de Member y auto-emitir `members.referral_code` al afiliar (hoy solo se emite on-demand vía `ReferralCodeService`). _(V27 ya tiene el schema/engine; `registerOnEnrollment`/`applyRewardsTo` nunca se invocan — verificado.)_
+- [ ] [v3] [P0/C3] Tabla `referral_reward_programs` (migración V43+, **refina/supersede** el ítem `[v2]` `referral_programs`): `uuid`, `name`, `goal_count` INT (default 3), `months_per_block` INT (default 1), `expiration_strategy` ('EXPIRES' = no acumulable, reset mensual), `period_strategy` (MONTHLY), `active`. Modelo PER_BLOCK ⇒ 9 referidos = 3 meses. _(Concreta la visión v2 con los números del negocio: 3→1 mes.)_
+- [ ] [v3] [P0/C2] `ReferralRepository.countReferralsByReferrerInPeriod(referrerId, start, end)` — conteo mensual de referidos confirmados (status REGISTERED) por afiliado. Reset por ventana calendario (no acumulable entre meses). _(Reusa `PeriodStrategies.MONTHLY`.)_
+- [ ] [v3] [P0/C3] `ReferralRewardJobRunner` (runner programado + fila en `scheduled_jobs`, cron mensual `America/Caracas`): por afiliado cuenta referidos del mes → `blocks = count / goal_count` → auto-inserta un `subsidies` (`monthly_percentage=100`, `valid_from`=próximo ciclo, ventana = `blocks × months_per_block` meses) vía el motor V41 (`MembershipStatusService` ya lo honra: ACTIVE sin pago). Idempotente por `(member, período)`. Notifica al afiliado (`NotificationService`). _(Puente referidos→subsidios; ver [vertical-12](vertical-12-subsidios-y-exoneraciones.md).)_
+- [ ] [v3] [P1/C1] Deprecar el reward dormido "10% off 1 pago FIFO" (`ReferralService.applyRewardsTo`) a favor del salto de mensualidad, o mantenerlo como `reward_type` alterno del programa (decisión ADR 0013 §4). Los 7 ítems `[v2]` de `referral_programs`/`referral_rewards` de arriba quedan superseded por este bloque. _(No duplicar: un solo modelo de recompensa por referido.)_
 
 ## Pendientes de análisis / Decisiones diferidas
 
