@@ -80,10 +80,27 @@ jobs:
       # build/libs/ on the runner and is fed to the `from-prebuilt` stage via a
       # build-context — no cross-job artifact upload (avoids GitHub artifact-storage
       # quota on private repos). Both images build, none are pushed.
+      # Gated on actual Dockerfile/docker-context changes (not on event type):
+      # a push straight to main that touches docker/** or .dockerignore still
+      # gets validated even without going through a PR, while unrelated
+      # code-only changes skip the redundant rebuild. .dockerignore is tracked
+      # separately because it lives at the repo root, outside docker/**, but
+      # still changes what enters the build context.
+      - name: Check for Docker context changes
+        id: docker-changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docker:
+              - 'docker/**'
+              - '.dockerignore'
+
       - name: Set up Docker Buildx
+        if: steps.docker-changes.outputs.docker == 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Validate Alpine image (build, no push)
+        if: steps.docker-changes.outputs.docker == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -94,9 +111,10 @@ jobs:
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=docker-alpine
-          cache-to: type=gha,mode=max,scope=docker-alpine
+          cache-to: type=gha,mode=min,scope=docker-alpine
 
       - name: Validate Debian image (build, no push)
+        if: steps.docker-changes.outputs.docker == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -107,4 +125,4 @@ jobs:
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=docker-debian
-          cache-to: type=gha,mode=max,scope=docker-debian
+          cache-to: type=gha,mode=min,scope=docker-debian
