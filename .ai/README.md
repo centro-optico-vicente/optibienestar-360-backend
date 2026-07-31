@@ -6,13 +6,15 @@ Esta carpeta contiene la documentación específica del repo `optibienestar-360-
 
 ```
 .ai/
-├── CLAUDE.md          ← Brief de entrada
-├── README.md          ← Este archivo
-├── checklist.md       ← Subset backend del checklist maestro
-├── skills.md          ← Skills externos recomendados
+├── CLAUDE.md              ← Brief de entrada (navegación e índice viven ahí)
+├── README.md              ← Este archivo (solo estructura)
+├── checklist.md           ← Checklist maestro backend
+├── skills.md              ← Skills externos recomendados
+├── scope-additions-v2.md  ← Alcance adicional v2
+├── scope-additions-v3.md  ← Alcance adicional v3
 │
 ├── context/
-│   ├── MEMORY.md      ← Índice navegable
+│   ├── MEMORY.md          ← Índice navegable
 │   ├── current-state.md
 │   └── api-conventions.md
 │
@@ -30,31 +32,27 @@ Esta carpeta contiene la documentación específica del repo `optibienestar-360-
 │   ├── 10-validators.md
 │   ├── 11-billing-manual.md
 │   ├── 12-commissions.md
-│   └── 13-observability.md
+│   ├── 13-observability.md
+│   ├── 14-i18n.md
+│   └── 15-reporting-documents.md
 │
-├── decisions/         ← ADRs locales backend-only
+├── decisions/              ← ADRs locales backend-only
 │   └── 0001..N-*.md
 │
-└── playbooks/         ← Checklists tareas recurrentes
-    ├── new-entity.md
-    ├── new-migration.md
-    ├── new-endpoint.md
-    └── new-role.md
+├── checklists/              ← Checklists por vertical/fase
+│   └── vertical-*.md, fase-*.md
+│
+├── playbooks/               ← Guías tareas recurrentes
+│   ├── new-entity.md
+│   ├── new-migration.md
+│   ├── new-endpoint.md
+│   ├── new-role.md
+│   └── edit-role-permissions.md
+│
+└── tools/                   ← Scripts de soporte (ej. insert-totals.mjs)
 ```
 
-## Cómo navegarla
-
-| Cuando necesites… | Ve a |
-|---|---|
-| Onboarding rápido | [`CLAUDE.md`](CLAUDE.md) |
-| Qué hacer hoy | [`checklist.md`](checklist.md) |
-| Cómo está estructurado el código | [`specs/01-package-structure.md`](specs/01-package-structure.md) |
-| Schema DB completo | [`specs/02-database.md`](specs/02-database.md) |
-| Convenciones REST | [`specs/06-rest-api.md`](specs/06-rest-api.md) |
-| Crear entidad/migración/endpoint | [`playbooks/`](playbooks/) |
-| ADRs locales backend | [`decisions/`](decisions/) |
-| ADRs cross-stack | [`../../centro-optico-vicente/.ai/decisions/`](../../centro-optico-vicente/.ai/decisions/) |
-| Reglas de negocio | [`../../centro-optico-vicente/.ai/context/business-rules.md`](../../centro-optico-vicente/.ai/context/business-rules.md) |
+Para navegación por tarea ("qué archivo necesito para X"), ver la tabla en [`CLAUDE.md`](CLAUDE.md) — es la única fuente de esa tabla, no se duplica aquí.
 
 ## Cómo contribuir
 

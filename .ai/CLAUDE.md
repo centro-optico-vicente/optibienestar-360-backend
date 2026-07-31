@@ -8,11 +8,7 @@ Backend REST API del ecosistema OptiBienestar 360. Implementa lógica de negocio
 
 ## Stack confirmado
 
-Ver `CLAUDE.md` root del repo. Resumen:
-- Spring Boot 4 + Java 25 + PostgreSQL + Redis + R2
-- JWT self-hosted
-- Flyway + JPA validate
-- RSQL para filtros, MapStruct para DTOs, Jetty embebido
+Ver `CLAUDE.md` root del repo.
 
 ## Estructura de paquetes (objetivo)
 
