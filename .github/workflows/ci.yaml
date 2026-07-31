@@ -94,9 +94,17 @@ jobs:
             docker:
               - 'docker/**'
               - '.dockerignore'
+            build-config:
+              - 'build.gradle'
+              - 'build.gradle.kts'
+              - 'settings.gradle'
+              - 'settings.gradle.kts'
+              - 'gradle/**'
+              - 'gradlew'
+              - 'gradlew.bat'
 
       - name: Set up Docker Buildx
-        if: steps.docker-changes.outputs.docker == 'true'
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Validate Alpine image (build, no push)
@@ -126,3 +134,36 @@ jobs:
           push: false
           cache-from: type=gha,scope=docker-debian
           cache-to: type=gha,mode=min,scope=docker-debian
+
+      # `runtime` is the stage publish.yaml actually builds and pushes on release
+      # (it compiles from source inside the image, no prebuilt JAR). ci.yaml's
+      # steps above only ever exercised `from-prebuilt`, so a break in the
+      # from-source compile path went undetected until release time — the worst
+      # place to find out, since a release is already tagged and published by
+      # then. Gated on `docker` (Dockerfile/context changed) OR `build-config`
+      # (Gradle files changed) since either can break an in-container source
+      # build. No prebuilt JAR is fed in — this genuinely compiles from source,
+      # same as the release build.
+      - name: Validate Alpine image (runtime build, no push)
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docker/alpine.Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=docker-alpine-runtime
+          cache-to: type=gha,mode=min,scope=docker-alpine-runtime
+
+      - name: Validate Debian image (runtime build, no push)
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docker/debian.Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=docker-debian-runtime
+          cache-to: type=gha,mode=min,scope=docker-debian-runtime
