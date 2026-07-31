@@ -23,6 +23,12 @@ jobs:
     name: Build, Test & Validate Dockerfiles
     runs-on: ubuntu-latest
 
+    # This service used to be dead weight: every *IT/*Test class forces
+    # @ActiveProfiles("test") (H2, Flyway disabled), which overrides the "dev"
+    # profile set below and never touched this container. It's now exercised by
+    # FlywayMigrationIT (src/test/java/.../FlywayMigrationIT.java), the one test
+    # that runs under @ActiveProfiles("dev") to actually apply the Flyway
+    # migrations in src/main/resources/db/migration/** against real Postgres.
     services:
       postgres:
         image: postgres:15-alpine
@@ -37,6 +43,25 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    # --- (kept as reference only, not used) ---------------------------
+    # A lighter-weight alternative to FlywayMigrationIT: validate the migration
+    # SQL directly with the Flyway CLI against the `postgres` service above,
+    # without booting the full Spring context. Faster, and fully decoupled from
+    # JPA — but it only proves the SQL applies; it does NOT catch a mismatch
+    # between the resulting schema and the JPA entities, which FlywayMigrationIT
+    # does by loading the real ApplicationContext on top of it.
+    #
+    # - name: Validate Flyway migrations (CLI only, no Spring context)
+    #   run: |
+    #     curl -sSL https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/10.15.0/flyway-commandline-10.15.0-linux-x64.tar.gz \
+    #       | tar xz
+    #     ./flyway-10.15.0/flyway \
+    #       -url=jdbc:postgresql://localhost:5432/optibienestar360_test \
+    #       -user=postgres -password=postgres \
+    #       -locations=filesystem:./src/main/resources/db/migration \
+    #       migrate
+    # -----------------------------------------------------------------------------
 
     steps:
       - name: Check out the repo
@@ -59,6 +84,13 @@ jobs:
           DATABASE_SSL_MODE: disable
           DATABASE_USER: postgres
           DATABASE_PASSWORD: postgres
+          # Flyway migrates using its own credentials (application.properties:72-73),
+          # separate from the app datasource above. Default is postgres/changeme-dev;
+          # the services.postgres container below is seeded with password "postgres",
+          # so this must be overridden or FlywayMigrationIT fails on auth, not on an
+          # actual migration bug.
+          DATABASE_MIGRATION_USER: postgres
+          DATABASE_MIGRATION_PASSWORD: postgres
 
       - name: Upload test reports
         if: failure()
