@@ -1,5 +1,14 @@
 name: CI — Build & Test
 
+# dorny/paths-filter needs this: actions/checkout here uses the default
+# fetch-depth: 1, so it can't diff against the PR base locally and falls back
+# to the GitHub API's listFiles endpoint, which needs pull-requests: read.
+# Without it, the "Check for Docker context changes" step fails with
+# "Resource not accessible by integration".
+permissions:
+  contents: read
+  pull-requests: read
+
 on:
   push:
     branches:
