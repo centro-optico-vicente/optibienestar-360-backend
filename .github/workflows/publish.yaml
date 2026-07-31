@@ -25,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -51,6 +51,11 @@ jobs:
           DATABASE_SSL_MODE: disable
           DATABASE_USER: postgres
           DATABASE_PASSWORD: postgres
+          # See ci.yaml for why this must match services.postgres's actual
+          # password (Flyway migrates with its own credentials, defaulting to
+          # changeme-dev otherwise).
+          DATABASE_MIGRATION_USER: postgres
+          DATABASE_MIGRATION_PASSWORD: postgres
 
 
   # Verify secrets before attempting Docker Hub push
