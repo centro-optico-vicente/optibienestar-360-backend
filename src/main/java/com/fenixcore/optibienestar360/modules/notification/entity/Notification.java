@@ -51,6 +51,7 @@ public class Notification extends BaseEntity {
     // ─── Recipient (snapshot) ────────────────────────────────────────────────
 
     @Column(name = "recipient_email", nullable = false, columnDefinition = "citext")
+    @JdbcTypeCode(SqlTypes.OTHER)
     private String recipientEmail;
 
     @Column(name = "recipient_user_id")

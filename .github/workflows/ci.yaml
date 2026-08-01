@@ -1,5 +1,14 @@
 name: CI — Build & Test
 
+# dorny/paths-filter needs this: actions/checkout here uses the default
+# fetch-depth: 1, so it can't diff against the PR base locally and falls back
+# to the GitHub API's listFiles endpoint, which needs pull-requests: read.
+# Without it, the "Check for Docker context changes" step fails with
+# "Resource not accessible by integration".
+permissions:
+  contents: read
+  pull-requests: read
+
 on:
   push:
     branches:
@@ -23,6 +32,12 @@ jobs:
     name: Build, Test & Validate Dockerfiles
     runs-on: ubuntu-latest
 
+    # This service used to be dead weight: every *IT/*Test class forces
+    # @ActiveProfiles("test") (H2, Flyway disabled), which overrides the "dev"
+    # profile set below and never touched this container. It's now exercised by
+    # FlywayMigrationIT (src/test/java/.../FlywayMigrationIT.java), the one test
+    # that runs under @ActiveProfiles("dev") to actually apply the Flyway
+    # migrations in src/main/resources/db/migration/** against real Postgres.
     services:
       postgres:
         image: postgres:15-alpine
@@ -33,17 +48,36 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    # --- (kept as reference only, not used) ---------------------------
+    # A lighter-weight alternative to FlywayMigrationIT: validate the migration
+    # SQL directly with the Flyway CLI against the `postgres` service above,
+    # without booting the full Spring context. Faster, and fully decoupled from
+    # JPA — but it only proves the SQL applies; it does NOT catch a mismatch
+    # between the resulting schema and the JPA entities, which FlywayMigrationIT
+    # does by loading the real ApplicationContext on top of it.
+    #
+    # - name: Validate Flyway migrations (CLI only, no Spring context)
+    #   run: |
+    #     curl -sSL https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/10.15.0/flyway-commandline-10.15.0-linux-x64.tar.gz \
+    #       | tar xz
+    #     ./flyway-10.15.0/flyway \
+    #       -url=jdbc:postgresql://localhost:5432/optibienestar360_test \
+    #       -user=postgres -password=postgres \
+    #       -locations=filesystem:./src/main/resources/db/migration \
+    #       migrate
+    # -----------------------------------------------------------------------------
 
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6
 
       - name: Set up Java 25 with Gradle cache
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -59,17 +93,24 @@ jobs:
           DATABASE_SSL_MODE: disable
           DATABASE_USER: postgres
           DATABASE_PASSWORD: postgres
+          # Flyway migrates using its own credentials (application.properties:72-73),
+          # separate from the app datasource above. Default is postgres/changeme-dev;
+          # the services.postgres container below is seeded with password "postgres",
+          # so this must be overridden or FlywayMigrationIT fails on auth, not on an
+          # actual migration bug.
+          DATABASE_MIGRATION_USER: postgres
+          DATABASE_MIGRATION_PASSWORD: postgres
 
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: build/reports/tests/
           retention-days: 3
 
       # - name: Upload JAR artifact
-      #   uses: actions/upload-artifact@v4
+      #   uses: actions/upload-artifact@v7
       #   with:
       #     name: app-jar
       #     path: build/libs/
@@ -80,10 +121,35 @@ jobs:
       # build/libs/ on the runner and is fed to the `from-prebuilt` stage via a
       # build-context — no cross-job artifact upload (avoids GitHub artifact-storage
       # quota on private repos). Both images build, none are pushed.
+      # Gated on actual Dockerfile/docker-context changes (not on event type):
+      # a push straight to main that touches docker/** or .dockerignore still
+      # gets validated even without going through a PR, while unrelated
+      # code-only changes skip the redundant rebuild. .dockerignore is tracked
+      # separately because it lives at the repo root, outside docker/**, but
+      # still changes what enters the build context.
+      - name: Check for Docker context changes
+        id: docker-changes
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            docker:
+              - 'docker/**'
+              - '.dockerignore'
+            build-config:
+              - 'build.gradle'
+              - 'build.gradle.kts'
+              - 'settings.gradle'
+              - 'settings.gradle.kts'
+              - 'gradle/**'
+              - 'gradlew'
+              - 'gradlew.bat'
+
       - name: Set up Docker Buildx
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Validate Alpine image (build, no push)
+        if: steps.docker-changes.outputs.docker == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -94,9 +160,10 @@ jobs:
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=docker-alpine
-          cache-to: type=gha,mode=max,scope=docker-alpine
+          cache-to: type=gha,mode=min,scope=docker-alpine
 
       - name: Validate Debian image (build, no push)
+        if: steps.docker-changes.outputs.docker == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -107,4 +174,37 @@ jobs:
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=docker-debian
-          cache-to: type=gha,mode=max,scope=docker-debian
+          cache-to: type=gha,mode=min,scope=docker-debian
+
+      # `runtime` is the stage publish.yaml actually builds and pushes on release
+      # (it compiles from source inside the image, no prebuilt JAR). ci.yaml's
+      # steps above only ever exercised `from-prebuilt`, so a break in the
+      # from-source compile path went undetected until release time — the worst
+      # place to find out, since a release is already tagged and published by
+      # then. Gated on `docker` (Dockerfile/context changed) OR `build-config`
+      # (Gradle files changed) since either can break an in-container source
+      # build. No prebuilt JAR is fed in — this genuinely compiles from source,
+      # same as the release build.
+      - name: Validate Alpine image (runtime build, no push)
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docker/alpine.Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=docker-alpine-runtime
+          cache-to: type=gha,mode=min,scope=docker-alpine-runtime
+
+      - name: Validate Debian image (runtime build, no push)
+        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docker/debian.Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=docker-debian-runtime
+          cache-to: type=gha,mode=min,scope=docker-debian-runtime
