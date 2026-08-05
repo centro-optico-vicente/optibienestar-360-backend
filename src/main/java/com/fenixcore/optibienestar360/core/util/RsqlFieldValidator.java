@@ -17,8 +17,10 @@ import java.util.regex.Pattern;
 public final class RsqlFieldValidator {
 
     /** Captures the field name in expressions like {@code field==value} or
-     * {@code field.sub!=value}. The first dot-separated segment is what we
-     * check against the allow-list. */
+     * {@code field.sub!=value}. Matched either in full (for allow-list
+     * entries naming an exact nested path, e.g. {@code person.firstName})
+     * or by its root segment (for allow-list entries naming a top-level
+     * column, e.g. {@code email}). */
     private static final Pattern FIELD_EXTRACTOR = Pattern
             .compile("([a-zA-Z][a-zA-Z0-9]*(?:\\.[a-zA-Z][a-zA-Z0-9]*)*)\\s*[=!<>]");
 
@@ -26,7 +28,8 @@ public final class RsqlFieldValidator {
 
     /**
      * @throws IllegalArgumentException with {@code errorCode} as the message
-     *         when any referenced root field is outside {@code allowedFields}.
+     *         when any referenced field is outside {@code allowedFields} —
+     *         neither the full dotted path nor its root segment is listed.
      *         The exception message is a localization code (resolved by the
      *         GlobalExceptionHandler); the offending field name survives in
      *         the stack trace for log debugging.
@@ -37,8 +40,9 @@ public final class RsqlFieldValidator {
         }
         Matcher m = FIELD_EXTRACTOR.matcher(filter);
         while (m.find()) {
-            String rootField = m.group(1).split("\\.")[0];
-            if (!allowedFields.contains(rootField)) {
+            String field = m.group(1);
+            String rootField = field.split("\\.")[0];
+            if (!allowedFields.contains(field) && !allowedFields.contains(rootField)) {
                 throw new IllegalArgumentException(errorCode);
             }
         }

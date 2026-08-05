@@ -38,9 +38,10 @@ public class AdminUserController {
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
     public ResponseEntity<Page<UserDto>> list(
             @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(userService.listUsers(filter, pageable, actor.getUuid()));
+        return ResponseEntity.ok(userService.listUsers(filter, q, pageable, actor.getUuid()));
     }
 
     @GetMapping("/{uuid}")

@@ -10,6 +10,8 @@ import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -35,7 +37,17 @@ import java.util.UUID;
 public class UserService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "email", "fullName", "status", "documentType", "documentNumber", "active", "createdAt");
+            "email", "person.fullName", "status", "person.documentType",
+            "person.documentNumber", "active", "createdAt");
+
+    /**
+     * Free-text {@code ?q=} fields. {@code person.fullName} is a Postgres
+     * GENERATED column with a GIN unaccent index from V15, so the search is
+     * accent-insensitive ({@code "jose"} matches {@code "José"}) at no extra cost.
+     */
+    private static final String[] SEARCHABLE_FIELDS = {
+            "email", "person.fullName", "person.documentNumber"
+    };
 
     private static final String SYSTEM_ROLE_NAME = "SYSTEM";
     private static final String ACTIVE_STATUS = "ACTIVE";
@@ -58,33 +70,20 @@ public class UserService {
 
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
-    public Page<UserDto> listUsers(String filter, Pageable pageable, UUID actorUuid) {
-        Specification<User> spec = (root, query, cb) -> null;
+    public Page<UserDto> listUsers(String filter, String q, Pageable pageable, UUID actorUuid) {
+        Specification<User> spec = (root, query, cb) -> cb.conjunction();
         if (filter != null && !filter.isBlank()) {
-            validateFilterFields(filter);
-            spec = RSQLJPASupport.toSpecification(filter);
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "user.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         // Only SYSTEM actors may see SYSTEM users; hide them from everyone else.
         if (!isSystemActor(actorUuid)) {
             spec = spec.and(excludeSystemUsers());
         }
         return userRepository.findAll(spec, pageable).map(userMapper::toDto);
-    }
-
-    private void validateFilterFields(String filter) {
-        // Reject any field name not in the allow-list to prevent JPA association traversal
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("([a-zA-Z][a-zA-Z0-9]*(?:\\.[a-zA-Z][a-zA-Z0-9]*)*)\\s*[=!<>]")
-                .matcher(filter);
-        while (matcher.find()) {
-            String field = matcher.group(1).split("\\.")[0];
-            if (!ALLOWED_FILTER_FIELDS.contains(field)) {
-                // The field name is not embedded in the localized message
-                // (no args support on IllegalArgumentException); the value
-                // arrives in logs via the throw's stack trace.
-                throw new IllegalArgumentException("user.filter.field_not_allowed");
-            }
-        }
     }
 
     public UserDto getUser(UUID uuid, UUID actorUuid) {
