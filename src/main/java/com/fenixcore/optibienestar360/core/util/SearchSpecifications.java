@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.core.util;
 
 import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -55,10 +56,24 @@ public final class SearchSpecifications {
             for (int i = 0; i < fields.length; i++) {
                 Expression<String> field = cb.function(
                         "immutable_unaccent", String.class,
-                        cb.lower(root.get(fields[i]).as(String.class)));
+                        cb.lower(resolvePath(root, fields[i]).as(String.class)));
                 preds[i] = cb.like(field, pattern);
             }
             return cb.or(preds);
         };
+    }
+
+    /**
+     * Resolves a possibly dotted field name (e.g. {@code "person.fullName"})
+     * into a {@link Path} by chaining {@code get(...)} calls, since
+     * {@link Path#get(String)} only resolves a single attribute and does not
+     * split on {@code .} itself.
+     */
+    private static Path<?> resolvePath(Path<?> root, String field) {
+        Path<?> path = root;
+        for (String segment : field.split("\\.")) {
+            path = path.get(segment);
+        }
+        return path;
     }
 }
