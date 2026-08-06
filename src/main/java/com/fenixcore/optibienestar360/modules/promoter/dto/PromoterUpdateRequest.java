@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.UUID;
+
 /**
  * Payload for {@code PUT /v1/admin/promoters/{uuid}}. PATCH semantics —
  * only non-null fields are applied.
@@ -28,6 +30,8 @@ public record PromoterUpdateRequest(
 
         @Email @Size(max = 320) String email,
         @Size(max = 30) String phone,
+
+        UUID promoterTypeUuid,
 
         Boolean active,
         @Pattern(regexp = "^(ACTIVE|INACTIVE|SUSPENDED)$",

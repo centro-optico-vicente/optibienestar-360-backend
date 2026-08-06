@@ -37,5 +37,7 @@ public record PromoterCreateRequest(
         @NotNull UUID userUuid,
 
         @Email @Size(max = 320) String email,
-        @Size(max = 30) String phone
+        @Size(max = 30) String phone,
+
+        UUID promoterTypeUuid
 ) {}

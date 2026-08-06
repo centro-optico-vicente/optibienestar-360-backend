@@ -8,7 +8,9 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface PromoterMapper {
 
-    @Mapping(target = "userUuid",   source = "user.uuid")
-    @Mapping(target = "personUuid", source = "person.uuid")
+    @Mapping(target = "userUuid",         source = "user.uuid")
+    @Mapping(target = "personUuid",       source = "person.uuid")
+    @Mapping(target = "promoterTypeUuid", source = "promoterType.uuid")
+    @Mapping(target = "promoterTypeName", source = "promoterType.name")
     PromoterDto toDto(Promoter promoter);
 }
