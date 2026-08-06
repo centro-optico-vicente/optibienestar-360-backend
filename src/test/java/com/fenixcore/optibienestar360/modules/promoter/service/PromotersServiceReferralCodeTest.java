@@ -5,7 +5,6 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
-import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
@@ -37,7 +36,6 @@ class PromotersServiceReferralCodeTest {
 
     @Mock private PromoterRepository repository;
     @Mock private UserRepository userRepository;
-    @Mock private PersonRepository personRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private PromoterMapper mapper;
 
@@ -48,22 +46,22 @@ class PromotersServiceReferralCodeTest {
 
     @BeforeEach
     void setup() {
-        service = new PromotersService(repository, userRepository, personRepository, memberRepository, mapper);
-        User user = new User();
-        user.setId(1L);
-        user.setUuid(userUuid);
+        service = new PromotersService(repository, userRepository, memberRepository, mapper);
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);
+        User user = new User();
+        user.setId(1L);
+        user.setUuid(userUuid);
+        user.setPerson(person);
         lenient().when(userRepository.findByUuid(userUuid)).thenReturn(Optional.of(user));
-        lenient().when(personRepository.findByUuid(personUuid)).thenReturn(Optional.of(person));
         lenient().when(repository.existsByUserId(1L)).thenReturn(false);
         lenient().when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private PromoterCreateRequest request(String referralCode) {
         return new PromoterCreateRequest("Ana Ventas", null, referralCode,
-                userUuid, personUuid, "ana@example.com", "+58 412 5550100");
+                userUuid, "ana@example.com", "+58 412 5550100");
     }
 
     @Test
