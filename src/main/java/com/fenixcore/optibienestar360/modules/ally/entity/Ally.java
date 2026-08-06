@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
@@ -15,6 +16,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.JdbcType;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -66,6 +68,7 @@ public class Ally extends BaseEntity {
     // ─── Contact ────────────────────────────────────────────────────────────
 
     @Column(columnDefinition = "citext")
+    @JdbcType(CitextJdbcType.class)
     private String email;
 
     @Column(length = 30)

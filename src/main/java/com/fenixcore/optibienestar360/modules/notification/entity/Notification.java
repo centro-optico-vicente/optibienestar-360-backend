@@ -1,12 +1,14 @@
 package com.fenixcore.optibienestar360.modules.notification.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import lombok.Getter;
@@ -51,6 +53,7 @@ public class Notification extends BaseEntity {
     // ─── Recipient (snapshot) ────────────────────────────────────────────────
 
     @Column(name = "recipient_email", nullable = false, columnDefinition = "citext")
+    @JdbcType(CitextJdbcType.class)
     private String recipientEmail;
 
     @Column(name = "recipient_user_id")
