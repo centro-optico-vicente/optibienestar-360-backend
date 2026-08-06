@@ -234,6 +234,16 @@ public class ExampleThingController {
         return service.findById(id);
     }
 
+    // Obligatorio (ADR 0013) — ver spec 06-rest-api.md § "Endpoint /options para selects"
+    @GetMapping("/options")
+    public List<OptionDto> options(
+        @RequestParam(required = false) String q,
+        @RequestParam(required = false, defaultValue = "50") int limit,
+        @RequestParam(required = false) List<UUID> currentValues
+    ) {
+        return service.listOptions(q, limit, currentValues);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('EXAMPLE_THING_CREATE')")
@@ -299,6 +309,19 @@ class ExampleThingServiceTest {
 }
 ```
 
+### Test de `/options` con `currentValues` inactivo
+
+```java
+@Test @WithMockUser(authorities = "EXAMPLE_THING_VIEW_ALL")
+void options_includesInactiveCurrentValue() throws Exception {
+    ExampleThing inactive = ...; // setActive(false), guardado fuera del filtro/límite por defecto
+    mvc.perform(get("/v1/admin/example-things/options")
+            .param("currentValues", inactive.getUuid().toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.uuid == '" + inactive.getUuid() + "')].active").value(false));
+}
+```
+
 ### Controller integration test (con `@SpringBootTest` + Testcontainers)
 
 ```java
@@ -358,6 +381,8 @@ Refs: .ai/checklist.md tarea X.Y"
 - [ ] Mapper MapStruct
 - [ ] Service con `@Transactional` correcto (`readOnly = true` default)
 - [ ] Controller con `@PreAuthorize` + Swagger annotations
+- [ ] Endpoint `/options` implementado (ADR 0013)
+- [ ] Búsqueda libre `?q=` implementada (ADR 0013)
 - [ ] Tests unit + integration
 - [ ] Sin `repository.delete()` (siempre soft delete)
 - [ ] Naming inglés en código
