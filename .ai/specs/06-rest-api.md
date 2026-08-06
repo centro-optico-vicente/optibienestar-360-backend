@@ -52,7 +52,7 @@ public class MemberController {
 | `sort` | Campo + dirección (`name,asc`) | varía por recurso (ver `@PageableDefault`) |
 | `size=-1` **o** `unpaged=true` | Devuelve TODOS los resultados sin paginar | — |
 | `filter` | Expresión RSQL contra whitelist de campos (ver sección RSQL) | — |
-| `q` | Búsqueda libre case-insensitive + `unaccent` en `name` / `code` / `description` (los que existan en la entidad) | — |
+| `q` | Búsqueda libre case-insensitive + `unaccent` en `name` / `code` / `description` (los que existan en la entidad). **Obligatorio salvo que la entidad no tenga ningún campo de texto buscable** (ver [ADR 0013](../decisions/0013-options-endpoint-conventions.md)) | — |
 
 `size=-1` y `unpaged=true` son equivalentes y los maneja un `PageableHandlerMethodArgumentResolver` global (en `WebConfig`) que los mapea a `Pageable.unpaged()`. Útil para selects/dropdowns. Nota: si está habilitado el `@Cacheable`, solo se cachea el path **unpaged + sin filter + sin q** (el resto del espacio de combinaciones tiene cardinalidad muy alta).
 
@@ -87,6 +87,56 @@ public ResponseEntity<Page<MemberDto>> list(
 ```
 
 (Spring Data devuelve `Page` con propiedades en camelCase por default; Jackson convierte a snake_case por config).
+
+## Endpoint `/options` para selects
+
+> **Regla obligatoria** (ver [ADR 0013](../decisions/0013-options-endpoint-conventions.md)). Todo endpoint de listado paginado tiene un hermano `GET /<recurso>/options` que devuelve `List<OptionDto>` **sin paginar** — sin `Page`, sin `total_elements`/`total_pages` — pensado para poblar selects/dropdowns/typeaheads sin pagar el costo del DTO completo.
+
+```java
+public record OptionDto(UUID uuid, String code, String label, boolean active) {}
+```
+
+`code` es `null` cuando la entidad no tiene un código propio (ej. `User`, `Member`). `active` refleja el estado real del registro — permite al frontend renderizar atenuado/"(inactivo)" un valor ya asignado que ya no está activo, sin ocultarlo.
+
+### Query params
+
+| Param | Default | Semántica |
+|---|---|---|
+| `q` | — | Mismo `SEARCHABLE_FIELDS` que el listado paginado. |
+| `limit` | `50` | Tope duro `200`. |
+| `currentValues` | — | Lista de uuids (`?currentValues=<uuid1>,<uuid2>`) que **siempre** aparecen en la respuesta, con su `active` real, sin importar `q`/`limit`/estado. |
+
+`active=true` es implícito salvo que el uuid venga en `currentValues`.
+
+### Helper reusable — `core/util/OptionsSupport`
+
+```java
+public final class OptionsSupport {
+    public static <T, ID> List<OptionDto> build(
+            JpaSpecificationExecutor<T> specExecutor,
+            Function<UUID, Optional<T>> findByUuid,   // reusa el findByUuid ya existente en cada repo
+            Specification<T> baseSpec,                 // filtros propios de la entidad (activeOnly + q + parentFilter)
+            List<UUID> currentValues,
+            int limit,
+            Function<T, UUID> uuidOf,
+            Function<T, String> codeOf,
+            Function<T, String> labelOf,
+            Function<T, Boolean> activeOf) { ... }
+}
+```
+
+### Ejemplo de controller
+
+```java
+@GetMapping("/options")
+@PreAuthorize("hasAuthority('PLAN_VIEW_ALL')")
+public ResponseEntity<List<OptionDto>> options(
+        @RequestParam(required = false) String q,
+        @RequestParam(required = false, defaultValue = "50") int limit,
+        @RequestParam(required = false) List<UUID> currentValues) {
+    return ResponseEntity.ok(plansService.listOptions(q, limit, currentValues));
+}
+```
 
 ## RSQL
 

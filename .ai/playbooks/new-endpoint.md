@@ -106,7 +106,7 @@ public class FooController {
 
 ## Paso 5 — Endpoint listado con paginación + RSQL + búsqueda libre
 
-> **Regla obligatoria:** todo endpoint de listado debe paginar (`Page<DTO>`). Ver convención completa de params (`page`/`size`/`sort`/`filter`/`q`, `size=-1` o `unpaged=true` para todo, defaults por tipo de recurso) en [`../specs/06-rest-api.md` → Paginación](../specs/06-rest-api.md).
+> **Regla obligatoria:** todo endpoint de listado debe paginar (`Page<DTO>`) **y** exponer búsqueda libre `?q=` — no es opcional "si aplica", salvo que la entidad no tenga ningún campo de texto buscable ([ADR 0013](../decisions/0013-options-endpoint-conventions.md)). Ver convención completa de params (`page`/`size`/`sort`/`filter`/`q`, `size=-1` o `unpaged=true` para todo, defaults por tipo de recurso) en [`../specs/06-rest-api.md` → Paginación](../specs/06-rest-api.md).
 
 ```java
 @GetMapping
@@ -131,6 +131,33 @@ private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
     "name", "status", "createdAt"
 );
 // Validar antes de aplicar RSQL — patrón en UserService.validateFilterFields()
+```
+
+## Paso 5b — Endpoint `/options`
+
+> **Regla obligatoria** ([ADR 0013](../decisions/0013-options-endpoint-conventions.md)): todo endpoint de listado tiene un hermano `/options` que devuelve `List<OptionDto>` sin paginar, para selects/dropdowns/typeaheads. Detalle completo (contrato, `OptionDto`, helper `OptionsSupport`) en [`../specs/06-rest-api.md` → Endpoint /options para selects](../specs/06-rest-api.md).
+
+```java
+@GetMapping("/options")
+@PreAuthorize("hasAnyAuthority('FOO_VIEW_ALL')")
+@Operation(summary = "Lightweight options list for selects")
+public ResponseEntity<List<OptionDto>> options(
+    @Parameter(description = "Free-text search, same fields as ?q= above") @RequestParam(required = false) String q,
+    @Parameter(description = "Max results, default 50, hard cap 200") @RequestParam(required = false, defaultValue = "50") int limit,
+    @Parameter(description = "Uuids always included regardless of q/limit/active") @RequestParam(required = false) List<UUID> currentValues
+) {
+    return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
+}
+```
+
+En el service, reusar el mismo `baseSpec` (`activeOnly()` + `SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS)`) y delegar a `OptionsSupport.build(...)`:
+
+```java
+public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+    Specification<Foo> spec = activeOnly().and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+    return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+        Foo::getUuid, Foo::getCode, Foo::getName, Foo::isActive);
+}
 ```
 
 ## Paso 6 — Endpoint upload (multipart)
@@ -271,6 +298,8 @@ Refs: .ai/checklist.md tarea X.Y"
 - [ ] Swagger annotations: `@Operation`, `@ApiResponses`
 - [ ] Paginación si es listado (default 20, max 100)
 - [ ] RSQL si es listado con filtros
+- [ ] `?q=` implementado si es listado (ADR 0013)
+- [ ] `/options` implementado si es listado (ADR 0013)
 - [ ] Cache Redis si es lectura frecuente
 - [ ] Idempotency si es POST reintentable
 - [ ] Validación MIME + tamaño si es upload
@@ -287,3 +316,5 @@ Refs: .ai/checklist.md tarea X.Y"
 ❌ Logear PII (cédulas, emails) en logs estándar
 ❌ Mezclar responsabilidades: controller con lógica de negocio (debe ir en service)
 ❌ Olvidar tests de permisos (testear 401 y 403)
+❌ Endpoint de listado sin `/options` cuando el frontend necesita un select para esa entidad
+❌ Endpoint de listado sin `?q=` cuando tiene campos de texto visibles
