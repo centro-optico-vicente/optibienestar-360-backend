@@ -15,8 +15,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -68,7 +66,6 @@ public class Ally extends BaseEntity {
     // ─── Contact ────────────────────────────────────────────────────────────
 
     @Column(columnDefinition = "citext")
-    @JdbcTypeCode(SqlTypes.OTHER)
     private String email;
 
     @Column(length = 30)

@@ -11,8 +11,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -42,7 +40,6 @@ import java.util.List;
 public class User extends BaseEntity {
 
     @Column(unique = true, columnDefinition = "citext")
-    @JdbcTypeCode(SqlTypes.OTHER)
     private String email;
 
     @Column(name = "password_hash", length = 255, nullable = false)
