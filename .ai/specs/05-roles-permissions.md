@@ -68,7 +68,7 @@ Detalle de cada perfil en [hub `stakeholders.md`](../../../centro-optico-vicente
 
 ## Asignación rol → permisos
 
-> Los conteos de abajo son la **baseline del seed V6** (~50 permisos) y quedaron desactualizados: migraciones posteriores sumaron permisos por dominio (`JOB_*` V22, `NOTIFICATION_*` V28, `ROLE_*` V32, `CATALOG_*_WRITE` V33, `CATALOG_VIEW_ALL` V34) y SYSTEM los recibe automáticamente (trigger V30). Fuente de verdad del catálogo vivo: `GET /v1/admin/permissions` y las migraciones `db/migration/`. Actualizar estos números es un ítem aparte.
+> Los conteos de abajo son la **baseline del seed V6** (~50 permisos) y quedaron desactualizados: migraciones posteriores sumaron permisos por dominio (`JOB_*` V22, `NOTIFICATION_*` V28, `ROLE_*` V32, `CATALOG_*_WRITE` V33, `CATALOG_VIEW_ALL` V34, y más allá de V34 también `SUBSIDY_*` V41 y `COMMISSION_TIER_*`/`LEADERBOARD_*` V42) y SYSTEM los recibe automáticamente (trigger V30). El total real hoy es de **~86 permisos**, no 49-50, y sigue creciendo con cada migración. Fuente de verdad del catálogo vivo: `GET /v1/admin/permissions` y las migraciones `db/migration/`. Actualizar estos números es un ítem aparte.
 
 ### SYSTEM (49 permisos)
 Todos los permisos sin excepción. CROSS JOIN en el seed.
@@ -154,7 +154,7 @@ Cambios de roles/permisos:
 
 > **Estado (2026-07-22):** fase mínima **implementada** — roles con permisos editables desde el panel.
 >
-> - **Tabla `permission_domains`** (V5) — agrupa los permisos por dominio con `code`/`name`/`icon`/`display_order`, para que el panel los renderice con label en español + icono y en orden. Hoy son **13 dominios**: los 10 de V5 (`USERS`, `MEMBERS`, `ALLIES`, `PLANS`, `MEMBERSHIPS`, `PAYMENTS`, `PROMOTERS`, `COMMISSIONS`, `REFERRALS`, `REPORTS`) + `SCHEDULED_JOBS` (V22), `NOTIFICATIONS` (V28) y `CATALOGS` (V32). Cada `permission` tiene su `domain_id` FK.
+> - **Tabla `permission_domains`** (V5) — agrupa los permisos por dominio con `code`/`name`/`icon`/`display_order`, para que el panel los renderice con label en español + icono y en orden. Hoy son **14 dominios**: los 10 de V5 (`USERS`, `MEMBERS`, `ALLIES`, `PLANS`, `MEMBERSHIPS`, `PAYMENTS`, `PROMOTERS`, `COMMISSIONS`, `REFERRALS`, `REPORTS`) + `SCHEDULED_JOBS` (V22), `NOTIFICATIONS` (V28), `CATALOGS` (V32) y `SUBSIDIES` (V41). Cada `permission` tiene su `domain_id` FK.
 > - **Permiso `ROLE_PERMISSION_EDIT`** — es el gate de la edición de permisos de rol. Sembrado a **SYSTEM** en V6 y otorgado a **ADMINISTRADOR** en V31 (ADMINISTRADOR edita cualquier rol **salvo SYSTEM**, que queda reservado a actores SYSTEM). Nota de reconciliación: el `USER_CHANGE_ROLE` que la versión anterior de este doc citaba como contraparte **ya no existe** — V32 lo renombró a `CATALOG_WRITE` y V33 lo partió en `CATALOG_<entidad>_WRITE`; la escritura de catálogos y la gestión de roles son hoy permisos separados y sin relación (ver [`../playbooks/edit-role-permissions.md`](../playbooks/edit-role-permissions.md)).
 > - **Los 3 endpoints** de la superficie de edición, todos implementados y gateados por `ROLE_PERMISSION_EDIT`:
 >   - `GET /v1/admin/permissions` — catálogo agrupado dominios → permisos, ordenado y listo para renderizar (`PermissionController`).
