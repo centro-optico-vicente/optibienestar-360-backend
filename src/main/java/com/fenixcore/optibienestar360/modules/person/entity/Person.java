@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.person.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MaritalStatus;
@@ -12,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.JdbcType;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -116,6 +118,7 @@ public class Person extends BaseEntity {
     private String landlinePhone;
 
     @Column(columnDefinition = "citext")
+    @JdbcType(CitextJdbcType.class)
     private String email;
 
     @Column(length = 10)
