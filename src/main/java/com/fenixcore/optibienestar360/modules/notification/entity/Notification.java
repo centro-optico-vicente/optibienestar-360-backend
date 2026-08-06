@@ -7,11 +7,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -51,7 +51,6 @@ public class Notification extends BaseEntity {
     // ─── Recipient (snapshot) ────────────────────────────────────────────────
 
     @Column(name = "recipient_email", nullable = false, columnDefinition = "citext")
-    @JdbcTypeCode(SqlTypes.OTHER)
     private String recipientEmail;
 
     @Column(name = "recipient_user_id")
