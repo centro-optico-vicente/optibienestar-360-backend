@@ -12,9 +12,11 @@ import java.util.UUID;
  * Payload for {@code POST /v1/admin/promoters}.
  *
  * <p>Only HUMAN promoters can be created via this endpoint —
- * {@code userUuid} + {@code personUuid} are required. The system
- * INSTITUCION row is seeded in V25 and cannot be replicated through the
- * API (the partial UNIQUE in V25 enforces "at most one" at the DB level;
+ * {@code userUuid} is required. The linked {@code Person} is derived
+ * server-side from {@code user.getPerson()} (User → Person is a mandatory
+ * 1:1 FK), so the client never supplies a {@code personUuid} directly. The
+ * system INSTITUCION row is seeded in V25 and cannot be replicated through
+ * the API (the partial UNIQUE in V25 enforces "at most one" at the DB level;
  * the service surfaces a clean 422 if anyone tries).</p>
  *
  * <p>{@code referralCode} is <b>optional</b> (v2 PDF #4 "el promotor genera su
@@ -33,7 +35,6 @@ public record PromoterCreateRequest(
         String referralCode,
 
         @NotNull UUID userUuid,
-        @NotNull UUID personUuid,
 
         @Email @Size(max = 320) String email,
         @Size(max = 30) String phone

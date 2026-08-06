@@ -6,7 +6,6 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
-import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest;
@@ -61,7 +60,6 @@ public class PromotersService {
 
     private final PromoterRepository repository;
     private final UserRepository userRepository;
-    private final PersonRepository personRepository;
     private final MemberRepository memberRepository;
     private final PromoterMapper mapper;
     private final SecureRandom random = new SecureRandom();
@@ -91,8 +89,7 @@ public class PromotersService {
     public PromoterDto create(PromoterCreateRequest req) {
         User user = userRepository.findByUuid(req.userUuid())
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
-        Person person = personRepository.findByUuid(req.personUuid())
-                .orElseThrow(() -> new NoSuchElementException("person.not_found"));
+        Person person = user.getPerson();
 
         // Reject if the user is already a promoter — keeps the partial
         // UNIQUE (user_id WHERE is_active) free for a clean re-create flow.
