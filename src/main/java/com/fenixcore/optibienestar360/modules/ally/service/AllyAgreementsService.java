@@ -52,9 +52,7 @@ public class AllyAgreementsService {
         agreement.setEndDate(req.endDate());
         agreement.setTerms(req.terms());
         agreement.setSignedPdfUrl(req.signedPdfUrl());
-        if (req.status() != null) {
-            agreement.setStatus(req.status());
-        }
+        agreement.setStatus(req.status() != null ? req.status() : "ACTIVE");
         return mapper.toAgreementDto(agreementRepository.save(agreement));
     }
 
