@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusCreateRequest;
@@ -52,6 +54,18 @@ public class MaritalStatusService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return repository.findAll(spec, pageable).map(MaritalStatusService::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<MaritalStatus> spec = ((Specification<MaritalStatus>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                MaritalStatus::getUuid, MaritalStatus::getCode, MaritalStatusService::labelOf, MaritalStatus::isActive);
+    }
+
+    private static String labelOf(MaritalStatus m) {
+        return m.getCode() + " — " + m.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'marital_status:all'")

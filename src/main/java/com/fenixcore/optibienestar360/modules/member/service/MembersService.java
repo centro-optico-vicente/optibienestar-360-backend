@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
@@ -36,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -126,6 +129,14 @@ public class MembersService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return memberRepository.findAll(spec, pageable).map(mapper::toListItem);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Member> spec = activeOnly().and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(memberRepository, memberRepository::findByUuid, spec, currentValues, limit,
+                Member::getUuid, member -> member.getPerson().getDocumentNumber(),
+                member -> member.getPerson().getFullName(), Member::isActive);
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────

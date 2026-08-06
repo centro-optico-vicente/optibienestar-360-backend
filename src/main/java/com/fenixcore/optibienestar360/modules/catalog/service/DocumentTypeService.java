@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.DocumentTypeCreateRequest;
@@ -52,6 +54,18 @@ public class DocumentTypeService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return repository.findAll(spec, pageable).map(DocumentTypeService::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<DocumentType> spec = ((Specification<DocumentType>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                DocumentType::getUuid, DocumentType::getCode, DocumentTypeService::labelOf, DocumentType::isActive);
+    }
+
+    private static String labelOf(DocumentType d) {
+        return d.getCode() + " — " + d.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'document_type:all'")

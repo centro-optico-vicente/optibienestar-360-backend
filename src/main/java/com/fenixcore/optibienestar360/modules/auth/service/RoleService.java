@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UpdateRoleRequest;
@@ -13,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,7 @@ public class RoleService {
 
     private static final String SYSTEM_ROLE_NAME = "SYSTEM";
     private static final String ROLE_PERMISSION_EDIT = "ROLE_PERMISSION_EDIT";
+    private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
@@ -45,6 +50,14 @@ public class RoleService {
             .map(userMapper::roleToDto)
             .toList()
         ;
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (Role has no own code). */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Role> spec = ((Specification<Role>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(roleRepository, roleRepository::findByUuid, spec, currentValues, limit,
+                Role::getUuid, role -> null, Role::getName, Role::isActive);
     }
 
     public RoleDto getRole(UUID uuid) {

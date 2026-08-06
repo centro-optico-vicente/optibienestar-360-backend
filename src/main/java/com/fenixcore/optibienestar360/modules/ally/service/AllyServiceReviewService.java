@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyServiceReviewLog;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceReviewLogRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
@@ -50,6 +51,9 @@ public class AllyServiceReviewService {
     /** User-facing default when the ally removes their own service without a reason. */
     private static final String DEFAULT_ALLY_REMOVAL_REASON = "Retirado por el aliado";
 
+    /** Free-text {@code ?q=} fields for the pending queue — the proposed service's own name/description. */
+    private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
+
     private final AllyServiceRepository serviceRepository;
     private final AllyServiceReviewLogRepository logRepository;
     private final AllyUserRepository allyUserRepository;
@@ -62,7 +66,7 @@ public class AllyServiceReviewService {
      * The review queue: services awaiting a decision (PROPOSED or IN_REVIEW),
      * optionally filtered by ally and/or service category.
      */
-    public Page<AllyServiceDto> pendingQueue(UUID allyUuid, UUID serviceCategoryUuid, Pageable pageable) {
+    public Page<AllyServiceDto> pendingQueue(UUID allyUuid, UUID serviceCategoryUuid, String q, Pageable pageable) {
         Specification<AllyService> spec = (root, query, cb) -> cb.and(
                 cb.isTrue(root.get("active")),
                 root.get("reviewStatus").in(ReviewStatus.PROPOSED, ReviewStatus.IN_REVIEW));
@@ -72,6 +76,9 @@ public class AllyServiceReviewService {
         }
         if (serviceCategoryUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("serviceCategory").get("uuid"), serviceCategoryUuid));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return serviceRepository.findAll(spec, pageable).map(mapper::toServiceDto);
     }

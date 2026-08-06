@@ -13,11 +13,17 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceReviewL
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Instant;
@@ -54,6 +60,36 @@ class AllyServiceReviewServiceTest {
     }
 
     private final UUID actorUuid = UUID.randomUUID();
+
+    // ─── pending queue (?q=) ────────────────────────────────────────────────────
+
+    @Test
+    void pendingQueue_withQ_composesSpecAndDelegatesToRepository() {
+        AllyServiceDto dto = new AllyServiceDto(UUID.randomUUID(), UUID.randomUUID(), null,
+                "Consulta oftalmológica", null, null, null, false,
+                ReviewStatus.PROPOSED, null, null, null, false, null, true, null, null, null);
+        AllyService service = allyService(ReviewStatus.PROPOSED);
+        Pageable pageable = PageRequest.of(0, 20);
+        when(serviceRepository.findAll(ArgumentMatchers.<Specification<AllyService>>any(), ArgumentMatchers.eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(service)));
+        when(mapper.toServiceDto(service)).thenReturn(dto);
+
+        var page = sut().pendingQueue(null, null, "lente", pageable);
+
+        assertThat(page.getContent()).containsExactly(dto);
+        verify(serviceRepository).findAll(ArgumentMatchers.<Specification<AllyService>>any(), ArgumentMatchers.eq(pageable));
+    }
+
+    @Test
+    void pendingQueue_blankQ_stillDelegatesToRepository() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(serviceRepository.findAll(ArgumentMatchers.<Specification<AllyService>>any(), ArgumentMatchers.eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        var page = sut().pendingQueue(null, null, "  ", pageable);
+
+        assertThat(page.getContent()).isEmpty();
+    }
 
     // ─── approve ──────────────────────────────────────────────────────────────
 

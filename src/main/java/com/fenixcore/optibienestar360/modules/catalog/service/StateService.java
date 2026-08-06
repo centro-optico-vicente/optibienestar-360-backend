@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateCreateRequest;
@@ -59,6 +61,21 @@ public class StateService {
                     cb.equal(root.get("country").get("isoCode"), countryIsoCode));
         }
         return repository.findAll(spec, pageable).map(StateService::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, UUID countryUuid) {
+        Specification<State> spec = ((Specification<State>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (countryUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("country").get("uuid"), countryUuid));
+        }
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                State::getUuid, State::getCode, StateService::labelOf, State::isActive);
+    }
+
+    private static String labelOf(State s) {
+        return s.getCode() + " — " + s.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'state:all'")

@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
@@ -63,6 +65,17 @@ public class CityService {
                     cb.equal(root.get("state").get("code"), stateCode));
         }
         return repository.findAll(spec, pageable).map(CityService::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (City has no own code). */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, UUID stateUuid) {
+        Specification<City> spec = ((Specification<City>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (stateUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("state").get("uuid"), stateUuid));
+        }
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                City::getUuid, city -> null, City::getName, City::isActive);
     }
 
     @Cacheable(value = "catalogs", key = "'city:all'")
