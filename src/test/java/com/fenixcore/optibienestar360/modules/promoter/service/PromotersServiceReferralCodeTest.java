@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -37,6 +38,7 @@ class PromotersServiceReferralCodeTest {
     @Mock private PromoterRepository repository;
     @Mock private UserRepository userRepository;
     @Mock private MemberRepository memberRepository;
+    @Mock private PromoterTypeRepository promoterTypeRepository;
     @Mock private PromoterMapper mapper;
 
     private PromotersService service;
@@ -46,7 +48,7 @@ class PromotersServiceReferralCodeTest {
 
     @BeforeEach
     void setup() {
-        service = new PromotersService(repository, userRepository, memberRepository, mapper);
+        service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository, mapper);
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);
@@ -61,7 +63,7 @@ class PromotersServiceReferralCodeTest {
 
     private PromoterCreateRequest request(String referralCode) {
         return new PromoterCreateRequest("Ana Ventas", null, referralCode,
-                userUuid, "ana@example.com", "+58 412 5550100");
+                userUuid, "ana@example.com", "+58 412 5550100", null);
     }
 
     @Test

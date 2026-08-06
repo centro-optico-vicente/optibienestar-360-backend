@@ -21,6 +21,10 @@ public record PromoterDto(
         UUID userUuid,
         UUID personUuid,
 
+        // Promoter type classification (nullable — legacy rows have none)
+        UUID promoterTypeUuid,
+        String promoterTypeName,
+
         // Contact
         String email,
         String phone,

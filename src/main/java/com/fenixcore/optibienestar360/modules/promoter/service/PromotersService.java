@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
@@ -61,6 +63,7 @@ public class PromotersService {
     private final PromoterRepository repository;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
+    private final PromoterTypeRepository promoterTypeRepository;
     private final PromoterMapper mapper;
     private final SecureRandom random = new SecureRandom();
 
@@ -111,6 +114,7 @@ public class PromotersService {
         promoter.setPerson(person);
         promoter.setEmail(req.email());
         promoter.setPhone(req.phone());
+        promoter.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         promoter.setStatus(PromoterStatus.ACTIVE.name());
 
         return mapper.toDto(repository.save(promoter));
@@ -127,6 +131,7 @@ public class PromotersService {
         if (req.description() != null) promoter.setDescription(req.description());
         if (req.email() != null)       promoter.setEmail(req.email());
         if (req.phone() != null)       promoter.setPhone(req.phone());
+        if (req.promoterTypeUuid() != null) promoter.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         if (req.active() != null)      promoter.setActive(req.active());
         if (req.status() != null)      promoter.setStatus(req.status());
 
@@ -148,6 +153,12 @@ public class PromotersService {
     private Promoter findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+    }
+
+    private PromoterType resolvePromoterType(UUID uuid) {
+        if (uuid == null) return null;
+        return promoterTypeRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
     }
 
     private static void ensureNotSystemRow(Promoter promoter) {

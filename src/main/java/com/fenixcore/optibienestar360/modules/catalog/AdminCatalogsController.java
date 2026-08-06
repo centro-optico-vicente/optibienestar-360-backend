@@ -28,6 +28,9 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusUpdateReq
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.PromoterTypeCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.PromoterTypeDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.PromoterTypeUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateUpdateRequest;
@@ -39,6 +42,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.GenderService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MedicalSpecialtyService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
+import com.fenixcore.optibienestar360.modules.catalog.service.PromoterTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.ServiceCategoryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.StateService;
 import jakarta.validation.Valid;
@@ -97,6 +101,7 @@ public class AdminCatalogsController {
     private static final String MEDICAL_SPECIALTY_WRITE  = "hasAuthority('CATALOG_MEDICAL_SPECIALTY_WRITE')";
     private static final String SERVICE_CATEGORY_WRITE   = "hasAuthority('CATALOG_SERVICE_CATEGORY_WRITE')";
     private static final String ALLY_TYPE_WRITE          = "hasAuthority('CATALOG_ALLY_TYPE_WRITE')";
+    private static final String PROMOTER_TYPE_WRITE      = "hasAuthority('CATALOG_PROMOTER_TYPE_WRITE')";
 
     private final CountryService countryService;
     private final StateService stateService;
@@ -108,6 +113,7 @@ public class AdminCatalogsController {
     private final MedicalSpecialtyService medicalSpecialtyService;
     private final ServiceCategoryService serviceCategoryService;
     private final AllyTypeService allyTypeService;
+    private final PromoterTypeService promoterTypeService;
 
     // ═══════════════ countries ═══════════════
     @GetMapping("/countries")
@@ -562,6 +568,52 @@ public class AdminCatalogsController {
     @PreAuthorize(ALLY_TYPE_WRITE)
     public ResponseEntity<Void> deleteAllyType(@PathVariable UUID uuid) {
         allyTypeService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═══════════════ promoter-types ═══════════════
+    @GetMapping("/promoter-types")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<Page<PromoterTypeDto>> listPromoterTypes(
+            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(promoterTypeService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/promoter-types/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> promoterTypeOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(promoterTypeService.listOptions(q, limit, currentValues));
+    }
+
+    @GetMapping("/promoter-types/{uuid}")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<PromoterTypeDto> getPromoterType(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(promoterTypeService.get(uuid));
+    }
+
+    @PostMapping("/promoter-types")
+    @PreAuthorize(PROMOTER_TYPE_WRITE)
+    public ResponseEntity<PromoterTypeDto> createPromoterType(@Valid @RequestBody PromoterTypeCreateRequest req) {
+        PromoterTypeDto created = promoterTypeService.create(req);
+        return ResponseEntity.created(locationFor(created.uuid())).body(created);
+    }
+
+    @PutMapping("/promoter-types/{uuid}")
+    @PreAuthorize(PROMOTER_TYPE_WRITE)
+    public ResponseEntity<PromoterTypeDto> updatePromoterType(@PathVariable UUID uuid,
+                                                      @Valid @RequestBody PromoterTypeUpdateRequest req) {
+        return ResponseEntity.ok(promoterTypeService.update(uuid, req));
+    }
+
+    @DeleteMapping("/promoter-types/{uuid}")
+    @PreAuthorize(PROMOTER_TYPE_WRITE)
+    public ResponseEntity<Void> deletePromoterType(@PathVariable UUID uuid) {
+        promoterTypeService.delete(uuid);
         return ResponseEntity.noContent().build();
     }
 

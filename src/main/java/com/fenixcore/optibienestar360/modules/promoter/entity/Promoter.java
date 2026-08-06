@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter.entity;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -54,6 +55,10 @@ public class Promoter extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id")
     private Person person;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promoter_type_id")
+    private PromoterType promoterType;
 
     // ─── Display ───────────────────────────────────────────────────────────
 
