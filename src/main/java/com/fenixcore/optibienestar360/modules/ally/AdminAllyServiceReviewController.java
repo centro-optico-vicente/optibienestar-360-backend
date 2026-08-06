@@ -41,14 +41,15 @@ public class AdminAllyServiceReviewController {
 
     private final AllyServiceReviewService reviewService;
 
-    /** Review queue: PROPOSED + IN_REVIEW, oldest first (FIFO), optional ally/category filters. */
+    /** Review queue: PROPOSED + IN_REVIEW, oldest first (FIFO), optional ally/category/free-text filters. */
     @GetMapping("/pending")
     @PreAuthorize("hasAuthority('ALLY_SERVICE_APPROVE')")
     public ResponseEntity<Page<AllyServiceDto>> pending(
             @RequestParam(required = false) UUID allyUuid,
             @RequestParam(required = false) UUID serviceCategoryUuid,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(reviewService.pendingQueue(allyUuid, serviceCategoryUuid, pageable));
+        return ResponseEntity.ok(reviewService.pendingQueue(allyUuid, serviceCategoryUuid, q, pageable));
     }
 
     @PostMapping("/{uuid}/approve")

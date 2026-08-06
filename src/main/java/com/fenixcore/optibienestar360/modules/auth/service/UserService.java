@@ -10,6 +10,8 @@ import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -84,6 +86,14 @@ public class UserService {
             spec = spec.and(excludeSystemUsers());
         }
         return userRepository.findAll(spec, pageable).map(userMapper::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (User has no own code). */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<User> spec = ((Specification<User>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(userRepository, userRepository::findByUuid, spec, currentValues, limit,
+                User::getUuid, user -> null, user -> user.getPerson().getFullName(), User::isActive);
     }
 
     public UserDto getUser(UUID uuid, UUID actorUuid) {

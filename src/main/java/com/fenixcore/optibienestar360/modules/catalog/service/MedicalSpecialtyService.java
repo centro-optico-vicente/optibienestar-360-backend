@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyCreateRequest;
@@ -52,6 +54,18 @@ public class MedicalSpecialtyService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return repository.findAll(spec, pageable).map(MedicalSpecialtyService::toDto);
+    }
+
+    /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<MedicalSpecialty> spec = ((Specification<MedicalSpecialty>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                MedicalSpecialty::getUuid, MedicalSpecialty::getCode, MedicalSpecialtyService::labelOf, MedicalSpecialty::isActive);
+    }
+
+    private static String labelOf(MedicalSpecialty m) {
+        return m.getCode() + " — " + m.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'medical_specialty:all'")

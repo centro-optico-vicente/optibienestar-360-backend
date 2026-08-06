@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.membership;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -45,6 +47,15 @@ public class AdminPlanController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
         return ResponseEntity.ok(plansService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('PLAN_VIEW_ALL')")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(plansService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

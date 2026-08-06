@@ -86,7 +86,7 @@ class AdminAllyServiceReviewControllerIT {
 
     @Test
     void pending_withPermission_is200() throws Exception {
-        when(reviewService.pendingQueue(any(), any(), any()))
+        when(reviewService.pendingQueue(any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(serviceDto(ReviewStatus.PROPOSED))));
 
         mockMvc.perform(get("/v1/admin/ally-services/pending").with(principal("ALLY_SERVICE_APPROVE")))

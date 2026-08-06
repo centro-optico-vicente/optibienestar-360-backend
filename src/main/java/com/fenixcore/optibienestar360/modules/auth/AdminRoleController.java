@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UpdateRolePermissionsRequest;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -38,6 +40,15 @@ public class AdminRoleController {
     @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<List<RoleDto>> list() {
         return ResponseEntity.ok(roleService.listActiveRoles());
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(roleService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

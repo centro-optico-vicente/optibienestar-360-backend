@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -42,6 +44,15 @@ public class AdminUserController {
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(userService.listUsers(filter, q, pageable, actor.getUuid()));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(userService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

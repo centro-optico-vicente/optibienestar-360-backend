@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.catalog;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeUpdateRequest;
@@ -59,6 +60,7 @@ import java.net.URI;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -117,6 +119,15 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(countryService.list(pageable, filter, q));
     }
 
+    @GetMapping("/countries/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> countryOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(countryService.listOptions(q, limit, currentValues));
+    }
+
     @GetMapping("/countries/{uuid}")
     @PreAuthorize(READ_AUTH)
     public ResponseEntity<CountryDto> getCountry(@PathVariable UUID uuid) {
@@ -153,6 +164,16 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode) {
         return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode));
+    }
+
+    @GetMapping("/states/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> stateOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) UUID countryUuid) {
+        return ResponseEntity.ok(stateService.listOptions(q, limit, currentValues, countryUuid));
     }
 
     @GetMapping("/states/{uuid}")
@@ -194,6 +215,16 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode));
     }
 
+    @GetMapping("/cities/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> cityOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) UUID stateUuid) {
+        return ResponseEntity.ok(cityService.listOptions(q, limit, currentValues, stateUuid));
+    }
+
     @GetMapping("/cities/{uuid}")
     @PreAuthorize(READ_AUTH)
     public ResponseEntity<CityDto> getCity(@PathVariable UUID uuid) {
@@ -229,6 +260,15 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
         return ResponseEntity.ok(genderService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/genders/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> genderOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(genderService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/genders/{uuid}")
@@ -268,6 +308,15 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(documentTypeService.list(pageable, filter, q));
     }
 
+    @GetMapping("/document-types/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> documentTypeOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(documentTypeService.listOptions(q, limit, currentValues));
+    }
+
     @GetMapping("/document-types/{uuid}")
     @PreAuthorize(READ_AUTH)
     public ResponseEntity<DocumentTypeDto> getDocumentType(@PathVariable UUID uuid) {
@@ -303,6 +352,15 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
         return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/marital-statuses/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> maritalStatusOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(maritalStatusService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/marital-statuses/{uuid}")
@@ -342,6 +400,15 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(occupationService.list(pageable, filter, q));
     }
 
+    @GetMapping("/occupations/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> occupationOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(occupationService.listOptions(q, limit, currentValues));
+    }
+
     @GetMapping("/occupations/{uuid}")
     @PreAuthorize(READ_AUTH)
     public ResponseEntity<OccupationDto> getOccupation(@PathVariable UUID uuid) {
@@ -377,6 +444,15 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
         return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/medical-specialties/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> medicalSpecialtyOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(medicalSpecialtyService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/medical-specialties/{uuid}")
@@ -451,6 +527,15 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
         return ResponseEntity.ok(allyTypeService.list(pageable, filter, q));
+    }
+
+    @GetMapping("/ally-types/options")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<List<OptionDto>> allyTypeOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(allyTypeService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/ally-types/{uuid}")
