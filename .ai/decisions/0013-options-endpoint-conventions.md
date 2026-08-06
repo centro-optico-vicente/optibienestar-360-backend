@@ -38,6 +38,10 @@ Query params estándar:
 
 Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` — encapsula: buscar coincidencias respetando `q`/`active`/límite, y garantizar que los uuids de `currentValues` aparezcan siempre (resueltos con el `findByUuid` que cada repositorio ya expone por [ADR 0006](0006-repository-search-conventions.md), sin agregar un `findByUuidIn` nuevo).
 
+### Regla 3 — `/options` no tiene permiso propio; reutiliza el del listado paginado hermano
+
+`/options` **no** introduce un permiso nuevo (ej. no existe `PLAN_OPTIONS_READ`). Se protege con el mismo `@PreAuthorize` que ya protege el `GET` de listado paginado de su recurso padre (`PLAN_VIEW_ALL`, `MEMBER_VIEW_ALL`, `USER_VIEW_ALL`, `ROLE_VIEW`, `CATALOG_VIEW_ALL`, etc.). Esto es consistente con la filosofía ya congelada en `V34__catalog_view_permission.sql`: los permisos de lectura se agrupan por **dominio de recurso**, no se fragmentan por tipo de endpoint (paginado vs. options vs. detalle). Fragmentar aquí no ganaría ningún control real — `/options` expone *menos* datos que el listado completo (solo `uuid`/`code`/`label`/`active`), nunca más — y obligaría a duplicar asignaciones de rol en las 14 entidades. Si en el futuro aparece un caso donde el listado completo expone un dato sensible que `/options` deba ocultar de cierto rol (o viceversa), ahí sí se justificaría separar el permiso — hoy no existe ese caso de uso.
+
 ## Tabla resumen — estado tras esta implementación
 
 | Entidad | `?q=` | `/options` |
