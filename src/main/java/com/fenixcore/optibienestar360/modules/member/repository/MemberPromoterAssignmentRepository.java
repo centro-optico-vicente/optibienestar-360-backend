@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Insert-only audit log of member↔promoter reassignments (V35). No specification
@@ -16,4 +17,7 @@ public interface MemberPromoterAssignmentRepository extends JpaRepository<Member
 
     /** Reassignment history of a member, newest first. */
     List<MemberPromoterAssignment> findByMemberIdOrderByCreatedAtDesc(Long memberId);
+
+    /** Reassignment history of a member looked up by its public UUID, newest first. */
+    List<MemberPromoterAssignment> findByMember_UuidOrderByCreatedAtDesc(UUID memberUuid);
 }

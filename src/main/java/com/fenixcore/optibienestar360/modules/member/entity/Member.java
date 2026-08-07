@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,16 +79,28 @@ public class Member extends BaseEntity {
 
     /**
      * Permanent attribution link to the sales-network promoter (V25).
-     * Schema-nullable to let back-fill scripts land, but the enrollment
-     * service enforces NOT NULL — every new member resolves to either a
-     * real promoter (by {@code referral_code} on the request) or the
-     * INSTITUCION fallback. Reassigning this link is admin-only via
-     * {@code POST /v1/admin/members/{uuid}/assign-promoter}
-     * (future bullet, v2 PDF 2.a "permanent link").
+     * Nullable — a member can be enrolled without a promoter (no or unknown
+     * {@code referral_code} on the request) and linked to one later by an
+     * admin via {@code POST /v1/admin/members/{uuid}/assign-promoter} (accepts
+     * either a promoter UUID or a referral code). Commission attribution
+     * falls back to the INSTITUCION system promoter at calculation time
+     * regardless of this field ({@code CommissionService.resolvePromoter}).
+     * Every change to this link — including the first assignment — is
+     * audited in {@code member_promoter_assignments} (v2 PDF 2.a "permanent link").
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "promoter_id")
     private Promoter promoter;
+
+    /**
+     * When this member was confirmed (V45). Stamped automatically on the
+     * member's first APPROVED payment ({@code PaymentsService.approve}), or
+     * manually by an admin ({@code POST /v1/admin/members/{uuid}/confirm},
+     * permission {@code MEMBER_CONFIRM}) for members fully covered by a
+     * subsidy that never generate a payment. NULL means pending confirmation.
+     */
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
 
     /**
      * Member's own short code (V27) for the affiliate-to-affiliate

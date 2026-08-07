@@ -66,3 +66,12 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [v2] [P0/C2] **Frontend:** agregar los 7 campos al formulario de alta/edición de afiliados (panel admin) para que el operador los capture. Backend ya los acepta.
 - [ ] [v2] [P1/C1] **Nota Cónyuge:** `spouse_name` es captura fiel del papel; si el cónyuge se afilia también existe como `Beneficiary` (relationship=SPOUSE). No se sincronizan — evaluar si conviene derivar uno del otro.
 - [ ] [v2] [P2/C1] **Fuera de alcance de V29** (artefactos de papel / pendientes de decisión): "Número de Afiliado" legible (hoy UUID), firma/huellas dactilares/sello de validación (manejables como PDF firmado subido vía `member_documents`).
+
+## Adicionales v3 — Confirmación de afiliado (project chat 2026-08-06)
+
+> **Motivación:** distinguir "creado" (`createdAt`, ya existente) de "confirmado" (pago validado o cubierto por subsidio). Surge junto con el soporte de afiliados sin promotor al crear (ver `vertical-8-promotores-comisiones-referidos.md`).
+
+- [x] [v3] [P1/C2] `V45__member_confirmation.sql` — agrega `members.confirmed_at TIMESTAMPTZ NULL` + permiso `MEMBER_CONFIRM` (dominio MEMBERS, otorgado a ADMINISTRADOR + SYSTEM). _(`Member.confirmedAt` mapeado; expuesto en `MemberListItemDto`/`MemberDetailDto` junto a `createdAt`.)_
+- [x] [v3] [P1/C3] Confirmación automática: `PaymentsService.confirmMemberOnFirstApprovedPayment` — al aprobar un pago (`approve()`), si es el primer `APPROVED` del afiliado (`PaymentRepository.countApprovedByMemberId`) y `confirmedAt` aún es null, se estampa `Instant.now()`. No-op si ya estaba confirmado (idempotente, cubre el caso de confirmación manual previa). _(Tests: `PaymentsServiceTest` — confirma en el primer pago, no reconfirma, no confirma en el segundo.)_
+- [x] [v3] [P1/C2] Confirmación manual: `POST /v1/admin/members/{uuid}/confirm` (`AdminMemberConfirmController` + `MemberConfirmationService`, `@PreAuthorize('MEMBER_CONFIRM')`) — para afiliados cubiertos 100% por subsidio que nunca generan pago. 422 `member.already_confirmed` si se reintenta. _(Tests: `MemberConfirmationServiceTest` + `AdminMemberConfirmControllerIT` — 401/403/200/422/404.)_
+- [ ] [v3] [P1/C2] **Frontend:** mostrar `createdAt` + `confirmedAt` (o badge "Pendiente de confirmación") en el detalle del afiliado, con acción "Confirmar manualmente" para el caso de subsidio. Backend ya lo soporta.

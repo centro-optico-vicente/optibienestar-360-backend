@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -39,10 +40,21 @@ public class MemberPromoterService {
     @Transactional
     public MemberPromoterAssignmentDto assign(UUID memberUuid, UUID promoterUuid,
                                               String reason, UUID actorUserUuid) {
+        return assign(memberUuid, promoterUuid, null, reason, actorUserUuid);
+    }
+
+    /**
+     * Resolves the target promoter by UUID or referral code (exactly one is
+     * expected — validated by {@code AssignPromoterRequest}) and reassigns
+     * the link. Also the only path to give a member their <i>first</i>
+     * promoter when they were enrolled without one ({@code from == null}).
+     */
+    @Transactional
+    public MemberPromoterAssignmentDto assign(UUID memberUuid, UUID promoterUuid, String referralCode,
+                                              String reason, UUID actorUserUuid) {
         Member member = memberRepository.findByUuid(memberUuid)
                 .orElseThrow(() -> new NoSuchElementException("member.not_found"));
-        Promoter target = promoterRepository.findByUuid(promoterUuid)
-                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        Promoter target = resolveTarget(promoterUuid, referralCode);
         if (!target.isActive()) {
             throw new IllegalArgumentException("promoter.inactive");
         }
@@ -77,5 +89,42 @@ public class MemberPromoterService {
                 actor != null ? actor.getUuid() : null,
                 saved.getReason(),
                 saved.getCreatedAt());
+    }
+
+    private Promoter resolveTarget(UUID promoterUuid, String referralCode) {
+        if (promoterUuid != null) {
+            return promoterRepository.findByUuid(promoterUuid)
+                    .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        }
+        String normalized = referralCode.trim().toUpperCase();
+        return promoterRepository.findByReferralCode(normalized)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+    }
+
+    /** Reassignment history of a member, newest first. */
+    public List<MemberPromoterAssignmentDto> history(UUID memberUuid) {
+        if (!memberRepository.existsByUuid(memberUuid)) {
+            throw new NoSuchElementException("member.not_found");
+        }
+        return assignmentRepository.findByMember_UuidOrderByCreatedAtDesc(memberUuid).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    private MemberPromoterAssignmentDto toDto(MemberPromoterAssignment a) {
+        Promoter from = a.getFromPromoter();
+        Promoter to = a.getToPromoter();
+        User actor = a.getActor();
+        return new MemberPromoterAssignmentDto(
+                a.getUuid(),
+                a.getMember().getUuid(),
+                a.getMember().getPerson() != null ? a.getMember().getPerson().getFullName() : null,
+                from != null ? from.getUuid() : null,
+                from != null ? from.getDisplayName() : null,
+                to.getUuid(),
+                to.getDisplayName(),
+                actor != null ? actor.getUuid() : null,
+                a.getReason(),
+                a.getCreatedAt());
     }
 }

@@ -5,7 +5,10 @@ import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
@@ -92,6 +95,61 @@ class PaymentsServiceTest {
                 new PaymentDiscountRequest(new BigDecimal("25.00"), "Ajuste"), ACTOR))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("payment.discount.exceeds_amount");
+    }
+
+    @Test
+    void approve_confirmsMember_onFirstApprovedPayment() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+        when(paymentRepository.countApprovedByMemberId(9L)).thenReturn(1L);
+
+        sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
+
+        assertThat(member.getConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    void approve_doesNotReconfirm_whenAlreadyConfirmed() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        var alreadyConfirmedAt = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        member.setConfirmedAt(alreadyConfirmedAt);
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
+
+        assertThat(member.getConfirmedAt()).isEqualTo(alreadyConfirmedAt);
+    }
+
+    @Test
+    void approve_doesNotConfirmMember_whenNotFirstApprovedPayment() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+        when(paymentRepository.countApprovedByMemberId(9L)).thenReturn(2L);
+
+        sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
+
+        assertThat(member.getConfirmedAt()).isNull();
     }
 
     private static Payment pending(BigDecimal amount) {

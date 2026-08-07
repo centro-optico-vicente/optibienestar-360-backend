@@ -261,8 +261,28 @@ public class PaymentsService {
 
         validatorCacheService.evictForMembership(payment.getMembership());
         attributeCommission(payment);
+        confirmMemberOnFirstApprovedPayment(payment);
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         return mapper.toDto(payment);
+    }
+
+    /**
+     * Stamps {@link Member#getConfirmedAt()} the moment a member's <i>first</i>
+     * payment is approved. A no-op if the member is already confirmed
+     * (e.g. manually, via {@code POST /v1/admin/members/{uuid}/confirm} —
+     * subsidized members never pay) or if this isn't their first approved
+     * payment. {@code payment} was just moved to APPROVED, so a count of 1
+     * here means this is the first one.
+     */
+    private void confirmMemberOnFirstApprovedPayment(Payment payment) {
+        Member member = payment.getMembership().getMember();
+        if (member.getConfirmedAt() != null) {
+            return;
+        }
+        long approvedCount = paymentRepository.countApprovedByMemberId(member.getId());
+        if (approvedCount == 1) {
+            member.setConfirmedAt(Instant.now());
+        }
     }
 
     /**

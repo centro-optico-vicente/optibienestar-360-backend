@@ -9,12 +9,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -37,6 +39,12 @@ public class AdminMemberPromoterController {
             @Valid @RequestBody AssignPromoterRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(memberPromoterService.assign(
-                memberUuid, request.promoterUuid(), request.reason(), actor.getUuid()));
+                memberUuid, request.promoterUuid(), request.referralCode(), request.reason(), actor.getUuid()));
+    }
+
+    @GetMapping("/{memberUuid}/promoter-history")
+    @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
+    public ResponseEntity<List<MemberPromoterAssignmentDto>> promoterHistory(@PathVariable UUID memberUuid) {
+        return ResponseEntity.ok(memberPromoterService.history(memberUuid));
     }
 }

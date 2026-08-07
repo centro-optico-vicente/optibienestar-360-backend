@@ -241,7 +241,7 @@ class CorporateContractsServiceTest {
         when(repository.findByUuid(contract.getUuid())).thenReturn(Optional.of(contract));
         Member member = new Member();
         MemberListItemDto dto = new MemberListItemDto(UUID.randomUUID(), "Juan Pérez", "V",
-                "12345678", null, null, LocalDate.of(2026, 1, 1), true, null, null);
+                "12345678", null, null, LocalDate.of(2026, 1, 1), null, null, true, null, null, null);
         when(memberRepository.findByCorporateContractIdAndActiveTrue(eq(7L), any()))
                 .thenReturn(new PageImpl<>(List.of(member)));
         when(memberMapper.toListItem(member)).thenReturn(dto);

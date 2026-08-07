@@ -24,11 +24,13 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -75,7 +77,7 @@ class AdminMemberPromoterControllerIT {
         mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isUnauthorized());
-        verify(memberPromoterService, never()).assign(any(), any(), anyString(), any());
+        verify(memberPromoterService, never()).assign(any(), any(), any(), anyString(), any());
     }
 
     @Test
@@ -84,14 +86,14 @@ class AdminMemberPromoterControllerIT {
                         .with(principal("MEMBER_VIEW_ALL"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isForbidden());
-        verify(memberPromoterService, never()).assign(any(), any(), anyString(), any());
+        verify(memberPromoterService, never()).assign(any(), any(), any(), anyString(), any());
     }
 
     @Test
     void withPermission_returns200_withAssignmentDto() throws Exception {
         UUID memberUuid = UUID.randomUUID();
         UUID toPromoter = UUID.randomUUID();
-        when(memberPromoterService.assign(any(UUID.class), any(UUID.class), anyString(), any(UUID.class)))
+        when(memberPromoterService.assign(any(UUID.class), any(UUID.class), any(), anyString(), any(UUID.class)))
                 .thenReturn(new MemberPromoterAssignmentDto(
                         UUID.randomUUID(), memberUuid, "Juan Pérez",
                         null, null, toPromoter, "Óptica Vicente",
@@ -109,8 +111,26 @@ class AdminMemberPromoterControllerIT {
     }
 
     @Test
+    void withReferralCode_returns200_withAssignmentDto() throws Exception {
+        UUID memberUuid = UUID.randomUUID();
+        UUID toPromoter = UUID.randomUUID();
+        when(memberPromoterService.assign(any(UUID.class), eq(null), eq("PROMO01"), anyString(), any(UUID.class)))
+                .thenReturn(new MemberPromoterAssignmentDto(
+                        UUID.randomUUID(), memberUuid, "Juan Pérez",
+                        null, null, toPromoter, "Óptica Vicente",
+                        UUID.randomUUID(), "Vinculación inicial", Instant.parse("2026-07-25T12:00:00Z")));
+
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", memberUuid)
+                        .with(principal("MEMBER_ASSIGN_PROMOTER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referralCode\":\"PROMO01\",\"reason\":\"Vinculación inicial\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toPromoterUuid").value(toPromoter.toString()));
+    }
+
+    @Test
     void unchangedReassignment_maps_to_422() throws Exception {
-        when(memberPromoterService.assign(any(), any(), anyString(), any()))
+        when(memberPromoterService.assign(any(), any(), any(), anyString(), any()))
                 .thenThrow(new IllegalArgumentException("member.promoter.unchanged"));
 
         mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
@@ -121,12 +141,34 @@ class AdminMemberPromoterControllerIT {
 
     @Test
     void unknownMember_maps_to_404() throws Exception {
-        when(memberPromoterService.assign(any(), any(), anyString(), any()))
+        when(memberPromoterService.assign(any(), any(), any(), anyString(), any()))
                 .thenThrow(new NoSuchElementException("member.not_found"));
 
         mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
                         .with(principal("MEMBER_ASSIGN_PROMOTER"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void history_withPermission_returns200_withList() throws Exception {
+        UUID memberUuid = UUID.randomUUID();
+        when(memberPromoterService.history(memberUuid)).thenReturn(List.of(
+                new MemberPromoterAssignmentDto(
+                        UUID.randomUUID(), memberUuid, "Juan Pérez",
+                        null, null, UUID.randomUUID(), "INSTITUCION",
+                        null, "Enrolamiento", Instant.parse("2026-07-01T12:00:00Z"))));
+
+        mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", memberUuid)
+                        .with(principal("MEMBER_ASSIGN_PROMOTER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].toPromoterName").value("INSTITUCION"));
+    }
+
+    @Test
+    void history_withoutPermission_is403() throws Exception {
+        mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", UUID.randomUUID())
+                        .with(principal("MEMBER_VIEW_ALL")))
+                .andExpect(status().isForbidden());
     }
 }
