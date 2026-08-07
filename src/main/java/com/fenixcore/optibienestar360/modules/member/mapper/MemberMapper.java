@@ -26,11 +26,13 @@ public interface MemberMapper {
 
     // ─── Member → DTOs ──────────────────────────────────────────────────────
 
-    @Mapping(target = "fullName",       source = "person.fullName")
-    @Mapping(target = "documentType",   source = "person.documentType")
-    @Mapping(target = "documentNumber", source = "person.documentNumber")
-    @Mapping(target = "phone",          source = "person.phone")
-    @Mapping(target = "cityName",       source = "person.city.name")
+    @Mapping(target = "fullName",              source = "person.fullName")
+    @Mapping(target = "documentType",          source = "person.documentType")
+    @Mapping(target = "documentNumber",        source = "person.documentNumber")
+    @Mapping(target = "phone",                 source = "person.phone")
+    @Mapping(target = "cityName",              source = "person.city.name")
+    @Mapping(target = "currentPromoterUuid",   source = "promoter.uuid")
+    @Mapping(target = "currentPromoterName",   source = "promoter.displayName")
     MemberListItemDto toListItem(Member member);
 
     @Mapping(target = "personUuid",         source = "person.uuid")
@@ -59,6 +61,8 @@ public interface MemberMapper {
     @Mapping(target = "activeBeneficiariesCount", ignore = true)
     @Mapping(target = "activeDocumentsCount",     ignore = true)
     @Mapping(target = "hasMedicalRecord",         ignore = true)
+    @Mapping(target = "currentPromoterUuid",      source = "promoter.uuid")
+    @Mapping(target = "currentPromoterName",      source = "promoter.displayName")
     MemberDetailDto toDetail(Member member);
 
     // ─── Beneficiary → DTO ──────────────────────────────────────────────────

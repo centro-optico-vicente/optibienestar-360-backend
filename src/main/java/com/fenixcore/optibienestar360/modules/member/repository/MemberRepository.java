@@ -21,6 +21,8 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
 
     Optional<Member> findByUuid(UUID uuid);
 
+    boolean existsByUuid(UUID uuid);
+
     /** "Is this person already enrolled as a Member?" — backs the dedup guard at affiliation. */
     boolean existsByPersonId(Long personId);
 

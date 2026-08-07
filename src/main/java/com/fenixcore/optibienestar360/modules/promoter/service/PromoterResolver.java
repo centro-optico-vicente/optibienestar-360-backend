@@ -12,22 +12,21 @@ import org.springframework.stereotype.Component;
  * testable in isolation and shared by any enrollment path
  * ({@code MembersService.create} today, taquilla / self-signup later).
  *
- * <p><b>Rule</b> — promoter-table precedence, then INSTITUCION fallback:</p>
+ * <p><b>Rule</b> — promoter-table lookup only, no forced default:</p>
  * <ol>
  *   <li>If a non-blank {@code referralCode} resolves to an <i>active</i>
  *       promoter (case-insensitive, codes are stored UPPER), attribute to that
  *       promoter — this is the sales-network tracking link (PDF #4).</li>
  *   <li>Otherwise (no code, unknown code, or a code that is actually an
- *       affiliate-to-affiliate referral code, not a promoter's) fall back to the
- *       {@code INSTITUCION} system promoter, so the 100% of the attribution goes
- *       to central administration (PDF #5 default attribution). The
- *       affiliate-referral program (V27 / {@code ReferralService}) is a separate
- *       concern wired elsewhere.</li>
+ *       affiliate-to-affiliate referral code, not a promoter's) return
+ *       {@code null} — the member is enrolled without a promoter. An admin can
+ *       link one later via {@code POST /v1/admin/members/{uuid}/assign-promoter}
+ *       (accepts either a promoter UUID or a referral code). Commission
+ *       attribution still falls back to {@code INSTITUCION} at calculation time
+ *       ({@code CommissionService.resolvePromoter}), so an unlinked member does
+ *       not block commissions from being generated — this method only controls
+ *       what shows as the member's <i>displayed</i> current promoter.</li>
  * </ol>
- *
- * <p>{@code INSTITUCION} is seeded in V25 and is therefore always present in a
- * healthy deployment; the only way this returns {@code null} is a broken seed,
- * which is logged so it surfaces without blocking the enrollment.</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -47,11 +46,6 @@ public class PromoterResolver {
                 return byCode;
             }
         }
-        Promoter institucion = promoterRepository.findByReferralCode(SYSTEM_PROMOTER_CODE).orElse(null);
-        if (institucion == null) {
-            log.error("PromoterResolver: INSTITUCION system promoter not found (V25 seed missing?) — "
-                    + "member will be enrolled without an attribution link");
-        }
-        return institucion;
+        return null;
     }
 }

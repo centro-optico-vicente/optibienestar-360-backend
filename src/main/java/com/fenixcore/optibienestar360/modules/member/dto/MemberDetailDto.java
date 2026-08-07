@@ -62,9 +62,14 @@ public record MemberDetailDto(
         int activeDocumentsCount,
         boolean hasMedicalRecord,
 
+        // ─── Promoter attribution — null when unlinked ─────────────────────
+        UUID currentPromoterUuid,
+        String currentPromoterName,
+
         // ─── Audit ─────────────────────────────────────────────────────────
         boolean active,
         String status,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant confirmedAt
 ) {}

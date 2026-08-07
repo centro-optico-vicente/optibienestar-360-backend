@@ -345,7 +345,8 @@ public class MembersService {
                 base.occupation(), base.employerName(), base.jobPosition(), base.employerAddress(),
                 base.enrolledAt(), base.notes(),
                 beneficiariesCount, documentsCount, hasMedicalRecord,
-                base.active(), base.status(), base.createdAt(), base.updatedAt()
+                base.currentPromoterUuid(), base.currentPromoterName(),
+                base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt()
         );
     }
 

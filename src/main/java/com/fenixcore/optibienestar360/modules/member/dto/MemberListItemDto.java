@@ -22,8 +22,13 @@ public record MemberListItemDto(
         // Member-specific
         LocalDate enrolledAt,
 
+        // Promoter attribution — null when unlinked
+        UUID currentPromoterUuid,
+        String currentPromoterName,
+
         // Audit
         boolean active,
         String status,
-        Instant createdAt
+        Instant createdAt,
+        Instant confirmedAt
 ) {}

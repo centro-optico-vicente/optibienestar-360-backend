@@ -31,4 +31,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "  AND p.membership.member.person.id = " +
            "      (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)")
     Page<Payment> findOwnByUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
+
+    /**
+     * Number of APPROVED payments across all of a member's memberships.
+     * Used by {@code PaymentsService.approve} to detect the member's
+     * <i>first</i> approved payment (stamps {@code Member.confirmedAt}).
+     */
+    @Query("SELECT COUNT(p) FROM Payment p " +
+           "WHERE p.status = 'APPROVED' " +
+           "  AND p.membership.member.id = :memberId")
+    long countApprovedByMemberId(@Param("memberId") Long memberId);
 }

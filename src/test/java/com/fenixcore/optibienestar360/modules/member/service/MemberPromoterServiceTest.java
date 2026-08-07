@@ -154,6 +154,78 @@ class MemberPromoterServiceTest {
     }
 
     @Test
+    void assign_byReferralCode_resolvesPromoter_andLinksUnlinkedMember() {
+        service = service();
+        Member member = member(null);
+        Promoter target = promoter("PROMO01", true);
+        User actor = user();
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        when(promoterRepository.findByReferralCode("PROMO01")).thenReturn(Optional.of(target));
+        when(userRepository.findByUuid(actor.getUuid())).thenReturn(Optional.of(actor));
+        when(assignmentRepository.save(any())).thenAnswer(inv -> {
+            MemberPromoterAssignment a = inv.getArgument(0);
+            a.setUuid(UUID.randomUUID());
+            a.setCreatedAt(Instant.parse("2026-08-06T12:00:00Z"));
+            return a;
+        });
+
+        MemberPromoterAssignmentDto dto =
+                service.assign(member.getUuid(), null, "promo01", "Vinculación inicial", actor.getUuid());
+
+        assertThat(member.getPromoter()).isSameAs(target);
+        assertThat(dto.fromPromoterUuid()).isNull();
+        assertThat(dto.toPromoterUuid()).isEqualTo(target.getUuid());
+    }
+
+    @Test
+    void assign_404_whenReferralCodeUnknown() {
+        service = service();
+        Member member = member(null);
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        when(promoterRepository.findByReferralCode("NOPE")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.assign(member.getUuid(), null, "nope", "x", UUID.randomUUID()))
+                .isInstanceOf(java.util.NoSuchElementException.class)
+                .hasMessage("promoter.not_found");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void history_mapsAssignments_newestFirst() {
+        service = service();
+        Member member = member(null);
+        Promoter from = promoter("OLD", true);
+        Promoter to = promoter("NEW", true);
+        MemberPromoterAssignment row = new MemberPromoterAssignment();
+        row.setUuid(UUID.randomUUID());
+        row.setMember(member);
+        row.setFromPromoter(from);
+        row.setToPromoter(to);
+        row.setReason("Traslado");
+        row.setCreatedAt(Instant.parse("2026-08-06T12:00:00Z"));
+        when(memberRepository.existsByUuid(member.getUuid())).thenReturn(true);
+        when(assignmentRepository.findByMember_UuidOrderByCreatedAtDesc(member.getUuid()))
+                .thenReturn(java.util.List.of(row));
+
+        var history = service.history(member.getUuid());
+
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).fromPromoterUuid()).isEqualTo(from.getUuid());
+        assertThat(history.get(0).toPromoterUuid()).isEqualTo(to.getUuid());
+    }
+
+    @Test
+    void history_404_whenMemberUnknown() {
+        service = service();
+        UUID missing = UUID.randomUUID();
+        when(memberRepository.existsByUuid(missing)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.history(missing))
+                .isInstanceOf(java.util.NoSuchElementException.class)
+                .hasMessage("member.not_found");
+    }
+
+    @Test
     void assign_422_whenReassigningToSamePromoter() {
         service = service();
         Promoter same = promoter("VICENTE", true);
