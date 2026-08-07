@@ -3,14 +3,17 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.CommissionStatus;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -23,6 +26,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +47,20 @@ import java.util.Optional;
  * so the cutover is behavior-preserving. The tier values are snapshotted inline
  * on the {@link Commission} row so later tier edits never rewrite history.</p>
  *
+ * <p><b>Collection-speed pricing (ADR 0013 §3, V44/V47/V48)</b>: MONTHLY
+ * commissions try {@code collection_commission_tiers} first — a decreasing %
+ * of the membership's snapshotted {@code monthlyFee} by how many days late the
+ * payment was collected (measured against {@link Membership#getBillingStartDay()}
+ * anchored on the payment's period). Falls back to the volume-tier flow above
+ * when no collection tier is configured/applicable, so a deployment with an
+ * empty {@code collection_commission_tiers} table keeps the old behavior.</p>
+ *
+ * <p><b>Promoter-type scoping (V46)</b>: both tier flows prefer a row scoped to
+ * the promoter's {@code promoterType} over an unscoped (any-type) row, even if
+ * the unscoped row would otherwise win on threshold/days — see
+ * {@code CommissionTierRepository}/{@code CollectionCommissionTierRepository}
+ * #findActiveApplicable ordering.</p>
+ *
  * <p><b>Promoter resolution</b>: walks {@code payment.membership.member.promoter};
  * falls back to the seeded INSTITUCION row when the member has no active promoter
  * (PDF #5 default attribution).</p>
@@ -60,6 +79,7 @@ public class CommissionService {
 
     private final CommissionRepository commissionRepository;
     private final CommissionTierRepository tierRepository;
+    private final CollectionCommissionTierRepository collectionTierRepository;
     private final PromoterRepository promoterRepository;
     private final MemberRepository memberRepository;
 
@@ -105,13 +125,41 @@ public class CommissionService {
         AppliesTo appliesTo = payment.isInscription() ? AppliesTo.INSCRIPTION : AppliesTo.MONTHLY;
         LocalDate anchor = resolvePeriodAnchor(payment);
 
-        CommissionTier tier = selectTier(promoter, planType, appliesTo, anchor);
-        if (tier == null) {
-            log.warn("Commission skipped: no applicable commission tier for payment {} (plan {} / {})",
-                    payment.getUuid(), planType, appliesTo);
-            return Optional.empty();
+        Commission commission = appliesTo == AppliesTo.MONTHLY
+                ? priceByCollectionSpeed(promoter, payment, anchor)
+                : null;
+        if (commission == null) {
+            // No collection tier applicable (INSCRIPTION, or MONTHLY with no
+            // configured/matching collection_commission_tiers row) — the
+            // original plan/volume commission_tiers flow prices it.
+            CommissionTier tier = selectTier(promoter, planType, appliesTo, anchor);
+            if (tier == null) {
+                log.warn("Commission skipped: no applicable commission tier for payment {} (plan {} / {})",
+                        payment.getUuid(), planType, appliesTo);
+                return Optional.empty();
+            }
+            commission = priceByVolumeTier(tier, payment, appliesTo, anchor);
         }
 
+        commission.setPromoter(promoter);
+        commission.setPayment(payment);
+        commission.setMember(member);
+        commission.setCurrency(payment.getCurrency());
+        commission.setAppliesTo(appliesTo);
+        commission.setEarnedAt(payment.getReviewedAt() != null ? payment.getReviewedAt() : Instant.now());
+        commission.setStatus(CommissionStatus.PENDING.name());
+
+        Commission saved = commissionRepository.save(commission);
+        log.info("Commission persisted: payment={} promoter={} amount={} {} tier={}",
+                payment.getUuid(), promoter.getReferralCode(), saved.getAmount(), saved.getCurrency(),
+                saved.getTierNameSnapshot());
+        return Optional.of(saved);
+    }
+
+    // ─── Volume-tier pricing (INSCRIPTION, or MONTHLY without a collection tier) ─
+
+    private static Commission priceByVolumeTier(CommissionTier tier, Payment payment,
+                                                 AppliesTo appliesTo, LocalDate anchor) {
         PeriodStrategies.Window window = PeriodStrategies.window(tier.getPeriodStrategy().name(), anchor);
         BigDecimal basis = payment.getAmount();
         BigDecimal pct = tier.getCommissionPct();
@@ -121,28 +169,70 @@ public class CommissionService {
                 : flat;
 
         Commission commission = new Commission();
-        commission.setPromoter(promoter);
-        commission.setPayment(payment);
-        commission.setMember(member);
         commission.setAmount(amount);
-        commission.setCurrency(payment.getCurrency());
         commission.setCalculationBasis(basis);
         commission.setCommissionPct(pct);
         commission.setFlatAmount(flat);
         commission.setCommissionTierId(tier.getId());
         commission.setTierNameSnapshot(tier.getName());
-        commission.setAppliesTo(appliesTo);
         commission.setPeriodStrategy(tier.getPeriodStrategy());
         commission.setPeriodStart(window.start());
         commission.setPeriodEnd(window.end());
-        commission.setEarnedAt(payment.getReviewedAt() != null ? payment.getReviewedAt() : Instant.now());
-        commission.setStatus(CommissionStatus.PENDING.name());
+        return commission;
+    }
 
-        Commission saved = commissionRepository.save(commission);
-        log.info("Commission persisted: payment={} promoter={} amount={} {} tier={}",
-                payment.getUuid(), promoter.getReferralCode(), saved.getAmount(), saved.getCurrency(),
-                saved.getTierNameSnapshot());
-        return Optional.of(saved);
+    // ─── Collection-commission pricing (MONTHLY, ADR 0013 §3 / V44 / V47-V48) ───
+
+    /**
+     * Prices a MONTHLY commission by how many days late it was collected,
+     * replacing the plan/volume rate for that case (vertical-8 Ítem B).
+     * Returns {@code null} when there's no configured/matching collection tier
+     * — the caller falls back to {@link #priceByVolumeTier}.
+     */
+    private Commission priceByCollectionSpeed(Promoter promoter, Payment payment, LocalDate anchor) {
+        Membership membership = payment.getMembership();
+        int days = collectionDays(membership, payment, anchor);
+
+        Long promoterTypeId = promoter.getPromoterType() != null ? promoter.getPromoterType().getId() : null;
+        List<CollectionCommissionTier> candidates =
+                collectionTierRepository.findActiveApplicable(days, promoterTypeId);
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        CollectionCommissionTier tier = candidates.get(0);
+
+        PeriodStrategies.Window window = PeriodStrategies.window(Commission.PeriodStrategy.MONTHLY.name(), anchor);
+        BigDecimal basis = membership.getMonthlyFee();
+        BigDecimal pct = tier.getCommissionPct();
+        BigDecimal amount = basis.multiply(pct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+        Commission commission = new Commission();
+        commission.setAmount(amount);
+        commission.setCalculationBasis(basis);
+        commission.setCommissionPct(pct);
+        commission.setFlatAmount(null);
+        commission.setTierNameSnapshot(tier.getName());
+        commission.setCollectionDays(days);
+        commission.setCollectionTierId(tier.getId());
+        commission.setPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
+        commission.setPeriodStart(window.start());
+        commission.setPeriodEnd(window.end());
+        return commission;
+    }
+
+    /**
+     * Days between the period's scheduled collection date (billing cutover day
+     * anchored on the period's month, {@link Membership#getBillingStartDay()})
+     * and when the payment actually settled ({@link Payment#getPaymentDate()}).
+     * Clamped at 0 — an early/on-time payment is never "negative days late".
+     */
+    private static int collectionDays(Membership membership, Payment payment, LocalDate periodAnchor) {
+        int day = membership.getBillingStartDay() != null
+                ? membership.getBillingStartDay()
+                : membership.getEnrolledAt().getDayOfMonth();
+        YearMonth month = YearMonth.from(periodAnchor);
+        LocalDate scheduled = month.atDay(Math.min(day, month.lengthOfMonth()));
+        return (int) Math.max(0, ChronoUnit.DAYS.between(scheduled, payment.getPaymentDate()));
     }
 
     // ─── Tier selection ───────────────────────────────────────────────────────
@@ -157,8 +247,9 @@ public class CommissionService {
         CommissionTier.AppliesTo tierApplies = appliesTo == AppliesTo.INSCRIPTION
                 ? CommissionTier.AppliesTo.INSCRIPTION
                 : CommissionTier.AppliesTo.MONTHLY;
+        Long promoterTypeId = promoter.getPromoterType() != null ? promoter.getPromoterType().getId() : null;
         List<CommissionTier> candidates =
-                tierRepository.findActiveApplicable(planType, tierApplies, CommissionTier.AppliesTo.BOTH);
+                tierRepository.findActiveApplicable(planType, tierApplies, CommissionTier.AppliesTo.BOTH, promoterTypeId);
 
         Map<String, Long> countByStrategy = new HashMap<>();
         for (CommissionTier tier : candidates) {

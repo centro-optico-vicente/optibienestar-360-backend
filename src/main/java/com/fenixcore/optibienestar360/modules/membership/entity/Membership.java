@@ -78,6 +78,17 @@ public class Membership extends BaseEntity {
     @Column(name = "last_paid_through")
     private LocalDate lastPaidThrough;
 
+    /**
+     * Configurable billing cutover day of the month (1-28), V47. Defaulted to
+     * the day-of-month of {@link #enrolledAt} at creation, but editable so an
+     * advisor can move a member enrolled on the 3rd to a "collect from the 1st"
+     * cadence. Anchors the collection-commission engine's "scheduled collection
+     * date" for a given billing period — see
+     * {@code CommissionService.scheduledCollectionDate}.
+     */
+    @Column(name = "billing_start_day")
+    private Integer billingStartDay;
+
     // ─── Pricing snapshot (immune to later plan edits) ─────────────────────
 
     @Column(name = "inscription_fee", precision = 10, scale = 2, nullable = false)

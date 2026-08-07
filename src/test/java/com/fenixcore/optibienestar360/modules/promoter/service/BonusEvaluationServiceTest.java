@@ -188,6 +188,45 @@ class BonusEvaluationServiceTest {
         assertThat(res.totalAmount()).isEqualByComparingTo("100.00");
     }
 
+    // ─── Promoter-type scoping (V46) ────────────────────────────────────────────
+
+    @Test
+    void typeScopedRule_skipsPromoterOfADifferentType() {
+        com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType wantedType = promoterType(9L);
+        CommissionBonusRule rule = newLifetimeRule(500, new BigDecimal("100.00"));
+        rule.setPromoterType(wantedType);
+        stubRules(rule);
+        Promoter otherType = promoter(7L);
+        otherType.setPromoterType(promoterType(1L));   // different type — rule doesn't apply
+        when(memberRepository.countNewSubscribersByPromoter(LIFETIME_START, JUN_15, false))
+                .thenReturn(List.of(new PromoterMetricCount(7L, 523L)));
+        when(promoterRepository.findAllById(any())).thenReturn(List.of(otherType));
+
+        BonusEvaluationResponse res = service().evaluate(JUN_15, false);
+
+        verify(awardRepository, never()).save(any());
+        assertThat(res.awardsCreated()).isZero();
+    }
+
+    @Test
+    void typeScopedRule_appliesToPromoterOfTheMatchingType() {
+        com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType wantedType = promoterType(9L);
+        CommissionBonusRule rule = newLifetimeRule(500, new BigDecimal("100.00"));
+        rule.setPromoterType(wantedType);
+        stubRules(rule);
+        Promoter matching = promoter(7L);
+        matching.setPromoterType(promoterType(9L));
+        when(memberRepository.countNewSubscribersByPromoter(LIFETIME_START, JUN_15, false))
+                .thenReturn(List.of(new PromoterMetricCount(7L, 523L)));
+        when(promoterRepository.findAllById(any())).thenReturn(List.of(matching));
+        when(awardRepository.sumBlocksAwardedLifetime(rule.getId(), 7L)).thenReturn(0L);
+        when(awardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        BonusEvaluationResponse res = service().evaluate(JUN_15, false);
+
+        assertThat(res.awardsCreated()).isEqualTo(1);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private void stubRules(CommissionBonusRule... rules) {
@@ -239,5 +278,15 @@ class BonusEvaluationServiceTest {
         p.setReferralCode("P" + id);
         p.setActive(true);
         return p;
+    }
+
+    private com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType promoterType(long id) {
+        com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType t =
+                new com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType();
+        t.setId(id);
+        t.setUuid(UUID.randomUUID());
+        t.setCode("TYPE-" + id);
+        t.setName("Type " + id);
+        return t;
     }
 }
