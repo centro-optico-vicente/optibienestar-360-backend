@@ -1,11 +1,15 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -83,6 +87,11 @@ public class CommissionBonusRule extends BaseEntity {
 
     @Column(name = "include_system_promoters", nullable = false)
     private boolean includeSystemPromoters = false;
+
+    /** Optional promoter-type scope. {@code null} = applies to every promoter type. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promoter_type_id")
+    private PromoterType promoterType;
 
     /** What we count per promoter in the window. */
     public enum BonusMetric {

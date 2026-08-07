@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * PATCH-style payload for {@code PUT /v1/admin/commission-tiers/{uuid}} — every
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 public record CommissionTierUpdateRequest(
         String name,
         PlanType planType,
+        UUID promoterTypeUuid,
         @PositiveOrZero Integer thresholdCount,
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,

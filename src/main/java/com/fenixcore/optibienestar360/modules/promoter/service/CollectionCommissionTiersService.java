@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierUpdateRequest;
@@ -35,12 +37,14 @@ public class CollectionCommissionTiersService {
     private static final String[] SEARCHABLE_FIELDS = {"name"};
 
     private final CollectionCommissionTierRepository repository;
+    private final PromoterTypeRepository promoterTypeRepository;
 
     public CollectionCommissionTierDto get(UUID uuid) {
         return CollectionCommissionTierDto.from(findManaged(uuid));
     }
 
-    public Page<CollectionCommissionTierDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+    public Page<CollectionCommissionTierDto> list(Pageable pageable, String filter, String q,
+                                                    UUID promoterTypeUuid, boolean includeInactive) {
         Specification<CollectionCommissionTier> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "collection_commission_tier.filter.field_not_allowed");
@@ -48,6 +52,9 @@ public class CollectionCommissionTiersService {
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (promoterTypeUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
         }
         return repository.findAll(spec, pageable).map(CollectionCommissionTierDto::from);
     }
@@ -58,6 +65,7 @@ public class CollectionCommissionTiersService {
         tier.setName(req.name());
         tier.setMaxDays(req.maxDays());
         tier.setCommissionPct(req.commissionPct());
+        tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
 
         return CollectionCommissionTierDto.from(repository.save(tier));
     }
@@ -66,10 +74,11 @@ public class CollectionCommissionTiersService {
     public CollectionCommissionTierDto update(UUID uuid, CollectionCommissionTierUpdateRequest req) {
         CollectionCommissionTier tier = findManaged(uuid);
 
-        if (req.name() != null)          tier.setName(req.name());
-        if (req.maxDays() != null)       tier.setMaxDays(req.maxDays());
-        if (req.commissionPct() != null) tier.setCommissionPct(req.commissionPct());
-        if (req.active() != null)        tier.setActive(req.active());
+        if (req.name() != null)             tier.setName(req.name());
+        if (req.maxDays() != null)          tier.setMaxDays(req.maxDays());
+        if (req.commissionPct() != null)    tier.setCommissionPct(req.commissionPct());
+        if (req.promoterTypeUuid() != null) tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        if (req.active() != null)           tier.setActive(req.active());
 
         return CollectionCommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -84,6 +93,12 @@ public class CollectionCommissionTiersService {
     private CollectionCommissionTier findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("collection_commission_tier.not_found"));
+    }
+
+    private PromoterType resolvePromoterType(UUID uuid) {
+        if (uuid == null) return null;
+        return promoterTypeRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
     }
 
     private static Specification<CollectionCommissionTier> activeOnly() {

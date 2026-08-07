@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -48,6 +50,7 @@ public class BonusRulesService {
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
     private final CommissionBonusRuleRepository repository;
+    private final PromoterTypeRepository promoterTypeRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -55,8 +58,9 @@ public class BonusRulesService {
         return BonusRuleDto.from(findManaged(uuid));
     }
 
-    public Page<BonusRuleDto> list(Pageable pageable, String filter, String q) {
-        Specification<CommissionBonusRule> spec = activeOnly();
+    public Page<BonusRuleDto> list(Pageable pageable, String filter, String q,
+                                     UUID promoterTypeUuid, boolean includeInactive) {
+        Specification<CommissionBonusRule> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
                     "bonus_rule.filter.field_not_allowed");
@@ -64,6 +68,9 @@ public class BonusRulesService {
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (promoterTypeUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
         }
         return repository.findAll(spec, pageable).map(BonusRuleDto::from);
     }
@@ -75,6 +82,7 @@ public class BonusRulesService {
         validate(req);
         CommissionBonusRule rule = new CommissionBonusRule();
         apply(rule, req);
+        rule.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         return BonusRuleDto.from(repository.save(rule));
     }
 
@@ -85,6 +93,8 @@ public class BonusRulesService {
         validate(req);
         CommissionBonusRule rule = findManaged(uuid);
         apply(rule, req);
+        // Full replace: null clears any previously set promoter-type scope.
+        rule.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         return BonusRuleDto.from(rule);   // dirty-check flushes on commit
     }
 
@@ -100,6 +110,12 @@ public class BonusRulesService {
     private CommissionBonusRule findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("bonus_rule.not_found"));
+    }
+
+    private PromoterType resolvePromoterType(UUID uuid) {
+        if (uuid == null) return null;
+        return promoterTypeRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
     }
 
     private static void validate(BonusRuleRequest req) {

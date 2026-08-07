@@ -12,6 +12,8 @@ public record CollectionCommissionTierDto(
         String name,
         int maxDays,
         BigDecimal commissionPct,
+        UUID promoterTypeUuid,
+        String promoterTypeName,
         boolean active,
         String status,
         Instant createdAt,
@@ -20,6 +22,8 @@ public record CollectionCommissionTierDto(
     public static CollectionCommissionTierDto from(CollectionCommissionTier t) {
         return new CollectionCommissionTierDto(
                 t.getUuid(), t.getName(), t.getMaxDays(), t.getCommissionPct(),
+                t.getPromoterType() != null ? t.getPromoterType().getUuid() : null,
+                t.getPromoterType() != null ? t.getPromoterType().getName() : null,
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

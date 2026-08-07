@@ -43,8 +43,9 @@ public class AdminCollectionCommissionTierController {
             @PageableDefault(size = 50, sort = "maxDays", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID promoterTypeUuid,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(service.list(pageable, filter, q, includeInactive));
+        return ResponseEntity.ok(service.list(pageable, filter, q, promoterTypeUuid, includeInactive));
     }
 
     @GetMapping("/{uuid}")

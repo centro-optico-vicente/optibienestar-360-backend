@@ -43,8 +43,10 @@ public class AdminCommissionTierController {
     public ResponseEntity<Page<CommissionTierDto>> list(
             @PageableDefault(size = 50, sort = "thresholdCount", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(service.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID promoterTypeUuid,
+            @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(service.list(pageable, filter, q, promoterTypeUuid, includeInactive));
     }
 
     @GetMapping("/{uuid}")

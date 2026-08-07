@@ -46,8 +46,10 @@ public class AdminBonusRuleController {
     public ResponseEntity<Page<BonusRuleDto>> list(
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(bonusRulesService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID promoterTypeUuid,
+            @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(bonusRulesService.list(pageable, filter, q, promoterTypeUuid, includeInactive));
     }
 
     @GetMapping("/{uuid}")
