@@ -10,7 +10,7 @@ SET search_path TO app, public;
 -- "cobro desde el 1" cadence.
 
 ALTER TABLE memberships
-    ADD COLUMN billing_start_day SMALLINT NULL
+    ADD COLUMN billing_start_day INT NULL
         CONSTRAINT chk_memberships_billing_start_day CHECK (billing_start_day BETWEEN 1 AND 28);
 
 COMMENT ON COLUMN memberships.billing_start_day IS
@@ -19,7 +19,7 @@ COMMENT ON COLUMN memberships.billing_start_day IS
 -- Back-fill existing rows from their enrollment day so the column reads
 -- consistently even before the service starts setting it explicitly.
 UPDATE memberships
-SET billing_start_day = LEAST(EXTRACT(DAY FROM enrolled_at)::SMALLINT, 28)
+SET billing_start_day = LEAST(EXTRACT(DAY FROM enrolled_at)::INT, 28)
 WHERE billing_start_day IS NULL;
 
 
