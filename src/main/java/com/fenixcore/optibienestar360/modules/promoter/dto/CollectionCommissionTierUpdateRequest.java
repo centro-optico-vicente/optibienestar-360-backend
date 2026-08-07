@@ -6,11 +6,13 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /** PATCH-style payload for {@code PUT /v1/admin/collection-commission-tiers/{uuid}} — every field optional. */
 public record CollectionCommissionTierUpdateRequest(
         String name,
         @Positive Integer maxDays,
         @DecimalMin("0.01") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
+        UUID promoterTypeUuid,
         Boolean active
 ) {}

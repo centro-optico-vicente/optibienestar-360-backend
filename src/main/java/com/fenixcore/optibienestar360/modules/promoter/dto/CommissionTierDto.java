@@ -14,6 +14,8 @@ public record CommissionTierDto(
         UUID uuid,
         String name,
         PlanType planType,
+        UUID promoterTypeUuid,
+        String promoterTypeName,
         int thresholdCount,
         BigDecimal commissionPct,
         BigDecimal flatAmount,
@@ -26,7 +28,10 @@ public record CommissionTierDto(
 ) {
     public static CommissionTierDto from(CommissionTier t) {
         return new CommissionTierDto(
-                t.getUuid(), t.getName(), t.getPlanType(), t.getThresholdCount(),
+                t.getUuid(), t.getName(), t.getPlanType(),
+                t.getPromoterType() != null ? t.getPromoterType().getUuid() : null,
+                t.getPromoterType() != null ? t.getPromoterType().getName() : null,
+                t.getThresholdCount(),
                 t.getCommissionPct(), t.getFlatAmount(), t.getPeriodStrategy(), t.getAppliesTo(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }

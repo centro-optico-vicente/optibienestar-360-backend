@@ -1,9 +1,13 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,4 +39,9 @@ public class CollectionCommissionTier extends BaseEntity {
 
     @Column(name = "commission_pct", precision = 5, scale = 2, nullable = false)
     private BigDecimal commissionPct;
+
+    /** Optional promoter-type scope. {@code null} = applies to every promoter type. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promoter_type_id")
+    private PromoterType promoterType;
 }

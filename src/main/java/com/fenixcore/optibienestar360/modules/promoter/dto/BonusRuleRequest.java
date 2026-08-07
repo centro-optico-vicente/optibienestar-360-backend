@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Create/replace payload for a bonus rule ({@code POST/PUT /v1/admin/bonus-rules}).
@@ -25,6 +26,8 @@ public record BonusRuleRequest(
         @NotBlank @Size(max = 150) String name,
 
         @Size(max = 2000) String description,
+
+        UUID promoterTypeUuid,
 
         @NotNull BonusMetric metric,
 

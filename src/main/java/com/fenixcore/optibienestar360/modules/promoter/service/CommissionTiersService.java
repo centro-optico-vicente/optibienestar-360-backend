@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
@@ -41,19 +43,24 @@ public class CommissionTiersService {
     private static final String[] SEARCHABLE_FIELDS = {"name"};
 
     private final CommissionTierRepository repository;
+    private final PromoterTypeRepository promoterTypeRepository;
 
     public CommissionTierDto get(UUID uuid) {
         return CommissionTierDto.from(findManaged(uuid));
     }
 
-    public Page<CommissionTierDto> list(Pageable pageable, String filter, String q) {
-        Specification<CommissionTier> spec = activeOnly();
+    public Page<CommissionTierDto> list(Pageable pageable, String filter, String q,
+                                          UUID promoterTypeUuid, boolean includeInactive) {
+        Specification<CommissionTier> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "commission_tier.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (promoterTypeUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
         }
         return repository.findAll(spec, pageable).map(CommissionTierDto::from);
     }
@@ -65,6 +72,7 @@ public class CommissionTiersService {
         CommissionTier tier = new CommissionTier();
         tier.setName(req.name());
         tier.setPlanType(req.planType());
+        tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         tier.setThresholdCount(req.thresholdCount() != null ? req.thresholdCount() : 0);
         tier.setCommissionPct(req.commissionPct());
         tier.setFlatAmount(req.flatAmount());
@@ -78,12 +86,13 @@ public class CommissionTiersService {
     public CommissionTierDto update(UUID uuid, CommissionTierUpdateRequest req) {
         CommissionTier tier = findManaged(uuid);
 
-        if (req.name() != null)            tier.setName(req.name());
-        if (req.planType() != null)        tier.setPlanType(req.planType());
-        if (req.thresholdCount() != null)  tier.setThresholdCount(req.thresholdCount());
-        if (req.periodStrategy() != null)  tier.setPeriodStrategy(req.periodStrategy());
-        if (req.appliesTo() != null)       tier.setAppliesTo(req.appliesTo());
-        if (req.active() != null)          tier.setActive(req.active());
+        if (req.name() != null)             tier.setName(req.name());
+        if (req.planType() != null)         tier.setPlanType(req.planType());
+        if (req.promoterTypeUuid() != null) tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        if (req.thresholdCount() != null)   tier.setThresholdCount(req.thresholdCount());
+        if (req.periodStrategy() != null)   tier.setPeriodStrategy(req.periodStrategy());
+        if (req.appliesTo() != null)        tier.setAppliesTo(req.appliesTo());
+        if (req.active() != null)           tier.setActive(req.active());
 
         // Reward switch: supplying one clears the other (a tier is pct XOR flat).
         if (req.commissionPct() != null && req.flatAmount() != null) {
@@ -117,6 +126,12 @@ public class CommissionTiersService {
     private CommissionTier findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("commission_tier.not_found"));
+    }
+
+    private PromoterType resolvePromoterType(UUID uuid) {
+        if (uuid == null) return null;
+        return promoterTypeRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
     }
 
     private static Specification<CommissionTier> activeOnly() {
