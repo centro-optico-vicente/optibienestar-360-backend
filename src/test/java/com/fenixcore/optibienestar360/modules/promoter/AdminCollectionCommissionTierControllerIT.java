@@ -73,7 +73,7 @@ class AdminCollectionCommissionTierControllerIT {
 
     @Test
     void list_withPermission_is200() throws Exception {
-        when(service.list(any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
+        when(service.list(any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
         mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_MANAGE")))
                 .andExpect(status().isOk());
     }
@@ -111,6 +111,6 @@ class AdminCollectionCommissionTierControllerIT {
 
     private static CollectionCommissionTierDto tierDto() {
         return new CollectionCommissionTierDto(UUID.randomUUID(), "Hasta 5 días", 5,
-                new BigDecimal("35"), true, null, null, null);
+                new BigDecimal("35"), null, null, true, null, null, null);
     }
 }

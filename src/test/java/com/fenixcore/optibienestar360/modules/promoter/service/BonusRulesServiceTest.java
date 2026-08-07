@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -36,9 +37,10 @@ import static org.mockito.Mockito.when;
 class BonusRulesServiceTest {
 
     @Mock private CommissionBonusRuleRepository repository;
+    @Mock private PromoterTypeRepository promoterTypeRepository;
 
     private BonusRulesService service() {
-        return new BonusRulesService(repository);
+        return new BonusRulesService(repository, promoterTypeRepository);
     }
 
     @Test
@@ -69,7 +71,7 @@ class BonusRulesServiceTest {
         });
 
         // A MONTHLY rule that erroneously carries campaign dates — they must be nulled.
-        BonusRuleRequest req = new BonusRuleRequest("stray dates", null,
+        BonusRuleRequest req = new BonusRuleRequest("stray dates", null, null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
                 LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
                 RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null);
@@ -83,7 +85,7 @@ class BonusRulesServiceTest {
 
     @Test
     void create_rejectsFlatRewardWithPercentAlsoSet() {
-        BonusRuleRequest req = new BonusRuleRequest("bad", null,
+        BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.THRESHOLD, 100, WindowStrategy.MONTHLY,
                 null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null);
 
@@ -95,7 +97,7 @@ class BonusRulesServiceTest {
 
     @Test
     void create_rejectsPercentageRewardOnPerBlockAccrual() {
-        BonusRuleRequest req = new BonusRuleRequest("bad", null,
+        BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 500, WindowStrategy.LIFETIME,
                 null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null);
 
@@ -107,7 +109,7 @@ class BonusRulesServiceTest {
 
     @Test
     void create_rejectsCampaignWithoutDates() {
-        BonusRuleRequest req = new BonusRuleRequest("campaign", null,
+        BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
                 null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null);
 
@@ -119,7 +121,7 @@ class BonusRulesServiceTest {
 
     @Test
     void create_rejectsCampaignWithEndBeforeStart() {
-        BonusRuleRequest req = new BonusRuleRequest("campaign", null,
+        BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
                 LocalDate.of(2026, 6, 30), LocalDate.of(2026, 6, 1),
                 RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null);
@@ -150,7 +152,7 @@ class BonusRulesServiceTest {
 
     /** "300 active subscribers/month → $50" — a valid THRESHOLD/FLAT/MONTHLY rule. */
     private BonusRuleRequest flatMonthly() {
-        return new BonusRuleRequest("300 activos/mes", "bono de cobranza",
+        return new BonusRuleRequest("300 activos/mes", "bono de cobranza", null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
                 null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null);
     }

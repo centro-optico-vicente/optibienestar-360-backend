@@ -73,7 +73,7 @@ class AdminBonusRuleControllerIT {
     }
 
     private BonusRuleDto ruleDto() {
-        return new BonusRuleDto(UUID.randomUUID(), "300 activos/mes", null,
+        return new BonusRuleDto(UUID.randomUUID(), "300 activos/mes", null, null, null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
                 null, null, RewardType.FLAT, new BigDecimal("50.00"), null, "USD", false, true, null);
     }
@@ -99,7 +99,7 @@ class AdminBonusRuleControllerIT {
 
     @Test
     void list_withPermission_is200() throws Exception {
-        when(bonusRulesService.list(any(), any(), any()))
+        when(bonusRulesService.list(any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(new PageImpl<>(List.of(ruleDto())));
 
         mockMvc.perform(get("/v1/admin/bonus-rules").with(principal("BONUS_RULE_MANAGE")))

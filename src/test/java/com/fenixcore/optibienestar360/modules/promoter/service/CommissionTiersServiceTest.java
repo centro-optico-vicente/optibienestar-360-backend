@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
@@ -27,15 +28,16 @@ import static org.mockito.Mockito.when;
 class CommissionTiersServiceTest {
 
     @Mock private CommissionTierRepository repository;
+    @Mock private PromoterTypeRepository promoterTypeRepository;
 
     private CommissionTiersService sut() {
-        return new CommissionTiersService(repository);
+        return new CommissionTiersService(repository, promoterTypeRepository);
     }
 
     @Test
     void create_rejects_whenBothPctAndFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", PlanType.INDIVIDUAL, 0, new BigDecimal("20"), new BigDecimal("5"),
+                "bad", PlanType.INDIVIDUAL, null, 0, new BigDecimal("20"), new BigDecimal("5"),
                 PeriodStrategy.MONTHLY, AppliesTo.BOTH);
 
         assertThatThrownBy(() -> sut().create(req))
@@ -47,7 +49,7 @@ class CommissionTiersServiceTest {
     @Test
     void create_rejects_whenNeitherPctNorFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", null, 0, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH);
+                "bad", null, null, 0, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -57,7 +59,7 @@ class CommissionTiersServiceTest {
     @Test
     void create_persists_validPct() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "Gold 25%", PlanType.FAMILIAR, 10, new BigDecimal("25"), null,
+                "Gold 25%", PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
                 PeriodStrategy.MONTHLY, AppliesTo.MONTHLY);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
@@ -79,7 +81,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, new BigDecimal("7"), null, null, null);
+                null, null, null, null, null, new BigDecimal("7"), null, null, null);
 
         var dto = sut().update(tier.getUuid(), req);
 
@@ -97,7 +99,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null);
+                null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null);
 
         assertThatThrownBy(() -> sut().update(tier.getUuid(), req))
                 .isInstanceOf(IllegalArgumentException.class)
