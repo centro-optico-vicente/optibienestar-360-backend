@@ -94,6 +94,22 @@ public class Commission extends BaseEntity {
     @Column(name = "tier_name_snapshot", length = 80)
     private String tierNameSnapshot;
 
+    /**
+     * Days-late the recurring payment was collected (V47 collection-commission
+     * engine). {@code null} for INSCRIPTION rows and for MONTHLY rows computed
+     * before the engine shipped / when no collection tier was applicable.
+     */
+    @Column(name = "collection_days")
+    private Integer collectionDays;
+
+    /**
+     * FK to {@code collection_commission_tiers} — populated alongside
+     * {@link #collectionDays} when the collection-commission engine picked the
+     * rate instead of the plan/volume {@link #commissionTierId}.
+     */
+    @Column(name = "collection_tier_id")
+    private Long collectionTierId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "applies_to", length = 20, nullable = false)
     private AppliesTo appliesTo;

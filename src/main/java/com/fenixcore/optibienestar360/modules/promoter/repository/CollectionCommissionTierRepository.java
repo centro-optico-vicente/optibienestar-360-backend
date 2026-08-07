@@ -18,14 +18,21 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
     Optional<CollectionCommissionTier> findByUuid(UUID uuid);
 
     /**
-     * Active buckets that cover {@code days}, smallest {@code maxDays} first so
-     * the engine can pick the top qualifying bucket by taking the first result.
+     * Active buckets that cover {@code days} and are scoped to the promoter's
+     * type: unscoped rows ({@code promoterType IS NULL}, apply to everyone) or
+     * rows scoped to {@code promoterTypeId} — rows scoped to a *different*
+     * promoter type are excluded. Ordered so a promoter-type-specific match
+     * always outranks a generic one (project chat 2026-08-07), then smallest
+     * {@code maxDays} first, so the engine can pick the top qualifying bucket by
+     * taking the first result.
      */
     @Query("""
             SELECT t FROM CollectionCommissionTier t
             WHERE t.active = true
               AND t.maxDays >= :days
-            ORDER BY t.maxDays ASC, t.id ASC
+              AND (t.promoterType IS NULL OR (:promoterTypeId IS NOT NULL AND t.promoterType.id = :promoterTypeId))
+            ORDER BY (CASE WHEN t.promoterType IS NOT NULL THEN 0 ELSE 1 END), t.maxDays ASC, t.id ASC
             """)
-    List<CollectionCommissionTier> findActiveApplicable(@Param("days") int days);
+    List<CollectionCommissionTier> findActiveApplicable(@Param("days") int days,
+                                                        @Param("promoterTypeId") Long promoterTypeId);
 }

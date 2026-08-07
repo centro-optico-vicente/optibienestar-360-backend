@@ -80,6 +80,10 @@ public class MembershipsService {
         // First payment is due one month after enrollment. Calendar arithmetic
         // matches Jan 15 → Feb 15 rather than Feb 14 from +30 days.
         membership.setNextDueDate(enrolledAt.plusMonths(1));
+        // Billing cutover day (V47) — defaults to the enrollment day so behavior
+        // is unchanged until an advisor explicitly moves it (e.g. "inscrito el 3,
+        // cobro desde el 1"). Capped at 28 so it's valid in every month.
+        membership.setBillingStartDay(Math.min(enrolledAt.getDayOfMonth(), 28));
 
         // Pricing snapshot — immune to later plan edits. Renegotiation = cancel
         // this row + enroll a new one.

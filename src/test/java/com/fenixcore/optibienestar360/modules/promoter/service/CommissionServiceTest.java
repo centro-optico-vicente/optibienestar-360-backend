@@ -9,8 +9,11 @@ import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -29,6 +32,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -45,6 +49,7 @@ class CommissionServiceTest {
 
     @Mock private CommissionRepository commissionRepository;
     @Mock private CommissionTierRepository tierRepository;
+    @Mock private CollectionCommissionTierRepository collectionTierRepository;
     @Mock private PromoterRepository promoterRepository;
     @Mock private MemberRepository memberRepository;
 
@@ -65,7 +70,7 @@ class CommissionServiceTest {
     void individual_inscription_appliesBaseTier_20_percent() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
@@ -82,7 +87,7 @@ class CommissionServiceTest {
     void familiar_monthly_appliesBaseTier_25_percent() {
         Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.FAMILIAR, "25.00", null, "Familiar base 25%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
@@ -96,7 +101,7 @@ class CommissionServiceTest {
     void corporativo_appliesBaseTier_flat_5() {
         Payment payment = paymentFor(PlanType.CORPORATIVO, new BigDecimal("500.00"), false);
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.CORPORATIVO), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.CORPORATIVO), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.CORPORATIVO, null, "5.00", "Corporativo base $5")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
@@ -114,7 +119,7 @@ class CommissionServiceTest {
         stubExistsFalseAndSave();
         // Candidates highest-threshold first: a volume tier (10 → 30%) then the base (0 → 20%).
         CommissionTier volume = tier(PlanType.INDIVIDUAL, "30.00", null, 10, "Volume 10+ 30%");
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(volume, baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
         when(memberRepository.countNewSubscribersForPromoter(eq(humanPromoter.getId()), any(), any()))
                 .thenReturn(15L);   // ≥ 10 → qualifies for the volume tier
@@ -130,7 +135,7 @@ class CommissionServiceTest {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         stubExistsFalseAndSave();
         CommissionTier volume = tier(PlanType.INDIVIDUAL, "30.00", null, 10, "Volume 10+ 30%");
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(volume, baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
         when(memberRepository.countNewSubscribersForPromoter(eq(humanPromoter.getId()), any(), any()))
                 .thenReturn(3L);    // < 10 → base tier wins
@@ -145,12 +150,77 @@ class CommissionServiceTest {
     void noApplicableTier_skipsSilently() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         when(commissionRepository.existsActiveForPaymentAndPromoter(anyLong(), anyLong())).thenReturn(false);
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any())).thenReturn(List.of());
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any())).thenReturn(List.of());
 
         Optional<Commission> result = service.calculateAndPersistFor(payment);
 
         assertThat(result).isEmpty();
         verify(commissionRepository, never()).save(any());
+    }
+
+    // ─── Collection-commission engine (V44/V47/V48) ────────────────────────────
+
+    @Test
+    void monthly_prefersCollectionTier_overVolumeTier() {
+        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        payment.getMembership().setBillingStartDay(1);
+        payment.getMembership().setMonthlyFee(new BigDecimal("8.75"));
+        stubExistsFalseAndSave();
+        // scheduled = 2026-06-01 (billingStartDay=1, appliedPeriod=2026-06-01); paid 2026-06-15 → 14 days late.
+        CollectionCommissionTier collectionTier = collectionTier(20, "30.00", "Cobranza hasta 20 días");
+        when(collectionTierRepository.findActiveApplicable(eq(14), any())).thenReturn(List.of(collectionTier));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getAmount()).isEqualByComparingTo("2.63");   // 30% of $8.75 monthlyFee, not the $20 payment
+        assertThat(c.getCommissionPct()).isEqualByComparingTo("30.00");
+        assertThat(c.getCollectionDays()).isEqualTo(14);
+        assertThat(c.getCollectionTierId()).isEqualTo(collectionTier.getId());
+        assertThat(c.getTierNameSnapshot()).isEqualTo("Cobranza hasta 20 días");
+        verify(tierRepository, never()).findActiveApplicable(any(), any(), any(), any());
+    }
+
+    @Test
+    void monthly_fallsBackToVolumeTier_whenNoCollectionTierApplicable() {
+        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        stubExistsFalseAndSave();
+        when(collectionTierRepository.findActiveApplicable(anyInt(), any())).thenReturn(List.of());
+        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.FAMILIAR, "25.00", null, "Familiar base 25%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getAmount()).isEqualByComparingTo("5.00");   // 25% of $20 payment (volume-tier basis)
+        assertThat(c.getCollectionDays()).isNull();
+        assertThat(c.getCollectionTierId()).isNull();
+    }
+
+    @Test
+    void inscription_neverConsultsCollectionTiers() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        service.calculateAndPersistFor(payment);
+
+        verify(collectionTierRepository, never()).findActiveApplicable(anyInt(), any());
+    }
+
+    // ─── Promoter-type scoping (V46) ────────────────────────────────────────────
+
+    @Test
+    void selectTier_passesPromotersTypeId_toRepository() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        PromoterType type = promoterType(7L);
+        humanPromoter.setPromoterType(type);
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), eq(7L)))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "40.00", null, "Type-7 base 40%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getTierNameSnapshot()).isEqualTo("Type-7 base 40%");
     }
 
     // ─── Promoter resolution ────────────────────────────────────────────────
@@ -161,7 +231,7 @@ class CommissionServiceTest {
         payment.getMembership().getMember().setPromoter(null);
         when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
@@ -186,7 +256,7 @@ class CommissionServiceTest {
         humanPromoter.setActive(false);
         when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any()))
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
@@ -229,6 +299,25 @@ class CommissionServiceTest {
 
     private static CommissionTier baseTier(PlanType planType, String pct, String flat, String name) {
         return tier(planType, pct, flat, 0, name);
+    }
+
+    private static CollectionCommissionTier collectionTier(int maxDays, String pct, String name) {
+        CollectionCommissionTier t = new CollectionCommissionTier();
+        t.setId((long) name.hashCode());
+        t.setUuid(UUID.randomUUID());
+        t.setName(name);
+        t.setMaxDays(maxDays);
+        t.setCommissionPct(new BigDecimal(pct));
+        return t;
+    }
+
+    private static PromoterType promoterType(long id) {
+        PromoterType t = new PromoterType();
+        t.setId(id);
+        t.setUuid(UUID.randomUUID());
+        t.setCode("TYPE-" + id);
+        t.setName("Type " + id);
+        return t;
     }
 
     private static CommissionTier tier(PlanType planType, String pct, String flat, int threshold, String name) {

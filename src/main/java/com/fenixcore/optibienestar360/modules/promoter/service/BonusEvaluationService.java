@@ -104,6 +104,9 @@ public class BonusEvaluationService {
                 if (promoter == null) {
                     continue;   // soft-deleted between the group query and the load
                 }
+                if (!appliesToPromoterType(rule, promoter)) {
+                    continue;   // rule is scoped to a different promoter type (V46)
+                }
                 AwardComputation comp = computeAward(rule, window, promoter, pc.count().intValue());
                 if (comp == null) {
                     continue;
@@ -140,6 +143,21 @@ public class BonusEvaluationService {
         // ACTIVE_SUBSCRIBERS is a snapshot ("current active"); the window only
         // governs award dedup, not which members are counted.
         return memberRepository.countActiveSubscribersByPromoter(includeSystem);
+    }
+
+    /**
+     * A rule scoped to a promoter type (V46, {@code null} = applies to everyone)
+     * only grants to promoters of that type — this is an eligibility filter, not
+     * a "pick one rule" precedence: unlike commission tiers, bonus rules are
+     * independent and combinable, so a type-scoped rule and a generic rule can
+     * both grant to the same promoter in the same window.
+     */
+    private static boolean appliesToPromoterType(CommissionBonusRule rule, Promoter promoter) {
+        if (rule.getPromoterType() == null) {
+            return true;
+        }
+        return promoter.getPromoterType() != null
+                && rule.getPromoterType().getId().equals(promoter.getPromoterType().getId());
     }
 
     private Map<Long, Promoter> loadPromoters(List<PromoterMetricCount> counts) {

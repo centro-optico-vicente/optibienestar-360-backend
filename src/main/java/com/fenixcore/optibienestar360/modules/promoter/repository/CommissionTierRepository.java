@@ -21,18 +21,24 @@ public interface CommissionTierRepository extends JpaRepository<CommissionTier, 
 
     /**
      * Active tiers applicable to a payment of {@code planType} and fee type
-     * {@code appliesTo}: those scoped to that plan (or unscoped) and to that fee
-     * type (or BOTH), ordered highest-threshold first so the engine can pick the
-     * top qualifying tier by iterating. Ties broken by id for determinism.
+     * {@code appliesTo}, scoped to the promoter's type: rows are either unscoped
+     * ({@code promoterType IS NULL}, apply to everyone) or scoped to
+     * {@code promoterTypeId} — rows scoped to a *different* promoter type never
+     * qualify and are excluded. Ordered so a promoter-type-specific match always
+     * outranks a generic one (project chat 2026-08-07), then highest-threshold
+     * first so the engine can pick the top qualifying tier by iterating within
+     * that precedence group. Ties broken by id for determinism.
      */
     @Query("""
             SELECT t FROM CommissionTier t
             WHERE t.active = true
               AND (t.planType = :planType OR t.planType IS NULL)
               AND (t.appliesTo = :appliesTo OR t.appliesTo = :both)
-            ORDER BY t.thresholdCount DESC, t.id ASC
+              AND (t.promoterType IS NULL OR (:promoterTypeId IS NOT NULL AND t.promoterType.id = :promoterTypeId))
+            ORDER BY (CASE WHEN t.promoterType IS NOT NULL THEN 0 ELSE 1 END), t.thresholdCount DESC, t.id ASC
             """)
     List<CommissionTier> findActiveApplicable(@Param("planType") PlanType planType,
                                               @Param("appliesTo") AppliesTo appliesTo,
-                                              @Param("both") AppliesTo both);
+                                              @Param("both") AppliesTo both,
+                                              @Param("promoterTypeId") Long promoterTypeId);
 }
