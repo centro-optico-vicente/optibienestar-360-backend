@@ -42,7 +42,18 @@ public class PromoterDashboardService {
     public PromoterDashboardDto getMyDashboard(UUID actorUserUuid) {
         Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        return buildDashboard(promoter);
+    }
 
+    /** Admin variant of {@link #getMyDashboard} — resolves the promoter by its own uuid
+     *  instead of by the JWT-authenticated user, for {@code GET /v1/admin/promoters/{uuid}/portfolio}. */
+    public PromoterDashboardDto getDashboardFor(UUID promoterUuid) {
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        return buildDashboard(promoter);
+    }
+
+    private PromoterDashboardDto buildDashboard(Promoter promoter) {
         List<PromoterMemberRow> portfolio = memberRepository.findPromoterPortfolio(promoter.getId());
 
         int upToDate = 0;

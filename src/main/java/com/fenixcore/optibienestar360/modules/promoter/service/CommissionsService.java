@@ -3,9 +3,14 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionPeriodSummary;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.CommissionMapper;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionPeriodSummaryRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -36,7 +42,8 @@ public class CommissionsService {
             "amount", "commissionPct", "flatAmount", "calculationBasis",
             "periodStart", "periodEnd", "earnedAt",
             "paidAt", "voidedAt",
-            "createdAt", "updatedAt", "active"
+            "createdAt", "updatedAt", "active",
+            "promoter.uuid"
     );
 
     private static final String[] SEARCHABLE_FIELDS = {
@@ -45,11 +52,30 @@ public class CommissionsService {
 
     private final CommissionRepository repository;
     private final CommissionMapper mapper;
+    private final CommissionPeriodSummaryRepository periodSummaryRepository;
+    private final PromoterRepository promoterRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public CommissionDto get(UUID uuid) {
         return mapper.toDto(findManaged(uuid));
+    }
+
+    /** Monthly commission history for one promoter, most recent period first —
+     *  {@code GET /v1/admin/promoters/{uuid}/commissions/summary}. */
+    public List<CommissionPeriodSummaryDto> periodSummaryFor(UUID promoterUuid) {
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        return periodSummaryRepository.findByPromoterIdOrderByPeriodStartDesc(promoter.getId())
+                .stream()
+                .map(CommissionsService::toSummaryDto)
+                .toList();
+    }
+
+    private static CommissionPeriodSummaryDto toSummaryDto(CommissionPeriodSummary s) {
+        return new CommissionPeriodSummaryDto(
+                s.getPeriodStrategy(), s.getPeriodStart(), s.getPeriodEnd(),
+                s.getCommissionCount(), s.getTotalAmount(), s.getCurrency());
     }
 
     /**
