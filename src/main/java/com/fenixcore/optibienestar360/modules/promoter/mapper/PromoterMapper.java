@@ -9,7 +9,10 @@ import org.mapstruct.Mapping;
 public interface PromoterMapper {
 
     @Mapping(target = "userUuid",         source = "user.uuid")
+    @Mapping(target = "userEmail",        source = "user.email")
     @Mapping(target = "personUuid",       source = "person.uuid")
+    @Mapping(target = "personFullName",   source = "person.fullName")
+    @Mapping(target = "personRif",        source = "person.taxDocumentNumber")
     @Mapping(target = "promoterTypeUuid", source = "promoterType.uuid")
     @Mapping(target = "promoterTypeName", source = "promoterType.name")
     PromoterDto toDto(Promoter promoter);

@@ -19,7 +19,10 @@ public record PromoterDto(
 
         // Identity links (null on the INSTITUCION system row)
         UUID userUuid,
+        String userEmail,
         UUID personUuid,
+        String personFullName,
+        String personRif,
 
         // Promoter type classification (nullable — legacy rows have none)
         UUID promoterTypeUuid,

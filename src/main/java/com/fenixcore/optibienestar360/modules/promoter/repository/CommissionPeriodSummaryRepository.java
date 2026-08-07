@@ -20,4 +20,7 @@ public interface CommissionPeriodSummaryRepository
     /** Every promoter's aggregate for a specific period — the leaderboard's raw input. */
     List<CommissionPeriodSummary> findByPeriodStrategyAndPeriodStartAndPeriodEnd(
             String periodStrategy, LocalDate periodStart, LocalDate periodEnd);
+
+    /** One promoter's monthly history, most recent period first — the admin detail's commission tab. */
+    List<CommissionPeriodSummary> findByPromoterIdOrderByPeriodStartDesc(Long promoterId);
 }

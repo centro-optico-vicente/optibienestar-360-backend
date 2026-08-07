@@ -1,8 +1,12 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromotersService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -37,6 +42,8 @@ import java.util.UUID;
 public class AdminPromoterController {
 
     private final PromotersService promotersService;
+    private final PromoterDashboardService promoterDashboardService;
+    private final CommissionsService commissionsService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
@@ -52,6 +59,20 @@ public class AdminPromoterController {
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
     public ResponseEntity<PromoterDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(promotersService.get(uuid));
+    }
+
+    /** Portfolio + collection health + this-month commissions, admin view of {@code GET /v1/promoter/me}. */
+    @GetMapping("/{uuid}/portfolio")
+    @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
+    public ResponseEntity<PromoterDashboardDto> portfolio(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(promoterDashboardService.getDashboardFor(uuid));
+    }
+
+    /** Monthly commission history for one promoter, most recent period first. */
+    @GetMapping("/{uuid}/commissions/summary")
+    @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
+    public ResponseEntity<List<CommissionPeriodSummaryDto>> commissionsSummary(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(commissionsService.periodSummaryFor(uuid));
     }
 
     @PostMapping
