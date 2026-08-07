@@ -87,8 +87,8 @@ public class AlliesService {
      * the compact list-item projection (no nested collections, cheap to
      * render N rows).
      */
-    public Page<AllyListItemDto> list(Pageable pageable, String filter, String q) {
-        Specification<Ally> spec = activeOnly();
+    public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

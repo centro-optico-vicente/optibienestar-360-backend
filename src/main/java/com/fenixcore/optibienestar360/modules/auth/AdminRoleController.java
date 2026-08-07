@@ -38,8 +38,10 @@ public class AdminRoleController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_VIEW')")
-    public ResponseEntity<List<RoleDto>> list() {
-        return ResponseEntity.ok(roleService.listActiveRoles());
+    public ResponseEntity<List<RoleDto>> list(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(roleService.list(q, includeInactive));
     }
 
     @GetMapping("/options")

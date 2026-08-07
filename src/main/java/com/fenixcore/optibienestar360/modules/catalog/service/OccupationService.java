@@ -41,11 +41,13 @@ public class OccupationService {
     @Autowired @Lazy
     private OccupationService self;
 
-    public Page<OccupationDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<OccupationDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<Occupation> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<Occupation> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "occupation.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

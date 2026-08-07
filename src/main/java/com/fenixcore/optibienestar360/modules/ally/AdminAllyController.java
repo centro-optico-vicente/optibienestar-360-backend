@@ -50,8 +50,9 @@ public class AdminAllyController {
     public ResponseEntity<Page<AllyListItemDto>> list(
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(alliesService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(alliesService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/{uuid}")

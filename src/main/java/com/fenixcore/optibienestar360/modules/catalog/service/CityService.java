@@ -45,11 +45,13 @@ public class CityService {
     private CityService self;
 
     public Page<CityDto> list(Pageable pageable, String filter, String q,
-                              UUID stateUuid, String stateCode) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q, stateUuid, stateCode)) {
+                              UUID stateUuid, String stateCode, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, stateUuid, stateCode)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<City> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<City> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "city.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

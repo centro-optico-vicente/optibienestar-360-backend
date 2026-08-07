@@ -74,8 +74,8 @@ public class ScheduledJobsService {
         return mapper.toDto(findManaged(uuid));
     }
 
-    public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q) {
-        Specification<ScheduledJob> spec = activeOnly();
+    public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<ScheduledJob> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
                     "scheduled_job.filter.field_not_allowed");

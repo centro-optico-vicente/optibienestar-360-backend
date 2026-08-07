@@ -59,8 +59,8 @@ public class CommissionsService {
      * backs filters by promoter + status + period (the canonical
      * liquidation path).
      */
-    public Page<CommissionDto> list(Pageable pageable, String filter, String q) {
-        Specification<Commission> spec = activeOnly();
+    public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<Commission> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
                     "commission.filter.field_not_allowed");

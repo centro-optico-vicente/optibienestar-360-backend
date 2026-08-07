@@ -41,11 +41,13 @@ public class GenderService {
     @Autowired @Lazy
     private GenderService self;
 
-    public Page<GenderDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<GenderDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<Gender> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<Gender> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "gender.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

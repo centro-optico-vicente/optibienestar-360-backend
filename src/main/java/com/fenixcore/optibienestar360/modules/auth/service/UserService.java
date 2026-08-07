@@ -72,8 +72,10 @@ public class UserService {
 
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
-    public Page<UserDto> listUsers(String filter, String q, Pageable pageable, UUID actorUuid) {
-        Specification<User> spec = (root, query, cb) -> cb.conjunction();
+    public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid) {
+        Specification<User> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "user.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

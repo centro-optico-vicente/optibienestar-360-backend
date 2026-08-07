@@ -46,8 +46,9 @@ public class AdminCommissionController {
     public ResponseEntity<Page<CommissionDto>> list(
             @PageableDefault(size = 20, sort = "earnedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(commissionsService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(commissionsService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/{uuid}")

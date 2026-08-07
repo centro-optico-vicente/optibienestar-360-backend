@@ -52,6 +52,18 @@ public class RoleService {
         ;
     }
 
+    public List<RoleDto> list(String q, boolean includeInactive) {
+        Specification<Role> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        return roleRepository.findAll(spec).stream()
+                .map(userMapper::roleToDto)
+                .toList();
+    }
+
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (Role has no own code). */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
         Specification<Role> spec = ((Specification<Role>) (root, query, cb) -> cb.isTrue(root.get("active")))

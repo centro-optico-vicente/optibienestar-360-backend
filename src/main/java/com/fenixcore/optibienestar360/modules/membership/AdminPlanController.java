@@ -45,8 +45,9 @@ public class AdminPlanController {
     public ResponseEntity<Page<PlanDto>> list(
             @PageableDefault(size = 50, sort = "code", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(plansService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(plansService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/options")

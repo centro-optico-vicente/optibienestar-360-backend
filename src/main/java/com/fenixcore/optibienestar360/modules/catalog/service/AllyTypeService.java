@@ -41,11 +41,13 @@ public class AllyTypeService {
     @Autowired @Lazy
     private AllyTypeService self;
 
-    public Page<AllyTypeDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<AllyTypeDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<AllyType> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<AllyType> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally_type.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

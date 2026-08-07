@@ -73,8 +73,8 @@ public class PromotersService {
         return mapper.toDto(findManaged(uuid));
     }
 
-    public Page<PromoterDto> list(Pageable pageable, String filter, String q) {
-        Specification<Promoter> spec = activeOnly();
+    public Page<PromoterDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<Promoter> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
                     "promoter.filter.field_not_allowed");

@@ -121,8 +121,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<CountryDto>> listCountries(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(countryService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(countryService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/countries/options")
@@ -168,8 +169,9 @@ public class AdminCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(name = "country", required = false) String countryIsoCode) {
-        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode));
+            @RequestParam(name = "country", required = false) String countryIsoCode,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode, includeInactive));
     }
 
     @GetMapping("/states/options")
@@ -217,8 +219,9 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(name = "stateUuid", required = false) UUID stateUuid,
-            @RequestParam(name = "stateCode", required = false) String stateCode) {
-        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode));
+            @RequestParam(name = "stateCode", required = false) String stateCode,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode, includeInactive));
     }
 
     @GetMapping("/cities/options")
@@ -264,8 +267,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<GenderDto>> listGenders(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(genderService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(genderService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/genders/options")
@@ -310,8 +314,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<DocumentTypeDto>> listDocumentTypes(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/document-types/options")
@@ -356,8 +361,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<MaritalStatusDto>> listMaritalStatuses(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/marital-statuses/options")
@@ -402,8 +408,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<OccupationDto>> listOccupations(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(occupationService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(occupationService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/occupations/options")
@@ -448,8 +455,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<MedicalSpecialtyDto>> listMedicalSpecialties(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/medical-specialties/options")
@@ -494,8 +502,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<ServiceCategoryDto>> listServiceCategories(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/service-categories/{uuid}")
@@ -531,8 +540,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<AllyTypeDto>> listAllyTypes(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/ally-types/options")
@@ -577,8 +587,9 @@ public class AdminCatalogsController {
     public ResponseEntity<Page<PromoterTypeDto>> listPromoterTypes(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(promoterTypeService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(promoterTypeService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/promoter-types/options")
