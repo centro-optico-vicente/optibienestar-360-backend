@@ -44,11 +44,13 @@ public class StateService {
     @Autowired @Lazy
     private StateService self;
 
-    public Page<StateDto> list(Pageable pageable, String filter, String q, String countryIsoCode) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q, countryIsoCode)) {
+    public Page<StateDto> list(Pageable pageable, String filter, String q, String countryIsoCode, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, countryIsoCode)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<State> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<State> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "state.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

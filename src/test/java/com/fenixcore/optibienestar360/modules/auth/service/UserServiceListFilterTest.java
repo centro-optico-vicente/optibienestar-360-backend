@@ -57,7 +57,7 @@ class UserServiceListFilterTest {
     void rejectsBareFullNameField() {
         userService = newService();
         assertThatThrownBy(() -> userService.listUsers("fullName=='*yef*'", null,
-                PageRequest.of(0, 10), ACTOR_UUID))
+                false, PageRequest.of(0, 10), ACTOR_UUID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("user.filter.field_not_allowed");
     }
@@ -70,7 +70,7 @@ class UserServiceListFilterTest {
                 .thenReturn(new PageImpl<User>(java.util.List.of()));
 
         Page<?> result = userService.listUsers("person.fullName=='*yef*'", null,
-                PageRequest.of(0, 10), ACTOR_UUID);
+                false, PageRequest.of(0, 10), ACTOR_UUID);
 
         assertThat(result).isNotNull();
     }
@@ -82,7 +82,7 @@ class UserServiceListFilterTest {
         when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<User>(java.util.List.of()));
 
-        Page<?> result = userService.listUsers(null, "yef", PageRequest.of(0, 10), ACTOR_UUID);
+        Page<?> result = userService.listUsers(null, "yef", false, PageRequest.of(0, 10), ACTOR_UUID);
 
         assertThat(result).isNotNull();
     }

@@ -65,7 +65,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(countryService.list(pageable, filter, q));
+        return ResponseEntity.ok(countryService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/countries/{uuid}")
@@ -80,7 +80,7 @@ public class PublicCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode) {
-        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode));
+        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode, false));
     }
 
     @GetMapping("/states/{uuid}")
@@ -96,7 +96,7 @@ public class PublicCatalogsController {
             @RequestParam(required = false) String q,
             @RequestParam(name = "stateUuid", required = false) UUID stateUuid,
             @RequestParam(name = "stateCode", required = false) String stateCode) {
-        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode));
+        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode, false));
     }
 
     @GetMapping("/cities/{uuid}")
@@ -110,7 +110,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(genderService.list(pageable, filter, q));
+        return ResponseEntity.ok(genderService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/genders/{uuid}")
@@ -124,7 +124,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q));
+        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/document-types/{uuid}")
@@ -138,7 +138,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q));
+        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/marital-statuses/{uuid}")
@@ -152,7 +152,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(occupationService.list(pageable, filter, q));
+        return ResponseEntity.ok(occupationService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/occupations/{uuid}")
@@ -166,7 +166,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q));
+        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/medical-specialties/{uuid}")
@@ -180,7 +180,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q));
+        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/service-categories/{uuid}")
@@ -194,7 +194,7 @@ public class PublicCatalogsController {
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q));
+        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q, false));
     }
 
     @GetMapping("/ally-types/{uuid}")

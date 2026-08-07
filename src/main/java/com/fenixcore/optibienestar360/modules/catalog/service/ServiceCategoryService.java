@@ -39,11 +39,13 @@ public class ServiceCategoryService {
     @Autowired @Lazy
     private ServiceCategoryService self;
 
-    public Page<ServiceCategoryDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<ServiceCategoryDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<ServiceCategory> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<ServiceCategory> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "service_category.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

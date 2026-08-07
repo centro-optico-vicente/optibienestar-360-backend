@@ -119,8 +119,8 @@ public class MembersService {
         return toDetailWithCounts(member);
     }
 
-    public Page<MemberListItemDto> list(Pageable pageable, String filter, String q) {
-        Specification<Member> spec = activeOnly();
+    public Page<MemberListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<Member> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "member.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

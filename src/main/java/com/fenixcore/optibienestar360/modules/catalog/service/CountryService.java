@@ -42,11 +42,13 @@ public class CountryService {
     @Lazy
     private CountryService self;
 
-    public Page<CountryDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<CountryDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<Country> spec = activeOnly();
+        Specification<Country> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "country.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

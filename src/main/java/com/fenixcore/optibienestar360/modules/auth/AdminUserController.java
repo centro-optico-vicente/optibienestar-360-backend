@@ -41,9 +41,10 @@ public class AdminUserController {
     public ResponseEntity<Page<UserDto>> list(
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(userService.listUsers(filter, q, pageable, actor.getUuid()));
+        return ResponseEntity.ok(userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid()));
     }
 
     @GetMapping("/options")

@@ -41,11 +41,13 @@ public class MaritalStatusService {
     @Autowired @Lazy
     private MaritalStatusService self;
 
-    public Page<MaritalStatusDto> list(Pageable pageable, String filter, String q) {
-        if (ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
+    public Page<MaritalStatusDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
-        Specification<MaritalStatus> spec = (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        Specification<MaritalStatus> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "marital_status.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));

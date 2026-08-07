@@ -50,8 +50,9 @@ public class AdminMemberController {
     public ResponseEntity<Page<MemberListItemDto>> list(
             @PageableDefault(size = 20, sort = "enrolledAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(membersService.list(pageable, filter, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(membersService.list(pageable, filter, q, includeInactive));
     }
 
     @GetMapping("/options")

@@ -58,8 +58,8 @@ public class PlansService {
         return mapper.toDto(findManaged(uuid));
     }
 
-    public Page<PlanDto> list(Pageable pageable, String filter, String q) {
-        Specification<Plan> spec = activeOnly();
+    public Page<PlanDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Specification<Plan> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "plan.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
