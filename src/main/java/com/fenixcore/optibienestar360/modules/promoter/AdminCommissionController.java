@@ -3,7 +3,10 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingResponse;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionPayoutService;
+import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatingService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,7 @@ public class AdminCommissionController {
 
     private final CommissionsService commissionsService;
     private final CommissionPayoutService commissionPayoutService;
+    private final CommissionReRatingService commissionReRatingService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
@@ -68,5 +72,18 @@ public class AdminCommissionController {
     public ResponseEntity<CommissionPayoutResponse> payout(
             @Valid @RequestBody CommissionPayoutRequest request) {
         return ResponseEntity.ok(commissionPayoutService.execute(request));
+    }
+
+    /**
+     * Month-close retroactive re-rating (vertical-8 Ítem A): bumps every
+     * PENDING INSCRIPTION commission in the period to the highest volume
+     * band the promoter's monthly count reached. Pass {@code dryRun=true}
+     * to preview the deltas before committing.
+     */
+    @PostMapping("/re-rate")
+    @PreAuthorize("hasAuthority('COMMISSION_RE_RATE')")
+    public ResponseEntity<CommissionReRatingResponse> reRate(
+            @Valid @RequestBody CommissionReRatingRequest request) {
+        return ResponseEntity.ok(commissionReRatingService.execute(request));
     }
 }
