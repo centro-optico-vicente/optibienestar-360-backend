@@ -25,62 +25,69 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
-    private final JwtAccessDeniedHandler accessDeniedHandler;
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+	private final JwtAccessDeniedHandler accessDeniedHandler;
 
-    private static final String[] PUBLIC_PATHS = {
-            "/",
-            "/v1",
-            "/v1/system-info",
-            "/v1/public/**",
-            "/v1/auth/login",
-            "/v1/auth/refresh",
-            "/v1/auth/recover-password",
-            "/v1/auth/reset-password",
-            "/actuator/health/**",
-            "/v3/api-docs/**",
-            "/swagger-ui",
-            "/swagger-ui/**",
-            "/swagger-ui.html"
-    };
+	private static final String[] PUBLIC_PATHS = {
+		"/",
+		"/v1",
+		"/v1/system-info",
+		"/v1/public/**",
+		"/v1/auth/login",
+		"/v1/auth/refresh",
+		"/v1/auth/recover-password",
+		"/v1/auth/reset-password",
+		"/actuator/health/**",
+		"/v3/api-docs/**",
+		"/api-docs-ui/**",
+		"/swagger-ui",
+		"/swagger-ui/**",
+		"/swagger-ui.html"
+	};
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .headers(h -> h
-                        .frameOptions(fo -> fo.deny())
-                        .contentTypeOptions(Customizer.withDefaults())
-                        .httpStrictTransportSecurity(hsts -> hsts
-                                .maxAgeInSeconds(31536000)
-                                .includeSubDomains(true))
-                        .cacheControl(Customizer.withDefaults()))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(PUBLIC_PATHS).permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
-    }
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		return http
+			.csrf(AbstractHttpConfigurer::disable)
+			.headers(h -> h
+					.frameOptions(fo -> fo.deny())
+					.contentTypeOptions(Customizer.withDefaults())
+					.httpStrictTransportSecurity(hsts -> hsts
+						.maxAgeInSeconds(31536000)
+						.includeSubDomains(true))
+					.cacheControl(Customizer.withDefaults())
+			)
+			.sessionManagement(session ->
+					session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+			)
+			.exceptionHandling(ex -> ex
+					.authenticationEntryPoint(authenticationEntryPoint)
+					.accessDeniedHandler(accessDeniedHandler)
+			)
+			.authorizeHttpRequests(auth -> auth
+					.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+					.requestMatchers(PUBLIC_PATHS).permitAll()
+					.anyRequest().authenticated()
+			)
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.build()
+		;
+	}
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+	@Bean
+	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+		return config.getAuthenticationManager();
+	}
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
+	@Bean
+	public PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder(12);
+	}
 
-    @Bean
-    public UserDetailsService userDetailsService(UserDetailsServiceImpl impl) {
-        return impl;
-    }
+	@Bean
+	public UserDetailsService userDetailsService(UserDetailsServiceImpl impl) {
+		return impl;
+	}
+
 }
