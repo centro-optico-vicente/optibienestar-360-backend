@@ -5,6 +5,10 @@ on:
     types:
       - published
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
 env:
   DOCKER_HUB_REGISTRY: ${{ vars.DOCKER_HUB_REGISTRY || 'docker.io' }}
   DOCKER_HUB_REPOSITORY: ${{ vars.DOCKER_HUB_REPOSITORY || format('{0}/optibienestar-360-backend', vars.DOCKER_HUB_USERNAME) }}
