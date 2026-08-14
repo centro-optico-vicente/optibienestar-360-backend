@@ -282,7 +282,8 @@ Al ser authorities independientes, un rol puede tener el permiso de ver el regis
 
 - Migración: columna `image_key` (bucket público) en `ally_service`. No se persiste la URL completa — se deriva en el mapper como `publicBaseUrl + imageKey`.
 - Sube al bucket público con `StorageKeyBuilder.build(PUBLIC, "services", uuid, fileName)`, valida con `FileValidationService`.
-- `POST/DELETE /v1/admin/ally-services/{uuid}/image`, protegidos con el permiso que ya gestiona `AllyService` (reusar, no crear uno nuevo solo para la imagen).
+- `POST/DELETE /v1/admin/ally-services/{uuid}/image`, protegidos con **permisos propios** `ALLY_SERVICE_IMAGE_UPLOAD` / `ALLY_SERVICE_IMAGE_DELETE` (dominio `ALLIES`) — no se reusa `ALLY_UPDATE`. Reusarlo mezclaría "quién puede editar precio/nombre/descripción del servicio" con "quién puede gestionar su imagen", rompiendo el mismo principio de authorities independientes que se aplicó a los documentos de afiliados/aliados (§4.2): un rol de moderación de contenido debería poder gestionar imágenes sin poder tocar precios, y viceversa.
+- No se agrega `ALLY_SERVICE_IMAGE_VIEW_*`: la imagen es `PUBLIC` por diseño (sin presign, visible sin auth una vez el servicio está `published && APPROVED`), así que no hay nada que autorizar para "verla" — quien ya tiene `ALLY_VIEW_ALL` ve el campo `imageKey`/`imageUrl` en el detalle del servicio como cualquier otro campo.
 - DTOs públicos de listado/detalle se extienden con `imageUrl` (nullable, sin presign — el servicio ya requiere `published && APPROVED` para aparecer).
 
 ### 6. Enlaces de descarga con vencimiento propio (días), no solo el TTL de R2
@@ -310,6 +311,7 @@ El enum, el key builder y `file_type_policy` ya soportan ambos valores de forma 
 3. Filas de permisos nuevos (`MEMBER_DOCUMENT_VIEW/UPLOAD`; el resto de dominios que adjunten vía `attached_file` reusan sus permisos de dominio ya existentes, ver sección 4).
 4. Tabla `file_type_policy` + seed de las 4 filas.
 5. Tabla `file_download_link` (token, expiración de negocio, revocación, contador de descargas).
+6. Permisos `ALLY_SERVICE_IMAGE_UPLOAD`/`ALLY_SERVICE_IMAGE_DELETE` (dominio `ALLIES`) — dedicados a la imagen de catálogo, no reusan `ALLY_UPDATE` (§5).
 
 ### Verificación
 
