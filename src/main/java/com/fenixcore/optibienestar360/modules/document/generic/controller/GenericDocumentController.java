@@ -17,6 +17,10 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/v1/documents")
 @Tag(name = "Documentos Genéricos", description = "Generación de fichas y reportes genéricos para cualquier registro del sistema")
@@ -24,109 +28,18 @@ public class GenericDocumentController {
 
     private static final Pattern UUID_PATTERN = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
-    private static final Map<String, String> SINGULAR_ENTITY_NAMES = Map.ofEntries(
-            Map.entry("allies", "Aliado"),
-            Map.entry("ally", "Aliado"),
-            Map.entry("members", "Afiliado"),
-            Map.entry("member", "Afiliado"),
-            Map.entry("payments", "Pago"),
-            Map.entry("payment", "Pago"),
-            Map.entry("plans", "Plan"),
-            Map.entry("plan", "Plan"),
-            Map.entry("promoters", "Promotor"),
-            Map.entry("promoter", "Promotor"),
-            Map.entry("commissions", "Comisión"),
-            Map.entry("commission", "Comisión"),
-            Map.entry("users", "Usuario"),
-            Map.entry("user", "Usuario"),
-            Map.entry("roles", "Rol"),
-            Map.entry("role", "Rol"),
-            Map.entry("countries", "País"),
-            Map.entry("country", "País"),
-            Map.entry("states", "Estado"),
-            Map.entry("state", "Estado"),
-            Map.entry("cities", "Ciudad"),
-            Map.entry("city", "Ciudad"),
-            Map.entry("genders", "Género"),
-            Map.entry("gender", "Género"),
-            Map.entry("document_types", "Tipo de Documento"),
-            Map.entry("document-types", "Tipo de Documento"),
-            Map.entry("marital_statuses", "Estado Civil"),
-            Map.entry("marital-statuses", "Estado Civil"),
-            Map.entry("occupations", "Ocupación"),
-            Map.entry("occupation", "Ocupación"),
-            Map.entry("medical_specialties", "Especialidad Médica"),
-            Map.entry("medical-specialties", "Especialidad Médica"),
-            Map.entry("service_categories", "Categoría de Servicio"),
-            Map.entry("service-categories", "Categoría de Servicio"),
-            Map.entry("ally_types", "Tipo de Aliado"),
-            Map.entry("ally-types", "Tipo de Aliado"),
-            Map.entry("promoter_types", "Tipo de Promotor"),
-            Map.entry("promoter-types", "Tipo de Promotor"),
-            Map.entry("scheduled_jobs", "Tarea Programada"),
-            Map.entry("scheduled-jobs", "Tarea Programada"),
-            Map.entry("beneficiaries", "Beneficiario"),
-            Map.entry("beneficiary", "Beneficiario"),
-            Map.entry("memberships", "Membresía"),
-            Map.entry("membership", "Membresía")
-    );
-
-    private static final Map<String, String> PLURAL_ENTITY_NAMES = Map.ofEntries(
-            Map.entry("allies", "Aliados"),
-            Map.entry("ally", "Aliados"),
-            Map.entry("members", "Afiliados"),
-            Map.entry("member", "Afiliados"),
-            Map.entry("payments", "Pagos"),
-            Map.entry("payment", "Pagos"),
-            Map.entry("plans", "Planes"),
-            Map.entry("plan", "Planes"),
-            Map.entry("promoters", "Promotores"),
-            Map.entry("promoter", "Promotores"),
-            Map.entry("commissions", "Comisiones"),
-            Map.entry("commission", "Comisiones"),
-            Map.entry("users", "Usuarios"),
-            Map.entry("user", "Usuarios"),
-            Map.entry("roles", "Roles"),
-            Map.entry("role", "Roles"),
-            Map.entry("countries", "Países"),
-            Map.entry("country", "Países"),
-            Map.entry("states", "Estados"),
-            Map.entry("state", "Estados"),
-            Map.entry("cities", "Ciudades"),
-            Map.entry("city", "Ciudades"),
-            Map.entry("genders", "Géneros"),
-            Map.entry("gender", "Géneros"),
-            Map.entry("document_types", "Tipos de Documento"),
-            Map.entry("document-types", "Tipos de Documento"),
-            Map.entry("marital_statuses", "Estados Civiles"),
-            Map.entry("marital-statuses", "Estados Civiles"),
-            Map.entry("occupations", "Ocupaciones"),
-            Map.entry("occupation", "Ocupaciones"),
-            Map.entry("medical_specialties", "Especialidades Médicas"),
-            Map.entry("medical-specialties", "Especialidades Médicas"),
-            Map.entry("service_categories", "Categorías de Servicio"),
-            Map.entry("service-categories", "Categorías de Servicio"),
-            Map.entry("ally_types", "Tipos de Aliado"),
-            Map.entry("ally-types", "Tipos de Aliado"),
-            Map.entry("promoter_types", "Tipos de Promotor"),
-            Map.entry("promoter-types", "Tipos de Promotor"),
-            Map.entry("scheduled_jobs", "Tareas Programadas"),
-            Map.entry("scheduled-jobs", "Tareas Programadas"),
-            Map.entry("beneficiaries", "Beneficiarios"),
-            Map.entry("beneficiary", "Beneficiarios"),
-            Map.entry("memberships", "Membresías"),
-            Map.entry("membership", "Membresías")
-    );
-
     private final GenericRecordReportService recordReportService;
     private final GenericRecordResolverService recordResolverService;
+    private final MessageSource messageSource;
 
     public GenericDocumentController(
             GenericRecordReportService recordReportService,
-            GenericRecordResolverService recordResolverService
+            GenericRecordResolverService recordResolverService,
+            MessageSource messageSource
     ) {
         this.recordReportService = recordReportService;
         this.recordResolverService = recordResolverService;
+        this.messageSource = messageSource;
     }
 
     public record GenericReportRequest(
@@ -228,20 +141,32 @@ public class GenericDocumentController {
     private String formatEntitySingularTitle(String entityOrTable) {
         if (entityOrTable == null || entityOrTable.isBlank()) return "Registro";
         String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
-        if (SINGULAR_ENTITY_NAMES.containsKey(normalized)) {
-            return SINGULAR_ENTITY_NAMES.get(normalized);
+        Locale locale = LocaleContextHolder.getLocale();
+
+        if (messageSource != null) {
+            try {
+                String msg = messageSource.getMessage("entity.singular." + normalized, null, locale);
+                if (msg != null && !msg.isBlank()) return msg;
+            } catch (Exception ignored) {}
         }
-        String clean = entityOrTable.replace("_", " ").replace("-", " ");
+
+        String clean = normalized.replace("_", " ");
         return Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
     }
 
     private String formatEntityPluralTitle(String entityOrTable) {
         if (entityOrTable == null || entityOrTable.isBlank()) return "Registros";
         String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
-        if (PLURAL_ENTITY_NAMES.containsKey(normalized)) {
-            return PLURAL_ENTITY_NAMES.get(normalized);
+        Locale locale = LocaleContextHolder.getLocale();
+
+        if (messageSource != null) {
+            try {
+                String msg = messageSource.getMessage("entity.plural." + normalized, null, locale);
+                if (msg != null && !msg.isBlank()) return msg;
+            } catch (Exception ignored) {}
         }
-        String clean = entityOrTable.replace("_", " ").replace("-", " ");
+
+        String clean = normalized.replace("_", " ");
         return Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
     }
 
