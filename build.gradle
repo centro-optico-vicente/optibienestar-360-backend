@@ -73,6 +73,19 @@ dependencies {
 	// Async retry (aspectjweaver already on classpath transitively via spring-boot-starter-aspectj)
 	implementation "org.springframework.retry:spring-retry:2.0.12"
 
+	// Jasper Reports
+	implementation 'net.sf.jasperreports:jasperreports:6.21.4'
+	implementation 'net.sf.jasperreports:jasperreports-fonts:6.21.4'
+
+	// Excel / POI for export XLSX
+	implementation 'org.apache.poi:poi:4.1.2'
+	implementation 'org.apache.poi:poi-ooxml:4.1.2'
+
+	// Generic Document report engine (HTML -> PDF and FastExcel XLSX)
+	implementation 'io.github.openhtmltopdf:openhtmltopdf-core:1.1.22'
+	implementation 'io.github.openhtmltopdf:openhtmltopdf-pdfbox:1.1.22'
+	implementation 'org.dhatim:fastexcel:0.18.4'
+
 	// Monitoring
 	implementation "org.springframework.boot:spring-boot-starter-actuator"
 	implementation "net.logstash.logback:logstash-logback-encoder:8.0"
@@ -84,10 +97,24 @@ dependencies {
 	testRuntimeOnly 'com.h2database:h2'
 }
 
+def jvmJasperArgs = [
+	'-Djava.awt.headless=true',
+	'--add-opens=java.base/java.lang=ALL-UNNAMED',
+	'--add-opens=java.base/java.util=ALL-UNNAMED',
+	'--add-opens=java.desktop/sun.awt=ALL-UNNAMED',
+	'--add-opens=java.desktop/java.awt.font=ALL-UNNAMED'
+]
+
+tasks.named('bootRun') {
+	jvmArgs = jvmJasperArgs
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs = jvmJasperArgs
 	// The @SpringBootTest controller ITs each cache a full ApplicationContext
 	// (Hibernate SessionFactory + metamodel). As the suite grew across verticals
 	// the default fork heap ran out (OutOfMemoryError building a fresh context).
 	maxHeapSize = '2g'
 }
+
