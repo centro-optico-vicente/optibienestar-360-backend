@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Occupation;
 import com.fenixcore.optibienestar360.modules.catalog.repository.OccupationRepository;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class OccupationService {
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
     private final OccupationRepository repository;
+    private final MemberRepository memberRepository;
 
     @Autowired @Lazy
     private OccupationService self;
@@ -92,13 +94,28 @@ public class OccupationService {
         Occupation o = find(uuid);
         o.setName(req.name());
         o.setDescription(req.description());
+        if (req.active() != null) {
+            o.setActive(req.active());
+        }
         return toDto(repository.save(o));
+    }
+
+    public long countUsages(UUID uuid) {
+        return memberRepository.countByOccupation_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         Occupation o = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(o);
+            return;
+        }
         o.setActive(false);
         repository.save(o);
     }

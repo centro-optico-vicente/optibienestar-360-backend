@@ -97,13 +97,33 @@ public class DocumentTypeService {
         DocumentType d = find(uuid);
         d.setName(req.name());
         d.setDescription(req.description());
+        if (req.active() != null) {
+            d.setActive(req.active());
+        }
         return toDto(repository.save(d));
+    }
+
+    /**
+     * No entity currently holds a real FK to {@code DocumentType} — {@code Person.documentType}
+     * is a raw 2-char code column, not a relation to this catalog. Always 0 until such a
+     * relation exists.
+     */
+    public long countUsages(UUID uuid) {
+        return 0L;
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         DocumentType d = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(d);
+            return;
+        }
         d.setActive(false);
         repository.save(d);
     }

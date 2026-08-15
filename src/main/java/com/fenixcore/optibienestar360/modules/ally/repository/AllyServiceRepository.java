@@ -55,4 +55,7 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
             Long serviceCategoryId, ReviewStatus reviewStatus);
 
     long countByReviewStatusIn(java.util.Collection<ReviewStatus> statuses);
+
+    /** Usage count for {@code ServiceCategory} delete/reactivation checks — see {@code ServiceCategoryService}. */
+    long countByServiceCategory_Uuid(UUID uuid);
 }

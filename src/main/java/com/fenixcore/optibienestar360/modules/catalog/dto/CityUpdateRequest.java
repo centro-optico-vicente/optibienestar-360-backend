@@ -4,5 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record CityUpdateRequest(
-        @NotBlank @Size(max = 120) String name
+        @NotBlank @Size(max = 120) String name,
+        Boolean active
 ) {}

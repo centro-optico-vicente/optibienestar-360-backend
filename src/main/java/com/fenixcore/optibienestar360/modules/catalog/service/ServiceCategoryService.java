@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -35,6 +36,7 @@ public class ServiceCategoryService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
 
     private final ServiceCategoryRepository repository;
+    private final AllyServiceRepository allyServiceRepository;
 
     @Autowired @Lazy
     private ServiceCategoryService self;
@@ -83,13 +85,28 @@ public class ServiceCategoryService {
         ServiceCategory s = find(uuid);
         s.setName(req.name());
         s.setDescription(req.description());
+        if (req.active() != null) {
+            s.setActive(req.active());
+        }
         return toDto(repository.save(s));
+    }
+
+    public long countUsages(UUID uuid) {
+        return allyServiceRepository.countByServiceCategory_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         ServiceCategory s = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(s);
+            return;
+        }
         s.setActive(false);
         repository.save(s);
     }

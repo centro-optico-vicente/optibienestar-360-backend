@@ -34,6 +34,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.PromoterTypeUpdateRequ
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.service.AllyTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.CityService;
 import com.fenixcore.optibienestar360.modules.catalog.service.CountryService;
@@ -155,10 +156,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(countryService.update(uuid, req));
     }
 
+    @GetMapping("/countries/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> countryUsage(@PathVariable UUID uuid) {
+        long count = countryService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/countries/{uuid}")
     @PreAuthorize(COUNTRY_WRITE)
-    public ResponseEntity<Void> deleteCountry(@PathVariable UUID uuid) {
-        countryService.delete(uuid);
+    public ResponseEntity<Void> deleteCountry(@PathVariable UUID uuid,
+                                              @RequestParam(defaultValue = "false") boolean physical) {
+        countryService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -204,10 +213,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(stateService.update(uuid, req));
     }
 
+    @GetMapping("/states/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> stateUsage(@PathVariable UUID uuid) {
+        long count = stateService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/states/{uuid}")
     @PreAuthorize(STATE_WRITE)
-    public ResponseEntity<Void> deleteState(@PathVariable UUID uuid) {
-        stateService.delete(uuid);
+    public ResponseEntity<Void> deleteState(@PathVariable UUID uuid,
+                                            @RequestParam(defaultValue = "false") boolean physical) {
+        stateService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -254,10 +271,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(cityService.update(uuid, req));
     }
 
+    @GetMapping("/cities/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> cityUsage(@PathVariable UUID uuid) {
+        long count = cityService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/cities/{uuid}")
     @PreAuthorize(CITY_WRITE)
-    public ResponseEntity<Void> deleteCity(@PathVariable UUID uuid) {
-        cityService.delete(uuid);
+    public ResponseEntity<Void> deleteCity(@PathVariable UUID uuid,
+                                           @RequestParam(defaultValue = "false") boolean physical) {
+        cityService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -301,10 +326,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(genderService.update(uuid, req));
     }
 
+    @GetMapping("/genders/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> genderUsage(@PathVariable UUID uuid) {
+        long count = genderService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/genders/{uuid}")
     @PreAuthorize(GENDER_WRITE)
-    public ResponseEntity<Void> deleteGender(@PathVariable UUID uuid) {
-        genderService.delete(uuid);
+    public ResponseEntity<Void> deleteGender(@PathVariable UUID uuid,
+                                             @RequestParam(defaultValue = "false") boolean physical) {
+        genderService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -348,10 +381,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(documentTypeService.update(uuid, req));
     }
 
+    @GetMapping("/document-types/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> documentTypeUsage(@PathVariable UUID uuid) {
+        long count = documentTypeService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/document-types/{uuid}")
     @PreAuthorize(DOCUMENT_TYPE_WRITE)
-    public ResponseEntity<Void> deleteDocumentType(@PathVariable UUID uuid) {
-        documentTypeService.delete(uuid);
+    public ResponseEntity<Void> deleteDocumentType(@PathVariable UUID uuid,
+                                                   @RequestParam(defaultValue = "false") boolean physical) {
+        documentTypeService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -395,10 +436,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(maritalStatusService.update(uuid, req));
     }
 
+    @GetMapping("/marital-statuses/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> maritalStatusUsage(@PathVariable UUID uuid) {
+        long count = maritalStatusService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/marital-statuses/{uuid}")
     @PreAuthorize(MARITAL_STATUS_WRITE)
-    public ResponseEntity<Void> deleteMaritalStatus(@PathVariable UUID uuid) {
-        maritalStatusService.delete(uuid);
+    public ResponseEntity<Void> deleteMaritalStatus(@PathVariable UUID uuid,
+                                                    @RequestParam(defaultValue = "false") boolean physical) {
+        maritalStatusService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -442,10 +491,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(occupationService.update(uuid, req));
     }
 
+    @GetMapping("/occupations/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> occupationUsage(@PathVariable UUID uuid) {
+        long count = occupationService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/occupations/{uuid}")
     @PreAuthorize(OCCUPATION_WRITE)
-    public ResponseEntity<Void> deleteOccupation(@PathVariable UUID uuid) {
-        occupationService.delete(uuid);
+    public ResponseEntity<Void> deleteOccupation(@PathVariable UUID uuid,
+                                                 @RequestParam(defaultValue = "false") boolean physical) {
+        occupationService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -489,10 +546,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(medicalSpecialtyService.update(uuid, req));
     }
 
+    @GetMapping("/medical-specialties/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> medicalSpecialtyUsage(@PathVariable UUID uuid) {
+        long count = medicalSpecialtyService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/medical-specialties/{uuid}")
     @PreAuthorize(MEDICAL_SPECIALTY_WRITE)
-    public ResponseEntity<Void> deleteMedicalSpecialty(@PathVariable UUID uuid) {
-        medicalSpecialtyService.delete(uuid);
+    public ResponseEntity<Void> deleteMedicalSpecialty(@PathVariable UUID uuid,
+                                                       @RequestParam(defaultValue = "false") boolean physical) {
+        medicalSpecialtyService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -527,10 +592,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(serviceCategoryService.update(uuid, req));
     }
 
+    @GetMapping("/service-categories/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> serviceCategoryUsage(@PathVariable UUID uuid) {
+        long count = serviceCategoryService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/service-categories/{uuid}")
     @PreAuthorize(SERVICE_CATEGORY_WRITE)
-    public ResponseEntity<Void> deleteServiceCategory(@PathVariable UUID uuid) {
-        serviceCategoryService.delete(uuid);
+    public ResponseEntity<Void> deleteServiceCategory(@PathVariable UUID uuid,
+                                                      @RequestParam(defaultValue = "false") boolean physical) {
+        serviceCategoryService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 
@@ -574,10 +647,18 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(allyTypeService.update(uuid, req));
     }
 
+    @GetMapping("/ally-types/{uuid}/usage")
+    @PreAuthorize(READ_AUTH)
+    public ResponseEntity<UsageDto> allyTypeUsage(@PathVariable UUID uuid) {
+        long count = allyTypeService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
     @DeleteMapping("/ally-types/{uuid}")
     @PreAuthorize(ALLY_TYPE_WRITE)
-    public ResponseEntity<Void> deleteAllyType(@PathVariable UUID uuid) {
-        allyTypeService.delete(uuid);
+    public ResponseEntity<Void> deleteAllyType(@PathVariable UUID uuid,
+                                               @RequestParam(defaultValue = "false") boolean physical) {
+        allyTypeService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 

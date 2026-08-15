@@ -17,4 +17,7 @@ public interface StateRepository extends JpaRepository<State, Long>, JpaSpecific
     List<State> findAllByActiveTrueOrderByName();
 
     List<State> findByCountry_IsoCodeAndActiveTrueOrderByName(String countryIsoCode);
+
+    /** Usage count for {@code Country} delete/reactivation checks — see {@code CountryService}. */
+    long countByCountry_Uuid(UUID uuid);
 }

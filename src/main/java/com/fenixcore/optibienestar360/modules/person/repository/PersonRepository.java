@@ -15,4 +15,13 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
     Optional<Person> findByDocumentTypeAndDocumentNumber(String documentType, String documentNumber);
 
     boolean existsByDocumentTypeAndDocumentNumber(String documentType, String documentNumber);
+
+    /** Usage count for {@code Gender} delete/reactivation checks — see {@code GenderService}. */
+    long countByGender_Uuid(UUID uuid);
+
+    /** Usage count for {@code MaritalStatus} delete/reactivation checks — see {@code MaritalStatusService}. */
+    long countByMaritalStatus_Uuid(UUID uuid);
+
+    /** Usage count for {@code City} delete/reactivation checks — see {@code CityService}. */
+    long countByCity_Uuid(UUID uuid);
 }

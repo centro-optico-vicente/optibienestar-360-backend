@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MaritalStatus;
 import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class MaritalStatusService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
 
     private final MaritalStatusRepository repository;
+    private final PersonRepository personRepository;
 
     @Autowired @Lazy
     private MaritalStatusService self;
@@ -95,13 +97,28 @@ public class MaritalStatusService {
     public MaritalStatusDto update(UUID uuid, MaritalStatusUpdateRequest req) {
         MaritalStatus m = find(uuid);
         m.setName(req.name());
+        if (req.active() != null) {
+            m.setActive(req.active());
+        }
         return toDto(repository.save(m));
+    }
+
+    public long countUsages(UUID uuid) {
+        return personRepository.countByMaritalStatus_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         MaritalStatus m = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(m);
+            return;
+        }
         m.setActive(false);
         repository.save(m);
     }
