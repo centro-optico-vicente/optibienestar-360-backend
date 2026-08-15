@@ -2,6 +2,10 @@ package com.fenixcore.optibienestar360.modules.payment.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
 import com.fenixcore.optibienestar360.common.service.StorageService;
+import com.fenixcore.optibienestar360.common.storage.FileValidationService;
+import com.fenixcore.optibienestar360.common.storage.FileVisibility;
+import com.fenixcore.optibienestar360.common.storage.PresignedUrlPolicy;
+import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -72,8 +76,8 @@ import java.util.UUID;
 @Slf4j
 public class PaymentsService {
 
-    /** R2 key prefix for payment proofs. */
-    private static final String STORAGE_PREFIX = "payments/proofs/";
+    private static final String OWNER_TABLE = "payments";
+    private static final FileVisibility VISIBILITY = FileVisibility.CONFIDENTIAL;
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "status", "paymentMethod", "currency",
@@ -86,11 +90,6 @@ public class PaymentsService {
             "referenceNumber", "adminNotes", "supportFileName"
     };
 
-    /** Bounds for the presigned-URL TTL — clamps client-supplied values. */
-    private static final Duration MIN_PRESIGNED_TTL = Duration.ofMinutes(1);
-    private static final Duration MAX_PRESIGNED_TTL = Duration.ofHours(1);
-    private static final Duration DEFAULT_PRESIGNED_TTL = Duration.ofMinutes(5);
-
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
@@ -101,6 +100,8 @@ public class PaymentsService {
     private final ValidatorCacheService validatorCacheService;
     private final CommissionService commissionService;
     private final CorporateBillingResolver corporateBillingResolver;
+    private final PresignedUrlPolicy presignedUrlPolicy;
+    private final FileValidationService fileValidationService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -222,7 +223,7 @@ public class PaymentsService {
             throw new IllegalArgumentException("payment.support.storage_unavailable");
         }
 
-        Duration ttl = clampTtl(requestedTtl);
+        Duration ttl = presignedUrlPolicy.clamp(requestedTtl);
         String url = storage.generatePresignedUrl(key, ttl);
         Instant expiresAt = Instant.now().plus(ttl);
         return new PaymentSupportUrlDto(
@@ -232,13 +233,6 @@ public class PaymentsService {
                 payment.getSupportFileName(),
                 payment.getSupportFileContentType(),
                 payment.getSupportFileSizeBytes());
-    }
-
-    private static Duration clampTtl(Duration requested) {
-        if (requested == null) return DEFAULT_PRESIGNED_TTL;
-        if (requested.compareTo(MIN_PRESIGNED_TTL) < 0) return MIN_PRESIGNED_TTL;
-        if (requested.compareTo(MAX_PRESIGNED_TTL) > 0) return MAX_PRESIGNED_TTL;
-        return requested;
     }
 
     // ─── Review workflow ───────────────────────────────────────────────────
@@ -391,6 +385,7 @@ public class PaymentsService {
      */
     private void attachSupportFile(Payment payment, MultipartFile file) {
         if (file == null || file.isEmpty()) return;
+        fileValidationService.validate(VISIBILITY, file);
 
         payment.setSupportFileName(file.getOriginalFilename());
         payment.setSupportFileContentType(file.getContentType());
@@ -403,7 +398,13 @@ public class PaymentsService {
             return;
         }
 
-        String key = STORAGE_PREFIX + UUID.randomUUID() + "-" + safeName(file.getOriginalFilename());
+        // @PrePersist only assigns the UUID at flush time (and only if still
+        // null) — this runs before the initial save() in register(), so it
+        // must be assigned explicitly here to build the owner-scoped key.
+        if (payment.getUuid() == null) {
+            payment.setUuid(UUID.randomUUID());
+        }
+        String key = StorageKeyBuilder.build(VISIBILITY, OWNER_TABLE, payment.getUuid(), file.getOriginalFilename());
         try {
             storage.upload(key, file.getInputStream(), file.getSize(), file.getContentType());
             payment.setSupportFileUrl(key);
@@ -411,11 +412,6 @@ public class PaymentsService {
             log.error("Failed to read support file stream for payment registration", ex);
             throw new IllegalArgumentException("payment.support.upload_failed");
         }
-    }
-
-    private static String safeName(String original) {
-        if (original == null || original.isBlank()) return "proof";
-        return original.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     /**

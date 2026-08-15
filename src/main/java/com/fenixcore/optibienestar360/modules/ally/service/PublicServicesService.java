@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -49,6 +50,9 @@ public class PublicServicesService {
     private final AllyRepository allyRepository;
     private final AllyMapper mapper;
 
+    @Value("${storage.r2.public-base-url:}")
+    private String publicBaseUrl;
+
     /**
      * Cross-ally public catalog. Optional filters combine with AND:
      * {@code categoryUuid} (service category), {@code cityUuid} (parent ally's
@@ -67,7 +71,7 @@ public class PublicServicesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, "name", "description"));
         }
-        return serviceRepository.findAll(spec, pageable).map(mapper::toPublicServiceListItem);
+        return serviceRepository.findAll(spec, pageable).map(service -> mapper.toPublicServiceListItem(service, publicBaseUrl));
     }
 
     /**

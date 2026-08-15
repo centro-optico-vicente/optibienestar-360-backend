@@ -88,6 +88,17 @@ public class AllyService extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    /**
+     * R2 key of the public catalog image, once published (spec
+     * {@code .ai/specs/08-storage-r2.md} §5) — {@code null} until an admin
+     * explicitly publishes an uploaded {@code attached_files} row via
+     * {@code POST .../image/publish}; never set at upload time. Only the
+     * key is persisted, not the full URL — the mapper derives
+     * {@code publicBaseUrl + imageKey} at read time.
+     */
+    @Column(name = "image_key", length = 500)
+    private String imageKey;
+
     public enum ReviewStatus {
         PROPOSED, IN_REVIEW, APPROVED, REJECTED, REMOVED
     }

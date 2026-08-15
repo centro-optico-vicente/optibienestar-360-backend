@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -59,6 +60,10 @@ public class AllyServiceReviewService {
     private final AllyUserRepository allyUserRepository;
     private final UserRepository userRepository;
     private final AllyMapper mapper;
+    private final AllyServiceImageService imageService;
+
+    @Value("${storage.r2.public-base-url:}")
+    private String publicBaseUrl;
 
     // ─── Admin review queue ───────────────────────────────────────────────────
 
@@ -80,7 +85,7 @@ public class AllyServiceReviewService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return serviceRepository.findAll(spec, pageable).map(mapper::toServiceDto);
+        return serviceRepository.findAll(spec, pageable).map(service -> mapper.toServiceDto(service, publicBaseUrl));
     }
 
     // ─── Admin transitions ────────────────────────────────────────────────────
@@ -98,7 +103,7 @@ public class AllyServiceReviewService {
         service.setReviewedAt(Instant.now());
         service.setReviewReason(null);   // clear any prior rejection reason
         log(service, from, ReviewStatus.APPROVED, actor, comment);
-        return mapper.toServiceDto(service);
+        return mapper.toServiceDto(service, publicBaseUrl);
     }
 
     @Transactional
@@ -111,7 +116,7 @@ public class AllyServiceReviewService {
         User actor = resolveActor(actorUuid);
         applyNegativeTransition(service, ReviewStatus.REJECTED, actor, reason);
         log(service, from, ReviewStatus.REJECTED, actor, reason);
-        return mapper.toServiceDto(service);
+        return mapper.toServiceDto(service, publicBaseUrl);
     }
 
     /** Admin pulls an approved service out of the directory. */
@@ -164,8 +169,10 @@ public class AllyServiceReviewService {
         applyNegativeTransition(service, ReviewStatus.REMOVED, actor, reason);
         // A REMOVED service can't stay published (V11 CHECK is_published → APPROVED).
         service.setPublished(false);
+        // Nor keep a publicly-reachable image — spec §5.
+        imageService.unpublishIfPresent(service.getUuid());
         log(service, from, ReviewStatus.REMOVED, actor, reason);
-        return mapper.toServiceDto(service);
+        return mapper.toServiceDto(service, publicBaseUrl);
     }
 
     private static void applyNegativeTransition(AllyService service, ReviewStatus to,
