@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceReposit
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,16 +39,19 @@ public class AllyServicesAdminService {
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final AllyMapper mapper;
 
+    @Value("${storage.r2.public-base-url:}")
+    private String publicBaseUrl;
+
     public List<AllyServiceDto> listForAlly(UUID allyUuid) {
         Ally ally = findAlly(allyUuid);
         return serviceRepository.findByAllyIdAndActiveTrue(ally.getId()).stream()
-                .map(mapper::toServiceDto)
+                .map(service -> mapper.toServiceDto(service, publicBaseUrl))
                 .toList();
     }
 
     public AllyServiceDto get(UUID allyUuid, UUID serviceUuid) {
         AllyService service = findServiceUnderAlly(allyUuid, serviceUuid);
-        return mapper.toServiceDto(service);
+        return mapper.toServiceDto(service, publicBaseUrl);
     }
 
     @Transactional
@@ -68,7 +72,7 @@ public class AllyServicesAdminService {
         }
         // reviewStatus stays at PROPOSED default — admin moves it to APPROVED
         // via the workflow endpoint to log the actor + reason.
-        return mapper.toServiceDto(serviceRepository.save(service));
+        return mapper.toServiceDto(serviceRepository.save(service), publicBaseUrl);
     }
 
     @Transactional
@@ -88,7 +92,7 @@ public class AllyServicesAdminService {
         if (req.published() != null)           service.setPublished(req.published());
         if (req.active() != null)              service.setActive(req.active());
 
-        return mapper.toServiceDto(service);  // managed → dirty-check on commit
+        return mapper.toServiceDto(service, publicBaseUrl);  // managed → dirty-check on commit
     }
 
     @Transactional

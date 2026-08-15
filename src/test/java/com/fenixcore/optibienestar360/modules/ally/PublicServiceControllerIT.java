@@ -65,7 +65,7 @@ class PublicServiceControllerIT {
     private PublicServiceListItemDto crossAllyRow() {
         return new PublicServiceListItemDto(
                 UUID.randomUUID(), "Optometría", "Examen de la vista",
-                "Evaluación optométrica completa", new BigDecimal("15.00"), null, true,
+                "Evaluación optométrica completa", new BigDecimal("15.00"), null, true, null,
                 UUID.randomUUID(), "Óptica Vicente", "Óptica", "Mérida",
                 "https://cdn.example/logo.png", "+58 274 5550100");
     }

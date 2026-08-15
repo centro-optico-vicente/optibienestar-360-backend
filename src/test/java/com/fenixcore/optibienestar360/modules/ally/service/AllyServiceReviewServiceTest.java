@@ -53,10 +53,11 @@ class AllyServiceReviewServiceTest {
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private UserRepository userRepository;
     @Mock private AllyMapper mapper;
+    @Mock private AllyServiceImageService imageService;
 
     private AllyServiceReviewService sut() {
         return new AllyServiceReviewService(serviceRepository, logRepository,
-                allyUserRepository, userRepository, mapper);
+                allyUserRepository, userRepository, mapper, imageService);
     }
 
     private final UUID actorUuid = UUID.randomUUID();
@@ -67,12 +68,12 @@ class AllyServiceReviewServiceTest {
     void pendingQueue_withQ_composesSpecAndDelegatesToRepository() {
         AllyServiceDto dto = new AllyServiceDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 "Consulta oftalmológica", null, null, null, false,
-                ReviewStatus.PROPOSED, null, null, null, false, null, true, null, null, null);
+                ReviewStatus.PROPOSED, null, null, null, false, null, null, true, null, null, null);
         AllyService service = allyService(ReviewStatus.PROPOSED);
         Pageable pageable = PageRequest.of(0, 20);
         when(serviceRepository.findAll(ArgumentMatchers.<Specification<AllyService>>any(), ArgumentMatchers.eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(service)));
-        when(mapper.toServiceDto(service)).thenReturn(dto);
+        when(mapper.toServiceDto(service, null)).thenReturn(dto);
 
         var page = sut().pendingQueue(null, null, "lente", pageable);
 

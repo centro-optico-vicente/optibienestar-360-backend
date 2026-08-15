@@ -67,7 +67,7 @@ class AdminAllyServiceReviewControllerIT {
     private AllyServiceDto serviceDto(ReviewStatus status) {
         return new AllyServiceDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 "Consulta oftalmológica", null, null, null, false,
-                status, null, null, null, false, null, true, null, null, null);
+                status, null, null, null, false, null, null, true, null, null, null);
     }
 
     // ─── pending queue (ALLY_SERVICE_APPROVE) ────────────────────────────────

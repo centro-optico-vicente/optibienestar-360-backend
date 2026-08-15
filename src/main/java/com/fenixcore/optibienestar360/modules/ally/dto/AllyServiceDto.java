@@ -37,6 +37,9 @@ public record AllyServiceDto(
         boolean published,
         Instant publishedAt,
 
+        /** Derived {@code publicBaseUrl + imageKey}; {@code null} until the image is explicitly published (spec §5). */
+        String imageUrl,
+
         boolean active,
         String status,
         Instant createdAt,

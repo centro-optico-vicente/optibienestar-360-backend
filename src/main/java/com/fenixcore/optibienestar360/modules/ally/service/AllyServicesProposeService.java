@@ -84,6 +84,7 @@ public class AllyServicesProposeService {
         // reviewedAt remain null until an admin moves it to APPROVED /
         // REJECTED via the workflow endpoints.
 
-        return mapper.toServiceDto(serviceRepository.save(service));
+        // No image on a freshly proposed service — imageUrl resolves to null regardless of base URL.
+        return mapper.toServiceDto(serviceRepository.save(service), null);
     }
 }

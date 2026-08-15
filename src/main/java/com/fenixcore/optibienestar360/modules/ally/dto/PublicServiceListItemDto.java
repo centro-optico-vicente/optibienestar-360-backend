@@ -26,6 +26,7 @@ public record PublicServiceListItemDto(
         BigDecimal priceUsd,
         BigDecimal discountPct,
         boolean requiresAppointment,
+        String imageUrl,
 
         // ─── Parent ally (public identity slice) ───
         UUID allyUuid,

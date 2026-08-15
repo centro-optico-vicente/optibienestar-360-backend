@@ -24,6 +24,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -68,13 +69,14 @@ public interface AllyMapper {
      * service so a {@code GET /v1/public/services} result stands on its own.
      */
     @Mapping(target = "categoryName", source = "serviceCategory.name")
+    @Mapping(target = "imageUrl",     expression = "java(imageUrl(service, publicBaseUrl))")
     @Mapping(target = "allyUuid",     source = "ally.uuid")
     @Mapping(target = "allyName",     source = "ally.name")
     @Mapping(target = "allyTypeName", source = "ally.allyType.name")
     @Mapping(target = "allyCityName", source = "ally.city.name")
     @Mapping(target = "allyLogoUrl",  source = "ally.logoUrl")
     @Mapping(target = "allyPhone",    source = "ally.phone")
-    PublicServiceListItemDto toPublicServiceListItem(AllyService service);
+    PublicServiceListItemDto toPublicServiceListItem(AllyService service, @Context String publicBaseUrl);
 
     @Mapping(target = "allyType",    source = "allyType")
     @Mapping(target = "city",        source = "city")
@@ -94,7 +96,8 @@ public interface AllyMapper {
     @Mapping(target = "allyUuid",        source = "ally.uuid")
     @Mapping(target = "serviceCategory", source = "serviceCategory")
     @Mapping(target = "reviewedByUuid",  source = "reviewedBy.uuid")
-    AllyServiceDto toServiceDto(AllyService service);
+    @Mapping(target = "imageUrl",        expression = "java(imageUrl(service, publicBaseUrl))")
+    AllyServiceDto toServiceDto(AllyService service, @Context String publicBaseUrl);
 
     // ─── AllyUser → DTO ────────────────────────────────────────────────────
 
@@ -157,6 +160,18 @@ public interface AllyMapper {
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────
+
+    /**
+     * Derives the public catalog image URL from the persisted key —
+     * {@code publicBaseUrl + imageKey} — never the other way around, so a
+     * change of public domain never requires a data migration (spec §5).
+     * {@code null} until the image is explicitly published.
+     */
+    default String imageUrl(AllyService service, String publicBaseUrl) {
+        String imageKey = service.getImageKey();
+        if (imageKey == null || publicBaseUrl == null || publicBaseUrl.isBlank()) return null;
+        return publicBaseUrl.endsWith("/") ? publicBaseUrl + imageKey : publicBaseUrl + "/" + imageKey;
+    }
 
     default int countActive(Collection<? extends BaseEntity> entities) {
         if (entities == null) return 0;
