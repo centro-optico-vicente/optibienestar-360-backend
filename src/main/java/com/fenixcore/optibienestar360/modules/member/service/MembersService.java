@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MaritalStatus;
@@ -22,12 +23,18 @@ import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MedicalRecordRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRepository;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.notification.dto.NotificationEnqueueCommand;
 import com.fenixcore.optibienestar360.modules.notification.service.NotificationService;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.ReferralRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
+import com.fenixcore.optibienestar360.modules.subsidy.repository.SubsidyRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
@@ -97,6 +104,12 @@ public class MembersService {
     private final NotificationService notificationService;
     private final MessageSource messageSource;
     private final MemberMapper mapper;
+    private final MembershipRepository membershipRepository;
+    private final CommissionRepository commissionRepository;
+    private final SubsidyRepository subsidyRepository;
+    private final ReferralRepository referralRepository;
+    private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
+    private final PromoterMemberContactRepository promoterMemberContactRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -308,9 +321,60 @@ public class MembersService {
 
     // ─── Delete (soft) ──────────────────────────────────────────────────────
 
-    @Transactional
-    public void delete(UUID uuid) {
+    /**
+     * Counts real, independent (non-cascade-owned) FK references to this
+     * member. {@code Member.beneficiaries} and {@code Member.documents} are
+     * declared as plain {@code @OneToMany(mappedBy = "member")} with NO
+     * {@code cascade}/{@code orphanRemoval} — Hibernate will NOT cascade a
+     * hard delete to them, so (like {@code Ally}'s children) they count as
+     * genuine blockers rather than owned children to exclude. On top of
+     * those, this also counts every other table with a real FK to
+     * {@code members}: {@code memberships}, {@code commissions},
+     * {@code subsidies}, {@code referrals} (both as referrer and as
+     * referred), {@code member_promoter_assignments}, and
+     * {@code promoter_member_contacts} (the last two are insert-only audit
+     * logs, but their rows are still real FK rows that would violate a hard
+     * delete). {@code MedicalRecord} is intentionally excluded — it FKs to
+     * {@code Person}, not {@code Member} (shared identity hub, not a
+     * member-owned relationship).
+     */
+    public long countUsages(UUID uuid) {
         Member member = findManaged(uuid);
+        Long id = member.getId();
+        long beneficiaries = beneficiaryRepository.countByMemberId(id);
+        long documents = documentRepository.countByMemberId(id);
+        long memberships = membershipRepository.countByMemberId(id);
+        long commissions = commissionRepository.countByMemberId(id);
+        long subsidies = subsidyRepository.countByMemberId(id);
+        long referralsAsReferrer = referralRepository.countByReferrerId(id);
+        long referralsAsReferred = referralRepository.countByReferredId(id);
+        long promoterAssignments = memberPromoterAssignmentRepository.countByMemberId(id);
+        long promoterContacts = promoterMemberContactRepository.countByMemberId(id);
+        return beneficiaries + documents + memberships + commissions + subsidies
+                + referralsAsReferrer + referralsAsReferred + promoterAssignments + promoterContacts;
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * member is genuinely unreferenced (re-checked here, not trusted from the
+     * caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete. Omitting
+     * {@code physical} (default {@code false}) reproduces the prior
+     * behavior exactly.
+     */
+    @Transactional
+    public void delete(UUID uuid, boolean physical) {
+        Member member = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            memberRepository.delete(member);
+            return;
+        }
         member.setActive(false);
     }
 

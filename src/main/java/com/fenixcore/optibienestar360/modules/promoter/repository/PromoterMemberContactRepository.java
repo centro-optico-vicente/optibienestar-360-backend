@@ -16,4 +16,10 @@ import java.util.List;
 public interface PromoterMemberContactRepository extends JpaRepository<PromoterMemberContact, Long> {
 
     List<PromoterMemberContact> findByPromoterIdAndMemberIdOrderByCreatedAtDesc(Long promoterId, Long memberId);
+
+    /** Usage check for {@code MembersService.countUsages} — insert-only log, ALL rows count. */
+    long countByMemberId(Long memberId);
+
+    /** Usage check for {@code PromotersService.countUsages} — insert-only log, ALL rows count. */
+    long countByPromoterId(Long promoterId);
 }

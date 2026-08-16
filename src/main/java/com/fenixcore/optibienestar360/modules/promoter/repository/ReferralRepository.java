@@ -19,6 +19,12 @@ public interface ReferralRepository extends JpaRepository<Referral, Long>,
 
     Optional<Referral> findByUuid(UUID uuid);
 
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive) where this member is the referrer. */
+    long countByReferrerId(Long referrerMemberId);
+
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive) where this member is the referred. */
+    long countByReferredId(Long referredMemberId);
+
     /**
      * "Was this person referred by someone?" — backs the resolution check
      * before creating a new referral row, and the reverse-lookup on the

@@ -10,6 +10,9 @@ import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
@@ -61,6 +64,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService blacklistService;
     private final PersonService personService;
+    private final AllyUserRepository allyUserRepository;
+    private final PromoterRepository promoterRepository;
 
     // ─── /v1/me ───────────────────────────────────────────────────────────────
 
@@ -233,16 +238,50 @@ public class UserService {
     }
 
     /**
+     * Counts real functional FK references to this user — deliberately
+     * excludes actor-stamp columns that merely record "who did this"
+     * historically ({@code Payment.reviewedBy}/{@code discountedBy},
+     * {@code MemberDocument.uploadedBy}, {@code Subsidy.authorizedBy},
+     * {@code SubsidyAuditLog.actor}, {@code AllyService.reviewedBy},
+     * {@code AllyServiceReviewLog.actor}, {@code MemberPromoterAssignment.actor},
+     * {@code CorporateContract.contactUser}, {@code Payment.payerUser}), which
+     * behave like {@code createdBy}/{@code updatedBy} audit metadata rather
+     * than an ownership/membership relationship — blocking a hard delete over
+     * a historical "who approved/paid this" stamp would be overly strict.
+     * Counts only structural relationships: role assignments ({@code
+     * user_roles}), ally memberships ({@code ally_users}), and promoter
+     * accounts ({@code promoters.user_id}).
+     */
+    public long countUsages(UUID uuid) {
+        User user = userRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        long roles = userRoleRepository.countByUserId(user.getId());
+        long allyMemberships = allyUserRepository.countByUserId(user.getId());
+        long promoterAccounts = promoterRepository.countByUserId(user.getId());
+        return roles + allyMemberships + promoterAccounts;
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
      * Admin soft-delete (sets active=false + status=SUSPENDED + revokes
-     * tokens). Same two anti-lockout guards as {@link #updateUser}:
+     * tokens), extended with the shared {@code physical} flag. Same two
+     * anti-lockout guards as {@link #updateUser}:
      * <ul>
      *   <li>Actor cannot delete themselves (would lock the actor out and
      *       require another admin's intervention).</li>
      *   <li>The SYSTEM seed user is not deletable.</li>
      * </ul>
+     * {@code physical} is re-verified against {@link #countUsages} at delete
+     * time (never trusted blindly) to close the race between the usage check
+     * and the delete; omitting it (default {@code false}) reproduces the
+     * prior soft-delete-only behavior exactly.
      */
     @Transactional
-    public void deleteUser(UUID uuid, UUID actorUuid) {
+    public void deleteUser(UUID uuid, UUID actorUuid, boolean physical) {
         if (uuid.equals(actorUuid)) {
             throw new IllegalArgumentException("user.self.cannot_delete");
         }
@@ -250,6 +289,13 @@ public class UserService {
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
         if (hasSystemRole(user)) {
             throw new AccessDeniedException("user.system.not_deletable");
+        }
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            userRepository.delete(user);
+            blacklistService.revokeAllUserRefreshTokens(uuid.toString());
+            blacklistService.markUserInvalidatedNow(uuid.toString());
+            return;
         }
         user.setActive(false);
         user.setStatus("SUSPENDED");

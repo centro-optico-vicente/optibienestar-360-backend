@@ -24,6 +24,12 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
     /** Currently-active subscription of the member. */
     Optional<Membership> findFirstByMemberIdAndActiveTrue(Long memberId);
 
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive). */
+    long countByMemberId(Long memberId);
+
+    /** Usage check for {@code PlansService.countUsages} — ALL rows (active + inactive). */
+    long countByPlanId(Long planId);
+
     /** History of subscriptions for a member, newest enrollment first. */
     List<Membership> findByMemberIdOrderByEnrolledAtDesc(Long memberId);
 

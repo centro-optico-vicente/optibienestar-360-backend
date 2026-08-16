@@ -5,7 +5,9 @@ import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -43,6 +45,8 @@ class UserServiceListFilterTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private TokenBlacklistService blacklistService;
     @Mock private PersonService personService;
+    @Mock private AllyUserRepository allyUserRepository;
+    @Mock private PromoterRepository promoterRepository;
 
     private UserService userService;
 
@@ -50,7 +54,8 @@ class UserServiceListFilterTest {
 
     private UserService newService() {
         return new UserService(userRepository, roleRepository, userRoleRepository,
-                userMapper, passwordEncoder, blacklistService, personService);
+                userMapper, passwordEncoder, blacklistService, personService,
+                allyUserRepository, promoterRepository);
     }
 
     @Test

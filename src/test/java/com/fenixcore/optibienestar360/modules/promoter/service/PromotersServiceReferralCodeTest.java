@@ -4,11 +4,16 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +45,11 @@ class PromotersServiceReferralCodeTest {
     @Mock private MemberRepository memberRepository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
     @Mock private PromoterMapper mapper;
+    @Mock private CommissionRepository commissionRepository;
+    @Mock private PromoterBonusAwardRepository promoterBonusAwardRepository;
+    @Mock private LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
+    @Mock private MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
+    @Mock private PromoterMemberContactRepository promoterMemberContactRepository;
 
     private PromotersService service;
 
@@ -48,7 +58,9 @@ class PromotersServiceReferralCodeTest {
 
     @BeforeEach
     void setup() {
-        service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository, mapper);
+        service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository, mapper,
+                commissionRepository, promoterBonusAwardRepository, leaderboardPrizeAwardRepository,
+                memberPromoterAssignmentRepository, promoterMemberContactRepository);
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);

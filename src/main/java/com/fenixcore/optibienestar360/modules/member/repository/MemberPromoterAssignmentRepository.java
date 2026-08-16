@@ -20,4 +20,13 @@ public interface MemberPromoterAssignmentRepository extends JpaRepository<Member
 
     /** Reassignment history of a member looked up by its public UUID, newest first. */
     List<MemberPromoterAssignment> findByMember_UuidOrderByCreatedAtDesc(UUID memberUuid);
+
+    /** Usage check for {@code MembersService.countUsages} — insert-only audit log, ALL rows count. */
+    long countByMemberId(Long memberId);
+
+    /** Usage check for {@code PromotersService.countUsages} — as the assignment's source promoter. */
+    long countByFromPromoterId(Long promoterId);
+
+    /** Usage check for {@code PromotersService.countUsages} — as the assignment's target promoter. */
+    long countByToPromoterId(Long promoterId);
 }

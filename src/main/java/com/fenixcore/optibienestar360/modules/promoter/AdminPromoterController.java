@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromotersService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -93,10 +94,17 @@ public class AdminPromoterController {
         return ResponseEntity.ok(promotersService.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(promotersService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('PROMOTER_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        promotersService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        promotersService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

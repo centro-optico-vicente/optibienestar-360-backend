@@ -4,9 +4,15 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
@@ -65,6 +71,11 @@ public class PromotersService {
     private final MemberRepository memberRepository;
     private final PromoterTypeRepository promoterTypeRepository;
     private final PromoterMapper mapper;
+    private final CommissionRepository commissionRepository;
+    private final PromoterBonusAwardRepository promoterBonusAwardRepository;
+    private final LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
+    private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
+    private final PromoterMemberContactRepository promoterMemberContactRepository;
     private final SecureRandom random = new SecureRandom();
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -140,10 +151,52 @@ public class PromotersService {
 
     // ─── Delete (soft) ──────────────────────────────────────────────────────
 
+    /**
+     * Counts real FK references to this promoter across every table that
+     * carries one: {@code members.promoter_id} (permanent attribution),
+     * {@code commissions.promoter_id}, {@code promoter_bonus_awards},
+     * {@code leaderboard_prize_awards}, {@code member_promoter_assignments}
+     * (both as {@code from_promoter_id} and {@code to_promoter_id}), and
+     * {@code promoter_member_contacts} (insert-only outreach log — its rows
+     * are still real FK rows that would violate a hard delete).
+     */
+    public long countUsages(UUID uuid) {
+        Promoter promoter = findManaged(uuid);
+        Long id = promoter.getId();
+        long members = memberRepository.countByPromoterId(id);
+        long commissions = commissionRepository.countByPromoterId(id);
+        long bonusAwards = promoterBonusAwardRepository.countByPromoterId(id);
+        long leaderboardAwards = leaderboardPrizeAwardRepository.countByPromoterId(id);
+        long assignmentsFrom = memberPromoterAssignmentRepository.countByFromPromoterId(id);
+        long assignmentsTo = memberPromoterAssignmentRepository.countByToPromoterId(id);
+        long contacts = promoterMemberContactRepository.countByPromoterId(id);
+        return members + commissions + bonusAwards + leaderboardAwards
+                + assignmentsFrom + assignmentsTo + contacts;
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * promoter is genuinely unreferenced (re-checked here, not trusted from
+     * the caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete. Omitting
+     * {@code physical} (default {@code false}) reproduces the prior
+     * behavior exactly. The SYSTEM (INSTITUCION) row stays undeletable
+     * either way.
+     */
     @Transactional
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         Promoter promoter = findManaged(uuid);
         ensureNotSystemRow(promoter);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            repository.delete(promoter);
+            return;
+        }
         promoter.setActive(false);
         promoter.setStatus(PromoterStatus.INACTIVE.name());
     }

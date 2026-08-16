@@ -4,7 +4,10 @@ import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
+import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
+import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
@@ -51,6 +54,8 @@ public class PlansService {
 
     private final PlanRepository repository;
     private final PlanMapper mapper;
+    private final MembershipRepository membershipRepository;
+    private final CorporateContractRepository corporateContractRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -174,9 +179,40 @@ public class PlansService {
 
     // ─── Delete (soft) ──────────────────────────────────────────────────────
 
-    @Transactional
-    public void delete(UUID uuid) {
+    /**
+     * Counts real FK references to this plan: {@code memberships.plan_id}
+     * and {@code corporate_contracts.plan_id}, both {@code @ManyToOne Plan}
+     * with no cascade declared on the Plan side (Plan has no reverse
+     * {@code @OneToMany} at all), so both are genuine hard-delete blockers.
+     */
+    public long countUsages(UUID uuid) {
         Plan plan = findManaged(uuid);
+        long memberships = membershipRepository.countByPlanId(plan.getId());
+        long corporateContracts = corporateContractRepository.countByPlanId(plan.getId());
+        return memberships + corporateContracts;
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * plan is genuinely unreferenced (re-checked here, not trusted from the
+     * caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete + auto-unpublish.
+     * Omitting {@code physical} (default {@code false}) reproduces the prior
+     * behavior exactly.
+     */
+    @Transactional
+    public void delete(UUID uuid, boolean physical) {
+        Plan plan = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            repository.delete(plan);
+            return;
+        }
         plan.setActive(false);
         // Auto-unpublish on soft-delete — a deactivated plan should not keep
         // showing on the public directory just because is_published is true.

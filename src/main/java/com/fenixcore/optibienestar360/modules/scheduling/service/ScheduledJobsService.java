@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.scheduling.service;
 
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.scheduling.config.DynamicScheduledJobsRegistry;
 import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobCreateRequest;
 import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobDto;
@@ -155,9 +156,44 @@ public class ScheduledJobsService {
 
     // ─── Job soft-delete ───────────────────────────────────────────────────
 
-    @Transactional
-    public void delete(UUID uuid) {
+    /**
+     * Counts every {@code scheduled_job_runs} row (any outcome) for this job
+     * — the execution audit trail. {@link ScheduledJob} declares no reverse
+     * {@code @OneToMany} to its runs at all, so there is no cascade to
+     * consider: a job WITHOUT run history is genuinely a leaf config row
+     * (0 usages, physical-deletable); a job that has ever run has real FK
+     * rows that block a hard delete.
+     */
+    public long countUsages(UUID uuid) {
         ScheduledJob job = findManaged(uuid);
+        return runRepository.countByScheduledJobId(job.getId());
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the job
+     * genuinely has no run history (re-checked here, not trusted from the
+     * caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete + unregister.
+     * Omitting {@code physical} (default {@code false}) reproduces the
+     * prior behavior exactly.
+     */
+    @Transactional
+    public void delete(UUID uuid, boolean physical) {
+        ScheduledJob job = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            // Unlike soft-delete, the row won't exist post-commit for
+            // scheduleAfterCommit's re-fetch-by-uuid to find, so unregister
+            // directly by the code captured before the delete.
+            unregisterCodeAfterCommit(job.getCode());
+            jobRepository.delete(job);
+            return;
+        }
         job.setActive(false);
         job.setEnabled(false);
         scheduleAfterCommit(job.getUuid(), Action.UNREGISTER);
@@ -229,6 +265,19 @@ public class ScheduledJobsService {
                         case UNREGISTER -> registry.unregister(fresh.getCode());
                     }
                 });
+            }
+        });
+    }
+
+    /** Unregister-by-code variant for the physical-delete path — see its call site. */
+    private void unregisterCodeAfterCommit(String code) {
+        DynamicScheduledJobsRegistry registry = registryProvider.getIfAvailable();
+        if (registry == null) return;  // scheduler disabled on this replica
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                registry.unregister(code);
             }
         });
     }

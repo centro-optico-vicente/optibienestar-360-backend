@@ -19,6 +19,9 @@ public interface PromoterBonusAwardRepository extends JpaRepository<PromoterBonu
 
     Optional<PromoterBonusAward> findByUuid(UUID uuid);
 
+    /** Usage check for {@code PromotersService.countUsages} — ALL rows (active + inactive). */
+    long countByPromoterId(Long promoterId);
+
     /** A promoter's own awards, newest first (self-service {@code /v1/promoter/me/bonuses}). */
     Page<PromoterBonusAward> findByPromoterIdAndActiveTrueOrderByCreatedAtDesc(Long promoterId, Pageable pageable);
 

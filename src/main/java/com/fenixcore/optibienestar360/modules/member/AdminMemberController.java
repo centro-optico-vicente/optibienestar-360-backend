@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberListItemDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberUpdateRequest;
 import com.fenixcore.optibienestar360.modules.member.service.MembersService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -88,10 +89,17 @@ public class AdminMemberController {
         return ResponseEntity.ok(membersService.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('MEMBER_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(membersService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('MEMBER_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        membersService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        membersService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

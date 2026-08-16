@@ -36,6 +36,30 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
     /** All commissions of a payment (for the void fan-out path). */
     List<Commission> findByPaymentId(Long paymentId);
 
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive). */
+    long countByMemberId(Long memberId);
+
+    /** Usage check for {@code PromotersService.countUsages} — ALL rows (active + inactive). */
+    long countByPromoterId(Long promoterId);
+
+    /**
+     * Usage check for {@code CommissionTiersService.countUsages} — the FK was
+     * closed by V42 ({@code fk_commissions_tier}) even though the entity still
+     * maps {@code commissionTierId} as a bare {@code Long} (see the Javadoc on
+     * {@link Commission}, which predates that migration and is stale on this
+     * point). Counts ALL rows (active + inactive/voided) since a real FK row
+     * of any status would still block a hard delete at the DB level.
+     */
+    long countByCommissionTierId(Long commissionTierId);
+
+    /**
+     * Usage check for {@code CollectionCommissionTiersService.countUsages} —
+     * FK {@code commissions.collection_tier_id → collection_commission_tiers}
+     * added directly by V48 (never deferred). Same bare-{@code Long} mapping
+     * caveat as {@link #countByCommissionTierId}.
+     */
+    long countByCollectionTierId(Long collectionTierId);
+
     /**
      * Powers the period payout — every PENDING commission whose period
      * falls inside the requested range. Joins the partial composite

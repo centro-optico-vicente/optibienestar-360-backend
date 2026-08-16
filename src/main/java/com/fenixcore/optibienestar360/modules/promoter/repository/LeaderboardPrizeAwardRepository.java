@@ -16,6 +16,9 @@ public interface LeaderboardPrizeAwardRepository extends JpaRepository<Leaderboa
 
     Optional<LeaderboardPrizeAward> findByUuid(UUID uuid);
 
+    /** Usage check for {@code PromotersService.countUsages} — ALL rows (active + inactive). */
+    long countByPromoterId(Long promoterId);
+
     /** Idempotency guard for the period-close awarding — one award per (promoter, period, rank). */
     boolean existsByPromoterIdAndPeriodStrategyAndPeriodStartAndPeriodEndAndRankAndActiveTrue(
             Long promoterId, PeriodStrategy periodStrategy, LocalDate periodStart, LocalDate periodEnd, int rank);

@@ -103,7 +103,7 @@ class AdminCollectionCommissionTierControllerIT {
 
     @Test
     void delete_withPermission_is204() throws Exception {
-        doNothing().when(service).delete(any());
+        doNothing().when(service).delete(any(), anyBoolean());
         mockMvc.perform(delete("/v1/admin/collection-commission-tiers/" + UUID.randomUUID())
                         .with(principal("COLLECTION_COMMISSION_TIER_MANAGE")))
                 .andExpect(status().isNoContent());

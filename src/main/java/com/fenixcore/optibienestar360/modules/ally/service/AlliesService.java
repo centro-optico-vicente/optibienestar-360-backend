@@ -10,7 +10,12 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
+import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRepository;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
@@ -65,6 +70,10 @@ public class AlliesService {
     private final CityRepository cityRepository;
     private final MedicalSpecialtyRepository medicalSpecialtyRepository;
     private final AllyMapper mapper;
+    private final AllyUserRepository allyUserRepository;
+    private final AllyServiceRepository allyServiceRepository;
+    private final AllyAgreementRepository allyAgreementRepository;
+    private final BenefitUsageRepository benefitUsageRepository;
 
     // ─── Finders ────────────────────────────────────────────────────────────
 
@@ -236,9 +245,48 @@ public class AlliesService {
         return mapper.toDetail(ally);  // managed → dirty-check on commit
     }
 
-    @Transactional
-    public void delete(UUID uuid) {
+    /**
+     * Counts real, independent (non-cascade-owned) FK references to this
+     * ally: {@code ally_users} (memberships), {@code ally_services}
+     * (offerings), {@code ally_agreements}, and {@code benefit_usages}. All
+     * four are declared on {@link Ally} as plain {@code @OneToMany(mappedBy
+     * = ...)} with NO {@code cascade}/{@code orphanRemoval} — i.e. Hibernate
+     * does NOT cascade-delete them when the parent {@code Ally} is removed,
+     * so they are genuine blockers of a hard delete, not owned children to
+     * exclude (contrast with {@code Member.beneficiaries}, which gets the
+     * same "no cascade declared" treatment for the same reason — see
+     * {@code MembersService.countUsages}).
+     */
+    public long countUsages(UUID uuid) {
         Ally ally = findManaged(uuid);
+        long users = allyUserRepository.countByAllyId(ally.getId());
+        long services = allyServiceRepository.countByAllyId(ally.getId());
+        long agreements = allyAgreementRepository.countByAllyId(ally.getId());
+        long benefitUsages = benefitUsageRepository.countByAllyId(ally.getId());
+        return users + services + agreements + benefitUsages;
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * ally is genuinely unreferenced (re-checked here, not trusted from the
+     * caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete + auto-unpublish.
+     * Omitting {@code physical} (default {@code false}) reproduces the prior
+     * behavior exactly.
+     */
+    @Transactional
+    public void delete(UUID uuid, boolean physical) {
+        Ally ally = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            repository.delete(ally);
+            return;
+        }
         ally.setActive(false);
         // Auto-unpublish on soft-delete: a deactivated ally should NOT keep
         // appearing in the public directory just because is_published is true.

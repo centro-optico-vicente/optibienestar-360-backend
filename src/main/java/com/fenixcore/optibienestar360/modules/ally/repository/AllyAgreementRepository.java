@@ -17,5 +17,8 @@ public interface AllyAgreementRepository extends JpaRepository<AllyAgreement, Lo
 
     List<AllyAgreement> findByAllyIdAndActiveTrue(Long allyId);
 
+    /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
+    long countByAllyId(Long allyId);
+
     List<AllyAgreement> findByAllyIdAndStatus(Long allyId, String status);
 }
