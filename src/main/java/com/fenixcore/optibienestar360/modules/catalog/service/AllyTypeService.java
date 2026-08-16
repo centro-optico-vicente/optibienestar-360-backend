@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -37,6 +38,7 @@ public class AllyTypeService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
 
     private final AllyTypeRepository repository;
+    private final AllyRepository allyRepository;
 
     @Autowired @Lazy
     private AllyTypeService self;
@@ -97,13 +99,28 @@ public class AllyTypeService {
         AllyType a = find(uuid);
         a.setName(req.name());
         a.setDescription(req.description());
+        if (req.active() != null) {
+            a.setActive(req.active());
+        }
         return toDto(repository.save(a));
+    }
+
+    public long countUsages(UUID uuid) {
+        return allyRepository.countByAllyType_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         AllyType a = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(a);
+            return;
+        }
         a.setActive(false);
         repository.save(a);
     }

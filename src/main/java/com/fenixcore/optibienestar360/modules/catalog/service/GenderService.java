@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.GenderDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.GenderUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
 import com.fenixcore.optibienestar360.modules.catalog.repository.GenderRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class GenderService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
 
     private final GenderRepository repository;
+    private final PersonRepository personRepository;
 
     @Autowired @Lazy
     private GenderService self;
@@ -95,13 +97,28 @@ public class GenderService {
     public GenderDto update(UUID uuid, GenderUpdateRequest req) {
         Gender g = find(uuid);
         g.setName(req.name());
+        if (req.active() != null) {
+            g.setActive(req.active());
+        }
         return toDto(repository.save(g));
+    }
+
+    public long countUsages(UUID uuid) {
+        return personRepository.countByGender_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         Gender g = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(g);
+            return;
+        }
         g.setActive(false);
         repository.save(g);
     }

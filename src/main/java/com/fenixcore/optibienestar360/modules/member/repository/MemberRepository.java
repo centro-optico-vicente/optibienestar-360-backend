@@ -26,6 +26,9 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     /** "Is this person already enrolled as a Member?" — backs the dedup guard at affiliation. */
     boolean existsByPersonId(Long personId);
 
+    /** Usage count for {@code Occupation} delete/reactivation checks — see {@code OccupationService}. */
+    long countByOccupation_Uuid(UUID uuid);
+
     /** Used by the validator + the digital card flow to resolve a member from their cédula. */
     Optional<Member> findByPersonId(Long personId);
 

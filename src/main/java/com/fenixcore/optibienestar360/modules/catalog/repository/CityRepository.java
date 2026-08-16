@@ -17,4 +17,7 @@ public interface CityRepository extends JpaRepository<City, Long>, JpaSpecificat
     List<City> findByState_CodeAndActiveTrueOrderByName(String stateCode);
 
     List<City> findByState_UuidAndActiveTrueOrderByName(UUID stateUuid);
+
+    /** Usage count for {@code State} delete/reactivation checks — see {@code StateService}. */
+    long countByState_Uuid(UUID uuid);
 }

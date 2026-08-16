@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Country;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CountryRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.StateRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -40,6 +41,7 @@ public class StateService {
 
     private final StateRepository repository;
     private final CountryRepository countryRepository;
+    private final CityRepository cityRepository;
 
     @Autowired @Lazy
     private StateService self;
@@ -108,13 +110,28 @@ public class StateService {
     public StateDto update(UUID uuid, StateUpdateRequest req) {
         State s = find(uuid);
         s.setName(req.name());
+        if (req.active() != null) {
+            s.setActive(req.active());
+        }
         return toDto(repository.save(s));
+    }
+
+    public long countUsages(UUID uuid) {
+        return cityRepository.countByState_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         State s = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(s);
+            return;
+        }
         s.setActive(false);
         repository.save(s);
     }

@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
 import com.fenixcore.optibienestar360.modules.catalog.repository.MedicalSpecialtyRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -37,6 +38,7 @@ public class MedicalSpecialtyService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
 
     private final MedicalSpecialtyRepository repository;
+    private final AllyRepository allyRepository;
 
     @Autowired @Lazy
     private MedicalSpecialtyService self;
@@ -97,13 +99,28 @@ public class MedicalSpecialtyService {
         MedicalSpecialty m = find(uuid);
         m.setName(req.name());
         m.setDescription(req.description());
+        if (req.active() != null) {
+            m.setActive(req.active());
+        }
         return toDto(repository.save(m));
+    }
+
+    public long countUsages(UUID uuid) {
+        return allyRepository.countBySpecialties_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         MedicalSpecialty m = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(m);
+            return;
+        }
         m.setActive(false);
         repository.save(m);
     }

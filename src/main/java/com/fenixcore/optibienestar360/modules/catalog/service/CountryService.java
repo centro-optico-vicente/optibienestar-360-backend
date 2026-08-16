@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.CountryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Country;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CountryRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.StateRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class CountryService {
     private static final String[] SEARCHABLE_FIELDS = {"isoCode", "name"};
 
     private final CountryRepository repository;
+    private final StateRepository stateRepository;
 
     @Autowired
     @Lazy
@@ -95,13 +97,28 @@ public class CountryService {
     public CountryDto update(UUID uuid, CountryUpdateRequest req) {
         Country c = find(uuid);
         c.setName(req.name());
+        if (req.active() != null) {
+            c.setActive(req.active());
+        }
         return toDto(repository.save(c));
+    }
+
+    public long countUsages(UUID uuid) {
+        return stateRepository.countByCountry_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         Country c = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(c);
+            return;
+        }
         c.setActive(false);
         repository.save(c);
     }

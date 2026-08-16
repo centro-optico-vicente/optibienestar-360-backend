@@ -8,10 +8,12 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.StateRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,8 @@ public class CityService {
 
     private final CityRepository repository;
     private final StateRepository stateRepository;
+    private final AllyRepository allyRepository;
+    private final PersonRepository personRepository;
 
     @Autowired @Lazy
     private CityService self;
@@ -107,13 +111,29 @@ public class CityService {
     public CityDto update(UUID uuid, CityUpdateRequest req) {
         City c = find(uuid);
         c.setName(req.name());
+        if (req.active() != null) {
+            c.setActive(req.active());
+        }
         return toDto(repository.save(c));
+    }
+
+    /** Sums usage across every FK owner — both {@code Ally} and {@code Person} carry a direct {@code city} reference. */
+    public long countUsages(UUID uuid) {
+        return allyRepository.countByCity_Uuid(uuid) + personRepository.countByCity_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         City c = find(uuid);
+        long usages = countUsages(uuid);
+        // physical=true is only honored when truly unused — never trust the client
+        // flag blindly, to avoid violating the FK or losing referenced data on a
+        // race condition between the "usage" ping and this call.
+        if (physical && usages == 0) {
+            repository.delete(c);
+            return;
+        }
         c.setActive(false);
         repository.save(c);
     }
