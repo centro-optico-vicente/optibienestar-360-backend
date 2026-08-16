@@ -18,6 +18,9 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
 
     Optional<BenefitUsage> findByUuid(UUID uuid);
 
+    /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
+    long countByAllyId(Long allyId);
+
     /**
      * Powers {@code GET /v1/ally/usage-history} — every benefit usage
      * registered at any ally the current user is an active operator on.

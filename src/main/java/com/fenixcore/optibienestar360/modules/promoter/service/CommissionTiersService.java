@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRep
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -44,6 +45,7 @@ public class CommissionTiersService {
 
     private final CommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository commissionRepository;
 
     public CommissionTierDto get(UUID uuid) {
         return CommissionTierDto.from(findManaged(uuid));
@@ -110,9 +112,44 @@ public class CommissionTiersService {
         return CommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
 
+    /**
+     * {@code Commission.commissionTierId} is mapped as a bare {@code Long} in
+     * the entity (no {@code @ManyToOne}) — the Javadoc on {@link
+     * com.fenixcore.optibienestar360.modules.promoter.entity.Commission}
+     * claims there's no real FK yet, but that comment is stale: V42
+     * ("Close the deferred FK reserved in V26") added
+     * {@code fk_commissions_tier} at the DB level. So a hard delete really
+     * can violate a live FK — this counts every {@code commissions} row
+     * (any status) pointing at this tier via {@code commissionRepository
+     * .countByCommissionTierId}.
+     */
+    public long countUsages(UUID uuid) {
+        CommissionTier tier = findManaged(uuid);
+        return commissionRepository.countByCommissionTierId(tier.getId());
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * tier is genuinely unreferenced (re-checked here, not trusted from the
+     * caller, to avoid a race between the usage check and the delete).
+     * Otherwise falls back to the existing soft-delete. Omitting
+     * {@code physical} (defaults to {@code false}) reproduces the prior
+     * behavior exactly.
+     */
     @Transactional
-    public void delete(UUID uuid) {
-        findManaged(uuid).setActive(false);
+    public void delete(UUID uuid, boolean physical) {
+        CommissionTier tier = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            repository.delete(tier);
+            return;
+        }
+        tier.setActive(false);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

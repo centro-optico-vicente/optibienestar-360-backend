@@ -21,4 +21,7 @@ public interface MemberDocumentRepository extends JpaRepository<MemberDocument, 
             Long memberId, DocumentType documentType);
 
     long countByMemberIdAndActiveTrue(Long memberId);
+
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive), see {@code BeneficiaryRepository.countByMemberId}. */
+    long countByMemberId(Long memberId);
 }

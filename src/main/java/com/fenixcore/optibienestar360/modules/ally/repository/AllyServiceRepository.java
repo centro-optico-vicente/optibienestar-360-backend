@@ -36,6 +36,9 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
 
     List<AllyService> findByAllyIdAndActiveTrue(Long allyId);
 
+    /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
+    long countByAllyId(Long allyId);
+
     List<AllyService> findByAllyIdAndReviewStatus(Long allyId, ReviewStatus reviewStatus);
 
     /**

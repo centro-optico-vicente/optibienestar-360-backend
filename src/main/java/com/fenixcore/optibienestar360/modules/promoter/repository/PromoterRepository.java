@@ -24,6 +24,9 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
     /** Cross-table uniqueness pre-check — see V27 referrals deferred-decision item on collisions. */
     boolean existsByUserId(Long userId);
 
+    /** Usage check for {@code UserService.countUsages} — ALL rows (active + inactive). */
+    long countByUserId(Long userId);
+
     /**
      * Resolve the promoter of the JWT-authenticated user for the self-service
      * dashboard {@code GET /v1/promoter/me}. Backed by the V25 partial UNIQUE

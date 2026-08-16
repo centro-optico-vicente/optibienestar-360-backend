@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -79,10 +80,17 @@ public class AdminAllyController {
         return ResponseEntity.ok(alliesService.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(alliesService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('ALLY_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        alliesService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        alliesService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

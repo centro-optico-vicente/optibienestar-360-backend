@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.service.UserService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -83,11 +84,18 @@ public class AdminUserController {
         return ResponseEntity.ok(userService.updateUser(uuid, request, actor.getUuid()));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(userService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('USER_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+                                       @RequestParam(defaultValue = "false") boolean physical,
                                        @AuthenticationPrincipal CustomUserDetails actor) {
-        userService.deleteUser(uuid, actor.getUuid());
+        userService.deleteUser(uuid, actor.getUuid(), physical);
         return ResponseEntity.noContent().build();
     }
 }

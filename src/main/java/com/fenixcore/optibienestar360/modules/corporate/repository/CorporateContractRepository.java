@@ -13,4 +13,7 @@ public interface CorporateContractRepository
         extends JpaRepository<CorporateContract, Long>, JpaSpecificationExecutor<CorporateContract> {
 
     Optional<CorporateContract> findByUuid(UUID uuid);
+
+    /** Usage check for {@code PlansService.countUsages} — ALL rows (active + inactive). */
+    long countByPlanId(Long planId);
 }

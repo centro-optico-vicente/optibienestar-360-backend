@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UpdateRolePermissionsRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UpdateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.service.RoleService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -93,10 +94,17 @@ public class AdminRoleController {
         return ResponseEntity.ok(roleService.update(uuid, request, actor.getUuid()));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(roleService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('ROLE_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        roleService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        roleService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

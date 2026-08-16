@@ -19,6 +19,12 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
 
     Optional<AllyUser> findByAllyIdAndUserId(Long allyId, Long userId);
 
+    /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
+    long countByAllyId(Long allyId);
+
+    /** Usage check for {@code UserService.countUsages} — ALL rows (active + inactive). */
+    long countByUserId(Long userId);
+
     /** Listings on the user side: "what allies does this user belong to?". */
     List<AllyUser> findByUserIdAndActiveTrue(Long userId);
 

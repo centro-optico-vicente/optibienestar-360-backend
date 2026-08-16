@@ -23,6 +23,9 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
 
     boolean existsByUuid(UUID uuid);
 
+    /** Usage check for {@code PromotersService.countUsages} — ALL rows (active + inactive). */
+    long countByPromoterId(Long promoterId);
+
     /** "Is this person already enrolled as a Member?" — backs the dedup guard at affiliation. */
     boolean existsByPersonId(Long personId);
 

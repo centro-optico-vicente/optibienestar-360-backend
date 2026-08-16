@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.CollectionCommissionTiersService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -70,10 +71,17 @@ public class AdminCollectionCommissionTierController {
         return ResponseEntity.ok(service.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(service.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        service.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        service.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

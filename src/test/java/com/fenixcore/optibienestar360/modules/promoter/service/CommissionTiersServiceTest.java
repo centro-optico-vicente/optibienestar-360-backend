@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateR
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,9 +30,10 @@ class CommissionTiersServiceTest {
 
     @Mock private CommissionTierRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
+    @Mock private CommissionRepository commissionRepository;
 
     private CommissionTiersService sut() {
-        return new CommissionTiersService(repository, promoterTypeRepository);
+        return new CommissionTiersService(repository, promoterTypeRepository, commissionRepository);
     }
 
     @Test

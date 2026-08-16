@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
 import com.fenixcore.optibienestar360.modules.membership.service.PlansService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -83,10 +84,17 @@ public class AdminPlanController {
         return ResponseEntity.ok(plansService.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('PLAN_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(plansService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('PLAN_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        plansService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        plansService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 }

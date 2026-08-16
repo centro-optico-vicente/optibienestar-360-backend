@@ -108,7 +108,7 @@ class UserServiceLockoutGuardsTest {
         User systemUser = userWithRole(targetUuid, "SYSTEM");
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemUser));
 
-        assertThatThrownBy(() -> userService.deleteUser(targetUuid, otherActorUuid))
+        assertThatThrownBy(() -> userService.deleteUser(targetUuid, otherActorUuid, false))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("user.system.not_deletable");
 
@@ -158,7 +158,7 @@ class UserServiceLockoutGuardsTest {
     @Test
     void deleteUser_rejectsSelfDelete() {
         // No need to stub the repository — the self-check fires before the load.
-        assertThatThrownBy(() -> userService.deleteUser(targetUuid, /* actor */ targetUuid))
+        assertThatThrownBy(() -> userService.deleteUser(targetUuid, /* actor */ targetUuid, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("user.self.cannot_delete");
 

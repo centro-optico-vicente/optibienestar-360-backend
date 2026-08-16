@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.PermissionReposito
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
@@ -161,10 +162,31 @@ public class RoleService {
     }
 
     /**
-     * Smart-delete. If the role has any {@code user_roles} row (active or
-     * inactive), perform a soft-delete ({@code is_active = false}) to preserve
-     * referential integrity and historical FK references. If the role is
-     * completely unreferenced, hard-delete the row to keep the table tidy.
+     * Counts every {@code user_roles} row (active + inactive) assigned to
+     * this role — even an inactive/expired assignment is still a real FK row
+     * that would break a hard delete, so both count toward "in use".
+     */
+    public long countUsages(UUID uuid) {
+        Role role = findRole(uuid);
+        return userRoleRepository.countByRoleId(role.getId());
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart-delete, extended with the {@code physical} flag shared by the
+     * other 9 catalog-style entities — but Role predates that pattern with
+     * its <em>own</em> smart-delete already: hard-delete when unreferenced,
+     * soft-delete otherwise, decided purely by {@link #countUsages}
+     * (re-checked here rather than trusted from the caller, guarding the
+     * race between a usage check and the delete). That decision does not
+     * depend on {@code physical} — it happens today regardless of the flag,
+     * so omitting {@code physical} (default {@code false}) reproduces this
+     * method's pre-existing behavior exactly, and passing {@code physical=true}
+     * changes nothing beyond API-shape parity with the other 9 entities.
      *
      * <p>The {@code SYSTEM} role is never deletable — by anyone, including a
      * {@code SYSTEM} actor. Deletion is strictly more dangerous than editing
@@ -172,22 +194,23 @@ public class RoleService {
      * guard stays absolute rather than actor-scoped like update.</p>
      */
     @Transactional
-    public void delete(UUID uuid) {
+    public void delete(UUID uuid, boolean physical) {
         Role role = findRole(uuid);
         if (SYSTEM_ROLE_NAME.equals(role.getName())) {
             throw new AccessDeniedException("role.system.not_deletable");
         }
-        if (userRoleRepository.existsByRoleId(role.getId())) {
-            role.setActive(false);
-            // managed entity → dirty-check on commit
-            // Same staleness fan-out as updateRolePermissions: users keep the
-            // role in their JWT claim until refresh, but the role is now
-            // inactive and its permissions should no longer count.
-            invalidateAllUsersOf(role);
-        } else {
+        long usages = countUsages(uuid);
+        if (usages == 0) {
             roleRepository.delete(role);
             // No fan-out: no one had this role, no token to invalidate.
+            return;
         }
+        role.setActive(false);
+        // managed entity → dirty-check on commit
+        // Same staleness fan-out as updateRolePermissions: users keep the
+        // role in their JWT claim until refresh, but the role is now
+        // inactive and its permissions should no longer count.
+        invalidateAllUsersOf(role);
     }
 
     /**

@@ -24,4 +24,14 @@ public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long>,
     Optional<Beneficiary> findByMemberIdAndPersonId(Long memberId, Long personId);
 
     long countByMemberIdAndActiveTrue(Long memberId);
+
+    /**
+     * Usage check for {@code MembersService.countUsages} — ALL rows (active +
+     * inactive). {@code Member.beneficiaries} has NO {@code cascade}/{@code
+     * orphanRemoval} declared (plain {@code @OneToMany(mappedBy = "member")}),
+     * so Hibernate does not cascade-delete beneficiaries with their parent —
+     * these rows are a genuine hard-delete blocker, not an owned child to
+     * exclude.
+     */
+    long countByMemberId(Long memberId);
 }

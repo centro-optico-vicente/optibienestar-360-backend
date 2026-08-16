@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.scheduling.service.JobExecutionSer
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ManualRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ScheduledJobsService;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -89,10 +90,17 @@ public class AdminScheduledJobController {
         return ResponseEntity.ok(jobsService.update(uuid, request));
     }
 
+    @GetMapping("/{uuid}/usage")
+    @PreAuthorize("hasAuthority('JOB_VIEW_ALL')")
+    public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(jobsService.getUsage(uuid));
+    }
+
     @DeleteMapping("/{uuid}")
     @PreAuthorize("hasAuthority('JOB_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
-        jobsService.delete(uuid);
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid,
+            @RequestParam(defaultValue = "false") boolean physical) {
+        jobsService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 

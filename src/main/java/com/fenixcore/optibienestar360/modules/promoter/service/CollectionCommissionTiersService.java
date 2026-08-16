@@ -7,8 +7,10 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRep
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,7 @@ public class CollectionCommissionTiersService {
 
     private final CollectionCommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final CommissionRepository commissionRepository;
 
     public CollectionCommissionTierDto get(UUID uuid) {
         return CollectionCommissionTierDto.from(findManaged(uuid));
@@ -83,9 +86,38 @@ public class CollectionCommissionTiersService {
         return CollectionCommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
 
+    /**
+     * {@code Commission.collectionTierId} is a bare {@code Long} in the
+     * entity, but V48 added a real DB FK ({@code REFERENCES
+     * collection_commission_tiers}) directly (never deferred, unlike
+     * {@code CommissionTier}'s). Counts every {@code commissions} row (any
+     * status) pointing at this tier.
+     */
+    public long countUsages(UUID uuid) {
+        CollectionCommissionTier tier = findManaged(uuid);
+        return commissionRepository.countByCollectionTierId(tier.getId());
+    }
+
+    public UsageDto getUsage(UUID uuid) {
+        long count = countUsages(uuid);
+        return new UsageDto(count > 0, count);
+    }
+
+    /**
+     * Smart delete: hard-deletes only when {@code physical=true} AND the
+     * tier is genuinely unreferenced (re-checked here to avoid a race with
+     * the usage check). Otherwise soft-deletes, same as before —
+     * {@code physical} defaults to {@code false} to stay backward compatible.
+     */
     @Transactional
-    public void delete(UUID uuid) {
-        findManaged(uuid).setActive(false);
+    public void delete(UUID uuid, boolean physical) {
+        CollectionCommissionTier tier = findManaged(uuid);
+        long usages = countUsages(uuid);
+        if (physical && usages == 0) {
+            repository.delete(tier);
+            return;
+        }
+        tier.setActive(false);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

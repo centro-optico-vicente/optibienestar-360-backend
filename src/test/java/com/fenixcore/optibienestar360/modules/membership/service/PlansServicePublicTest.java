@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.mapper.PlanMapperImpl;
+import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
+import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,12 +46,14 @@ import static org.mockito.Mockito.when;
 class PlansServicePublicTest {
 
     @Mock private PlanRepository repository;
+    @Mock private MembershipRepository membershipRepository;
+    @Mock private CorporateContractRepository corporateContractRepository;
 
     private PlansService service;
 
     @BeforeEach
     void setup() {
-        service = new PlansService(repository, new PlanMapperImpl());
+        service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository);
     }
 
     // ─── publicGetByUuid ─────────────────────────────────────────────────────

@@ -18,6 +18,16 @@ public interface ScheduledJobRunRepository extends JpaRepository<ScheduledJobRun
     Page<ScheduledJobRun> findByScheduledJobIdOrderByStartedAtDesc(Long scheduledJobId, Pageable pageable);
 
     /**
+     * Usage check for {@code ScheduledJobsService.countUsages}. {@code
+     * ScheduledJobRun.scheduledJob} is a real {@code @ManyToOne} FK and
+     * {@link com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJob}
+     * declares no reverse {@code @OneToMany} at all (no cascade to consider) —
+     * so any run history genuinely blocks a hard delete of its job. Counts
+     * ALL rows regardless of outcome.
+     */
+    long countByScheduledJobId(Long scheduledJobId);
+
+    /**
      * Concurrency gate — used by {@code JobExecutionService} before starting
      * a new run when {@code allow_concurrent=false}. Backed by the partial
      * index {@code idx_scheduled_job_runs_running}.

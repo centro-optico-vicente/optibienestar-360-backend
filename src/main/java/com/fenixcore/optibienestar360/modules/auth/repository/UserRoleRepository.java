@@ -25,6 +25,12 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     boolean existsByRoleId(Long roleId);
 
+    /** Usage check for {@code RoleService.countUsages} — ALL rows (active + inactive), see that method's Javadoc. */
+    long countByRoleId(Long roleId);
+
+    /** Usage check for {@code UserService.countUsages} — ALL rows (active + inactive). */
+    long countByUserId(Long userId);
+
     /**
      * Projection for the token-staleness fan-out: returns just the user UUIDs of
      * every active assignment to {@code roleId}. Used by {@code RoleService} to

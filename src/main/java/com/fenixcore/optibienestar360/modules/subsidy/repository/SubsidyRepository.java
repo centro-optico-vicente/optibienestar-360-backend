@@ -38,6 +38,9 @@ public interface SubsidyRepository extends JpaRepository<Subsidy, Long>,
     /** The member's live subsidies (self-service {@code GET /v1/me/subsidies}), newest window first. */
     List<Subsidy> findByMemberIdAndActiveTrueOrderByValidFromDesc(Long memberId);
 
+    /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive). */
+    long countByMemberId(Long memberId);
+
     /**
      * Solvency sweep helper (vertical-5 #3): of the given candidate members,
      * which ones have a full monthly exoneration active on {@code on}. One query
