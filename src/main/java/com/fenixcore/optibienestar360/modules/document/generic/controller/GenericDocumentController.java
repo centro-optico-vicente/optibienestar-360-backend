@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
@@ -51,6 +52,7 @@ public class GenericDocumentController {
     ) {}
 
     @PostMapping("/generic")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
     public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(request.format()) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -75,6 +77,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/records/{entityOrTable}/{identifier}")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica buscando el registro por tabla/entidad e identificador (UUID o ID)")
     public ResponseEntity<byte[]> generateDocumentByRecord(
             @PathVariable String entityOrTable,
@@ -107,6 +110,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/tables/{targetTable}")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte de listado de registros para una tabla específica en PDF o XLSX")
     public ResponseEntity<byte[]> generateTableDocument(
             @PathVariable String targetTable,
