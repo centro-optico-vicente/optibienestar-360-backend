@@ -32,14 +32,6 @@ public class GenericRecordReportService {
         this.messageSource = messageSource;
     }
 
-    public GenericRecordReportService(
-            GenericEntityExtractorService extractorService,
-            GenericHtmlPdfService htmlPdfService,
-            GenericXlsxExporterService xlsxExporterService
-    ) {
-        this(extractorService, htmlPdfService, xlsxExporterService, null);
-    }
-
     /**
      * Generates a generic record card document in PDF or XLSX format.
      */

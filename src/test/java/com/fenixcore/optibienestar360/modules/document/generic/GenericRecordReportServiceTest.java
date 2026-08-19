@@ -170,7 +170,7 @@ class GenericRecordReportServiceTest {
 
         htmlPdfService = new GenericHtmlPdfService(templateEngine, null);
         xlsxExporterService = new GenericXlsxExporterService();
-        recordReportService = new GenericRecordReportService(extractorService, htmlPdfService, xlsxExporterService);
+        recordReportService = new GenericRecordReportService(extractorService, htmlPdfService, xlsxExporterService, null);
     }
 
     @Test
