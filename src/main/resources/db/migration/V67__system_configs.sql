@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V60: system_configs table & REPORT_PRINT permission
+-- V67: system_configs table & REPORT_PRINT permission
 --
 -- system_configs stores global system-wide configuration settings as a single-row
 -- active record (singleton pattern, mirroring security_policies).
@@ -50,7 +50,7 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'REPORT_PRINT') THEN
-        RAISE EXCEPTION 'V60: REPORT_PRINT permission was not created';
+        RAISE EXCEPTION 'V67: REPORT_PRINT permission was not created';
     END IF;
 
     IF NOT EXISTS (
@@ -58,7 +58,7 @@ BEGIN
                  JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'SYSTEM'
                  JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = 'REPORT_PRINT'
     ) THEN
-        RAISE EXCEPTION 'V60: SYSTEM did not receive REPORT_PRINT permission';
+        RAISE EXCEPTION 'V67: SYSTEM did not receive REPORT_PRINT permission';
     END IF;
 
     IF NOT EXISTS (
@@ -66,6 +66,6 @@ BEGIN
                  JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'ADMINISTRADOR'
                  JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = 'REPORT_PRINT'
     ) THEN
-        RAISE EXCEPTION 'V60: ADMINISTRADOR did not receive REPORT_PRINT permission';
+        RAISE EXCEPTION 'V67: ADMINISTRADOR did not receive REPORT_PRINT permission';
     END IF;
 END $$;
