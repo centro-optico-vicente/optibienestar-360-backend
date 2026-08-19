@@ -4,9 +4,13 @@ import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecord
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperFormat;
 import com.fenixcore.optibienestar360.modules.document.service.RenderedDocument;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.Collection;
+import java.util.Locale;
 
 @Service
 public class GenericRecordReportService {
@@ -14,15 +18,26 @@ public class GenericRecordReportService {
     private final GenericEntityExtractorService extractorService;
     private final GenericHtmlPdfService htmlPdfService;
     private final GenericXlsxExporterService xlsxExporterService;
+    private final MessageSource messageSource;
+
+    public GenericRecordReportService(
+            GenericEntityExtractorService extractorService,
+            GenericHtmlPdfService htmlPdfService,
+            GenericXlsxExporterService xlsxExporterService,
+            MessageSource messageSource
+    ) {
+        this.extractorService = extractorService;
+        this.htmlPdfService = htmlPdfService;
+        this.xlsxExporterService = xlsxExporterService;
+        this.messageSource = messageSource;
+    }
 
     public GenericRecordReportService(
             GenericEntityExtractorService extractorService,
             GenericHtmlPdfService htmlPdfService,
             GenericXlsxExporterService xlsxExporterService
     ) {
-        this.extractorService = extractorService;
-        this.htmlPdfService = htmlPdfService;
-        this.xlsxExporterService = xlsxExporterService;
+        this(extractorService, htmlPdfService, xlsxExporterService, null);
     }
 
     /**
@@ -52,8 +67,13 @@ public class GenericRecordReportService {
             extension = JasperFormat.PDF.getFileExtension();
         }
 
-        String safeTitle = (model.title() != null ? model.title() : "record").toLowerCase().replaceAll("[^a-z0-9_-]", "_");
-        String fileName = safeTitle + "_" + (identifier != null ? identifier : "item") + extension;
+        Locale locale = LocaleContextHolder.getLocale();
+        String defaultRecord = resolveMessage("document.filename.record", "record", locale);
+        String defaultItem = resolveMessage("document.filename.item", "item", locale);
+
+        String safeTitle = sanitizeFilename(model.title() != null ? model.title() : defaultRecord);
+        String safeIdentifier = identifier != null ? sanitizeFilename(identifier) : defaultItem;
+        String fileName = safeTitle + "_" + safeIdentifier + extension;
 
         return new RenderedDocument(bytes, contentType, fileName);
     }
@@ -84,9 +104,33 @@ public class GenericRecordReportService {
             extension = JasperFormat.PDF.getFileExtension();
         }
 
-        String safeTitle = (model.title() != null ? model.title() : "list").toLowerCase().replaceAll("[^a-z0-9_-]", "_");
+        Locale locale = LocaleContextHolder.getLocale();
+        String defaultList = resolveMessage("document.filename.list", "list", locale);
+
+        String safeTitle = sanitizeFilename(model.title() != null ? model.title() : defaultList);
         String fileName = safeTitle + extension;
 
         return new RenderedDocument(bytes, contentType, fileName);
+    }
+
+    private String resolveMessage(String key, String defaultMsg, Locale locale) {
+        if (messageSource != null) {
+            try {
+                String msg = messageSource.getMessage(key, null, locale != null ? locale : Locale.ENGLISH);
+                if (msg != null && !msg.isBlank()) return msg;
+            } catch (Exception ignored) {}
+        }
+        return defaultMsg;
+    }
+
+    private String sanitizeFilename(String text) {
+        if (text == null || text.isBlank()) return "document";
+        String unaccented = Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9_-]", "_")
+                .replaceAll("_+", "_")
+                .replaceAll("^_|_$", "");
+        return unaccented.isBlank() ? "document" : unaccented;
     }
 }
