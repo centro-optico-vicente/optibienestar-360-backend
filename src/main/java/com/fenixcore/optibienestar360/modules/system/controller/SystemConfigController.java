@@ -24,7 +24,7 @@ public class SystemConfigController {
 
     @GetMapping
     @Operation(summary = "Obtiene la configuración activa del sistema")
-    @PreAuthorize("hasAnyAuthority('JOB_VIEW_ALL', 'ROLE_VIEW', 'USER_VIEW_ALL', 'REPORT_PRINT')")
+    @PreAuthorize("hasAnyAuthority('JOB_VIEW_ALL', 'ROLE_VIEW', 'USER_VIEW_ALL', 'REPORT_REPORT_GENERATE')")
     public ResponseEntity<SystemConfigDto> getSystemConfig() {
         SystemConfig config = systemConfigService.getSystemConfig();
         return ResponseEntity.ok(new SystemConfigDto(

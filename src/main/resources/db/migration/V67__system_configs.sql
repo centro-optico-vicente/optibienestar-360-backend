@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V67: system_configs table & REPORT_PRINT permission
+-- V67: system_configs table
 --
 -- system_configs stores global system-wide configuration settings as a single-row
 -- active record (singleton pattern, mirroring security_policies).
@@ -27,45 +27,3 @@ CREATE TRIGGER trg_system_configs_updated_at
 -- Initial singleton record
 INSERT INTO system_configs (is_active)
 VALUES (TRUE);
-
--- ─── Permission: REPORT_PRINT under REPORTS domain ─────────────────────────
-
-INSERT INTO permissions (name, domain_id, description)
-SELECT 'REPORT_PRINT', pd.permission_domains_id, 'Imprimir y generar reportes o fichas genéricas en PDF/XLSX'
-FROM permission_domains pd
-WHERE pd.code = 'REPORTS'
-ON CONFLICT (name) DO NOTHING;
-
--- Grant to ADMINISTRADOR, OPERADOR, OPERADOR_MEDICO
--- (SYSTEM receives it automatically via V30 trigger)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.roles_id, p.permissions_id
-FROM roles r
-         CROSS JOIN permissions p
-WHERE r.name IN ('ADMINISTRADOR', 'OPERADOR', 'OPERADOR_MEDICO')
-  AND p.name = 'REPORT_PRINT'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
--- Verification assertion
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'REPORT_PRINT') THEN
-        RAISE EXCEPTION 'V67: REPORT_PRINT permission was not created';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM role_permissions rp
-                 JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'SYSTEM'
-                 JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = 'REPORT_PRINT'
-    ) THEN
-        RAISE EXCEPTION 'V67: SYSTEM did not receive REPORT_PRINT permission';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM role_permissions rp
-                 JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'ADMINISTRADOR'
-                 JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = 'REPORT_PRINT'
-    ) THEN
-        RAISE EXCEPTION 'V67: ADMINISTRADOR did not receive REPORT_PRINT permission';
-    END IF;
-END $$;
