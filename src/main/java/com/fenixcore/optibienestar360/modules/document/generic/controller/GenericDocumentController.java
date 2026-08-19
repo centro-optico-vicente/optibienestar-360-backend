@@ -152,6 +152,10 @@ public class GenericDocumentController {
                 String msg = messageSource.getMessage("entity.singular." + normalized, null, locale);
                 if (msg != null && !msg.isBlank()) return msg;
             } catch (Exception ignored) {}
+            try {
+                String msg = messageSource.getMessage("entity.singular." + normalized, null, Locale.forLanguageTag("es"));
+                if (msg != null && !msg.isBlank()) return msg;
+            } catch (Exception ignored) {}
         }
 
         String clean = normalized.replace("_", " ");
@@ -166,6 +170,10 @@ public class GenericDocumentController {
         if (messageSource != null) {
             try {
                 String msg = messageSource.getMessage("entity.plural." + normalized, null, locale);
+                if (msg != null && !msg.isBlank()) return msg;
+            } catch (Exception ignored) {}
+            try {
+                String msg = messageSource.getMessage("entity.plural." + normalized, null, Locale.forLanguageTag("es"));
                 if (msg != null && !msg.isBlank()) return msg;
             } catch (Exception ignored) {}
         }
