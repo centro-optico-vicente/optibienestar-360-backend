@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <title th:text="${model.title} ?: #{document.record_card.default_title}">Record Card</title>
-    <style>
+    <style th:inline="css">
         @page {
             size: A4 portrait;
             margin: 15mm;
@@ -15,52 +15,57 @@
                 font-size: 8pt;
                 color: #666666;
             }
+            @bottom-left {
+                content: "[[( ${reportFooter} ?: '' )]]";
+                font-family: sans-serif;
+                font-size: 8pt;
+                color: #666666;
+            }
         }
 
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: sans-serif;
             font-size: 10pt;
-            color: #2c3e50;
+            color: #333333;
             margin: 0;
             padding: 0;
-            line-height: 1.4;
         }
 
         .header-table {
             width: 100%;
             border-bottom: 2px solid #0056b3;
             padding-bottom: 10px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .header-title {
-            font-size: 16pt;
+            font-size: 18pt;
             font-weight: bold;
             color: #0056b3;
             margin: 0;
         }
 
         .header-subtitle {
-            font-size: 10pt;
-            color: #555555;
+            font-size: 11pt;
+            color: #666666;
             margin: 3px 0 0 0;
         }
 
         .meta-box {
             text-align: right;
-            font-size: 8pt;
-            color: #666666;
+            font-size: 9pt;
+            color: #555555;
         }
 
         .section-header {
-            background-color: #f1f5f9;
-            color: #1e293b;
-            font-size: 11pt;
+            font-size: 12pt;
             font-weight: bold;
+            color: #0056b3;
+            background-color: #f0f4f8;
             padding: 6px 10px;
-            border-left: 4px solid #0056b3;
             margin-top: 15px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #0056b3;
         }
 
         .fields-table {
@@ -72,25 +77,24 @@
         .fields-table td {
             padding: 6px 8px;
             vertical-align: top;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #eeeeee;
         }
 
         .field-label {
             font-weight: bold;
-            color: #475569;
+            color: #444444;
             width: 35%;
-            background-color: #f8fafc;
         }
 
         .field-value {
-            color: #0f172a;
+            color: #111111;
             width: 65%;
         }
 
         .detail-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             font-size: 9pt;
         }
 
@@ -98,26 +102,17 @@
             background-color: #0056b3;
             color: #ffffff;
             font-weight: bold;
-            padding: 6px;
+            padding: 6px 8px;
             text-align: left;
-            border: 1px solid #0056b3;
         }
 
         .detail-table td {
-            padding: 5px 6px;
-            border: 1px solid #cbd5e1;
+            padding: 6px 8px;
+            border-bottom: 1px solid #dddddd;
         }
 
         .detail-table tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-
-        .footer-note {
-            margin-top: 25px;
-            font-size: 8pt;
-            color: #94a3b8;
-            border-top: 1px dashed #cbd5e1;
-            padding-top: 8px;
+            background-color: #f9f9f9;
         }
     </style>
 </head>
@@ -143,12 +138,12 @@
         </tr>
     </table>
 
-    <div class="section-header" th:text="#{document.record_card.main_info}">Main Information</div>
+    <div class="section-header" th:text="#{document.record_card.general_information}">General Information</div>
 
     <table class="fields-table">
         <tr th:each="entry : ${model.fields}">
-            <td class="field-label" th:text="${entry.key}">Field</td>
-            <td class="field-value" th:text="${entry.value}">Value</td>
+            <td class="field-label" th:text="${entry.key}">Field Name</td>
+            <td class="field-value" th:text="${entry.value}">Field Value</td>
         </tr>
     </table>
 
@@ -158,7 +153,7 @@
         <table class="detail-table">
             <thead>
                 <tr>
-                    <th th:each="header : ${section.headers}" th:text="${header}">Header</th>
+                    <th th:each="colHeader : ${section.headers}" th:text="${colHeader}">Header</th>
                 </tr>
             </thead>
             <tbody>
@@ -167,10 +162,6 @@
                 </tr>
             </tbody>
         </table>
-    </div>
-
-    <div class="footer-note" th:text="#{document.footer.audit_note}">
-        This document is an official printout generated by the OptiBienestar 360 ecosystem. Auditable document.
     </div>
 
 </body>

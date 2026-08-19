@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
@@ -51,6 +52,7 @@ public class GenericDocumentController {
     ) {}
 
     @PostMapping("/generic")
+    @PreAuthorize("hasAuthority('REPORT_PRINT')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
     public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(request.format()) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -75,6 +77,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/records/{entityOrTable}/{identifier}")
+    @PreAuthorize("hasAuthority('REPORT_PRINT')")
     @Operation(summary = "Genera un reporte o ficha genérica buscando el registro por tabla/entidad e identificador (UUID o ID)")
     public ResponseEntity<byte[]> generateDocumentByRecord(
             @PathVariable String entityOrTable,
@@ -107,6 +110,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/tables/{targetTable}")
+    @PreAuthorize("hasAuthority('REPORT_PRINT')")
     @Operation(summary = "Genera un reporte de listado de registros para una tabla específica en PDF o XLSX")
     public ResponseEntity<byte[]> generateTableDocument(
             @PathVariable String targetTable,

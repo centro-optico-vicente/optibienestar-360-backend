@@ -168,7 +168,7 @@ class GenericRecordReportServiceTest {
         SpringTemplateEngine templateEngine = new SpringTemplateEngine();
         templateEngine.setTemplateResolver(resolver);
 
-        htmlPdfService = new GenericHtmlPdfService(templateEngine);
+        htmlPdfService = new GenericHtmlPdfService(templateEngine, null);
         xlsxExporterService = new GenericXlsxExporterService();
         recordReportService = new GenericRecordReportService(extractorService, htmlPdfService, xlsxExporterService);
     }

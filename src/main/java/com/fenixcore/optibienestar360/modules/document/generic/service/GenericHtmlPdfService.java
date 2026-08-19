@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.document.generic.service;
 
+import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -13,9 +14,11 @@ import java.util.Locale;
 public class GenericHtmlPdfService {
 
     private final TemplateEngine templateEngine;
+    private final SystemConfigService systemConfigService;
 
-    public GenericHtmlPdfService(TemplateEngine templateEngine) {
+    public GenericHtmlPdfService(TemplateEngine templateEngine, SystemConfigService systemConfigService) {
         this.templateEngine = templateEngine;
+        this.systemConfigService = systemConfigService;
     }
 
     /**
@@ -34,6 +37,11 @@ public class GenericHtmlPdfService {
             Locale targetLocale = locale != null ? locale : Locale.ENGLISH;
             Context context = new Context(targetLocale);
             context.setVariable("model", model);
+
+            String reportFooter = systemConfigService != null
+                    ? systemConfigService.getReportFooter()
+                    : null;
+            context.setVariable("reportFooter", reportFooter);
 
             String finalTemplate = (templateName != null && !templateName.isBlank()) ? templateName : "documents/generic_record_card";
             String renderedHtml = templateEngine.process(finalTemplate, context);
