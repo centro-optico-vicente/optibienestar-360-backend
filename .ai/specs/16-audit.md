@@ -22,6 +22,7 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 5. **Ciclo de vida de sesión**: se registra cierre/expiración y se invalida el reuso de un `sid` cerrado/expirado (capa adicional sobre el blacklist de `jti` existente), con un chequeo simple de un solo booleano (`is_valid`) en el hot path.
 6. **Fail-safe, nunca bloqueante**: si `audit_entity_config` no tiene fila para una entidad, la operación de negocio continúa igual (solo warning en logs).
 7. **Permisos granulares por dominio**: `<DOMAIN>_AUDIT_VIEW` / `<DOMAIN>_AUDIT_RESTORE` / `<DOMAIN>_REPORT_GENERATE` + `REPORT_SHARE` único, siguiendo el patrón de `V54__document_permissions.sql`. Restaurar y compartir quedan con permiso y esquema preparados pero **sin implementar** en este entregable.
+8. **Override global sobre `audit_entity_config`**: en el singleton `system_configs` (V67), dos columnas de 3 valores — `data_change_audit_mode` / `report_audit_mode` ∈ {`PER_ENTITY` (default, respeta `audit_entity_config` fila por fila), `FORCE_ENABLED` (audita todo sin importar `audit_entity_config`), `FORCE_DISABLED` (kill switch: no audita nada, sin importar `audit_entity_config`)} — más un interruptor simple `login_audit_enabled` (default `TRUE`) para `login_audit_log`, que no tiene granularidad por entidad y por eso no necesita el modo de 3 valores. El futuro `DataChangeAuditAspect`/`ReportAuditService` deben resolver primero este override global y solo consultar `audit_entity_config` cuando el modo sea `PER_ENTITY`; mismo criterio fail-safe (si no se puede resolver, se asume `PER_ENTITY`/`TRUE` y nunca bloquea la operación de negocio). Apagar `login_audit_enabled` es delicado: hoy `login_audit_log` también es el origen del claim `sid` del JWT (ver Decisión 3) — la implementación del hook de login deberá definir explícitamente qué pasa con `sid`/`is_valid` cuando está en `false` (pregunta abierta para cuando se implemente `AuthService.login()`, no bloquea el DDL).
 
 ## Migraciones Flyway (V60 en adelante; última existente V59)
 
@@ -32,6 +33,7 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 - **V64__audit_permissions.sql** — `AUDIT_VIEW_LOGIN`, `AUDIT_MANAGE_CONFIG`.
 - **V65__report_share.sql** — tabla preparada para compartir reportes (sin funcionalidad aún).
 - **V66__audit_granular_permissions.sql** — permisos por dominio (§7).
+- **V68__system_configs_audit_overrides.sql** — override global sobre `system_configs` (V67): `data_change_audit_mode`, `report_audit_mode`, `login_audit_enabled` (ver Decisión 8).
 
 Todas con `SET search_path TO app, public;` (convención de `V41__subsidies.sql`).
 
@@ -216,6 +218,20 @@ CREATE INDEX idx_report_share_expires ON report_share (expires_at);
 
 **Relación entre tablas** (mismo espíritu que `tseg_BITACORA_ACCESO`→`tseg_BITACORA_CAMBIO`/`tseg_REPORTE`): `login_audit_log` es la bitácora raíz de acceso; `data_change_audit_log` y `report_audit_log` cuelgan de ella vía `login_audit_log_id` (nullable para jobs/sistema).
 
+```sql
+-- V68__system_configs_audit_overrides.sql
+SET search_path TO app, public;
+
+ALTER TABLE system_configs
+    ADD COLUMN data_change_audit_mode VARCHAR(20) NOT NULL DEFAULT 'PER_ENTITY'
+        CONSTRAINT chk_system_configs_data_change_audit_mode
+            CHECK (data_change_audit_mode IN ('PER_ENTITY', 'FORCE_ENABLED', 'FORCE_DISABLED')),
+    ADD COLUMN report_audit_mode      VARCHAR(20) NOT NULL DEFAULT 'PER_ENTITY'
+        CONSTRAINT chk_system_configs_report_audit_mode
+            CHECK (report_audit_mode IN ('PER_ENTITY', 'FORCE_ENABLED', 'FORCE_DISABLED')),
+    ADD COLUMN login_audit_enabled    BOOLEAN     NOT NULL DEFAULT TRUE;
+```
+
 ## Entidades JPA + repos
 
 Paquete nuevo `core/audit/`:
@@ -267,6 +283,7 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 - `db/migration/V41__subsidies.sql`, `V54__document_permissions.sql` (plantillas)
 - `security/CustomUserDetails.java`, `security/JwtAuthenticationFilter.java`
 - `modules/subsidy/**` (patrón `SubsidyAuditLog` a replicar)
+- `modules/system/entity/SystemConfig.java`, `service/SystemConfigService.java`, `controller/SystemConfigController.java`, `dto/{SystemConfigDto,UpdateSystemConfigRequest}.java` (Decisión 8 — override global; ya existen, faltan extender con `dataChangeAuditMode`/`reportAuditMode`/`loginAuditEnabled`)
 
 ## Verificación
 
@@ -275,4 +292,5 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 - Permisos granulares: sin `ALLY_AUDIT_VIEW` → 403 en el endpoint de timeline; con el permiso, ve el historial. Mismo patrón para `ALLY_REPORT_GENERATE`.
 - Generación de reporte crea fila en `report_audit_log` con `attached_file_id` resuelto; si `StorageService` falla, el archivo se entrega igual y el log queda con `attached_file_id=NULL`.
 - Cache de `AuditEntityConfigService`: sirve valor dentro del TTL y `@CacheEvict` refresca tras un `PATCH`.
+- Override global (Decisión 8): con `data_change_audit_mode=FORCE_DISABLED`, ninguna entidad audita cambios aunque su fila en `audit_entity_config` diga `enabled=true`; con `FORCE_ENABLED`, todas auditan aunque su fila diga `enabled=false`; con `PER_ENTITY` (default) el comportamiento es el de hoy. Mismo patrón para `report_audit_mode`. Apagar `login_audit_enabled` deja de insertar en `login_audit_log` en cada login (comportamiento de `sid`/JWT a definir en la implementación del hook).
 - `./gradlew build` verde + flujo manual (login fallido, creación de un aliado, generación de reporte) confirmando las tablas nuevas vía SQL directo.
