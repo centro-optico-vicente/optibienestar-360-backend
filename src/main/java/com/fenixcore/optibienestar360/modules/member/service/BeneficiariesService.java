@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryUpdateRequest;
@@ -95,6 +97,7 @@ public class BeneficiariesService {
     }
 
     @Transactional
+    @Auditable(entity = "beneficiary", action = AuditAction.CREATE)
     public BeneficiaryDto add(UUID memberUuid, BeneficiaryCreateRequest req) {
         Member member = findMember(memberUuid);
 
@@ -173,6 +176,7 @@ public class BeneficiariesService {
     }
 
     @Transactional
+    @Auditable(entity = "beneficiary", action = AuditAction.UPDATE, uuidArgIndex = 1)
     public BeneficiaryDto update(UUID memberUuid, UUID beneficiaryUuid, BeneficiaryUpdateRequest req) {
         Beneficiary beneficiary = findUnderMember(memberUuid, beneficiaryUuid);
         Person person = beneficiary.getPerson();
@@ -196,6 +200,7 @@ public class BeneficiariesService {
     }
 
     @Transactional
+    @Auditable(entity = "beneficiary", action = AuditAction.DELETE, uuidArgIndex = 1)
     public void delete(UUID memberUuid, UUID beneficiaryUuid) {
         Beneficiary beneficiary = findUnderMember(memberUuid, beneficiaryUuid);
         beneficiary.setActive(false);

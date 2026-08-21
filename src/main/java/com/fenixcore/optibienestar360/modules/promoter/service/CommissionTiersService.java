@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
@@ -68,6 +70,7 @@ public class CommissionTiersService {
     }
 
     @Transactional
+    @Auditable(entity = "commission_tier", action = AuditAction.CREATE)
     public CommissionTierDto create(CommissionTierCreateRequest req) {
         requireExactlyOneReward(req.commissionPct(), req.flatAmount());
 
@@ -85,6 +88,7 @@ public class CommissionTiersService {
     }
 
     @Transactional
+    @Auditable(entity = "commission_tier", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CommissionTierDto update(UUID uuid, CommissionTierUpdateRequest req) {
         CommissionTier tier = findManaged(uuid);
 
@@ -142,6 +146,7 @@ public class CommissionTiersService {
      * behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "commission_tier", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         CommissionTier tier = findManaged(uuid);
         long usages = countUsages(uuid);

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.corporate.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -96,6 +98,7 @@ public class CorporateContractsService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "corporate_contract", action = AuditAction.CREATE)
     public CorporateContractDto create(CorporateContractCreateRequest req) {
         Plan plan = resolvePlan(req.planUuid());
         requireCorporatePlan(plan);
@@ -115,6 +118,7 @@ public class CorporateContractsService {
     // ─── Update ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "corporate_contract", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CorporateContractDto update(UUID uuid, CorporateContractUpdateRequest req) {
         CorporateContract contract = findManaged(uuid);
 
@@ -137,6 +141,7 @@ public class CorporateContractsService {
     // ─── Delete (soft) ──────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "corporate_contract", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
         findManaged(uuid).setActive(false);
     }

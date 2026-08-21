@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserUpdateRequest;
@@ -61,6 +63,7 @@ public class AllyUsersService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_user", action = AuditAction.CREATE)
     public AllyUserDto add(UUID allyUuid, AllyUserCreateRequest req) {
         Ally ally = findAlly(allyUuid);
         User user = userRepository.findByUuid(req.userUuid())
@@ -87,6 +90,7 @@ public class AllyUsersService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_user", action = AuditAction.UPDATE, uuidArgIndex = 1)
     public AllyUserDto update(UUID allyUuid, UUID membershipUuid, AllyUserUpdateRequest req) {
         AllyUser membership = findMembershipUnderAlly(allyUuid, membershipUuid);
 
@@ -107,6 +111,7 @@ public class AllyUsersService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_user", action = AuditAction.DELETE, uuidArgIndex = 1)
     public void delete(UUID allyUuid, UUID membershipUuid) {
         AllyUser membership = findMembershipUnderAlly(allyUuid, membershipUuid);
         membership.setActive(false);

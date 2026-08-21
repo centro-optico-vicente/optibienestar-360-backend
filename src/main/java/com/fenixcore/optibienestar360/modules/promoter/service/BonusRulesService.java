@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
@@ -78,6 +80,7 @@ public class BonusRulesService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "bonus_rule", action = AuditAction.CREATE)
     public BonusRuleDto create(BonusRuleRequest req) {
         validate(req);
         CommissionBonusRule rule = new CommissionBonusRule();
@@ -89,6 +92,7 @@ public class BonusRulesService {
     // ─── Update (full replace) ──────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "bonus_rule", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public BonusRuleDto update(UUID uuid, BonusRuleRequest req) {
         validate(req);
         CommissionBonusRule rule = findManaged(uuid);
@@ -101,6 +105,7 @@ public class BonusRulesService {
     // ─── Delete (soft) ──────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "bonus_rule", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
         findManaged(uuid).setActive(false);
     }

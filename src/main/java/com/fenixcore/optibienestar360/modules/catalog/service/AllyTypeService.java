@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -85,6 +87,7 @@ public class AllyTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "ally_type", action = AuditAction.CREATE)
     public AllyTypeDto create(AllyTypeCreateRequest req) {
         AllyType a = new AllyType();
         a.setCode(req.code());
@@ -95,6 +98,7 @@ public class AllyTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "ally_type", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public AllyTypeDto update(UUID uuid, AllyTypeUpdateRequest req) {
         AllyType a = find(uuid);
         a.setName(req.name());
@@ -111,6 +115,7 @@ public class AllyTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "ally_type", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         AllyType a = find(uuid);
         long usages = countUsages(uuid);

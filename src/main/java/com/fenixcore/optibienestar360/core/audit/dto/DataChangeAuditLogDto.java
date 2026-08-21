@@ -1,0 +1,39 @@
+package com.fenixcore.optibienestar360.core.audit.dto;
+
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Read model for one {@code data_change_audit_log} row (GET /v1/admin/audit/data-changes).
+ * Internal BIGINT ids ({@code entityId}, {@code actorId}, {@code loginAuditLogId},
+ * {@code restoredFromId}) never cross the API boundary (ADR 0006) — {@code actorUuid}
+ * is resolved from {@code actorId} at read time; the rest stay server-side.
+ *
+ * <p>{@code entityDisplay}, {@code actorName} and {@code actionLabel} exist so the
+ * frontend doesn't have to show a wall of uuids/timestamps: they're the
+ * human-readable counterparts of {@code entityUuid}, {@code actorUuid} and
+ * {@code action}, resolved by {@link com.fenixcore.optibienestar360.core.audit.AuditDisplayResolver}
+ * (best-effort — {@code null} when the referenced record was hard-deleted or the
+ * entity type isn't wired into the resolver yet). Likewise, {@code beforeJson}/
+ * {@code afterJson} get a {@code <field>Display} sibling added next to every
+ * recognized FK-shaped key (e.g. {@code cityUuid} → also {@code cityUuidDisplay})
+ * — the original key is untouched.</p>
+ */
+public record DataChangeAuditLogDto(
+        UUID uuid,
+        String entityKey,
+        UUID entityUuid,
+        String entityDisplay,
+        AuditAction action,
+        String actionLabel,
+        Map<String, Object> beforeJson,
+        Map<String, Object> afterJson,
+        UUID actorUuid,
+        String actorName,
+        String requestMethod,
+        String requestPath,
+        Instant occurredAt
+) {}

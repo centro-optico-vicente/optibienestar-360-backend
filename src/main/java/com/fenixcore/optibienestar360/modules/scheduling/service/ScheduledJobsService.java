@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.scheduling.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -91,6 +93,7 @@ public class ScheduledJobsService {
     // ─── Job create ────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "scheduled_job", action = AuditAction.CREATE)
     public ScheduledJobDto create(ScheduledJobCreateRequest req) {
         if (jobRepository.existsByCode(req.code())) {
             throw new IllegalArgumentException("scheduled_job.code.duplicate");
@@ -116,6 +119,7 @@ public class ScheduledJobsService {
     // ─── Job update ────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "scheduled_job", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public ScheduledJobDto update(UUID uuid, ScheduledJobUpdateRequest req) {
         ScheduledJob job = findManaged(uuid);
         boolean scheduleAffected = false;
@@ -183,6 +187,7 @@ public class ScheduledJobsService {
      * prior behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "scheduled_job", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         ScheduledJob job = findManaged(uuid);
         long usages = countUsages(uuid);

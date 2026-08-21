@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementUpdateRequest;
@@ -43,6 +45,7 @@ public class AllyAgreementsService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_agreement", action = AuditAction.CREATE)
     public AllyAgreementDto create(UUID allyUuid, AllyAgreementCreateRequest req) {
         Ally ally = findAlly(allyUuid);
         AllyAgreement agreement = new AllyAgreement();
@@ -57,6 +60,7 @@ public class AllyAgreementsService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_agreement", action = AuditAction.UPDATE, uuidArgIndex = 1)
     public AllyAgreementDto update(UUID allyUuid, UUID agreementUuid, AllyAgreementUpdateRequest req) {
         AllyAgreement agreement = findAgreementUnderAlly(allyUuid, agreementUuid);
         if (req.agreementType() != null) agreement.setAgreementType(req.agreementType());
@@ -70,6 +74,7 @@ public class AllyAgreementsService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_agreement", action = AuditAction.DELETE, uuidArgIndex = 1)
     public void delete(UUID allyUuid, UUID agreementUuid) {
         AllyAgreement agreement = findAgreementUnderAlly(allyUuid, agreementUuid);
         agreement.setActive(false);

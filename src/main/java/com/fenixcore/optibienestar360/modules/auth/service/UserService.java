@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
@@ -114,6 +116,7 @@ public class UserService {
     }
 
     @Transactional
+    @Auditable(entity = "user", action = AuditAction.CREATE)
     public UserDto createUser(AdminCreateUserRequest request, UUID actorUuid) {
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException("user.email.exists");
@@ -172,6 +175,7 @@ public class UserService {
      * </ul>
      */
     @Transactional
+    @Auditable(entity = "user", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public UserDto updateUser(UUID uuid, AdminUpdateUserRequest request, UUID actorUuid) {
         User user = userRepository.findWithRolesByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
@@ -281,6 +285,7 @@ public class UserService {
      * prior soft-delete-only behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "user", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void deleteUser(UUID uuid, UUID actorUuid, boolean physical) {
         if (uuid.equals(actorUuid)) {
             throw new IllegalArgumentException("user.self.cannot_delete");

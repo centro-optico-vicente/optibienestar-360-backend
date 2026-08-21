@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
@@ -116,6 +118,7 @@ public class PlansService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "plan", action = AuditAction.CREATE)
     public PlanDto create(PlanCreateRequest req) {
         // Pre-check duplicate code so the client gets 422 plan.code.duplicate
         // before the V13 UNIQUE index fires a misleading 409.
@@ -148,6 +151,7 @@ public class PlansService {
     // ─── Update ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "plan", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PlanDto update(UUID uuid, PlanUpdateRequest req) {
         Plan plan = findManaged(uuid);
 
@@ -206,6 +210,7 @@ public class PlansService {
      * behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "plan", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Plan plan = findManaged(uuid);
         long usages = countUsages(uuid);

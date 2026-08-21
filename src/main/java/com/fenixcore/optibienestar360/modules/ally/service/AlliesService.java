@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
@@ -170,6 +172,7 @@ public class AlliesService {
     // ─── Mutations ──────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "ally", action = AuditAction.CREATE)
     public AllyDetailDto create(AllyCreateRequest req) {
         // Pre-check for duplicate RIF so the client gets 422
         // ally.tax_document.duplicate instead of the generic 409 from the
@@ -202,6 +205,7 @@ public class AlliesService {
     }
 
     @Transactional
+    @Auditable(entity = "ally", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public AllyDetailDto update(UUID uuid, AllyUpdateRequest req) {
         Ally ally = findManaged(uuid);
 
@@ -280,6 +284,7 @@ public class AlliesService {
      * behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "ally", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Ally ally = findManaged(uuid);
         long usages = countUsages(uuid);

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
@@ -155,6 +157,7 @@ public class MembersService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "member", action = AuditAction.CREATE)
     public MemberDetailDto create(MemberCreateRequest req) {
         Person person = resolvePerson(req);
 
@@ -280,6 +283,7 @@ public class MembersService {
     // ─── Update ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "member", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MemberDetailDto update(UUID uuid, MemberUpdateRequest req) {
         Member member = findManaged(uuid);
         Person person = member.getPerson();
@@ -368,6 +372,7 @@ public class MembersService {
      * behavior exactly.
      */
     @Transactional
+    @Auditable(entity = "member", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Member member = findManaged(uuid);
         long usages = countUsages(uuid);
