@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.subsidy.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -114,6 +116,7 @@ public class SubsidiesService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "subsidy", action = AuditAction.CREATE)
     public SubsidyDto create(SubsidyCreateRequest req, UUID actorUuid) {
         Member member = resolveMember(req.memberUuid());
         User actor = resolveUser(actorUuid);
@@ -140,6 +143,7 @@ public class SubsidiesService {
     // ─── Update ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "subsidy", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public SubsidyDto update(UUID uuid, SubsidyUpdateRequest req, UUID actorUuid) {
         Subsidy subsidy = findManaged(uuid);
         User actor = resolveUser(actorUuid);
@@ -170,6 +174,7 @@ public class SubsidiesService {
     // ─── Revoke (soft delete) ─────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "subsidy", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void revoke(UUID uuid, UUID actorUuid) {
         Subsidy subsidy = findManaged(uuid);
         User actor = resolveUser(actorUuid);

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.member.dto.MedicalRecordDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MedicalRecordUpsertRequest;
 import com.fenixcore.optibienestar360.modules.member.entity.MedicalRecord;
@@ -78,6 +80,7 @@ public class MedicalRecordService {
      * create) value.
      */
     @Transactional
+    @Auditable(entity = "medical_record", action = AuditAction.UPDATE)
     public MedicalRecordDto upsert(UUID memberUuid, MedicalRecordUpsertRequest req) {
         Member member = findMember(memberUuid);
         MedicalRecord record = medicalRecordRepository.findByPersonId(member.getPerson().getId())
@@ -110,6 +113,7 @@ public class MedicalRecordService {
      * reactivates the existing row via {@code findByPersonId} hit.
      */
     @Transactional
+    @Auditable(entity = "medical_record", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID memberUuid) {
         Member member = findMember(memberUuid);
         medicalRecordRepository.findByPersonId(member.getPerson().getId())

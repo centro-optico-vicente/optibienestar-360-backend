@@ -53,9 +53,10 @@ public class RedisCacheConfig {
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
-                "catalogs",  base.entryTtl(Duration.ofHours(1)),
-                "validator", base.entryTtl(Duration.ofSeconds(60)),
-                "users",     base.entryTtl(Duration.ofMinutes(15))
+                "catalogs",     base.entryTtl(Duration.ofHours(1)),
+                "validator",    base.entryTtl(Duration.ofSeconds(60)),
+                "users",        base.entryTtl(Duration.ofMinutes(15)),
+                "audit-config", base.entryTtl(Duration.ofSeconds(60))
         );
 
         return RedisCacheManager.builder(connectionFactory)

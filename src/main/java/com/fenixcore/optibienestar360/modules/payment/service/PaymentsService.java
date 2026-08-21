@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.common.service.EmailService;
 import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.common.storage.FileValidationService;
@@ -149,6 +151,7 @@ public class PaymentsService {
      *                  empty when the admin only registers the metadata)
      */
     @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
@@ -246,6 +249,7 @@ public class PaymentsService {
      * @return updated DTO with the new review state
      */
     @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto approve(UUID paymentUuid, PaymentApproveRequest request, UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
         ensurePending(payment);
@@ -301,6 +305,7 @@ public class PaymentsService {
      * what to fix and re-submit.
      */
     @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto reject(UUID paymentUuid, PaymentRejectRequest request, UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
         ensurePending(payment);
@@ -320,6 +325,7 @@ public class PaymentsService {
      * total. Audited inline via the {@code discount_*} columns.
      */
     @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto applyDiscount(UUID paymentUuid, PaymentDiscountRequest request, UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
         if (!PaymentStatus.PENDING.name().equals(payment.getStatus())) {

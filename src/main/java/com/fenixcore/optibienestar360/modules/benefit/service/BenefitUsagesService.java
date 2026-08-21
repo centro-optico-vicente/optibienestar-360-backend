@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.benefit.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
@@ -74,6 +76,7 @@ public class BenefitUsagesService {
     }
 
     @Transactional
+    @Auditable(entity = "benefit_usage", action = AuditAction.CREATE)
     public BenefitUsageDto register(BenefitUsageRegisterRequest request) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));

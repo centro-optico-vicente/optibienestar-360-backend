@@ -24,25 +24,28 @@ public class SystemConfigController {
 
     @GetMapping
     @Operation(summary = "Obtiene la configuración activa del sistema")
-    @PreAuthorize("hasAnyAuthority('JOB_VIEW_ALL', 'ROLE_VIEW', 'USER_VIEW_ALL', 'REPORT_REPORT_GENERATE')")
+    @PreAuthorize("hasAnyAuthority('JOB_VIEW_ALL', 'ROLE_VIEW', 'USER_VIEW_ALL', 'REPORT_REPORT_GENERATE', 'AUDIT_MANAGE_CONFIG')")
     public ResponseEntity<SystemConfigDto> getSystemConfig() {
         SystemConfig config = systemConfigService.getSystemConfig();
-        return ResponseEntity.ok(new SystemConfigDto(
-                config.getUuid(),
-                systemConfigService.getReportFooter(),
-                config.getUpdatedAt()
-        ));
+        return ResponseEntity.ok(toDto(config));
     }
 
     @PutMapping
-    @Operation(summary = "Actualiza el pie de página de los reportes del sistema")
-    @PreAuthorize("hasAnyAuthority('JOB_UPDATE', 'ROLE_UPDATE', 'USER_UPDATE')")
+    @Operation(summary = "Actualiza la configuración del sistema (pie de página de reportes, overrides globales de auditoría)")
+    @PreAuthorize("hasAnyAuthority('JOB_UPDATE', 'ROLE_UPDATE', 'USER_UPDATE', 'AUDIT_MANAGE_CONFIG')")
     public ResponseEntity<SystemConfigDto> updateSystemConfig(@Valid @RequestBody UpdateSystemConfigRequest request) {
-        SystemConfig updated = systemConfigService.updateReportFooter(request.reportFooter());
-        return ResponseEntity.ok(new SystemConfigDto(
-                updated.getUuid(),
-                updated.getReportFooter(),
-                updated.getUpdatedAt()
-        ));
+        SystemConfig updated = systemConfigService.updateSystemConfig(request);
+        return ResponseEntity.ok(toDto(updated));
+    }
+
+    private static SystemConfigDto toDto(SystemConfig config) {
+        return new SystemConfigDto(
+                config.getUuid(),
+                config.getReportFooter(),
+                config.getDataChangeAuditMode(),
+                config.getReportAuditMode(),
+                config.isLoginAuditEnabled(),
+                config.getUpdatedAt()
+        );
     }
 }

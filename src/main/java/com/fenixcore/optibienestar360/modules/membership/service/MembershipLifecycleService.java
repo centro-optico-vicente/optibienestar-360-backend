@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipCancelRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipReactivateRequest;
@@ -51,6 +53,7 @@ public class MembershipLifecycleService {
     private final com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService validatorCacheService;
 
     @Transactional
+    @Auditable(entity = "membership", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MembershipDto cancel(UUID uuid, MembershipCancelRequest request) {
         Membership membership = findManaged(uuid);
 
@@ -72,6 +75,7 @@ public class MembershipLifecycleService {
     }
 
     @Transactional
+    @Auditable(entity = "membership", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MembershipDto reactivate(UUID uuid, MembershipReactivateRequest request) {
         Membership membership = findManaged(uuid);
 

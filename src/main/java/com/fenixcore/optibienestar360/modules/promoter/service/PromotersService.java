@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -100,6 +102,7 @@ public class PromotersService {
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "promoter", action = AuditAction.CREATE)
     public PromoterDto create(PromoterCreateRequest req) {
         User user = userRepository.findByUuid(req.userUuid())
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
@@ -134,6 +137,7 @@ public class PromotersService {
     // ─── Update ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "promoter", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PromoterDto update(UUID uuid, PromoterUpdateRequest req) {
         Promoter promoter = findManaged(uuid);
         ensureNotSystemRow(promoter);
@@ -189,6 +193,7 @@ public class PromotersService {
      * either way.
      */
     @Transactional
+    @Auditable(entity = "promoter", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Promoter promoter = findManaged(uuid);
         ensureNotSystemRow(promoter);

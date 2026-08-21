@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
@@ -130,6 +132,7 @@ public class RoleService {
      * exists" from the generic {@code DataIntegrityViolationException} handler.
      */
     @Transactional
+    @Auditable(entity = "role", action = AuditAction.CREATE)
     public RoleDto create(CreateRoleRequest req) {
         if (roleRepository.findByName(req.name()).isPresent()) {
             throw new IllegalArgumentException("role.name.duplicate");
@@ -148,6 +151,7 @@ public class RoleService {
      * {@code SYSTEM} actor.
      */
     @Transactional
+    @Auditable(entity = "role", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public RoleDto update(UUID uuid, UpdateRoleRequest req, UUID actorUuid) {
         Role role = findRole(uuid);
         if (SYSTEM_ROLE_NAME.equals(role.getName()) && !isSystemActor(actorUuid)) {
@@ -194,6 +198,7 @@ public class RoleService {
      * guard stays absolute rather than actor-scoped like update.</p>
      */
     @Transactional
+    @Auditable(entity = "role", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Role role = findRole(uuid);
         if (SYSTEM_ROLE_NAME.equals(role.getName())) {

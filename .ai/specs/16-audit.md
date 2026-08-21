@@ -260,9 +260,19 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
 
 ## Endpoints admin
 
-- `GET /v1/admin/audit/data-changes`, `/logins`, `/reports` (paginados, filtros por entidad/actor/fecha), protegidos por los permisos de §Permisos.
-- `GET /v1/admin/audit/config` y `PATCH /v1/admin/audit/config/{entityKey}` con `@CacheEvict` sobre `audit-config`.
-- `GET /v1/admin/audit/reports/{uuid}/download` → URL presignada.
+- **`GET /v1/admin/audit/data-changes`** — **implementado.** `core/audit/controller/AdminDataChangeAuditController.java`, respaldado por `DataChangeAuditQueryService`. Un solo endpoint cubre tanto "historial completo de un registro" (`entityKey` + `entityUuid`) como filtrado cross-entity: query params `entityKey`, `entityUuid`, `actorUuid` (UUID público, resuelto internamente a `users_id` — nunca se filtra por el BIGINT directo), `action` (`CREATE`/`UPDATE`/`DELETE`), `from`/`to` (rango `occurredAt`, ISO-8601), y `filter` (RSQL contra un allowlist: `entityKey`, `entityId`, `entityUuid`, `action`, `requestMethod`, `requestPath`, `occurredAt`, `createdAt`). Paginado (`Page<DataChangeAuditLogDto>`, tope de tamaño 200 vía `audit.page.size.exceeded`), protegido por `AUDIT_VIEW_ALL` (V69). `DataChangeAuditLogDto` no expone ningún BIGINT interno — `actorUuid` es el único identificador de actor.
+  - **`GET /v1/admin/audit/data-changes/first-change?entityKey=&entityUuid=`** — endpoint hermano no paginado (mismo patrón que `AdminSubsidyController#/{uuid}/log`): devuelve la fila más antigua (típicamente el CREATE) de un registro, independiente de la página que el cliente esté viendo — así una entidad con 500+ cambios siempre puede mostrar "creado el ..." sin paginar hasta el final. 404 (`audit.first_change.not_found`) si no hay historial.
+  - **Valores de visualización en `DataChangeAuditLogDto`** (resueltos por `AuditDisplayResolver` — nunca bloquean la respuesta, degradan a ausencia del sibling `_Display` si no se puede resolver): `entityDisplay` (label actual del registro propio, ej. el `name` de un `Ally`), `actionLabel` (`CREATE`/`UPDATE`/`DELETE` traducido vía `MessageSource`, código `audit.action.<ACTION>`, respeta el locale del request), `actorName` (nombre completo del actor, viaja siempre junto a `actorUuid` — nunca uno sin el otro).
+  - **`beforeJson`/`afterJson`**: cada valor gana un sibling `<campo>_Display` (sufijo `_Display`, no toca el original) según su forma, en este orden:
+    1. `Boolean` → `"Sí"/"No"` (es) o `"Yes"/"No"` (en), vía `audit.value.true`/`audit.value.false`.
+    2. `String` que parsea como `UUID` → registry de FKs (`cityUuid`, `allyTypeUuid`, `planUuid`, `promoterUuid`, …) — cobertura parcial intencional (22 entidades + FKs de catálogo comunes).
+    3. `String` que parsea como fecha/instant ISO-8601 → formato de país (Venezuela, ADR 0010): `dd-MM-yyyy HH:mm` (es) / `MM-dd-yyyy HH:mm` (en), convertido a `America/Caracas` (UTC-4, sin DST) — mismo patrón sin hora si es solo fecha (`yyyy-MM-dd`).
+    4. `Number` → separadores de miles/decimal según locale (`NumberFormat`), preservando la precisión real del valor (un entero no gana decimales; un `BigDecimal`/`double` con fracción conserva su propia escala — `12.50` se ve `12,50` en es, no `12,5`).
+    5. `String` con forma `UPPER_SNAKE_CASE` (constante de enum) → traducido vía `audit.enum.<campo>.<valor>`, con fallback a un vocabulario compartido `audit.enum.common.<valor>` (`ACTIVE`, `PENDING`, `APPROVED`, `IN_REVIEW`, …); si ninguna clave existe, no se agrega `_Display` (evita traducciones inventadas).
+    6. Cualquier otro string libre (nombres, emails, notas) → sin `_Display`, ya es legible.
+- `/logins`, `/reports` — **sin implementar** (dependen de que `AuthService.login()` y el hook de reportes en `GenericDocumentController` empiecen a escribir en `login_audit_log`/`report_audit_log`, spec §Login y §Reportes).
+- `GET /v1/admin/audit/config` y `PATCH /v1/admin/audit/config/{entityKey}` con `@CacheEvict` sobre `audit-config`. — **sin implementar** (el servicio `AuditEntityConfigService`/`AuditEntityConfigCache` ya existen y quedan listos para que este endpoint los use).
+- `GET /v1/admin/audit/reports/{uuid}/download` → URL presignada. — **sin implementar**, depende de `report_audit_log`.
 
 ## Permisos granulares por dominio
 

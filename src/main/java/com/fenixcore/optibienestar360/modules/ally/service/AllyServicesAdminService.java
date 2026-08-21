@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceUpdateRequest;
@@ -55,6 +57,7 @@ public class AllyServicesAdminService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_service", action = AuditAction.CREATE)
     public AllyServiceDto create(UUID allyUuid, AllyServiceCreateRequest req) {
         Ally ally = findAlly(allyUuid);
         ServiceCategory category = serviceCategoryRepository.findByUuid(req.serviceCategoryUuid())
@@ -76,6 +79,7 @@ public class AllyServicesAdminService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_service", action = AuditAction.UPDATE, uuidArgIndex = 1)
     public AllyServiceDto update(UUID allyUuid, UUID serviceUuid, AllyServiceUpdateRequest req) {
         AllyService service = findServiceUnderAlly(allyUuid, serviceUuid);
 
@@ -96,6 +100,7 @@ public class AllyServicesAdminService {
     }
 
     @Transactional
+    @Auditable(entity = "ally_service", action = AuditAction.DELETE, uuidArgIndex = 1)
     public void delete(UUID allyUuid, UUID serviceUuid) {
         AllyService service = findServiceUnderAlly(allyUuid, serviceUuid);
         service.setActive(false);

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipCreateRequest;
@@ -57,6 +59,7 @@ public class MembershipsService {
     // ─── Enroll ─────────────────────────────────────────────────────────────
 
     @Transactional
+    @Auditable(entity = "membership", action = AuditAction.CREATE)
     public MembershipDto enroll(UUID memberUuid, MembershipCreateRequest req) {
         Member member = findMember(memberUuid);
 

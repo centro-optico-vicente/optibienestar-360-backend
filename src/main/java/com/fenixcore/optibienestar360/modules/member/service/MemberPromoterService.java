@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberPromoterAssignmentDto;
@@ -50,6 +52,7 @@ public class MemberPromoterService {
      * promoter when they were enrolled without one ({@code from == null}).
      */
     @Transactional
+    @Auditable(entity = "member_promoter", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MemberPromoterAssignmentDto assign(UUID memberUuid, UUID promoterUuid, String referralCode,
                                               String reason, UUID actorUserUuid) {
         Member member = memberRepository.findByUuid(memberUuid)

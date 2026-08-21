@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.common.storage.FileValidationService;
 import com.fenixcore.optibienestar360.common.storage.FileVisibility;
@@ -60,6 +62,7 @@ public class MemberDocumentService {
     private final PresignedUrlPolicy presignedUrlPolicy;
 
     @Transactional
+    @Auditable(entity = "member_document", action = AuditAction.CREATE)
     public MemberDocumentDto upload(UUID memberUuid, DocumentType documentType, MultipartFile file, UUID uploaderUuid) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("member_document.upload.empty");
@@ -132,6 +135,7 @@ public class MemberDocumentService {
     }
 
     @Transactional
+    @Auditable(entity = "member_document", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID documentUuid) {
         deleteEntity(findManaged(documentUuid));
     }

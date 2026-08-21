@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.system;
 
+import com.fenixcore.optibienestar360.core.audit.AuditMode;
+import com.fenixcore.optibienestar360.modules.system.dto.UpdateSystemConfigRequest;
 import com.fenixcore.optibienestar360.modules.system.entity.SystemConfig;
 import com.fenixcore.optibienestar360.modules.system.repository.SystemConfigRepository;
 import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
@@ -65,6 +67,32 @@ class SystemConfigServiceTest {
 
         assertNotNull(updated);
         assertEquals("Nuevo Pie de Pagina", updated.getReportFooter());
+        verify(repository).save(sampleConfig);
+    }
+
+    @Test
+    @DisplayName("Should default audit overrides to PER_ENTITY/enabled on a fresh config")
+    void testAuditOverridesDefaults() {
+        SystemConfig fresh = new SystemConfig();
+
+        assertEquals(AuditMode.PER_ENTITY, fresh.getDataChangeAuditMode());
+        assertEquals(AuditMode.PER_ENTITY, fresh.getReportAuditMode());
+        assertTrue(fresh.isLoginAuditEnabled());
+    }
+
+    @Test
+    @DisplayName("Should update only the audit overrides sent in the request, leaving the rest untouched")
+    void testUpdateSystemConfigPartialAuditOverrides() {
+        when(repository.findFirstByActiveTrue()).thenReturn(Optional.of(sampleConfig));
+        when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SystemConfig updated = service.updateSystemConfig(
+                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false));
+
+        assertEquals("Centro Óptico Vicente - Personalizado", updated.getReportFooter());
+        assertEquals(AuditMode.FORCE_DISABLED, updated.getDataChangeAuditMode());
+        assertEquals(AuditMode.PER_ENTITY, updated.getReportAuditMode());
+        assertFalse(updated.isLoginAuditEnabled());
         verify(repository).save(sampleConfig);
     }
 }
