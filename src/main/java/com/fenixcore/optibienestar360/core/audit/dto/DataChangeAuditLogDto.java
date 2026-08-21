@@ -12,14 +12,14 @@ import java.util.UUID;
  * {@code restoredFromId}) never cross the API boundary (ADR 0006) — {@code actorUuid}
  * is resolved from {@code actorId} at read time; the rest stay server-side.
  *
- * <p>{@code entityDisplay}, {@code actorName} and {@code actionLabel} exist so the
+ * <p>{@code entityDisplay}, {@code actor_Display} and {@code action_Display} exist so the
  * frontend doesn't have to show a wall of uuids/timestamps: they're the
  * human-readable counterparts of {@code entityUuid}, {@code actorUuid} and
  * {@code action}, resolved by {@link com.fenixcore.optibienestar360.core.audit.AuditDisplayResolver}
  * (best-effort — {@code null} when the referenced record was hard-deleted or the
  * entity type isn't wired into the resolver yet). Likewise, {@code beforeJson}/
- * {@code afterJson} get a {@code <field>Display} sibling added next to every
- * recognized FK-shaped key (e.g. {@code cityUuid} → also {@code cityUuidDisplay})
+ * {@code afterJson} get a {@code <field>_Display} sibling added next to every
+ * value this can humanize (e.g. {@code cityUuid} → also {@code cityUuid_Display})
  * — the original key is untouched.</p>
  */
 public record DataChangeAuditLogDto(
@@ -28,11 +28,11 @@ public record DataChangeAuditLogDto(
         UUID entityUuid,
         String entityDisplay,
         AuditAction action,
-        String actionLabel,
+        String action_Display,
         Map<String, Object> beforeJson,
         Map<String, Object> afterJson,
         UUID actorUuid,
-        String actorName,
+        String actor_Display,
         String requestMethod,
         String requestPath,
         Instant occurredAt

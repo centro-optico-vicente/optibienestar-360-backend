@@ -3,10 +3,10 @@ package com.fenixcore.optibienestar360.core.audit.controller;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.DataChangeAuditQueryService;
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogDto;
+import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogPageDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -30,10 +30,17 @@ import java.util.UUID;
  * anything else. Insert-only and system-populated — there is no
  * create/update/delete here.
  *
- * <p>{@code /first-change} is a separate, non-paginated sibling — same
- * shape as {@code AdminSubsidyController}'s {@code /{uuid}/log} — so the
- * client can always show "created on ..." for a record regardless of which
- * page of a long history (500+ rows) it's currently viewing.</p>
+ * <p>{@code list}'s response embeds {@code firstChange} directly (same
+ * request, no round-trip) — mirrors {@code ListEntityLogsResponse
+ * .first_entity_log} from adempiere-grpc-server's {@code logs.proto}: the
+ * record's creation row travels alongside the page, so the client can always
+ * show "created on ..." regardless of which page of a long history (500+
+ * rows) it's currently viewing. Only populated when the query is scoped to
+ * one record ({@code entityKey} + {@code entityUuid}); {@code null}
+ * otherwise. {@code /first-change} stays available as a lightweight
+ * standalone lookup (e.g. to show "created on ..." before the paginated view
+ * is even opened) — same shape as {@code AdminSubsidyController}'s
+ * {@code /{uuid}/log}.</p>
  */
 @RestController
 @RequestMapping("/v1/admin/audit/data-changes")
@@ -46,7 +53,7 @@ public class AdminDataChangeAuditController {
     @GetMapping
     @PreAuthorize("hasAuthority('AUDIT_VIEW_ALL')")
     @Operation(summary = "Lista la bitácora de cambios de datos, con filtros por entidad, actor, acción y fecha")
-    public ResponseEntity<Page<DataChangeAuditLogDto>> list(
+    public ResponseEntity<DataChangeAuditLogPageDto> list(
             @PageableDefault(size = 20, sort = "occurredAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String entityKey,
             @RequestParam(required = false) UUID entityUuid,

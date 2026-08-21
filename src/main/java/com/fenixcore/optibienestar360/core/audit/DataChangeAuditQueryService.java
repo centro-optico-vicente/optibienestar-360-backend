@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.core.audit;
 
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogDto;
+import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogPageDto;
 import com.fenixcore.optibienestar360.core.audit.entity.DataChangeAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.DataChangeAuditLogRepository;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
@@ -44,9 +45,9 @@ public class DataChangeAuditQueryService {
     private final AuditDisplayResolver auditDisplayResolver;
 
     @Transactional(readOnly = true)
-    public Page<DataChangeAuditLogDto> list(Pageable pageable, String entityKey, UUID entityUuid,
-                                             UUID actorUuid, AuditAction action,
-                                             Instant from, Instant to, String filter) {
+    public DataChangeAuditLogPageDto list(Pageable pageable, String entityKey, UUID entityUuid,
+                                           UUID actorUuid, AuditAction action,
+                                           Instant from, Instant to, String filter) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
         }
@@ -80,13 +81,23 @@ public class DataChangeAuditQueryService {
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
 
-        return dataChangeAuditLogRepository.findAll(spec, pageable).map(this::toDto);
+        Page<DataChangeAuditLogDto> page = dataChangeAuditLogRepository.findAll(spec, pageable).map(this::toDto);
+
+        // Only meaningful when the query is scoped to one record — "the first change
+        // of what?" doesn't apply to the unscoped, cross-entity listing.
+        DataChangeAuditLogDto firstChange = (entityKey != null && !entityKey.isBlank() && entityUuid != null)
+                ? firstChange(entityKey, entityUuid).orElse(null)
+                : null;
+
+        return DataChangeAuditLogPageDto.of(page, firstChange);
     }
 
     /**
      * The pinned "when was this created" lookup — independent of pagination,
      * so a record with 500+ changes still lets the client show its origin
-     * without having to page all the way to the end.
+     * without having to page all the way to the end. Embedded in {@link #list}'s
+     * response as {@code firstChange}; also exposed standalone for callers that
+     * only need this value.
      */
     @Transactional(readOnly = true)
     public Optional<DataChangeAuditLogDto> firstChange(String entityKey, UUID entityUuid) {

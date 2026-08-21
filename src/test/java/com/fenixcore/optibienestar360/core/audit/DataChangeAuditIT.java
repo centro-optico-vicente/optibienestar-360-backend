@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.core.audit;
 
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogDto;
+import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogPageDto;
 import com.fenixcore.optibienestar360.core.audit.entity.DataChangeAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.DataChangeAuditLogRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeCreateRequest;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -125,36 +125,36 @@ class DataChangeAuditIT {
 
         try {
             // entityKey + entityUuid: "history of one record" use case.
-            Page<DataChangeAuditLogDto> byEntity = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto byEntity = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, null, null, null, null);
-            assertTrue(byEntity.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())),
+            assertTrue(byEntity.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())),
                     "expected the create to show up when filtering by entityKey+entityUuid");
 
             // action filter: CREATE should match, DELETE should not.
-            Page<DataChangeAuditLogDto> byAction = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto byAction = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, AuditAction.CREATE, null, null, null);
-            assertTrue(byAction.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
+            assertTrue(byAction.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
 
-            Page<DataChangeAuditLogDto> wrongAction = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto wrongAction = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, AuditAction.DELETE, null, null, null);
-            assertFalse(wrongAction.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
+            assertFalse(wrongAction.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
 
             // date range: occurredAt must fall within [before, now+1m].
-            Page<DataChangeAuditLogDto> byDateRange = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto byDateRange = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, null,
                     before, Instant.now().plus(1, ChronoUnit.MINUTES), null);
-            assertTrue(byDateRange.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
+            assertTrue(byDateRange.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
 
-            Page<DataChangeAuditLogDto> outsideDateRange = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto outsideDateRange = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, null,
                     before.minus(1, ChronoUnit.DAYS), before, null);
-            assertFalse(outsideDateRange.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
+            assertFalse(outsideDateRange.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
 
             // RSQL filter on an allow-listed field.
-            Page<DataChangeAuditLogDto> byRsql = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto byRsql = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), null, null, null, null, null, null,
                     "entityKey==ally_type;entityUuid==" + created.uuid());
-            assertTrue(byRsql.getContent().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
+            assertTrue(byRsql.content().stream().anyMatch(dto -> dto.entityUuid().equals(created.uuid())));
 
             // RSQL filter referencing a non-allow-listed field must be rejected.
             assertThrowsIllegalArgument(() -> dataChangeAuditQueryService.list(
@@ -177,13 +177,13 @@ class DataChangeAuditIT {
                 new AllyTypeUpdateRequest("Display IT renamed " + suffix, null, null));
 
         try {
-            Page<DataChangeAuditLogDto> page = dataChangeAuditQueryService.list(
+            DataChangeAuditLogPageDto page = dataChangeAuditQueryService.list(
                     PageRequest.of(0, 20), "ally_type", created.uuid(), null, null, null, null, null);
 
-            DataChangeAuditLogDto createDto = page.getContent().stream()
+            DataChangeAuditLogDto createDto = page.content().stream()
                     .filter(dto -> dto.action() == AuditAction.CREATE).findFirst()
                     .orElseThrow(() -> new AssertionError("expected a CREATE row"));
-            DataChangeAuditLogDto updateDto = page.getContent().stream()
+            DataChangeAuditLogDto updateDto = page.content().stream()
                     .filter(dto -> dto.action() == AuditAction.UPDATE).findFirst()
                     .orElseThrow(() -> new AssertionError("expected an UPDATE row"));
 
@@ -192,19 +192,29 @@ class DataChangeAuditIT {
             assertTrue(createDto.entityDisplay().contains("Display IT renamed " + suffix),
                     "entityDisplay should reflect the CURRENT ally_type row, not the historical snapshot");
 
-            // action_label is localized, not the bare enum name.
-            assertNotNull(createDto.actionLabel());
-            assertFalse(createDto.actionLabel().equals("CREATE"), "actionLabel should be a human label, not the raw enum");
+            // action_Display is localized, not the bare enum name.
+            assertNotNull(createDto.action_Display());
+            assertFalse(createDto.action_Display().equals("CREATE"), "action_Display should be a human label, not the raw enum");
 
             // actor_uuid/actor_name travel together — never one populated without the other.
-            assertTrue((createDto.actorUuid() == null) == (createDto.actorName() == null),
-                    "actorName should be present iff actorUuid resolved");
+            assertTrue((createDto.actorUuid() == null) == (createDto.actor_Display() == null),
+                    "actor_Display should be present iff actorUuid resolved");
 
             // first-change: pinned independent of pagination/order, and matches the actual CREATE row.
             Optional<DataChangeAuditLogDto> firstChange = dataChangeAuditQueryService.firstChange("ally_type", created.uuid());
             assertTrue(firstChange.isPresent());
             assertTrue(firstChange.get().uuid().equals(createDto.uuid()),
                     "first_change should be the same row as the CREATE entry, regardless of how the paginated list is filtered/sorted");
+
+            // same value travels embedded in list()'s response — one request, no round-trip
+            // (mirrors ListEntityLogsResponse.first_entity_log).
+            assertNotNull(page.firstChange(), "firstChange should be embedded when the query is scoped to one record");
+            assertEquals(createDto.uuid(), page.firstChange().uuid());
+
+            // unscoped (cross-entity) queries have no single "first change" — must stay null.
+            DataChangeAuditLogPageDto unscoped = dataChangeAuditQueryService.list(
+                    PageRequest.of(0, 5), null, null, null, null, null, null, null);
+            assertNull(unscoped.firstChange(), "firstChange only makes sense when entityKey+entityUuid scope the query");
         } finally {
             cleanUp(updated.uuid());
         }
