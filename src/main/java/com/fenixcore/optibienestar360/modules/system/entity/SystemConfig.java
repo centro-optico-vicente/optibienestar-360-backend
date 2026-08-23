@@ -41,4 +41,14 @@ public class SystemConfig extends BaseAuditEntity {
      */
     @Column(name = "login_audit_enabled", nullable = false)
     private boolean loginAuditEnabled = true;
+
+	/**
+	 * How long a {@code login_audit_log} session stays {@code ACTIVE} before
+	 * {@code LoginSessionSweepJob} expires it — independent from
+	 * {@code jwt.refresh-expiration-days} (the JWT's own TTL). Configurable
+	 * without redeploy, unlike the JWT property.
+	 */
+	@Column(name = "login_session_expiration_days", nullable = false)
+	private int loginSessionExpirationDays = 30;
+
 }

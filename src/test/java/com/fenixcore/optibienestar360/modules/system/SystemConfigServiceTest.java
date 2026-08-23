@@ -78,6 +78,7 @@ class SystemConfigServiceTest {
         assertEquals(AuditMode.PER_ENTITY, fresh.getDataChangeAuditMode());
         assertEquals(AuditMode.PER_ENTITY, fresh.getReportAuditMode());
         assertTrue(fresh.isLoginAuditEnabled());
+        assertEquals(30, fresh.getLoginSessionExpirationDays());
     }
 
     @Test
@@ -87,12 +88,27 @@ class SystemConfigServiceTest {
         when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SystemConfig updated = service.updateSystemConfig(
-                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false));
+                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false, null));
 
         assertEquals("Centro Óptico Vicente - Personalizado", updated.getReportFooter());
         assertEquals(AuditMode.FORCE_DISABLED, updated.getDataChangeAuditMode());
         assertEquals(AuditMode.PER_ENTITY, updated.getReportAuditMode());
         assertFalse(updated.isLoginAuditEnabled());
+        assertEquals(30, updated.getLoginSessionExpirationDays());
+        verify(repository).save(sampleConfig);
+    }
+
+    @Test
+    @DisplayName("Should update login session expiration days when sent, leaving other fields untouched")
+    void testUpdateSystemConfigLoginSessionExpirationDays() {
+        when(repository.findFirstByActiveTrue()).thenReturn(Optional.of(sampleConfig));
+        when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SystemConfig updated = service.updateSystemConfig(
+                new UpdateSystemConfigRequest(null, null, null, null, 90));
+
+        assertEquals(90, updated.getLoginSessionExpirationDays());
+        assertEquals(AuditMode.PER_ENTITY, updated.getDataChangeAuditMode());
         verify(repository).save(sampleConfig);
     }
 }

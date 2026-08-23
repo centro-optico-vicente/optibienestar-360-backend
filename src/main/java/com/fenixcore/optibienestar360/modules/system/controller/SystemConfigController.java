@@ -45,6 +45,7 @@ public class SystemConfigController {
                 config.getDataChangeAuditMode(),
                 config.getReportAuditMode(),
                 config.isLoginAuditEnabled(),
+				config.getLoginSessionExpirationDays(),
                 config.getUpdatedAt()
         );
     }

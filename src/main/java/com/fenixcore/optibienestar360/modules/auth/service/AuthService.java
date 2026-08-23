@@ -119,6 +119,7 @@ public class AuthService {
         String subject = user.getUuid().toString();
         String userLocale = user.getPerson().getLocale();
         String effectiveLocale = resolveEffectiveLocale(userLocale);
+
         List<String> roleNames = user.getUserRoles().stream().map(ur -> ur.getRole().getName()).toList();
 
         // Inserted BEFORE the tokens so its uuid can be embedded as the sid claim

@@ -71,6 +71,20 @@ public class SystemConfigService {
                 .orElse(true);
     }
 
+	/**
+	 * How long a {@code login_audit_log} session stays {@code ACTIVE} before
+	 * {@code LoginSessionSweepJob} expires it. Fail-safe: defaults to 30 days
+	 * if the singleton row is missing (same default as the column itself).
+	 */
+	@Transactional(readOnly = true)
+	public int getLoginSessionExpirationDays() {
+		return systemConfigRepository
+			.findFirstByActiveTrue()
+			.map(SystemConfig::getLoginSessionExpirationDays)
+			.orElse(30)
+		;
+	}
+
     /**
      * Updates the singleton system configuration report footer.
      */
@@ -103,6 +117,9 @@ public class SystemConfigService {
         if (request.loginAuditEnabled() != null) {
             config.setLoginAuditEnabled(request.loginAuditEnabled());
         }
+		if (request.loginSessionExpirationDays() != null) {
+			config.setLoginSessionExpirationDays(request.loginSessionExpirationDays());
+		}
 
         return systemConfigRepository.save(config);
     }
@@ -111,4 +128,5 @@ public class SystemConfigService {
         return systemConfigRepository.findFirstByActiveTrue()
                 .orElseGet(SystemConfig::new);
     }
+
 }

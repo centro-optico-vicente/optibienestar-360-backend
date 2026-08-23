@@ -13,21 +13,21 @@ import java.util.UUID;
  * — {@code userUuid} is resolved from it at read time.
  */
 public record LoginAuditLogDto(
-        UUID uuid,
-        UUID userUuid,
-        String attemptedEmail,
-        LoginAuditResult result,
-        String result_Display,
-        List<String> roles,
-        String locale,
-        String ipAddress,
-        String userAgent,
-        String hostname,
-        String failureReason,
-        LoginSessionStatus sessionStatus,
-        Instant sessionExpiresAt,
-        boolean valid,
-        Instant loggedOutAt,
-        String logoutReason,
-        Instant attemptedAt
+	UUID uuid,
+	UUID userUuid,
+	String attemptedEmail,
+	LoginAuditResult result,
+	String result_Display,
+	List<String> roles,
+	String locale,
+	String ipAddress,
+	String userAgent,
+	String hostname,
+	String failureReason,
+	LoginSessionStatus sessionStatus,
+	Instant sessionExpiresAt,
+	boolean valid,
+	Instant loggedOutAt,
+	String logoutReason,
+	Instant attemptedAt
 ) {}

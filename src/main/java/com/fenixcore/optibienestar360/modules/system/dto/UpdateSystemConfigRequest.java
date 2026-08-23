@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.system.dto;
 
 import com.fenixcore.optibienestar360.core.audit.AuditMode;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -13,5 +14,7 @@ public record UpdateSystemConfigRequest(
         String reportFooter,
         AuditMode dataChangeAuditMode,
         AuditMode reportAuditMode,
-        Boolean loginAuditEnabled
+        Boolean loginAuditEnabled,
+	@Positive(message = "system_config.login_session_expiration_days.positive")
+	Integer loginSessionExpirationDays
 ) {}
