@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.document.generic.controller;
 
+import com.fenixcore.optibienestar360.core.audit.ReportAuditService;
 import com.fenixcore.optibienestar360.modules.document.generic.service.GenericRecordReportService;
 import com.fenixcore.optibienestar360.modules.document.generic.service.GenericRecordResolverService;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperFormat;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.springframework.context.MessageSource;
@@ -32,15 +34,18 @@ public class GenericDocumentController {
     private final GenericRecordReportService recordReportService;
     private final GenericRecordResolverService recordResolverService;
     private final MessageSource messageSource;
+    private final ReportAuditService reportAuditService;
 
     public GenericDocumentController(
             GenericRecordReportService recordReportService,
             GenericRecordResolverService recordResolverService,
-            MessageSource messageSource
+            MessageSource messageSource,
+            ReportAuditService reportAuditService
     ) {
         this.recordReportService = recordReportService;
         this.recordResolverService = recordResolverService;
         this.messageSource = messageSource;
+        this.reportAuditService = reportAuditService;
     }
 
     public record GenericReportRequest(
@@ -69,6 +74,9 @@ public class GenericDocumentController {
                 "Usuario Sistema",
                 selectedFormat
         );
+
+        reportAuditService.recordGeneration("GENERIC", null, null, safeIdentifier,
+                selectedFormat.name(), request.data(), rendered.content(), rendered.fileName(), rendered.contentType());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")
@@ -103,6 +111,10 @@ public class GenericDocumentController {
                 selectedFormat
         );
 
+        UUID entityUuid = UUID_PATTERN.matcher(identifier).matches() ? UUID.fromString(identifier) : null;
+        reportAuditService.recordGeneration("RECORD", entityOrTable.trim().toLowerCase().replace("-", "_"), entityUuid,
+                businessIdentifier, selectedFormat.name(), null, rendered.content(), rendered.fileName(), rendered.contentType());
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")
                 .contentType(MediaType.parseMediaType(rendered.contentType()))
@@ -135,6 +147,9 @@ public class GenericDocumentController {
                 generatedBy,
                 selectedFormat
         );
+
+        reportAuditService.recordGeneration("TABLE", targetTable.trim().toLowerCase().replace("-", "_"), null,
+                null, selectedFormat.name(), Map.of("limit", limit), rendered.content(), rendered.fileName(), rendered.contentType());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")

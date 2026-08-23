@@ -34,6 +34,8 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 - **V65__report_share.sql** — tabla preparada para compartir reportes (sin funcionalidad aún).
 - **V66__audit_granular_permissions.sql** — permisos por dominio (§7).
 - **V68__system_configs_audit_overrides.sql** — override global sobre `system_configs` (V67): `data_change_audit_mode`, `report_audit_mode`, `login_audit_enabled` (ver Decisión 8).
+- **V69__audit_view_all_permission.sql** — `AUDIT_VIEW_ALL` (cambios de datos, cross-entity).
+- **V70__report_audit_view_all_permission.sql** — `REPORT_AUDIT_VIEW_ALL` (reportes, cross-entity) — mismo patrón que V69.
 
 Todas con `SET search_path TO app, public;` (convención de `V41__subsidies.sql`).
 
@@ -254,9 +256,14 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
 
 `login()` resuelve `ip`/`userAgent`/`hostname` una sola vez y registra en `login_audit_log` en cada salida (email no encontrado, cuenta bloqueada, password incorrecto, éxito). En éxito, la fila se inserta antes de generar los tokens para poder embeber su `uuid` como `sid`. `user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas.
 
-## Reportes (`modules/document/generic/`)
+## Reportes (`modules/document/generic/`) — **implementado**
 
-`GenericDocumentController` hoy solo genera y devuelve bytes. Se agrega: (1) subir el contenido a R2 con `FileVisibility.TEMPORARY` y guardar `AttachedFile`; (2) `ReportAuditService.recordGeneration(...)` llamado explícitamente desde los 3 métodos del controller, verificando primero `audit_report`; (3) si el upload falla, la respuesta HTTP igual entrega el archivo, y el log queda con `attached_file_id=NULL`.
+`GenericDocumentController` (3 métodos: `/generic`, `/records/{entityOrTable}/{identifier}`, `/tables/{targetTable}`) llama explícitamente a `ReportAuditService.recordGeneration(...)` después de renderizar el documento, en su propia transacción `REQUIRES_NEW`. No es AOP (a diferencia de `DataChangeAuditAspect`): la generación de reportes no es un método CRUD de firma uniforme por entidad, y el controller ya tiene todo lo necesario (payload, formato, actor) en el punto de llamada.
+
+- Resuelve primero el override global (`system_configs.report_audit_mode`, Decisión 8): `FORCE_DISABLED` nunca audita, `FORCE_ENABLED` siempre audita, `PER_ENTITY` consulta `audit_entity_config.audit_report` para el `entityKey` (si hay uno — un reporte sin entidad asociada, ej. `/generic` con payload libre, se audita igual bajo `PER_ENTITY`).
+- Sube el contenido a R2 (bucket privado, `FileVisibility.TEMPORARY`, `ownerTable="report_audit_log"`, `ownerUuid=` el uuid recién generado de la fila) y crea el `AttachedFile` directamente (no vía `AttachedFileService`, que solo acepta `MultipartFile` — aquí el contenido ya es `byte[]` renderizado).
+- Fail-safe (mismo criterio que el aspecto de cambios de datos, Decisión 6): si R2 está deshabilitado (`storage.r2.enabled=false`) o la subida falla, la respuesta HTTP igual entrega los bytes al cliente y la fila queda con `attached_file_id=NULL`. Si persistir la fila misma falla, se loggea (`log.warn`) y nunca se propaga al caller.
+- `reportType` distingue el origen: `GENERIC` (`/generic`, sin entidad), `RECORD` (`/records/{entityOrTable}/{identifier}`, con `entityKey`/`entityUuid` cuando el identificador es un UUID), `TABLE` (`/tables/{targetTable}`, listado — sin `entityUuid` propio).
 
 ## Endpoints admin
 
@@ -271,9 +278,10 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
     4. `Number` → separadores de miles/decimal según locale (`NumberFormat`), preservando la precisión real del valor (un entero no gana decimales; un `BigDecimal`/`double` con fracción conserva su propia escala — `12.50` se ve `12,50` en es, no `12,5`).
     5. `String` con forma `UPPER_SNAKE_CASE` (constante de enum) → traducido vía `audit.enum.<campo>.<valor>`, con fallback a un vocabulario compartido `audit.enum.common.<valor>` (`ACTIVE`, `PENDING`, `APPROVED`, `IN_REVIEW`, …); si ninguna clave existe, no se agrega `_Display` (evita traducciones inventadas).
     6. Cualquier otro string libre (nombres, emails, notas) → sin `_Display`, ya es legible.
-- `/logins`, `/reports` — **sin implementar** (dependen de que `AuthService.login()` y el hook de reportes en `GenericDocumentController` empiecen a escribir en `login_audit_log`/`report_audit_log`, spec §Login y §Reportes).
+- **`GET /v1/admin/audit/reports`** — **implementado.** `core/audit/controller/AdminReportAuditController.java`, respaldado por `ReportAuditQueryService`. Query params: `reportType` (`GENERIC`/`RECORD`/`TABLE`), `entityKey`, `entityUuid`, `actorUuid`, `format` (`PDF`/`XLSX`), `from`/`to` (rango `generatedAt`), `filter` (RSQL contra un allowlist: `reportType`, `entityKey`, `entityId`, `entityUuid`, `format`, `generatedAt`, `createdAt`). Paginado (`Page<ReportAuditLogDto>` estándar de Spring — no necesita el wrapper `firstChange` de `data-changes`, ya que "el primer reporte generado" no es un concepto que este endpoint necesite resolver), tope 200, protegido por `REPORT_AUDIT_VIEW_ALL` (V70, mismo patrón que `AUDIT_VIEW_ALL`/V69 pero para `report_audit_log`).
+  - **`GET /v1/admin/audit/reports/{uuid}/download`** — **implementado.** Devuelve `{"url": "..."}` con una URL presignada (15 min) al archivo almacenado; 404 (`audit.report.not_found`/`audit.report.file_not_found`) si la fila no existe o su `attached_file_id` es `NULL` (upload nunca ocurrió o falló en el momento de generar el reporte).
+- `/logins` — **sin implementar** (depende de que `AuthService.login()` empiece a escribir en `login_audit_log`, spec §Login).
 - `GET /v1/admin/audit/config` y `PATCH /v1/admin/audit/config/{entityKey}` con `@CacheEvict` sobre `audit-config`. — **sin implementar** (el servicio `AuditEntityConfigService`/`AuditEntityConfigCache` ya existen y quedan listos para que este endpoint los use).
-- `GET /v1/admin/audit/reports/{uuid}/download` → URL presignada. — **sin implementar**, depende de `report_audit_log`.
 
 ## Permisos granulares por dominio
 
