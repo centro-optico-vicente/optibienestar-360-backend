@@ -19,6 +19,16 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
     Optional<User> findByEmailAndActiveTrue(String email);
 
+    /**
+     * Unlike {@link #findByEmailAndActiveTrue}, this doesn't filter by
+     * {@code active} — {@code AuthService.login()} needs to distinguish
+     * "email not found" from "account inactive" for {@code login_audit_log}
+     * ({@code FAILED_INACTIVE}, spec 16-audit.md §Login), even though both
+     * still surface the same generic auth error to the caller.
+     */
+    @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
+    Optional<User> findByEmail(String email);
+
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
     Optional<User> findWithRolesByUuid(UUID uuid);
 

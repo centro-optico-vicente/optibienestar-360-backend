@@ -21,6 +21,10 @@ public class CustomUserDetails implements UserDetails {
     @Getter
     private final String locale;
 
+    /** The {@code sid} claim (login_audit_log.uuid) — {@code null} for DB-loaded instances or tokens issued with {@code login_audit_enabled=false}. */
+    @Getter
+    private final UUID sessionId;
+
     private final String email;
     private final String passwordHash;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -28,10 +32,16 @@ public class CustomUserDetails implements UserDetails {
 
     public CustomUserDetails(Long id, UUID uuid, String jti, String locale, String email, String passwordHash,
                              Collection<? extends GrantedAuthority> authorities, boolean active) {
+        this(id, uuid, jti, locale, null, email, passwordHash, authorities, active);
+    }
+
+    public CustomUserDetails(Long id, UUID uuid, String jti, String locale, UUID sessionId, String email, String passwordHash,
+                             Collection<? extends GrantedAuthority> authorities, boolean active) {
         this.id = id;
         this.uuid = uuid;
         this.jti = jti;
         this.locale = locale;
+        this.sessionId = sessionId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.authorities = authorities;
@@ -41,7 +51,13 @@ public class CustomUserDetails implements UserDetails {
     /** Lightweight instance built from JWT claims — no DB lookup required. */
     public static CustomUserDetails fromJwt(UUID uuid, String jti, String locale,
                                             Collection<? extends GrantedAuthority> authorities) {
-        return new CustomUserDetails(null, uuid, jti, locale, uuid.toString(), null, authorities, true);
+        return fromJwt(uuid, jti, locale, null, authorities);
+    }
+
+    /** Same as {@link #fromJwt(UUID, String, String, Collection)}, carrying the {@code sid} claim too. */
+    public static CustomUserDetails fromJwt(UUID uuid, String jti, String locale, UUID sessionId,
+                                            Collection<? extends GrantedAuthority> authorities) {
+        return new CustomUserDetails(null, uuid, jti, locale, sessionId, uuid.toString(), null, authorities, true);
     }
 
     @Override

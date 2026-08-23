@@ -252,9 +252,23 @@ Flujo del `@Around("@annotation(auditable)")`:
 
 Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto): solo se agrega `@Auditable(entity="ally", action=..., uuidArgIndex=0)` sobre los métodos existentes.
 
-## Login (`AuthService.java`)
+## Login (`AuthService.java`) — **implementado**
 
-`login()` resuelve `ip`/`userAgent`/`hostname` una sola vez y registra en `login_audit_log` en cada salida (email no encontrado, cuenta bloqueada, password incorrecto, éxito). En éxito, la fila se inserta antes de generar los tokens para poder embeber su `uuid` como `sid`. `user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas.
+`AuthService.login()` resuelve `ip`/`userAgent`/`hostname` una sola vez (vía `HttpServletRequest`) y llama a `LoginAuditService` en cada salida:
+
+- `findByEmail` (no `findByEmailAndActiveTrue`) para poder distinguir email inexistente de cuenta inactiva a efectos de auditoría — la respuesta al cliente sigue siendo el mismo error genérico en ambos casos, solo cambia lo que se registra.
+- **Email no encontrado** → `recordFailure(..., FAILED_CREDENTIALS, "email_not_found", ...)`, `userId=null`.
+- **Cuenta inactiva** → `recordFailure(..., FAILED_INACTIVE, "account_inactive", ...)`.
+- **Cuenta bloqueada** (`lockedUntil` futuro) → `recordFailure(..., FAILED_LOCKED, "account_locked", ...)`.
+- **Password incorrecto** → `recordFailure(..., FAILED_CREDENTIALS, "bad_password", ...)` (además del contador `failedLoginAttempts` existente, sin relación entre ambos mecanismos).
+- **Éxito** → `startSession(...)` inserta la fila **antes** de generar los tokens (`session_status=ACTIVE`, `session_expires_at = now() + refresh-expiration-days`, `roles`/`locale` como snapshot), devolviendo su `uuid` como `sid`; `JwtService.generateAccessToken`/`generateRefreshToken` ganan un parámetro `sessionId` que se embebe como claim `sid` (ambos tokens). Una vez generado el access token, `attachJti(sid, accessJti)` completa la fila. `refresh()` extrae el `sid` del refresh token entrante y lo propaga a los tokens reemitidos (misma sesión, no una nueva); `updateMyLocale` hace lo mismo vía `principal.getSessionId()` (nuevo campo en `CustomUserDetails`, poblado por `JwtAuthenticationFilter` desde el claim).
+- **`login_audit_enabled=false`** (override global, Decisión 8): `startSession`/`recordFailure` no insertan nada; los tokens se emiten sin claim `sid`. `JwtAuthenticationFilter` trata la ausencia de `sid` como "nada que verificar" (nunca rechaza por eso) — el blacklist de `jti` sigue siendo la garantía de seguridad independiente.
+
+`user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas (`AuthService.logout()` sigue cerrándolo igual que antes).
+
+**Chequeo `is_valid` en el hot path** — `JwtAuthenticationFilter` extrae el claim `sid` y llama a `LoginAuditService.isSessionValid(sid)`, respaldado por `LoginSessionValidityCache` (`@Cacheable("login-session")`, TTL 30s, mismo patrón self-invocation-safe que `AuditEntityConfigCache`). Contrato fail-safe: un `sid` desconocido (fila ausente) **sí rechaza** — es una señal legítima de token alterado; solo un error de infraestructura (excepción de BD/cache) falla abierto. Un token sin claim `sid` (auditoría deshabilitada al momento de emitirlo) no se verifica en absoluto.
+
+`AuthService.logout()` llama a `LoginAuditService.closeSession(sid, "user_logout")` (`is_valid=false`, `session_status=LOGGED_OUT`, `logged_out_at=now()`), además de invalidar la cache. `LoginSessionSweepJob` (`@Scheduled`, cada 5 min por defecto — `audit.login-session-sweep.fixed-delay-ms`) hace el barrido en lote (`UPDATE ... SET is_valid=false, session_status='EXPIRED' WHERE is_valid=true AND session_status='ACTIVE' AND session_expires_at < now()`), la única pieza que compara fechas.
 
 ## Reportes (`modules/document/generic/`) — **implementado**
 
@@ -280,7 +294,7 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
     6. Cualquier otro string libre (nombres, emails, notas) → sin `_Display`, ya es legible.
 - **`GET /v1/admin/audit/reports`** — **implementado.** `core/audit/controller/AdminReportAuditController.java`, respaldado por `ReportAuditQueryService`. Query params: `reportType` (`GENERIC`/`RECORD`/`TABLE`), `entityKey`, `entityUuid`, `actorUuid`, `format` (`PDF`/`XLSX`), `from`/`to` (rango `generatedAt`), `filter` (RSQL contra un allowlist: `reportType`, `entityKey`, `entityId`, `entityUuid`, `format`, `generatedAt`, `createdAt`). Paginado (`Page<ReportAuditLogDto>` estándar de Spring — no necesita el wrapper `firstChange` de `data-changes`, ya que "el primer reporte generado" no es un concepto que este endpoint necesite resolver), tope 200, protegido por `REPORT_AUDIT_VIEW_ALL` (V70, mismo patrón que `AUDIT_VIEW_ALL`/V69 pero para `report_audit_log`).
   - **`GET /v1/admin/audit/reports/{uuid}/download`** — **implementado.** Devuelve `{"url": "..."}` con una URL presignada (15 min) al archivo almacenado; 404 (`audit.report.not_found`/`audit.report.file_not_found`) si la fila no existe o su `attached_file_id` es `NULL` (upload nunca ocurrió o falló en el momento de generar el reporte).
-- `/logins` — **sin implementar** (depende de que `AuthService.login()` empiece a escribir en `login_audit_log`, spec §Login).
+- **`GET /v1/admin/audit/logins`** — **implementado.** `core/audit/controller/AdminLoginAuditController.java`, respaldado por `LoginAuditQueryService`. Filtros: `email`, `userUuid`, `result` (`SUCCESS`/`FAILED_CREDENTIALS`/`FAILED_LOCKED`/`FAILED_INACTIVE`), `from`/`to` (rango `attemptedAt`), `filter` (RSQL contra un allowlist: `attemptedEmail`, `result`, `userId`, `sessionStatus`, `valid`, `attemptedAt`, `createdAt`). Paginado (`Page<LoginAuditLogDto>` estándar), tope 200, protegido por `AUDIT_VIEW_LOGIN` (V64, ya existente). `LoginAuditLogDto.result_Display` es el resultado traducido vía `MessageSource` (`audit.login.result.<RESULT>`).
 - `GET /v1/admin/audit/config` y `PATCH /v1/admin/audit/config/{entityKey}` con `@CacheEvict` sobre `audit-config`. — **sin implementar** (el servicio `AuditEntityConfigService`/`AuditEntityConfigCache` ya existen y quedan listos para que este endpoint los use).
 
 ## Permisos granulares por dominio

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.security.jwt;
 
+import com.fenixcore.optibienestar360.core.audit.LoginAuditService;
 import com.fenixcore.optibienestar360.modules.auth.service.TokenBlacklistService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.annotation.Nonnull;
@@ -31,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final TokenBlacklistService blacklistService;
+    private final LoginAuditService loginAuditService;
 
     @Override
     protected void doFilterInternal(@Nonnull HttpServletRequest request,
@@ -57,21 +59,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     log.debug("Stale token rejected by user epoch: subject={} iat={} epoch={}",
                             subject, iat, userEpoch);
                 } else {
-                    List<String> permissions = jwtService.extractPermissions(token);
-                    String locale = jwtService.extractLocale(token);
+                    UUID sessionId = jwtService.extractSessionId(token);
 
-                    List<SimpleGrantedAuthority> authorities = permissions.stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .toList();
+                    if (!loginAuditService.isSessionValid(sessionId)) {
+                        log.debug("Rejected token for a closed/expired session: sid={}", sessionId);
+                    } else {
+                        List<String> permissions = jwtService.extractPermissions(token);
+                        String locale = jwtService.extractLocale(token);
 
-                    CustomUserDetails principal = CustomUserDetails.fromJwt(
-                            UUID.fromString(subject), jti, locale, authorities);
+                        List<SimpleGrantedAuthority> authorities = permissions.stream()
+                                .map(SimpleGrantedAuthority::new)
+                                .toList();
 
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        CustomUserDetails principal = CustomUserDetails.fromJwt(
+                                UUID.fromString(subject), jti, locale, sessionId, authorities);
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 }
             }
         }
