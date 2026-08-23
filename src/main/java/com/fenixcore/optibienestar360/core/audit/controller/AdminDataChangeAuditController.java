@@ -51,7 +51,7 @@ public class AdminDataChangeAuditController {
     private final DataChangeAuditQueryService dataChangeAuditQueryService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('AUDIT_VIEW_ALL')")
+	@PreAuthorize("@auditAccess.canView(#entityKey)")
     @Operation(summary = "Lista la bitácora de cambios de datos, con filtros por entidad, actor, acción y fecha")
     public ResponseEntity<DataChangeAuditLogPageDto> list(
             @PageableDefault(size = 20, sort = "occurredAt", direction = Sort.Direction.DESC) Pageable pageable,
@@ -67,7 +67,7 @@ public class AdminDataChangeAuditController {
     }
 
     @GetMapping("/first-change")
-    @PreAuthorize("hasAuthority('AUDIT_VIEW_ALL')")
+	@PreAuthorize("@auditAccess.canView(#entityKey)")
     @Operation(summary = "Fila más antigua (típicamente el CREATE) de una entidad — independiente de la paginación")
     public ResponseEntity<DataChangeAuditLogDto> firstChange(
             @RequestParam String entityKey,
@@ -76,4 +76,5 @@ public class AdminDataChangeAuditController {
                 .orElseThrow(() -> new NoSuchElementException("audit.first_change.not_found"));
         return ResponseEntity.ok(dto);
     }
+
 }

@@ -258,6 +258,12 @@ public class AuditDisplayResolver {
     }
 
     private Optional<String> tryEnumDisplay(String key, String value, Locale locale) {
+		// "code" is always a natural key (UPPER_SNAKE_CASE by convention), never an enum
+		// value — even when it happens to collide with an unrelated enum constant (e.g. a
+		// plan's code "CORPORATIVO" matching PlanType.CORPORATIVO).
+		if ("code".equals(key)) {
+			return Optional.empty();
+		}
         if (!ENUM_SHAPED.matcher(value).matches()) {
             return Optional.empty();
         }
@@ -304,4 +310,5 @@ public class AuditDisplayResolver {
             return Optional.empty();
         }
     }
+
 }
