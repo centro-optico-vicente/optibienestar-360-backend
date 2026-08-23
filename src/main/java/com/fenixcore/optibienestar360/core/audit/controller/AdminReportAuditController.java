@@ -37,7 +37,7 @@ public class AdminReportAuditController {
     private final ReportAuditQueryService reportAuditQueryService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('REPORT_AUDIT_VIEW_ALL')")
+	@PreAuthorize("@auditAccess.canViewReports(#entityKey)")
     @Operation(summary = "Lista la bitácora de generación de reportes, con filtros por entidad, actor, formato y fecha")
     public ResponseEntity<Page<ReportAuditLogDto>> list(
             @PageableDefault(size = 20, sort = "generatedAt", direction = Sort.Direction.DESC) Pageable pageable,
@@ -54,9 +54,10 @@ public class AdminReportAuditController {
     }
 
     @GetMapping("/{uuid}/download")
-    @PreAuthorize("hasAuthority('REPORT_AUDIT_VIEW_ALL')")
+	@PreAuthorize("@auditAccess.canViewReportDownload(#uuid)")
     @Operation(summary = "URL presignada para descargar el archivo de un reporte previamente generado")
     public ResponseEntity<Map<String, String>> download(@PathVariable UUID uuid) {
         return ResponseEntity.ok(Map.of("url", reportAuditQueryService.downloadUrl(uuid)));
     }
+
 }
