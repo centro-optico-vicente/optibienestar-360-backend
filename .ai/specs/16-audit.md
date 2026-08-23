@@ -36,6 +36,7 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 - **V68__system_configs_audit_overrides.sql** — override global sobre `system_configs` (V67): `data_change_audit_mode`, `report_audit_mode`, `login_audit_enabled` (ver Decisión 8).
 - **V69__audit_view_all_permission.sql** — `AUDIT_VIEW_ALL` (cambios de datos, cross-entity).
 - **V70__report_audit_view_all_permission.sql** — `REPORT_AUDIT_VIEW_ALL` (reportes, cross-entity) — mismo patrón que V69.
+- **V71__report_audit_granular_permissions.sql.sql** — permisos granules para las auditorias de reportes generados desde cada entidad.
 
 Todas con `SET search_path TO app, public;` (convención de `V41__subsidies.sql`).
 
