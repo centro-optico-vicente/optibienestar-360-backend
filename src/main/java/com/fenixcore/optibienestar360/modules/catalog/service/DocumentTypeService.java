@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -83,6 +85,7 @@ public class DocumentTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "document_type", action = AuditAction.CREATE)
     public DocumentTypeDto create(DocumentTypeCreateRequest req) {
         DocumentType d = new DocumentType();
         d.setCode(req.code());
@@ -93,6 +96,7 @@ public class DocumentTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "document_type", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public DocumentTypeDto update(UUID uuid, DocumentTypeUpdateRequest req) {
         DocumentType d = find(uuid);
         d.setName(req.name());
@@ -114,6 +118,7 @@ public class DocumentTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "document_type", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         DocumentType d = find(uuid);
         long usages = countUsages(uuid);

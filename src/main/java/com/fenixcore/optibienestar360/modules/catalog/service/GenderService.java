@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -85,6 +87,7 @@ public class GenderService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "gender", action = AuditAction.CREATE)
     public GenderDto create(GenderCreateRequest req) {
         Gender g = new Gender();
         g.setCode(req.code());
@@ -94,6 +97,7 @@ public class GenderService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "gender", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public GenderDto update(UUID uuid, GenderUpdateRequest req) {
         Gender g = find(uuid);
         g.setName(req.name());
@@ -109,6 +113,7 @@ public class GenderService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "gender", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Gender g = find(uuid);
         long usages = countUsages(uuid);

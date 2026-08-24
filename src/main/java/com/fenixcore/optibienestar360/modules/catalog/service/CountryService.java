@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -85,6 +87,7 @@ public class CountryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "country", action = AuditAction.CREATE)
     public CountryDto create(CountryCreateRequest req) {
         Country c = new Country();
         c.setIsoCode(req.isoCode());
@@ -94,6 +97,7 @@ public class CountryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "country", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CountryDto update(UUID uuid, CountryUpdateRequest req) {
         Country c = find(uuid);
         c.setName(req.name());
@@ -109,6 +113,7 @@ public class CountryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "country", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Country c = find(uuid);
         long usages = countUsages(uuid);

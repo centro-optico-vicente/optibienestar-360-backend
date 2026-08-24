@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -83,6 +85,7 @@ public class PromoterTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "promoter_type", action = AuditAction.CREATE)
     public PromoterTypeDto create(PromoterTypeCreateRequest req) {
         PromoterType t = new PromoterType();
         t.setCode(req.code());
@@ -93,6 +96,7 @@ public class PromoterTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "promoter_type", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PromoterTypeDto update(UUID uuid, PromoterTypeUpdateRequest req) {
         PromoterType t = find(uuid);
         t.setName(req.name());
@@ -102,6 +106,7 @@ public class PromoterTypeService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "promoter_type", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
         PromoterType t = find(uuid);
         t.setActive(false);

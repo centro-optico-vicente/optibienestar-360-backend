@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -85,6 +87,7 @@ public class MedicalSpecialtyService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "medical_specialty", action = AuditAction.CREATE)
     public MedicalSpecialtyDto create(MedicalSpecialtyCreateRequest req) {
         MedicalSpecialty m = new MedicalSpecialty();
         m.setCode(req.code());
@@ -95,6 +98,7 @@ public class MedicalSpecialtyService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "medical_specialty", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MedicalSpecialtyDto update(UUID uuid, MedicalSpecialtyUpdateRequest req) {
         MedicalSpecialty m = find(uuid);
         m.setName(req.name());
@@ -111,6 +115,7 @@ public class MedicalSpecialtyService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "medical_specialty", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         MedicalSpecialty m = find(uuid);
         long usages = countUsages(uuid);

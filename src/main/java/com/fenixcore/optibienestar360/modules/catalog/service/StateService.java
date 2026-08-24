@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -95,6 +97,7 @@ public class StateService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "state", action = AuditAction.CREATE)
     public StateDto create(StateCreateRequest req) {
         Country country = countryRepository.findByUuid(req.countryUuid())
                 .orElseThrow(() -> new NoSuchElementException("Country not found: " + req.countryUuid()));
@@ -107,6 +110,7 @@ public class StateService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "state", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public StateDto update(UUID uuid, StateUpdateRequest req) {
         State s = find(uuid);
         s.setName(req.name());
@@ -122,6 +126,7 @@ public class StateService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "state", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         State s = find(uuid);
         long usages = countUsages(uuid);

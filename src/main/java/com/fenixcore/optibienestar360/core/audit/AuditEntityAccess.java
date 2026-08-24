@@ -51,7 +51,17 @@ public class AuditEntityAccess {
 		Map.entry("promoter", "PROMOTER_AUDIT_VIEW"),
 		Map.entry("commission_tier", "COMMISSION_AUDIT_VIEW"),
 		Map.entry("bonus_rule", "COMMISSION_AUDIT_VIEW"),
-		Map.entry("referral", "REFERRAL_AUDIT_VIEW"))
+		Map.entry("referral", "REFERRAL_AUDIT_VIEW"),
+		Map.entry("country", "COUNTRY_AUDIT_VIEW"),
+		Map.entry("state", "STATE_AUDIT_VIEW"),
+		Map.entry("city", "CITY_AUDIT_VIEW"),
+		Map.entry("gender", "GENDER_AUDIT_VIEW"),
+		Map.entry("document_type", "DOCUMENT_TYPE_AUDIT_VIEW"),
+		Map.entry("marital_status", "MARITAL_STATUS_AUDIT_VIEW"),
+		Map.entry("occupation", "OCCUPATION_AUDIT_VIEW"),
+		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_AUDIT_VIEW"),
+		Map.entry("service_category", "SERVICE_CATEGORY_AUDIT_VIEW"),
+		Map.entry("promoter_type", "PROMOTER_TYPE_AUDIT_VIEW"))
 	;
 
 	private static final String REPORT_VIEW_ALL = "REPORT_AUDIT_VIEW_ALL";
@@ -81,7 +91,17 @@ public class AuditEntityAccess {
 		Map.entry("promoter", "PROMOTER_REPORT_AUDIT_VIEW"),
 		Map.entry("commission_tier", "COMMISSION_REPORT_AUDIT_VIEW"),
 		Map.entry("bonus_rule", "COMMISSION_REPORT_AUDIT_VIEW"),
-		Map.entry("referral", "REFERRAL_REPORT_AUDIT_VIEW"))
+		Map.entry("referral", "REFERRAL_REPORT_AUDIT_VIEW"),
+		Map.entry("country", "COUNTRY_REPORT_AUDIT_VIEW"),
+		Map.entry("state", "STATE_REPORT_AUDIT_VIEW"),
+		Map.entry("city", "CITY_REPORT_AUDIT_VIEW"),
+		Map.entry("gender", "GENDER_REPORT_AUDIT_VIEW"),
+		Map.entry("document_type", "DOCUMENT_TYPE_REPORT_AUDIT_VIEW"),
+		Map.entry("marital_status", "MARITAL_STATUS_REPORT_AUDIT_VIEW"),
+		Map.entry("occupation", "OCCUPATION_REPORT_AUDIT_VIEW"),
+		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_REPORT_AUDIT_VIEW"),
+		Map.entry("service_category", "SERVICE_CATEGORY_REPORT_AUDIT_VIEW"),
+		Map.entry("promoter_type", "PROMOTER_TYPE_REPORT_AUDIT_VIEW"))
 	;
 
 	/**

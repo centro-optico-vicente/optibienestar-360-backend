@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -97,6 +99,7 @@ public class CityService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "city", action = AuditAction.CREATE)
     public CityDto create(CityCreateRequest req) {
         State state = stateRepository.findByUuid(req.stateUuid())
                 .orElseThrow(() -> new NoSuchElementException("State not found: " + req.stateUuid()));
@@ -108,6 +111,7 @@ public class CityService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "city", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CityDto update(UUID uuid, CityUpdateRequest req) {
         City c = find(uuid);
         c.setName(req.name());
@@ -124,6 +128,7 @@ public class CityService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "city", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         City c = find(uuid);
         long usages = countUsages(uuid);
