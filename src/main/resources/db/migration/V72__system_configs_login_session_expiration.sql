@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V71: login_session_expiration_days — how long a login_audit_log session
+-- V72: login_session_expiration_days — how long a login_audit_log session
 -- (the sid claim) stays ACTIVE before LoginSessionSweepJob expires it,
 -- configurable without redeploy (spec 16-audit.md §Login). Independent from
 -- jwt.refresh-expiration-days (app property, controls the JWT's own TTL) —
@@ -10,5 +10,5 @@ SET search_path TO app, public;
 -- ────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE system_configs
-    ADD COLUMN login_session_expiration_days INT NOT NULL DEFAULT 30
-        CONSTRAINT chk_system_configs_login_session_expiration_days CHECK (login_session_expiration_days > 0);
+	ADD COLUMN login_session_expiration_days INT NOT NULL DEFAULT 30
+		CONSTRAINT chk_system_configs_login_session_expiration_days CHECK (login_session_expiration_days > 0);

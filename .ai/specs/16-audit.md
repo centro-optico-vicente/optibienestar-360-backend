@@ -36,7 +36,7 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 - **V68__system_configs_audit_overrides.sql** — override global sobre `system_configs` (V67): `data_change_audit_mode`, `report_audit_mode`, `login_audit_enabled` (ver Decisión 8).
 - **V69__audit_view_all_permission.sql** — `AUDIT_VIEW_ALL` (cambios de datos, cross-entity).
 - **V70__report_audit_view_all_permission.sql** — `REPORT_AUDIT_VIEW_ALL` (reportes, cross-entity) — mismo patrón que V69.
-- **V71__report_audit_granular_permissions.sql.sql** — permisos granules para las auditorias de reportes generados desde cada entidad.
+- **V71__report_audit_granular_permissions.sql** — `<DOMAIN>_REPORT_AUDIT_VIEW` por dominio (espejo de `<DOMAIN>_AUDIT_VIEW` de V66, pero para `report_audit_log` en vez de `data_change_audit_log`; distinto de `<DOMAIN>_REPORT_GENERATE`, que es permiso para *generar*, no para *ver el historial*). `REPORT_AUDIT_VIEW_ALL` (V70) sigue siendo el override cross-entity.
 - **V72__system_configs_login_session_expiration.sql** — `login_session_expiration_days` (default 30, `CHECK > 0`) en `system_configs` — cuántos días dura activa una sesión de `login_audit_log` antes de que `LoginSessionSweepJob` la expire, configurable sin redeploy e independiente de `jwt.refresh-expiration-days` (TTL del JWT en sí).
 
 Todas con `SET search_path TO app, public;` (convención de `V41__subsidies.sql`).
