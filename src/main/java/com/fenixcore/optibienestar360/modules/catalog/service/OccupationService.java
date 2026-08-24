@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -81,6 +83,7 @@ public class OccupationService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "occupation", action = AuditAction.CREATE)
     public OccupationDto create(OccupationCreateRequest req) {
         Occupation o = new Occupation();
         o.setName(req.name());
@@ -90,6 +93,7 @@ public class OccupationService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "occupation", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public OccupationDto update(UUID uuid, OccupationUpdateRequest req) {
         Occupation o = find(uuid);
         o.setName(req.name());
@@ -106,6 +110,7 @@ public class OccupationService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "occupation", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Occupation o = find(uuid);
         long usages = countUsages(uuid);

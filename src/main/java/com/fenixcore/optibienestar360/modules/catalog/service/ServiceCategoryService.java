@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
@@ -71,6 +73,7 @@ public class ServiceCategoryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "service_category", action = AuditAction.CREATE)
     public ServiceCategoryDto create(ServiceCategoryCreateRequest req) {
         ServiceCategory s = new ServiceCategory();
         s.setCode(req.code());
@@ -81,6 +84,7 @@ public class ServiceCategoryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "service_category", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public ServiceCategoryDto update(UUID uuid, ServiceCategoryUpdateRequest req) {
         ServiceCategory s = find(uuid);
         s.setName(req.name());
@@ -97,6 +101,7 @@ public class ServiceCategoryService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "service_category", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         ServiceCategory s = find(uuid);
         long usages = countUsages(uuid);

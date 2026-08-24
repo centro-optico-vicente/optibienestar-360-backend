@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -85,6 +87,7 @@ public class MaritalStatusService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "marital_status", action = AuditAction.CREATE)
     public MaritalStatusDto create(MaritalStatusCreateRequest req) {
         MaritalStatus m = new MaritalStatus();
         m.setCode(req.code());
@@ -94,6 +97,7 @@ public class MaritalStatusService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "marital_status", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MaritalStatusDto update(UUID uuid, MaritalStatusUpdateRequest req) {
         MaritalStatus m = find(uuid);
         m.setName(req.name());
@@ -109,6 +113,7 @@ public class MaritalStatusService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
+    @Auditable(entity = "marital_status", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         MaritalStatus m = find(uuid);
         long usages = countUsages(uuid);
