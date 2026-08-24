@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.auth;
 
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.UserAllyDto;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyUsersService;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
@@ -36,6 +38,7 @@ import java.util.UUID;
 public class AdminUserController {
 
     private final UserService userService;
+    private final AllyUsersService allyUsersService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
@@ -88,6 +91,18 @@ public class AdminUserController {
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
     public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
         return ResponseEntity.ok(userService.getUsage(uuid));
+    }
+
+    /**
+     * Reverse lookup of {@code /v1/admin/allies/{allyUuid}/users} — "which
+     * allies is this user staff of?", for the user detail page. Gated by the
+     * same {@code ALLY_VIEW_ALL} permission as the forward listing since
+     * it's the identical data queried from the other side.
+     */
+    @GetMapping("/{uuid}/allies")
+    @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
+    public ResponseEntity<List<UserAllyDto>> allies(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(allyUsersService.listAlliesForUser(uuid));
     }
 
     @DeleteMapping("/{uuid}")

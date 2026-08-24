@@ -27,8 +27,10 @@ import java.util.UUID;
  * system users can operate on this ally and with what intra-ally role
  * (OWNER / STAFF / VIEWER) + primary contact flag.
  *
- * <p>Guarded by {@code ALLY_UPDATE} — managing memberships is part of
- * managing the ally itself.</p>
+ * <p>Reads are guarded by {@code ALLY_VIEW_ALL}. Writes are guarded by
+ * {@code ALLY_USERS_MANAGE} — a dedicated permission distinct from
+ * {@code ALLY_UPDATE} (which governs the ally's own business data, not who
+ * operates on its behalf).</p>
  */
 @RestController
 @RequestMapping("/v1/admin/allies/{allyUuid}/users")
@@ -51,7 +53,7 @@ public class AdminAllyUsersController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ALLY_UPDATE')")
+    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
     public ResponseEntity<AllyUserDto> add(@PathVariable UUID allyUuid,
                                            @Valid @RequestBody AllyUserCreateRequest request) {
         AllyUserDto created = usersService.add(allyUuid, request);
@@ -63,7 +65,7 @@ public class AdminAllyUsersController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_UPDATE')")
+    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
     public ResponseEntity<AllyUserDto> update(@PathVariable UUID allyUuid,
                                               @PathVariable UUID uuid,
                                               @Valid @RequestBody AllyUserUpdateRequest request) {
@@ -71,7 +73,7 @@ public class AdminAllyUsersController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_UPDATE')")
+    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
     public ResponseEntity<Void> delete(@PathVariable UUID allyUuid,
                                        @PathVariable UUID uuid) {
         usersService.delete(allyUuid, uuid);

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.auth.mapper;
 
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
+import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -12,6 +13,13 @@ import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
+
+    @Mapping(target = "userUuid", source = "uuid")
+    @Mapping(target = "email",    source = "email")
+    @Mapping(target = "fullName", source = "person.fullName")
+    @Mapping(target = "status",   source = "status")
+    @Mapping(target = "active",   source = "active")
+    RoleUserDto toRoleUserDto(User user);
 
     @Mapping(target = "uuid",              source = "uuid")
     @Mapping(target = "email",             source = "email")
