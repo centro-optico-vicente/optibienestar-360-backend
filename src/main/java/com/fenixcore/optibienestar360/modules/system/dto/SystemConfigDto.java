@@ -11,5 +11,6 @@ public record SystemConfigDto(
         AuditMode dataChangeAuditMode,
         AuditMode reportAuditMode,
         boolean loginAuditEnabled,
+	int loginSessionExpirationDays,
         Instant updatedAt
 ) {}

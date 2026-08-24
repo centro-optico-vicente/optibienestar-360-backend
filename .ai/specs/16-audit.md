@@ -36,7 +36,8 @@ Se usó como referencia el patrón legado de `proyecto-iv-mh` (`tseg_BITACORA_AC
 - **V68__system_configs_audit_overrides.sql** — override global sobre `system_configs` (V67): `data_change_audit_mode`, `report_audit_mode`, `login_audit_enabled` (ver Decisión 8).
 - **V69__audit_view_all_permission.sql** — `AUDIT_VIEW_ALL` (cambios de datos, cross-entity).
 - **V70__report_audit_view_all_permission.sql** — `REPORT_AUDIT_VIEW_ALL` (reportes, cross-entity) — mismo patrón que V69.
-- **V71__report_audit_granular_permissions.sql.sql** — permisos granules para las auditorias de reportes generados desde cada entidad.
+- **V71__report_audit_granular_permissions.sql** — `<DOMAIN>_REPORT_AUDIT_VIEW` por dominio (espejo de `<DOMAIN>_AUDIT_VIEW` de V66, pero para `report_audit_log` en vez de `data_change_audit_log`; distinto de `<DOMAIN>_REPORT_GENERATE`, que es permiso para *generar*, no para *ver el historial*). `REPORT_AUDIT_VIEW_ALL` (V70) sigue siendo el override cross-entity.
+- **V72__system_configs_login_session_expiration.sql** — `login_session_expiration_days` (default 30, `CHECK > 0`) en `system_configs` — cuántos días dura activa una sesión de `login_audit_log` antes de que `LoginSessionSweepJob` la expire, configurable sin redeploy e independiente de `jwt.refresh-expiration-days` (TTL del JWT en sí).
 
 Todas con `SET search_path TO app, public;` (convención de `V41__subsidies.sql`).
 
@@ -123,7 +124,7 @@ CREATE INDEX idx_login_audit_session_status ON login_audit_log (session_status) 
 CREATE INDEX idx_login_audit_is_valid       ON login_audit_log (uuid) WHERE is_valid = TRUE;
 ```
 
-**Sesión + claim `sid`**: en login exitoso la fila se inserta **antes** de generar los tokens (se reordena `AuthService.login()`), con `session_status='ACTIVE'` y `session_expires_at = now() + refresh-expiration-days`. Su `uuid` se incluye como claim `sid` en access y refresh token (`JwtService.generateAccessToken`/`generateRefreshToken` ganan el parámetro `sessionId`). `roles`/`locale` son snapshot porque pueden cambiar después del login.
+**Sesión + claim `sid`**: en login exitoso la fila se inserta **antes** de generar los tokens (se reordena `AuthService.login()`), con `session_status='ACTIVE'` y `session_expires_at = now() + system_configs.login_session_expiration_days` (V71, configurable sin redeploy, default 30 — independiente de `jwt.refresh-expiration-days`, que solo controla el TTL del propio JWT). Su `uuid` se incluye como claim `sid` en access y refresh token (`JwtService.generateAccessToken`/`generateRefreshToken` ganan el parámetro `sessionId`). `roles`/`locale` son snapshot porque pueden cambiar después del login.
 
 **Chequeo simple con `is_valid` (evita comparar fechas/estados en el hot path)**:
 - `AuthService.logout()` marca `is_valid=false`, `session_status='LOGGED_OUT'`, `logged_out_at=now()` de inmediato.
@@ -253,9 +254,29 @@ Flujo del `@Around("@annotation(auditable)")`:
 
 Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto): solo se agrega `@Auditable(entity="ally", action=..., uuidArgIndex=0)` sobre los métodos existentes.
 
-## Login (`AuthService.java`)
+## Login (`AuthService.java`) — **implementado**
 
-`login()` resuelve `ip`/`userAgent`/`hostname` una sola vez y registra en `login_audit_log` en cada salida (email no encontrado, cuenta bloqueada, password incorrecto, éxito). En éxito, la fila se inserta antes de generar los tokens para poder embeber su `uuid` como `sid`. `user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas.
+`AuthService.login()` resuelve `ip`/`userAgent`/`hostname` una sola vez (vía `HttpServletRequest`) y llama a `LoginAuditService` en cada salida:
+
+- `findByEmail` (no `findByEmailAndActiveTrue`) para poder distinguir email inexistente de cuenta inactiva a efectos de auditoría — la respuesta al cliente sigue siendo el mismo error genérico en ambos casos, solo cambia lo que se registra.
+- **Email no encontrado** → `recordFailure(..., FAILED_CREDENTIALS, "email_not_found", ...)`, `userId=null`.
+- **Cuenta inactiva** → `recordFailure(..., FAILED_INACTIVE, "account_inactive", ...)`.
+- **Cuenta bloqueada** (`lockedUntil` futuro) → `recordFailure(..., FAILED_LOCKED, "account_locked", ...)`.
+- **Password incorrecto** → `recordFailure(..., FAILED_CREDENTIALS, "bad_password", ...)` (además del contador `failedLoginAttempts` existente, sin relación entre ambos mecanismos).
+- **Éxito** → `startSession(...)` inserta la fila **antes** de generar los tokens (`session_status=ACTIVE`, `session_expires_at = now() + system_configs.login_session_expiration_days` (configurable sin redeploy, default 30 — independiente de `jwt.refresh-expiration-days`, que solo controla el TTL del propio JWT), `roles`/`locale` como snapshot), devolviendo su `uuid` como `sid`; `JwtService.generateAccessToken`/`generateRefreshToken` ganan un parámetro `sessionId` que se embebe como claim `sid` (ambos tokens). Una vez generado el access token, `attachJti(sid, accessJti)` completa la fila. `refresh()` extrae el `sid` del refresh token entrante y lo propaga a los tokens reemitidos (misma sesión, no una nueva); `updateMyLocale` hace lo mismo vía `principal.getSessionId()` (nuevo campo en `CustomUserDetails`, poblado por `JwtAuthenticationFilter` desde el claim).
+- **`login_audit_enabled=false`** (override global, Decisión 8): `startSession`/`recordFailure` no insertan nada; los tokens se emiten sin claim `sid`. `JwtAuthenticationFilter` trata la ausencia de `sid` como "nada que verificar" (nunca rechaza por eso) — el blacklist de `jti` sigue siendo la garantía de seguridad independiente.
+
+`user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas (`AuthService.logout()` sigue cerrándolo igual que antes).
+
+**Chequeo `is_valid` en el hot path** — `JwtAuthenticationFilter` extrae el claim `sid` y llama a `LoginAuditService.isSessionValid(sid)`, respaldado por `LoginSessionValidityCache` (`@Cacheable("login-session")`, TTL 30s, mismo patrón self-invocation-safe que `AuditEntityConfigCache`). Contrato fail-safe: un `sid` desconocido (fila ausente) **sí rechaza** — es una señal legítima de token alterado; solo un error de infraestructura (excepción de BD/cache) falla abierto. Un token sin claim `sid` (auditoría deshabilitada al momento de emitirlo) no se verifica en absoluto.
+
+`AuthService.logout()` llama a `LoginAuditService.closeSession(sid, "user_logout")` (`is_valid=false`, `session_status=LOGGED_OUT`, `logged_out_at=now()`), además de invalidar la cache. `LoginSessionSweepJob` (`@Scheduled`, cada 5 min por defecto — `audit.login-session-sweep.fixed-delay-ms`) hace el barrido en lote (`UPDATE ... SET is_valid=false, session_status='EXPIRED' WHERE is_valid=true AND session_status='ACTIVE' AND session_expires_at < now()`), la única pieza que compara fechas.
+
+### Pendientes (backlog, no bloquean lo ya implementado)
+
+- **`refresh()` no valida `isSessionValid(sid)` antes de reemitir tokens.** Solo chequea expiración del JWT y el blacklist de `jti`. Consecuencia: pasado el vencimiento de la sesión, `/refresh` igual "funciona" y emite tokens con el `sid` ya inválido — no es un hueco de seguridad (el access token resultante es rechazado por `JwtAuthenticationFilter` en el primer uso), pero es confuso para el cliente. Corrección: que `refresh()` llame a `loginAuditService.isSessionValid(sid)` y falle con un código explícito (`auth.session.expired`) en vez de emitir tokens muertos.
+- **Política de expiración de sesión: deslizante + techo absoluto (recomendado), no solo fija.** Hoy `session_expires_at` se fija una única vez en el login (`now() + refresh-expiration-days`) y `refresh()` nunca la mueve — actividad constante no extiende la sesión, lo cual es correcto contra el riesgo de "sesión eterna" pero puede desloguear a un usuario activo a mitad de jornada. El patrón estándar (Auth0/Cognito) es: cada `refresh()` exitoso extiende `session_expires_at` (representa actividad), pero nunca más allá de un `absolute_expires_at` fijado en el login original (ej. 90 días) — requiere agregar esa segunda columna a `login_audit_log` y el cálculo `session_expires_at = min(now() + refresh-expiration-days, absolute_expires_at)` en `refresh()`.
+- **Cierre por inactividad (24h sin actividad) aún no implementado** — requiere un `last_activity_at` en `login_audit_log` actualizado (con throttling, para no escribir en cada request) desde `JwtAuthenticationFilter`, y que `LoginSessionSweepJob` también expire por `last_activity_at < now() - 24h`, independiente del vencimiento por `session_expires_at`/`absolute_expires_at` de arriba.
 
 ## Reportes (`modules/document/generic/`) — **implementado**
 
@@ -281,7 +302,7 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
     6. Cualquier otro string libre (nombres, emails, notas) → sin `_Display`, ya es legible.
 - **`GET /v1/admin/audit/reports`** — **implementado.** `core/audit/controller/AdminReportAuditController.java`, respaldado por `ReportAuditQueryService`. Query params: `reportType` (`GENERIC`/`RECORD`/`TABLE`), `entityKey`, `entityUuid`, `actorUuid`, `format` (`PDF`/`XLSX`), `from`/`to` (rango `generatedAt`), `filter` (RSQL contra un allowlist: `reportType`, `entityKey`, `entityId`, `entityUuid`, `format`, `generatedAt`, `createdAt`). Paginado (`Page<ReportAuditLogDto>` estándar de Spring — no necesita el wrapper `firstChange` de `data-changes`, ya que "el primer reporte generado" no es un concepto que este endpoint necesite resolver), tope 200, protegido por `REPORT_AUDIT_VIEW_ALL` (V70, mismo patrón que `AUDIT_VIEW_ALL`/V69 pero para `report_audit_log`).
   - **`GET /v1/admin/audit/reports/{uuid}/download`** — **implementado.** Devuelve `{"url": "..."}` con una URL presignada (15 min) al archivo almacenado; 404 (`audit.report.not_found`/`audit.report.file_not_found`) si la fila no existe o su `attached_file_id` es `NULL` (upload nunca ocurrió o falló en el momento de generar el reporte).
-- `/logins` — **sin implementar** (depende de que `AuthService.login()` empiece a escribir en `login_audit_log`, spec §Login).
+- **`GET /v1/admin/audit/logins`** — **implementado.** `core/audit/controller/AdminLoginAuditController.java`, respaldado por `LoginAuditQueryService`. Filtros: `email`, `userUuid`, `result` (`SUCCESS`/`FAILED_CREDENTIALS`/`FAILED_LOCKED`/`FAILED_INACTIVE`), `from`/`to` (rango `attemptedAt`), `filter` (RSQL contra un allowlist: `attemptedEmail`, `result`, `userId`, `sessionStatus`, `valid`, `attemptedAt`, `createdAt`). Paginado (`Page<LoginAuditLogDto>` estándar), tope 200, protegido por `AUDIT_VIEW_LOGIN` (V64, ya existente). `LoginAuditLogDto.result_Display` es el resultado traducido vía `MessageSource` (`audit.login.result.<RESULT>`).
 - `GET /v1/admin/audit/config` y `PATCH /v1/admin/audit/config/{entityKey}` con `@CacheEvict` sobre `audit-config`. — **sin implementar** (el servicio `AuditEntityConfigService`/`AuditEntityConfigCache` ya existen y quedan listos para que este endpoint los use).
 
 ## Permisos granulares por dominio

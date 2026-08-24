@@ -48,7 +48,7 @@ public class MeController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @Valid @RequestBody LocalePreferenceRequest request) {
         return ResponseEntity.ok(
-                authService.updateMyLocale(principal.getUuid(), request.locale(), principal.getJti())
+                authService.updateMyLocale(principal.getUuid(), request.locale(), principal.getJti(), principal.getSessionId())
         );
     }
 }

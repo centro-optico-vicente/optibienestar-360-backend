@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
+import com.fenixcore.optibienestar360.core.audit.LoginAuditResult;
+import com.fenixcore.optibienestar360.core.audit.LoginAuditService;
 import com.fenixcore.optibienestar360.core.exception.AccountLockedException;
 import com.fenixcore.optibienestar360.core.exception.AuthenticationException;
 import com.fenixcore.optibienestar360.modules.auth.dto.AccessTokenResponse;
@@ -43,6 +45,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -64,6 +67,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final EmailService emailService;
     private final MessageSource messageSource;
+    private final LoginAuditService loginAuditService;
 
     @Value("${jwt.access-expiration-minutes:15}")
     private int accessExpirationMinutes;
@@ -75,15 +79,37 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
-        User user = userRepository.findByEmailAndActiveTrue(request.email())
-                .orElseThrow(() -> new AuthenticationException(GENERIC_AUTH_ERROR));
+        String ip = resolveClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String hostname = httpRequest.getRemoteHost();
 
-        checkAccountNotLocked(user);
+        // findByEmail (not findByEmailAndActiveTrue) so an inactive account can be
+        // told apart from a nonexistent email for login_audit_log's FAILED_INACTIVE
+        // (spec 16-audit.md §Login) — the response to the caller stays identical either way.
+        User user = userRepository.findByEmail(request.email()).orElse(null);
+        if (user == null) {
+            loginAuditService.recordFailure(request.email(), null, LoginAuditResult.FAILED_CREDENTIALS,
+                    "email_not_found", ip, userAgent, hostname);
+            throw new AuthenticationException(GENERIC_AUTH_ERROR);
+        }
+        if (!user.isActive()) {
+            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_INACTIVE,
+                    "account_inactive", ip, userAgent, hostname);
+            throw new AuthenticationException(GENERIC_AUTH_ERROR);
+        }
+
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(Instant.now())) {
+            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_LOCKED,
+                    "account_locked", ip, userAgent, hostname);
+            throw new AccountLockedException(user.getLockedUntil());
+        }
 
         SecurityPolicy policy = activePolicy();
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             handleFailedAttempt(user, policy);
+            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_CREDENTIALS,
+                    "bad_password", ip, userAgent, hostname);
             throw new AuthenticationException(GENERIC_AUTH_ERROR);
         }
 
@@ -93,14 +119,26 @@ public class AuthService {
         String subject = user.getUuid().toString();
         String userLocale = user.getPerson().getLocale();
         String effectiveLocale = resolveEffectiveLocale(userLocale);
-        String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale);
-        String refreshToken = jwtService.generateRefreshToken(subject);
+
+        List<String> roleNames = user.getUserRoles().stream().map(ur -> ur.getRole().getName()).toList();
+
+        // Inserted BEFORE the tokens so its uuid can be embedded as the sid claim
+        // (spec §Login) — empty when login_audit_enabled=false, in which case the
+        // tokens simply carry no sid (JwtAuthenticationFilter treats that as "no
+        // session check to perform", never a rejection).
+        Optional<UUID> sessionId = loginAuditService.startSession(user.getId(), user.getEmail(), roleNames,
+                effectiveLocale, ip, userAgent, hostname, refreshExpirationDays);
+
+        String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale, sessionId.orElse(null));
+        String refreshToken = jwtService.generateRefreshToken(subject, sessionId.orElse(null));
 
         String accessJti  = jwtService.extractJti(accessToken);
         String refreshJti = jwtService.extractJti(refreshToken);
 
         long refreshTtlSeconds = (long) refreshExpirationDays * 24 * 60 * 60;
         blacklistService.storeRefreshToken(refreshJti, subject, refreshTtlSeconds);
+
+        sessionId.ifPresent(sid -> loginAuditService.attachJti(sid, accessJti));
 
         logSession(user, accessJti, httpRequest, effectiveLocale);
 
@@ -136,9 +174,18 @@ public class AuthService {
 
         blacklistService.revokeRefreshToken(refreshJti, subject);
 
+        // Carries the same sid forward — a refresh reissues tokens for the same
+        // login_audit_log session row, it doesn't start a new one.
+        UUID sessionId = jwtService.extractSessionId(token);
+
         List<String> permissions = collectPermissions(user);
-        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale());
-        String newRefreshToken = jwtService.generateRefreshToken(subject);
+        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale(), sessionId);
+        String newRefreshToken = jwtService.generateRefreshToken(subject, sessionId);
+
+        String newAccessJti    = jwtService.extractJti(newAccessToken);
+        if (sessionId != null) {
+            loginAuditService.attachJti(sessionId, newAccessJti);
+        }
 
         String newRefreshJti   = jwtService.extractJti(newRefreshToken);
         long refreshTtlSeconds = (long) refreshExpirationDays * 24 * 60 * 60;
@@ -159,6 +206,8 @@ public class AuthService {
         String jti = jwtService.extractJti(accessToken);
         long ttl   = jwtService.getRemainingTtlSeconds(accessToken);
         blacklistService.blacklistAccessToken(jti, ttl);
+
+        loginAuditService.closeSession(jwtService.extractSessionId(accessToken), "user_logout");
 
         String subject = jwtService.extractSubject(accessToken);
 
@@ -278,6 +327,12 @@ public class AuthService {
      */
     @Transactional
     public AccessTokenResponse updateMyLocale(UUID userUuid, String newLocale, String currentJti) {
+        return updateMyLocale(userUuid, newLocale, currentJti, null);
+    }
+
+    /** @param sessionId carried forward from the current token's {@code sid} claim (principal.getSessionId()) — same session, just a new locale claim. */
+    @Transactional
+    public AccessTokenResponse updateMyLocale(UUID userUuid, String newLocale, String currentJti, UUID sessionId) {
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
 
@@ -286,7 +341,10 @@ public class AuthService {
 
         List<String> permissions = collectPermissions(user);
         String subject = user.getUuid().toString();
-        String newAccessToken = jwtService.generateAccessToken(subject, permissions, newLocale);
+        String newAccessToken = jwtService.generateAccessToken(subject, permissions, newLocale, sessionId);
+        if (sessionId != null) {
+            loginAuditService.attachJti(sessionId, jwtService.extractJti(newAccessToken));
+        }
 
         if (currentJti != null) {
             blacklistService.blacklistAccessToken(currentJti, (long) accessExpirationMinutes * 60);
@@ -304,12 +362,6 @@ public class AuthService {
     private SecurityPolicy activePolicy() {
         return securityPolicyRepository.findFirstByActiveTrue()
                 .orElseGet(SecurityPolicy::new);
-    }
-
-    private void checkAccountNotLocked(User user) {
-        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(Instant.now())) {
-            throw new AccountLockedException(user.getLockedUntil());
-        }
     }
 
     private void handleFailedAttempt(User user, SecurityPolicy policy) {

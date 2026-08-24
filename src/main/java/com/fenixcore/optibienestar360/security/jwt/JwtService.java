@@ -35,11 +35,20 @@ public class JwtService {
     }
 
     public String generateAccessToken(String subject, List<String> permissions, String locale) {
-        return buildToken(subject, permissions, accessExpirationMs, "access", locale);
+        return generateAccessToken(subject, permissions, locale, null);
+    }
+
+    /** @param sessionId the {@code sid} claim (login_audit_log.uuid) — null when no session row was created. */
+    public String generateAccessToken(String subject, List<String> permissions, String locale, UUID sessionId) {
+        return buildToken(subject, permissions, accessExpirationMs, "access", locale, sessionId);
     }
 
     public String generateRefreshToken(String subject) {
-        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null);
+        return generateRefreshToken(subject, null);
+    }
+
+    public String generateRefreshToken(String subject, UUID sessionId) {
+        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null, sessionId);
     }
 
     public Claims extractAllClaims(String token) {
@@ -63,6 +72,12 @@ public class JwtService {
     public String extractLocale(String token) {
         Object locale = extractAllClaims(token).get("locale");
         return (locale instanceof String s) ? s : null;
+    }
+
+    /** The {@code sid} claim (login_audit_log.uuid) — null for tokens issued with no session row. */
+    public UUID extractSessionId(String token) {
+        Object sid = extractAllClaims(token).get("sid");
+        return (sid instanceof String s) ? UUID.fromString(s) : null;
     }
 
     public boolean isValid(String token) {
@@ -101,7 +116,7 @@ public class JwtService {
         return Math.max(0L, remaining / 1_000);
     }
 
-    private String buildToken(String subject, List<String> roles, long ttlMs, String type, String locale) {
+    private String buildToken(String subject, List<String> roles, long ttlMs, String type, String locale, UUID sessionId) {
         Date now = new Date();
         var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString())
@@ -113,6 +128,9 @@ public class JwtService {
                 .claim("type", type);
         if (locale != null && !locale.isBlank()) {
             builder.claim("locale", locale);
+        }
+        if (sessionId != null) {
+            builder.claim("sid", sessionId.toString());
         }
         return builder.signWith(secretKey).compact();
     }

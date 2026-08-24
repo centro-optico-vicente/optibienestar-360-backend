@@ -56,7 +56,8 @@ public class RedisCacheConfig {
                 "catalogs",     base.entryTtl(Duration.ofHours(1)),
                 "validator",    base.entryTtl(Duration.ofSeconds(60)),
                 "users",        base.entryTtl(Duration.ofMinutes(15)),
-                "audit-config", base.entryTtl(Duration.ofSeconds(60))
+                "audit-config", base.entryTtl(Duration.ofSeconds(60)),
+                "login-session", base.entryTtl(Duration.ofSeconds(30))
         );
 
         return RedisCacheManager.builder(connectionFactory)

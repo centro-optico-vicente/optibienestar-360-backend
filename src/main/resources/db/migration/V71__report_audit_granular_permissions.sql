@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V72: per-domain permission to view the *report generation* audit trail
+-- V71: per-domain permission to view the *report generation* audit trail
 -- (report_audit_log — who generated which report, when), mirroring V66's
 -- <DOMAIN>_AUDIT_VIEW (data-change history) but for GET /v1/admin/audit/reports
 -- scoped by entityKey. REPORT_AUDIT_VIEW_ALL (V70) remains the cross-entity
@@ -74,7 +74,7 @@ BEGIN
 	]
 	LOOP
 		IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = new_permission) THEN
-			RAISE EXCEPTION 'V72: % was not created', new_permission;
+			RAISE EXCEPTION 'V71: % was not created', new_permission;
 		END IF;
 
 		IF NOT EXISTS (
@@ -82,7 +82,7 @@ BEGIN
 					JOIN roles r       ON r.roles_id = rp.role_id AND r.name = 'SYSTEM'
 					JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = new_permission
 		) THEN
-			RAISE EXCEPTION 'V72: SYSTEM did not receive % (V30 trigger?)', new_permission;
+			RAISE EXCEPTION 'V71: SYSTEM did not receive % (V30 trigger?)', new_permission;
 		END IF;
 
 		IF NOT EXISTS (
@@ -90,7 +90,7 @@ BEGIN
 					JOIN roles r       ON r.roles_id = rp.role_id AND r.name = 'ADMINISTRADOR'
 					JOIN permissions p ON p.permissions_id = rp.permission_id AND p.name = new_permission
 		) THEN
-			RAISE EXCEPTION 'V72: ADMINISTRADOR did not receive %', new_permission;
+			RAISE EXCEPTION 'V71: ADMINISTRADOR did not receive %', new_permission;
 		END IF;
 	END LOOP;
 END $$;
