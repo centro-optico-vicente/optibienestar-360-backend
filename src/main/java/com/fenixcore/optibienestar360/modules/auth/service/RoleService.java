@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
+import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UpdateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.entity.Permission;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
@@ -216,6 +217,67 @@ public class RoleService {
         // role in their JWT claim until refresh, but the role is now
         // inactive and its permissions should no longer count.
         invalidateAllUsersOf(role);
+    }
+
+    // ─── Role membership: /v1/admin/roles/{roleUuid}/users ─────────────────
+
+    /** Users currently assigned to {@code roleUuid} (active pivot rows only). */
+    public List<RoleUserDto> listUsers(UUID roleUuid) {
+        Role role = findRole(roleUuid);
+        return userRoleRepository.findByRoleIdAndActiveTrue(role.getId()).stream()
+                .map(UserRole::getUser)
+                .map(userMapper::toRoleUserDto)
+                .toList();
+    }
+
+    /**
+     * Assigns {@code userUuid} to {@code roleUuid}. Reuses the existing pivot
+     * row (reactivating it) when one already exists — same
+     * reactivate-on-readmission approach as {@code AllyUsersService.add} —
+     * otherwise inserts a new {@code user_roles} row.
+     *
+     * <p>The assigned user's JWT {@code permissions} claim is now stale (it
+     * gained this role's permissions), so its token-staleness epoch is bumped
+     * the same way {@link #updateRolePermissions} does.</p>
+     */
+    @Transactional
+    @Auditable(entity = "user_role", action = AuditAction.CREATE, uuidArgIndex = 0)
+    public void assignUser(UUID roleUuid, UUID userUuid) {
+        Role role = findRole(roleUuid);
+        User user = findUser(userUuid);
+
+        UserRole userRole = userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId())
+                .orElseGet(UserRole::new);
+        userRole.setUser(user);
+        userRole.setRole(role);
+        userRole.setActive(true);
+        userRoleRepository.save(userRole);
+
+        blacklistService.markUserInvalidatedNow(userUuid.toString());
+    }
+
+    /**
+     * Removes {@code userUuid} from {@code roleUuid} — soft-remove (the pivot
+     * row is deactivated, never deleted, mirroring {@code AllyUsersService.delete}).
+     * No-op (idempotent) if the user has no active assignment to this role.
+     */
+    @Transactional
+    @Auditable(entity = "user_role", action = AuditAction.DELETE, uuidArgIndex = 0)
+    public void removeUser(UUID roleUuid, UUID userUuid) {
+        Role role = findRole(roleUuid);
+        User user = findUser(userUuid);
+
+        userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId())
+                .filter(UserRole::isActive)
+                .ifPresent(userRole -> {
+                    userRole.setActive(false);
+                    blacklistService.markUserInvalidatedNow(userUuid.toString());
+                });
+    }
+
+    private User findUser(UUID uuid) {
+        return userRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
     }
 
     /**

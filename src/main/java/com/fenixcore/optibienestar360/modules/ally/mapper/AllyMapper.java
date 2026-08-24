@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.UserAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
@@ -121,6 +122,18 @@ public interface AllyMapper {
     @Mapping(target = "logoUrl",      source = "ally.logoUrl")
     @Mapping(target = "phone",        source = "ally.phone")
     MyAllyDto toMyAllyDto(AllyUser allyUser);
+
+    /**
+     * Admin reverse-lookup projection for {@code GET
+     * /v1/admin/users/{userUuid}/allies}. Same perspective flip as {@link
+     * #toMyAllyDto} (identity from the ally, membership from the pivot) but
+     * keeps {@code active} explicit since the admin caller isn't implicitly
+     * scoped to "only my active memberships" the way {@code /v1/me/allies}
+     * is.
+     */
+    @Mapping(target = "allyUuid",  source = "ally.uuid")
+    @Mapping(target = "allyName",  source = "ally.name")
+    UserAllyDto toUserAllyDto(AllyUser allyUser);
 
     // ─── Nested catalog DTOs (default methods consumed by the generated impl) ─
 

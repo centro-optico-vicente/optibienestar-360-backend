@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.dto.UserAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
@@ -60,6 +61,22 @@ public class AllyUsersService {
 
     public AllyUserDto get(UUID allyUuid, UUID membershipUuid) {
         return mapper.toAllyUserDto(findMembershipUnderAlly(allyUuid, membershipUuid));
+    }
+
+    /**
+     * Reverse lookup for {@code GET /v1/admin/users/{userUuid}/allies} —
+     * "which allies is this user staff of?". Avoids the N+1 the admin
+     * frontend would otherwise need (fetch all allies, then query staff per
+     * ally) to render a user's ally memberships on their detail page.
+     *
+     * @throws NoSuchElementException if no user exists with that uuid.
+     */
+    public List<UserAllyDto> listAlliesForUser(UUID userUuid) {
+        User user = userRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        return allyUserRepository.findByUserIdAndActiveTrue(user.getId()).stream()
+                .map(mapper::toUserAllyDto)
+                .toList();
     }
 
     @Transactional
