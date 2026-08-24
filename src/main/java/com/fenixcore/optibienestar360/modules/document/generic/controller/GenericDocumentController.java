@@ -31,6 +31,11 @@ public class GenericDocumentController {
 
     private static final Pattern UUID_PATTERN = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
+    // Maps DB/route table names to the canonical singular audit entity key used by AuditEntityAccess.
+    private static final Map<String, String> TABLE_TO_AUDIT_ENTITY_KEY = Map.of(
+            "allies", "ally"
+    );
+
     private final GenericRecordReportService recordReportService;
     private final GenericRecordResolverService recordResolverService;
     private final MessageSource messageSource;
@@ -112,7 +117,7 @@ public class GenericDocumentController {
         );
 
         UUID entityUuid = UUID_PATTERN.matcher(identifier).matches() ? UUID.fromString(identifier) : null;
-        reportAuditService.recordGeneration("RECORD", entityOrTable.trim().toLowerCase().replace("-", "_"), entityUuid,
+        reportAuditService.recordGeneration("RECORD", toAuditEntityKey(entityOrTable), entityUuid,
                 businessIdentifier, selectedFormat.name(), null, rendered.content(), rendered.fileName(), rendered.contentType());
 
         return ResponseEntity.ok()
@@ -148,13 +153,18 @@ public class GenericDocumentController {
                 selectedFormat
         );
 
-        reportAuditService.recordGeneration("TABLE", targetTable.trim().toLowerCase().replace("-", "_"), null,
+        reportAuditService.recordGeneration("TABLE", toAuditEntityKey(targetTable), null,
                 null, selectedFormat.name(), Map.of("limit", limit), rendered.content(), rendered.fileName(), rendered.contentType());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")
                 .contentType(MediaType.parseMediaType(rendered.contentType()))
                 .body(rendered.content());
+    }
+
+    private String toAuditEntityKey(String entityOrTable) {
+        String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
+        return TABLE_TO_AUDIT_ENTITY_KEY.getOrDefault(normalized, normalized);
     }
 
     private String formatEntitySingularTitle(String entityOrTable) {
