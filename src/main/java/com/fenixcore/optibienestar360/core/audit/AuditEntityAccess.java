@@ -13,9 +13,11 @@ import java.util.UUID;
  * Dynamic {@code @PreAuthorize} check for {@code AdminDataChangeAuditController}/
  * {@code AdminReportAuditController}: grants access either via the blanket
  * {@code AUDIT_VIEW_ALL}/{@code REPORT_AUDIT_VIEW_ALL} (all entities) or the granular
- * {@code <DOMAIN>_AUDIT_VIEW}/{@code <DOMAIN>_REPORT_AUDIT_VIEW} permission for the specific
- * {@code entityKey} being queried (V66/V72). The granular data-change permissions were
- * introduced in V66 but never consumed by any endpoint until now — see spec 16-audit.md.
+ * {@code <DOMAIN>_RECORD_AUDIT_VIEW}/{@code <DOMAIN>_REPORT_AUDIT_VIEW} permission for the
+ * specific {@code entityKey} being queried (V66/V72/V77). The granular data-change permissions
+ * were introduced in V66 as {@code <DOMAIN>_AUDIT_VIEW} but never consumed by any endpoint until
+ * now — see spec 16-audit.md; renamed to {@code <DOMAIN>_RECORD_AUDIT_VIEW} in V77 to remove the
+ * suffix collision with {@code <DOMAIN>_REPORT_AUDIT_VIEW} (both used to end in "_AUDIT_VIEW").
  *
  * <p>{@code entityKey} values come from {@link Auditable#entity()} across the codebase and
  * are finer-grained than the 10 permission domains (e.g. {@code ally}, {@code ally_type},
@@ -31,37 +33,39 @@ public class AuditEntityAccess {
 	private static final String VIEW_ALL = "AUDIT_VIEW_ALL";
 
 	private static final Map<String, String> ENTITY_TO_PERMISSION = Map.ofEntries(
-		Map.entry("user", "USER_AUDIT_VIEW"),
-		Map.entry("member", "MEMBER_AUDIT_VIEW"),
-		Map.entry("member_document", "MEMBER_AUDIT_VIEW"),
-		Map.entry("member_promoter", "MEMBER_AUDIT_VIEW"),
-		Map.entry("beneficiary", "MEMBER_AUDIT_VIEW"),
-		Map.entry("medical_record", "MEMBER_AUDIT_VIEW"),
-		Map.entry("benefit_usage", "MEMBER_AUDIT_VIEW"),
-		Map.entry("ally", "ALLY_AUDIT_VIEW"),
-		Map.entry("ally_type", "ALLY_AUDIT_VIEW"),
-		Map.entry("ally_agreement", "ALLY_AUDIT_VIEW"),
-		Map.entry("ally_service", "ALLY_AUDIT_VIEW"),
-		Map.entry("ally_user", "ALLY_AUDIT_VIEW"),
-		Map.entry("plan", "PLAN_AUDIT_VIEW"),
-		Map.entry("membership", "MEMBERSHIP_AUDIT_VIEW"),
-		Map.entry("corporate_contract", "MEMBERSHIP_AUDIT_VIEW"),
-		Map.entry("subsidy", "MEMBERSHIP_AUDIT_VIEW"),
-		Map.entry("payment", "PAYMENT_AUDIT_VIEW"),
-		Map.entry("promoter", "PROMOTER_AUDIT_VIEW"),
-		Map.entry("commission_tier", "COMMISSION_AUDIT_VIEW"),
-		Map.entry("bonus_rule", "COMMISSION_AUDIT_VIEW"),
-		Map.entry("referral", "REFERRAL_AUDIT_VIEW"),
-		Map.entry("country", "COUNTRY_AUDIT_VIEW"),
-		Map.entry("state", "STATE_AUDIT_VIEW"),
-		Map.entry("city", "CITY_AUDIT_VIEW"),
-		Map.entry("gender", "GENDER_AUDIT_VIEW"),
-		Map.entry("document_type", "DOCUMENT_TYPE_AUDIT_VIEW"),
-		Map.entry("marital_status", "MARITAL_STATUS_AUDIT_VIEW"),
-		Map.entry("occupation", "OCCUPATION_AUDIT_VIEW"),
-		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_AUDIT_VIEW"),
-		Map.entry("service_category", "SERVICE_CATEGORY_AUDIT_VIEW"),
-		Map.entry("promoter_type", "PROMOTER_TYPE_AUDIT_VIEW"))
+		Map.entry("user", "USER_RECORD_AUDIT_VIEW"),
+		Map.entry("role", "ROLE_RECORD_AUDIT_VIEW"),
+		Map.entry("user_role", "ROLE_RECORD_AUDIT_VIEW"),
+		Map.entry("member", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("member_document", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("member_promoter", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("beneficiary", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("medical_record", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("benefit_usage", "MEMBER_RECORD_AUDIT_VIEW"),
+		Map.entry("ally", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("ally_type", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("ally_agreement", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("ally_service", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("ally_user", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("plan", "PLAN_RECORD_AUDIT_VIEW"),
+		Map.entry("membership", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
+		Map.entry("corporate_contract", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
+		Map.entry("subsidy", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
+		Map.entry("payment", "PAYMENT_RECORD_AUDIT_VIEW"),
+		Map.entry("promoter", "PROMOTER_RECORD_AUDIT_VIEW"),
+		Map.entry("commission_tier", "COMMISSION_RECORD_AUDIT_VIEW"),
+		Map.entry("bonus_rule", "COMMISSION_RECORD_AUDIT_VIEW"),
+		Map.entry("referral", "REFERRAL_RECORD_AUDIT_VIEW"),
+		Map.entry("country", "COUNTRY_RECORD_AUDIT_VIEW"),
+		Map.entry("state", "STATE_RECORD_AUDIT_VIEW"),
+		Map.entry("city", "CITY_RECORD_AUDIT_VIEW"),
+		Map.entry("gender", "GENDER_RECORD_AUDIT_VIEW"),
+		Map.entry("document_type", "DOCUMENT_TYPE_RECORD_AUDIT_VIEW"),
+		Map.entry("marital_status", "MARITAL_STATUS_RECORD_AUDIT_VIEW"),
+		Map.entry("occupation", "OCCUPATION_RECORD_AUDIT_VIEW"),
+		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_RECORD_AUDIT_VIEW"),
+		Map.entry("service_category", "SERVICE_CATEGORY_RECORD_AUDIT_VIEW"),
+		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"))
 	;
 
 	private static final String REPORT_VIEW_ALL = "REPORT_AUDIT_VIEW_ALL";
@@ -69,9 +73,11 @@ public class AuditEntityAccess {
 	// GenericDocumentController derives entityKey at runtime from the requested table/entity
 	// path segment (lower_snake_case), so it shares the same value space as @Auditable's
 	// entityKey — hence the same map, pointed at the <DOMAIN>_REPORT_AUDIT_VIEW permissions
-	// added in V72 instead of <DOMAIN>_AUDIT_VIEW.
+	// added in V72 instead of <DOMAIN>_RECORD_AUDIT_VIEW.
 	private static final Map<String, String> ENTITY_TO_REPORT_PERMISSION = Map.ofEntries(
 		Map.entry("user", "USER_REPORT_AUDIT_VIEW"),
+		Map.entry("role", "ROLE_REPORT_AUDIT_VIEW"),
+		Map.entry("user_role", "ROLE_REPORT_AUDIT_VIEW"),
 		Map.entry("member", "MEMBER_REPORT_AUDIT_VIEW"),
 		Map.entry("member_document", "MEMBER_REPORT_AUDIT_VIEW"),
 		Map.entry("member_promoter", "MEMBER_REPORT_AUDIT_VIEW"),
