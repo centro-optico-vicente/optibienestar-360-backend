@@ -93,4 +93,10 @@ public class AdminAllyController {
         alliesService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{uuid}/restore")
+    @PreAuthorize("hasAuthority('ALLY_DELETE')")
+    public ResponseEntity<AllyDetailDto> restore(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(alliesService.restore(uuid));
+    }
 }
