@@ -99,6 +99,11 @@ public class GenericRecordResolverService {
 
     @Transactional(readOnly = true)
     public List<?> findRecordsByTable(String targetTable, int limit, UUID actorUuid) {
+        return findRecordsByTable(targetTable, limit, actorUuid, null, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<?> findRecordsByTable(String targetTable, int limit, UUID actorUuid, String q, boolean includeInactive) {
         if (targetTable == null || targetTable.isBlank()) {
             throw new IllegalArgumentException("Target table must not be blank");
         }
@@ -113,31 +118,41 @@ public class GenericRecordResolverService {
         String simpleClassName = entityClass.getSimpleName();
         int maxResults = limit > 0 ? limit : 500;
         boolean actorIsSystem = isSystemActor(actorUuid);
+        String trimmedQ = (q != null && !q.isBlank()) ? q.trim() : null;
 
         StringBuilder hql = new StringBuilder("SELECT e FROM ").append(entityName).append(" e WHERE 1=1");
 
-        // 1. Filter active records if entity has 'active' property
-        if (hasAttribute(matchingEntityType, "active")) {
+        // 1. Filter active records if entity has 'active' property, unless the caller asked to include inactive ones
+        if (!includeInactive && hasAttribute(matchingEntityType, "active")) {
             hql.append(" AND e.active = true");
         }
 
-        // 2. Security for 'users' table: Hide users with SYSTEM role if actor is not SYSTEM
+        // 2. Free-text search on the entity's 'name' attribute, if present
+        if (trimmedQ != null && hasAttribute(matchingEntityType, "name")) {
+            hql.append(" AND LOWER(e.name) LIKE LOWER(:q)");
+        }
+
+        // 3. Security for 'users' table: Hide users with SYSTEM role if actor is not SYSTEM
         if (simpleClassName.equalsIgnoreCase("User")) {
             if (!actorIsSystem) {
                 hql.append(" AND NOT EXISTS (SELECT ur FROM UserRole ur WHERE ur.user = e AND ur.active = true AND ur.role.name = 'SYSTEM')");
             }
         }
 
-        // 3. Security for 'roles' table: Hide SYSTEM role if actor is not SYSTEM
+        // 4. Security for 'roles' table: Hide SYSTEM role if actor is not SYSTEM
         if (simpleClassName.equalsIgnoreCase("Role")) {
             if (!actorIsSystem) {
                 hql.append(" AND e.name != 'SYSTEM'");
             }
         }
 
-        return entityManager.createQuery(hql.toString(), entityClass)
-                .setMaxResults(maxResults)
-                .getResultList();
+        var typedQuery = entityManager.createQuery(hql.toString(), entityClass)
+                .setMaxResults(maxResults);
+        if (trimmedQ != null && hasAttribute(matchingEntityType, "name")) {
+            typedQuery.setParameter("q", "%" + trimmedQ + "%");
+        }
+
+        return typedQuery.getResultList();
     }
 
     private boolean isSystemActor(UUID actorUuid) {

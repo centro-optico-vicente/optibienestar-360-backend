@@ -298,6 +298,13 @@ public class AlliesService {
         ally.setPublished(false);
     }
 
+    /** Reverses a soft-delete (no-op if the ally is already active). */
+    public AllyDetailDto restore(UUID uuid) {
+        Ally ally = findManaged(uuid);
+        ally.setActive(true);
+        return mapper.toDetail(ally);
+    }
+
     // ─── Specialties sub-resource (single-item add / remove) ────────────────
 
     /**

@@ -135,12 +135,14 @@ public class GenericDocumentController {
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String subtitle,
             @RequestParam(defaultValue = "500") int limit,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean includeInactive,
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
         java.util.UUID actorUuid = actor != null ? actor.getUuid() : null;
         String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
 
-        java.util.List<?> records = recordResolverService.findRecordsByTable(targetTable, limit, actorUuid);
+        java.util.List<?> records = recordResolverService.findRecordsByTable(targetTable, limit, actorUuid, q, includeInactive);
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
 
         String documentTitle = (title != null && !title.isBlank()) ? title : "Listado de " + formatEntityPluralTitle(targetTable);
@@ -154,7 +156,8 @@ public class GenericDocumentController {
         );
 
         reportAuditService.recordGeneration("TABLE", toAuditEntityKey(targetTable), null,
-                null, selectedFormat.name(), Map.of("limit", limit), rendered.content(), rendered.fileName(), rendered.contentType());
+                null, selectedFormat.name(), Map.of("limit", limit, "q", q == null ? "" : q, "includeInactive", includeInactive),
+                rendered.content(), rendered.fileName(), rendered.contentType());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")
