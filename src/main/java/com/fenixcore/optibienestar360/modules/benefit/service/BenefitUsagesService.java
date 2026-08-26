@@ -66,6 +66,18 @@ public class BenefitUsagesService {
     }
 
     /**
+     * Same as {@link #listForAllyUser} but filtered by the member's document
+     * number or full name. A blank {@code search} falls back to the
+     * unfiltered query so callers don't need to branch.
+     */
+    public Page<BenefitUsageDto> listForAllyUser(UUID userUuid, String search, Pageable pageable) {
+        if (search == null || search.isBlank()) {
+            return listForAllyUser(userUuid, pageable);
+        }
+        return usageRepository.findByAllyUserUuidAndSearch(userUuid, search.trim(), pageable).map(mapper::toDto);
+    }
+
+    /**
      * Powers {@code GET /v1/me/usage-history} (vertical-9). The member's own
      * benefit-consumption feed across every ally, scoped to the caller via the
      * {@code user.person → member.person → membership} chain in the repository
