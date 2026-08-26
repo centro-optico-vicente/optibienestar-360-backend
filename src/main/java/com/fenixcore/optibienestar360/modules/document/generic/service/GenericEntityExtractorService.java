@@ -167,6 +167,11 @@ public class GenericEntityExtractorService {
         SPANISH_FIELD_LABELS.put("documenttype", "Tipo de Documento");
         SPANISH_FIELD_LABELS.put("documentnumber", "Número de Documento");
         SPANISH_FIELD_LABELS.put("promotertype", "Tipo de Promotor");
+        SPANISH_FIELD_LABELS.put("promotertypename", "Tipo de Promotor");
+        SPANISH_FIELD_LABELS.put("useremail", "Correo Electrónico");
+        SPANISH_FIELD_LABELS.put("personfullname", "Nombre Completo");
+        SPANISH_FIELD_LABELS.put("personrif", "RIF / Documento");
+        SPANISH_FIELD_LABELS.put("username", "Usuario");
         SPANISH_FIELD_LABELS.put("description", "Descripción");
     }
 
@@ -255,15 +260,15 @@ public class GenericEntityExtractorService {
         if (lower.equals("taxdocumenttype") || lower.equals("documenttype") || lower.equals("tipodocumento")) {
             return 12;
         }
-        if (lower.equals("taxdocumentnumber") || lower.equals("documentnumber") || lower.equals("rif") || lower.equals("cedula") || lower.equals("referencenumber")) {
+        if (lower.equals("taxdocumentnumber") || lower.equals("documentnumber") || lower.equals("rif") || lower.equals("cedula") || lower.equals("referencenumber") || lower.equals("taxdocument") || lower.equals("document") || lower.equals("person.document") || lower.equals("personrif")) {
             return 14;
         }
 
         // 2. Names, titles, and main types
-        if (lower.equals("name") || lower.equals("nombre") || lower.equals("title") || lower.equals("displayname")) {
+        if (lower.equals("name") || lower.equals("nombre") || lower.equals("title") || lower.equals("displayname") || lower.equals("username")) {
             return 30;
         }
-        if (lower.equals("fullname") || lower.equals("nombrecompleto")) {
+        if (lower.equals("fullname") || lower.equals("nombrecompleto") || lower.equals("person.fullname") || lower.equals("personfullname")) {
             return 32;
         }
         if (lower.equals("firstname") || lower.equals("primernombre")) {
@@ -278,7 +283,7 @@ public class GenericEntityExtractorService {
         if (lower.equals("secondlastname") || lower.equals("segundoapellido")) {
             return 40;
         }
-        if (lower.equals("allytype") || lower.equals("promotertype") || lower.equals("plantype") || lower.equals("agreementtype") || lower.equals("type") || lower.equals("tipo")) {
+        if (lower.equals("allytype") || lower.equals("promotertype") || lower.equals("plantype") || lower.equals("agreementtype") || lower.equals("type") || lower.equals("tipo") || lower.equals("allytype.name") || lower.equals("promotertype.name") || lower.equals("promotertypename")) {
             return 45;
         }
         if (lower.equals("servicecategory") || lower.equals("medicalspecialty") || lower.equals("specialty") || lower.equals("specialties") || lower.equals("services")) {
@@ -289,22 +294,22 @@ public class GenericEntityExtractorService {
         }
 
         // 3. Contact, location, and personal details
-        if (lower.equals("email") || lower.equals("correo") || lower.equals("correoelectronico")) {
+        if (lower.equals("email") || lower.equals("correo") || lower.equals("correoelectronico") || lower.equals("useremail") || lower.equals("person.email") || lower.equals("user.email")) {
             return 60;
         }
-        if (lower.equals("phone") || lower.equals("telefono") || lower.equals("celular") || lower.equals("landlinephone")) {
+        if (lower.equals("phone") || lower.equals("telefono") || lower.equals("celular") || lower.equals("landlinephone") || lower.equals("person.phone")) {
             return 62;
         }
         if (lower.equals("website") || lower.equals("sitioweb")) {
             return 66;
         }
-        if (lower.equals("country") || lower.equals("pais")) {
+        if (lower.equals("country") || lower.equals("pais") || lower.equals("country.name")) {
             return 70;
         }
-        if (lower.equals("state") || lower.equals("estado_region") || lower.equals("region")) {
+        if (lower.equals("state") || lower.equals("estado_region") || lower.equals("region") || lower.equals("state.name")) {
             return 72;
         }
-        if (lower.equals("city") || lower.equals("ciudad")) {
+        if (lower.equals("city") || lower.equals("ciudad") || lower.equals("city.name")) {
             return 74;
         }
         if (lower.equals("address") || lower.equals("direccion") || lower.equals("employeraddress")) {
@@ -342,8 +347,11 @@ public class GenericEntityExtractorService {
         if (lower.equals("enddate") || lower.equals("expiresat") || lower.equals("nextduedate") || lower.equals("lastpaidthrough") || lower.equals("graceperioddays")) {
             return 122;
         }
-        if (lower.equals("totalreferrals") || lower.equals("totalcommissionpaid") || lower.equals("receivedat")) {
+        if (lower.equals("totalreferrals") || lower.equals("receivedat")) {
             return 124;
+        }
+        if (lower.equals("totalcommissionpaid")) {
+            return 200;
         }
         if (lower.equals("description") || lower.equals("descripcion") || lower.equals("notes") || lower.equals("notas") || lower.equals("adminnotes")) {
             return 140;
@@ -482,22 +490,10 @@ public class GenericEntityExtractorService {
 
     public String resolveFieldLabel(String key, Locale locale) {
         if (key == null || key.isBlank()) return "";
-        if (key.equalsIgnoreCase("allyType.name")) return "Tipo de Aliado";
-        if (key.equalsIgnoreCase("city.name")) return "Ciudad";
-        if (key.endsWith(".fullName")) return "Nombre Completo";
-        if (key.endsWith(".document")) return "Cédula / Documento";
-        if (key.endsWith(".documentNumber")) return "Número de Cédula";
-        if (key.endsWith(".phone")) return "Teléfono";
-        if (key.endsWith(".email")) return "Correo Electrónico";
-        if (key.endsWith(".name")) {
-            String prefix = key.substring(0, key.indexOf("."));
-            return formatCamelCaseToTitle(prefix);
-        }
-        if (key.equals("taxDocument")) return "RIF / Documento";
-        if (key.equals("document")) return "Cédula / Documento";
 
         Locale targetLocale = (locale != null) ? locale : venezuelaLocale;
 
+        // 1. Dynamic i18n lookup via Spring MessageSource
         if (messageSource != null) {
             String snake = toSnakeCase(key);
             for (String msgKey : List.of(
@@ -515,7 +511,29 @@ public class GenericEntityExtractorService {
             }
         }
 
-        // Fallback lookup in normalized dictionary
+        // 2. Specific nested/catalog property label helpers
+        if (key.equalsIgnoreCase("allyType.name")) return "Tipo de Aliado";
+        if (key.equalsIgnoreCase("promoterType.name")) return "Tipo de Promotor";
+        if (key.equalsIgnoreCase("city.name")) return "Ciudad";
+        if (key.equalsIgnoreCase("state.name")) return "Estado / Región";
+        if (key.equalsIgnoreCase("country.name")) return "País";
+        if (key.endsWith(".fullName")) return "Nombre Completo";
+        if (key.endsWith(".document")) return "Cédula / Documento";
+        if (key.endsWith(".documentNumber")) return "Número de Cédula";
+        if (key.endsWith(".phone")) return "Teléfono";
+        if (key.endsWith(".email")) return "Correo Electrónico";
+        if (key.endsWith(".name")) {
+            String prefix = key.substring(0, key.indexOf("."));
+            String lowerPrefix = prefix.toLowerCase().replace("_", "");
+            if (SPANISH_FIELD_LABELS.containsKey(lowerPrefix)) {
+                return SPANISH_FIELD_LABELS.get(lowerPrefix);
+            }
+            return formatCamelCaseToTitle(prefix);
+        }
+        if (key.equals("taxDocument")) return "RIF / Documento";
+        if (key.equals("document")) return "Cédula / Documento";
+
+        // 3. Fallback lookup in normalized dictionary
         String lookupKey = key.trim();
         if (SPANISH_FIELD_LABELS.containsKey(lookupKey)) {
             return SPANISH_FIELD_LABELS.get(lookupKey);
@@ -582,6 +600,14 @@ public class GenericEntityExtractorService {
         }
 
         if (val instanceof Boolean b) {
+            Locale currentLocale = LocaleContextHolder.getLocale();
+            Locale targetLocale = (currentLocale != null) ? currentLocale : venezuelaLocale;
+            if (messageSource != null) {
+                try {
+                    String msg = messageSource.getMessage(b ? "common.yes" : "common.no", null, null, targetLocale);
+                    if (msg != null && !msg.isBlank()) return msg;
+                } catch (Exception ignored) {}
+            }
             return b ? "Sí" : "No";
         }
 
@@ -874,6 +900,79 @@ public class GenericEntityExtractorService {
         return new GenericRecordModel.DetailSection(sectionTitle, headers, rows);
     }
 
+    private boolean isPrimitiveOrCommonValue(Object val) {
+        if (val == null) return true;
+        return val instanceof String
+                || val instanceof Number
+                || val instanceof Boolean
+                || val instanceof LocalDate
+                || val instanceof LocalDateTime
+                || val instanceof LocalTime
+                || val instanceof OffsetDateTime
+                || val instanceof Instant
+                || val instanceof Enum<?>
+                || val instanceof UUID;
+    }
+
+    private void flattenNestedMap(String prefix, Map<?, ?> nestedMap, Map<String, Object> rootRaw, Map<String, Object> result) {
+        boolean hasRootName = rootRaw.containsKey("displayName") || rootRaw.containsKey("name") || rootRaw.containsKey("fullName");
+        boolean hasRootEmail = rootRaw.containsKey("email");
+        boolean hasRootPhone = rootRaw.containsKey("phone");
+        boolean hasRootDoc = rootRaw.containsKey("document") || rootRaw.containsKey("taxDocument") || (rootRaw.containsKey("documentNumber") && rootRaw.containsKey("documentType"));
+
+        if (!hasRootName) {
+            if (nestedMap.containsKey("fullName") && nestedMap.get("fullName") != null) {
+                result.put(prefix + ".fullName", nestedMap.get("fullName"));
+            } else if (nestedMap.containsKey("firstName") || nestedMap.containsKey("lastName")) {
+                String fn = nestedMap.get("firstName") != null ? String.valueOf(nestedMap.get("firstName")) : "";
+                String ln = nestedMap.get("lastName") != null ? String.valueOf(nestedMap.get("lastName")) : "";
+                String full = (fn + " " + ln).trim();
+                if (!full.isBlank()) {
+                    result.put(prefix + ".fullName", full);
+                }
+            }
+        }
+
+        if (!hasRootDoc) {
+            if (nestedMap.containsKey("documentType") && nestedMap.containsKey("documentNumber")) {
+                Object dt = nestedMap.get("documentType");
+                Object dn = nestedMap.get("documentNumber");
+                if (dn != null && !dn.toString().isBlank()) {
+                    result.put(prefix + ".document", (dt != null ? dt + "-" : "") + dn);
+                }
+            } else if (nestedMap.containsKey("documentNumber") && nestedMap.get("documentNumber") != null) {
+                result.put(prefix + ".documentNumber", nestedMap.get("documentNumber"));
+            } else if (nestedMap.containsKey("rif") && nestedMap.get("rif") != null) {
+                result.put(prefix + ".document", nestedMap.get("rif"));
+            }
+        }
+
+        if (nestedMap.containsKey("name") && nestedMap.get("name") != null && !hasRootName) {
+            result.put(prefix + ".name", nestedMap.get("name"));
+        } else if (nestedMap.containsKey("name") && nestedMap.get("name") != null && !prefix.equals("user") && !prefix.equals("person")) {
+            result.put(prefix + ".name", nestedMap.get("name"));
+        } else if (nestedMap.containsKey("code") && nestedMap.get("code") != null && !rootRaw.containsKey("code")) {
+            result.put(prefix + ".code", nestedMap.get("code"));
+        }
+
+        if (!hasRootPhone && nestedMap.containsKey("phone") && nestedMap.get("phone") != null) {
+            result.put(prefix + ".phone", nestedMap.get("phone"));
+        }
+        if (!hasRootEmail && nestedMap.containsKey("email") && nestedMap.get("email") != null) {
+            result.put(prefix + ".email", nestedMap.get("email"));
+        }
+    }
+
+    private boolean isComplexRelation(String key) {
+        if (key == null || key.isBlank()) return false;
+        String lower = key.toLowerCase().replace("_", "");
+        return Set.of(
+                "user", "person", "promotertype", "allytype", "city", "state", "country",
+                "member", "membership", "plan", "ally", "corporatecontract", "servicecategory",
+                "rule", "promoter", "agreement"
+        ).contains(lower);
+    }
+
     private Map<String, Object> flattenEntity(Object obj) {
         Map<String, Object> result = new LinkedHashMap<>();
         if (obj == null) return result;
@@ -884,30 +983,13 @@ public class GenericEntityExtractorService {
             if (isIgnoredField(k) || v instanceof Collection<?>) return;
 
             if (v instanceof Map<?, ?> nestedMap) {
-                if (nestedMap.containsKey("fullName")) {
-                    result.put(k + ".fullName", nestedMap.get("fullName"));
+                flattenNestedMap(k, nestedMap, raw, result);
+            } else if (v != null && !isPrimitiveOrCommonValue(v)) {
+                Map<String, Object> nestedMap = toMap(v);
+                if (!nestedMap.isEmpty()) {
+                    flattenNestedMap(k, nestedMap, raw, result);
                 }
-                if (nestedMap.containsKey("documentType") && nestedMap.containsKey("documentNumber")) {
-                    Object dt = nestedMap.get("documentType");
-                    Object dn = nestedMap.get("documentNumber");
-                    if (dn != null && !dn.toString().isBlank()) {
-                        result.put(k + ".document", (dt != null ? dt + "-" : "") + dn);
-                    }
-                } else if (nestedMap.containsKey("documentNumber")) {
-                    result.put(k + ".documentNumber", nestedMap.get("documentNumber"));
-                }
-                if (nestedMap.containsKey("name")) {
-                    result.put(k + ".name", nestedMap.get("name"));
-                } else if (nestedMap.containsKey("code")) {
-                    result.put(k + ".code", nestedMap.get("code"));
-                }
-                if (nestedMap.containsKey("phone")) {
-                    result.put(k + ".phone", nestedMap.get("phone"));
-                }
-                if (nestedMap.containsKey("email")) {
-                    result.put(k + ".email", nestedMap.get("email"));
-                }
-            } else {
+            } else if (!isComplexRelation(k)) {
                 result.put(k, v);
             }
         });
@@ -933,7 +1015,7 @@ public class GenericEntityExtractorService {
 
     /**
      * Extrae un modelo de tabla plana (lista de filas y columnas) a partir de una colección de registros.
-     * Selecciona prioritariamente las columnas de negocio clave visibles en el sistema.
+     * Selecciona prioritariamente las columnas de negocio clave visibles en el sistema ordenadas por prioridad de negocio.
      */
     @SuppressWarnings("unchecked")
     public GenericTableModel extractTableModel(
@@ -943,40 +1025,38 @@ public class GenericEntityExtractorService {
         List<List<String>> rows = new ArrayList<>();
 
         if (collection != null && !collection.isEmpty()) {
-            List<String> selectedKeys = new ArrayList<>();
+            List<Map<String, Object>> flattenedItems = new ArrayList<>(collection.size());
+            Set<String> allKeys = new LinkedHashSet<>();
 
             for (Object item : collection) {
                 if (item == null) continue;
                 Map<String, Object> itemMap = flattenEntity(item);
+                flattenedItems.add(itemMap);
+                allKeys.addAll(itemMap.keySet());
+            }
 
-                if (selectedKeys.isEmpty()) {
-                    // 1. Claves prioritarias de negocio alineadas con las vistas del frontend
-                    List<String> priorityKeys = List.of(
-                            "name", "fullName", "person.fullName",
-                            "taxDocument", "document", "person.document",
-                            "email", "phone", "person.phone",
-                            "allyType.name", "city.name", "type",
-                            "amount", "currency", "paymentMethod", "referenceNumber", "paymentDate",
-                            "code", "referralCode", "status", "active", "enrolledAt", "createdAt"
-                    );
+            // Filtrar campos ignorados y ordenar todas las claves candidatas según la prioridad de negocio
+            List<String> candidateKeys = allKeys.stream()
+                    .filter(k -> !isIgnoredField(k))
+                    .sorted(Comparator.comparingInt(this::getFieldPriority))
+                    .toList();
 
-                    for (String pk : priorityKeys) {
-                        if (itemMap.containsKey(pk) && !selectedKeys.contains(pk) && selectedKeys.size() < 8) {
-                            selectedKeys.add(pk);
-                            headers.add(resolveFieldLabel(pk, currentLocale));
-                        }
-                    }
-
-                    // 2. Rellenar con otros campos hasta un máximo de 8 columnas
-                    itemMap.forEach((k, v) -> {
-                        if (!isIgnoredField(k) && !(v instanceof Collection<?>) && !selectedKeys.contains(k) && selectedKeys.size() < 8) {
-                            selectedKeys.add(k);
-                            headers.add(resolveFieldLabel(k, currentLocale));
-                        }
-                    });
+            // Seleccionar hasta un máximo de 10 columnas en orden de relevancia
+            List<String> selectedKeys = new ArrayList<>();
+            for (String key : candidateKeys) {
+                if (selectedKeys.size() >= 10) break;
+                String lowerKey = key.toLowerCase().replace("_", "");
+                // Omitir campos de texto largo si hay suficientes columnas de datos estructurados
+                if ((lowerKey.equals("description") || lowerKey.equals("descripcion") || lowerKey.equals("notes") || lowerKey.equals("notas") || lowerKey.equals("adminnotes") || lowerKey.equals("terms"))
+                        && candidateKeys.size() > 10) {
+                    continue;
                 }
+                selectedKeys.add(key);
+                headers.add(resolveFieldLabel(key, currentLocale));
+            }
 
-                List<String> row = new ArrayList<>();
+            for (Map<String, Object> itemMap : flattenedItems) {
+                List<String> row = new ArrayList<>(selectedKeys.size());
                 for (String key : selectedKeys) {
                     Object val = itemMap.get(key);
                     row.add(formatValue(key, val));

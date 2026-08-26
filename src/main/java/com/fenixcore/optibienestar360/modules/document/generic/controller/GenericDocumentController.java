@@ -166,8 +166,18 @@ public class GenericDocumentController {
     }
 
     private String toAuditEntityKey(String entityOrTable) {
+        if (entityOrTable == null) return "unknown";
         String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
-        return TABLE_TO_AUDIT_ENTITY_KEY.getOrDefault(normalized, normalized);
+        if (TABLE_TO_AUDIT_ENTITY_KEY.containsKey(normalized)) {
+            return TABLE_TO_AUDIT_ENTITY_KEY.get(normalized);
+        }
+        if (normalized.equals("allies")) return "ally";
+        if (normalized.equals("cities")) return "city";
+        if (normalized.equals("countries")) return "country";
+        if (normalized.endsWith("ies")) return normalized.substring(0, normalized.length() - 3) + "y";
+        if (normalized.endsWith("statuses")) return normalized.substring(0, normalized.length() - 2);
+        if (normalized.endsWith("s") && !normalized.equals("status")) return normalized.substring(0, normalized.length() - 1);
+        return normalized;
     }
 
     private String formatEntitySingularTitle(String entityOrTable) {
