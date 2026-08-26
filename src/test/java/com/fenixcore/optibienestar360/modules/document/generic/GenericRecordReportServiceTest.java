@@ -509,4 +509,101 @@ class GenericRecordReportServiceTest {
         assertEquals("Clínica", tableModel.rows().get(0).get(allyTypeIndex));
         assertEquals("Caracas", tableModel.rows().get(0).get(cityIndex));
     }
+
+    @Test
+    @DisplayName("Should extract Promoter table model with business columns (code, display name, promoter type, system, total referrals) and omit raw entity columns")
+    void testExtractTableModelForPromoters() {
+        // System promoter (INSTITUCION)
+        Promoter systemPromoter = new Promoter();
+        systemPromoter.setReferralCode("INSTITUCION");
+        systemPromoter.setDisplayName("Centro Óptico Vicente — Administración");
+        systemPromoter.setDescription("Promotor del sistema...");
+        systemPromoter.setSystem(true);
+        systemPromoter.setTotalReferrals(0);
+        systemPromoter.setStatus("ACTIVE");
+        systemPromoter.setActive(true);
+
+        // Human promoter
+        Person person = new Person();
+        person.setFirstName("Carlos");
+        person.setLastName("Pérez");
+        person.setDocumentType("V");
+        person.setDocumentNumber("12345678");
+
+        User user = new User();
+        user.setEmail("carlos.perez@optibienestar.com");
+        user.setPerson(person);
+
+        PromoterType promoterType = new PromoterType();
+        promoterType.setName("Comercial Senior");
+        promoterType.setCode("SENIOR");
+
+        Promoter humanPromoter = new Promoter();
+        humanPromoter.setReferralCode("PROM-001");
+        humanPromoter.setDisplayName("Carlos Pérez");
+        humanPromoter.setUser(user);
+        humanPromoter.setPerson(person);
+        humanPromoter.setPromoterType(promoterType);
+        humanPromoter.setEmail("carlos.perez@optibienestar.com");
+        humanPromoter.setPhone("+58 414 1234567");
+        humanPromoter.setTotalReferrals(12);
+        humanPromoter.setSystem(false);
+        humanPromoter.setStatus("ACTIVE");
+        humanPromoter.setActive(true);
+
+        GenericTableModel tableModel = extractorService.extractTableModel(
+                List.of(systemPromoter, humanPromoter), "Listado de Promotores", "Subtítulo", "Admin"
+        );
+
+        assertNotNull(tableModel);
+        assertEquals(2, tableModel.totalRecords());
+
+        List<String> headers = tableModel.headers();
+
+        // 1. Business columns must be present and ordered
+        assertTrue(headers.contains("Código de Referido"), "Headers must contain 'Código de Referido'");
+        assertTrue(headers.contains("Nombre a Mostrar"), "Headers must contain 'Nombre a Mostrar'");
+        assertTrue(headers.contains("Tipo de Promotor"), "Headers must contain 'Tipo de Promotor'");
+        assertTrue(headers.contains("Correo Electrónico"), "Headers must contain 'Correo Electrónico'");
+        assertTrue(headers.contains("Teléfono"), "Headers must contain 'Teléfono'");
+        assertTrue(headers.contains("Sistema"), "Headers must contain 'Sistema'");
+        assertTrue(headers.contains("Total de Referidos"), "Headers must contain 'Total de Referidos'");
+        assertTrue(headers.contains("Estado"), "Headers must contain 'Estado'");
+        assertTrue(headers.contains("Activo"), "Headers must contain 'Activo'");
+
+        // 2. Raw entity object headers like "Usuario" and "Persona" should NOT be table columns
+        assertFalse(headers.contains("Usuario"), "Raw entity relation 'Usuario' should not be a table column");
+        assertFalse(headers.contains("Persona"), "Raw entity relation 'Persona' should not be a table column");
+
+        // 3. Row values for INSTITUCION
+        int codeIdx = headers.indexOf("Código de Referido");
+        int nameIdx = headers.indexOf("Nombre a Mostrar");
+        int systemIdx = headers.indexOf("Sistema");
+        int referralsIdx = headers.indexOf("Total de Referidos");
+
+        assertEquals("INSTITUCION", tableModel.rows().get(0).get(codeIdx));
+        assertEquals("Centro Óptico Vicente — Administración", tableModel.rows().get(0).get(nameIdx));
+        assertEquals("Sí", tableModel.rows().get(0).get(systemIdx));
+        assertEquals("0", tableModel.rows().get(0).get(referralsIdx));
+
+        // 4. Row values for Human Promoter
+        int typeIdx = headers.indexOf("Tipo de Promotor");
+        assertEquals("PROM-001", tableModel.rows().get(1).get(codeIdx));
+        assertEquals("Carlos Pérez", tableModel.rows().get(1).get(nameIdx));
+        assertEquals("Comercial Senior", tableModel.rows().get(1).get(typeIdx));
+        assertEquals("No", tableModel.rows().get(1).get(systemIdx));
+        assertEquals("12", tableModel.rows().get(1).get(referralsIdx));
+    }
+
+    @Test
+    @DisplayName("Should generate valid table PDF without error")
+    void testGenerateTablePdfDocument() {
+        DummyAlly ally1 = new DummyAlly("Centro 1", null, null, "J", "111", "0212", "c1@test.com");
+        RenderedDocument doc = recordReportService.generateGenericTableDocument(
+                List.of(ally1), "Listado de Aliados", "Subtítulo", "Admin", JasperFormat.PDF
+        );
+        assertNotNull(doc);
+        assertEquals("application/pdf", doc.contentType());
+        assertTrue(doc.content().length > 0);
+    }
 }

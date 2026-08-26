@@ -174,18 +174,62 @@ public class GenericRecordResolverService {
     private EntityType<?> findMatchingEntityType(String targetTable) {
         if (targetTable == null || targetTable.isBlank()) return null;
         String cleanTarget = targetTable.trim();
+        String normalizedTarget = cleanTarget.toLowerCase().replace("-", "_");
 
         for (EntityType<?> entityType : entityManager.getMetamodel().getEntities()) {
-            Table tableAnno = entityType.getJavaType().getAnnotation(Table.class);
+            Class<?> javaType = entityType.getJavaType();
+            Table tableAnno = javaType.getAnnotation(Table.class);
             String tableName = (tableAnno != null && !tableAnno.name().isBlank())
                     ? tableAnno.name()
                     : entityType.getName();
+            String className = javaType.getSimpleName();
 
-            if (tableName.equalsIgnoreCase(cleanTarget)) {
+            // 1. Direct case-insensitive match on table name or class simple name
+            if (tableName.equalsIgnoreCase(cleanTarget) || className.equalsIgnoreCase(cleanTarget)) {
+                return entityType;
+            }
+
+            // 2. Normalized snake_case match (supports kebab-case e.g. scheduled-jobs -> scheduled_jobs)
+            String normalizedTable = tableName.toLowerCase().replace("-", "_");
+            String normalizedClass = className.toLowerCase().replace("-", "_");
+            if (normalizedTarget.equals(normalizedTable) || normalizedTarget.equals(normalizedClass)) {
+                return entityType;
+            }
+
+            // 3. Plural / Singular and variation match (e.g. ally <-> allies, country <-> countries, city <-> cities)
+            if (matchesPluralOrSingular(normalizedTarget, normalizedTable, normalizedClass)) {
                 return entityType;
             }
         }
         return null;
+    }
+
+    private boolean matchesPluralOrSingular(String target, String tableName, String className) {
+        // e.g. ally vs allies, country vs countries, city vs cities
+        if (target.endsWith("y") && (tableName.equals(target.substring(0, target.length() - 1) + "ies") || className.equalsIgnoreCase(target.substring(0, target.length() - 1) + "ies"))) {
+            return true;
+        }
+        if (target.endsWith("ies") && (tableName.equals(target.substring(0, target.length() - 3) + "y") || className.equalsIgnoreCase(target.substring(0, target.length() - 3) + "y"))) {
+            return true;
+        }
+        // e.g. user vs users, member vs members, plan vs plans, role vs roles
+        if (tableName.equals(target + "s") || className.equalsIgnoreCase(target + "s") || target.equals(tableName + "s") || target.equalsIgnoreCase(className + "s")) {
+            return true;
+        }
+        // e.g. status vs statuses
+        if (tableName.equals(target + "es") || className.equalsIgnoreCase(target + "es") || target.equals(tableName + "es") || target.equalsIgnoreCase(className + "es")) {
+            return true;
+        }
+        // Stripped underscores comparison (e.g. allytype vs ally_types, scheduledjob vs scheduled_jobs)
+        String noUnderTarget = target.replace("_", "");
+        String noUnderTable = tableName.replace("_", "");
+        String noUnderClass = className.toLowerCase().replace("_", "");
+        return noUnderTarget.equals(noUnderTable)
+                || noUnderTarget.equals(noUnderClass)
+                || (noUnderTarget + "s").equals(noUnderTable)
+                || (noUnderTarget + "es").equals(noUnderTable)
+                || (noUnderTable + "s").equals(noUnderTarget)
+                || (noUnderTable + "es").equals(noUnderTarget);
     }
 
     private boolean isUuid(String str) {
