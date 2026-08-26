@@ -8,8 +8,11 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface BenefitUsageMapper {
 
-    @Mapping(target = "membershipUuid",   source = "membership.uuid")
-    @Mapping(target = "memberUuid",       source = "membership.member.uuid")
+    @Mapping(target = "membershipUuid",       source = "membership.uuid")
+    @Mapping(target = "memberUuid",           source = "membership.member.uuid")
+    @Mapping(target = "memberFullName",       source = "membership.member.person.fullName")
+    @Mapping(target = "memberDocumentType",   source = "membership.member.person.documentType")
+    @Mapping(target = "memberDocumentNumber", source = "membership.member.person.documentNumber")
     @Mapping(target = "planUuid",         source = "membership.plan.uuid")
     @Mapping(target = "planCode",         source = "membership.plan.code")
     @Mapping(target = "allyUuid",         source = "ally.uuid")

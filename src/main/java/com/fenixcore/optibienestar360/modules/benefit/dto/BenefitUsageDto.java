@@ -21,6 +21,9 @@ public record BenefitUsageDto(
         // Subject (flat refs)
         UUID membershipUuid,
         UUID memberUuid,
+        String memberFullName,
+        String memberDocumentType,
+        String memberDocumentNumber,
         UUID planUuid,
         String planCode,
 

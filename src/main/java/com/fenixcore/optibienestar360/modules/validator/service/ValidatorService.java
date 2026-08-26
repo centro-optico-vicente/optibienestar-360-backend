@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,6 +55,15 @@ public class ValidatorService {
     /** Accepts the V12345678 / V-12345678 / E-12345678 family. Case-insensitive. */
     private static final Pattern DOCUMENT_PATTERN = Pattern.compile("^([VEvVe])-?(\\d{1,20})$");
 
+    /**
+     * Accepts a bare member UUID — the counter input also doubles as a QR
+     * scanner target: a future member card can encode {@code memberUuid}
+     * (see {@link ValidationResultDto#memberUuid()}) instead of the document,
+     * and this pattern routes that scan straight to {@link #resolveByMemberUuid}.
+     */
+    private static final Pattern UUID_PATTERN =
+            Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+
     private final PersonRepository personRepository;
     private final MemberRepository memberRepository;
     private final MembershipRepository membershipRepository;
@@ -61,7 +71,21 @@ public class ValidatorService {
     private final ObjectProvider<StringRedisTemplate> redisProvider;
     private final ObjectMapper objectMapper;
 
+    /**
+     * @param document the affiliate's document (V-12345678) OR a bare member
+     *                 UUID. The UUID path is the one a future member-card QR
+     *                 will use: the card encodes {@code memberUuid} (already
+     *                 present in {@link ValidationResultDto}), so scanning it
+     *                 hits this same endpoint without a document round-trip.
+     */
     public ValidationResultDto validate(String document) {
+        if (document != null && UUID_PATTERN.matcher(document.trim()).matches()) {
+            // Not cached: the document-keyed Redis cache (and its eviction
+            // hooks in ValidatorCacheService) know nothing about a UUID key,
+            // so caching here would risk serving a stale entry forever.
+            return resolveByMemberUuid(UUID.fromString(document.trim()));
+        }
+
         DocumentParts parts = parse(document);
 
         Optional<ValidationResultDto> cached = readCache(parts);
@@ -91,6 +115,39 @@ public class ValidatorService {
                     .build(false);
         }
         Member member = memberOpt.get();
+
+        Optional<Membership> membershipOpt = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId());
+        if (membershipOpt.isEmpty()) {
+            return base(ValidationStatus.NO_ACTIVE_MEMBERSHIP, parts)
+                    .withPerson(person)
+                    .withMember(member)
+                    .build(false);
+        }
+        Membership membership = membershipOpt.get();
+
+        ValidationStatus status = mapLifecycle(membership.getStatus());
+        return base(status, parts)
+                .withPerson(person)
+                .withMember(member)
+                .withMembership(membership)
+                .build(false);
+    }
+
+    /** Same funnel as {@link #resolve}, entered from a member UUID (QR scan) instead of a typed document. */
+    private ValidationResultDto resolveByMemberUuid(UUID memberUuid) {
+        Optional<Member> memberOpt = memberRepository.findByUuid(memberUuid);
+        if (memberOpt.isEmpty() || !memberOpt.get().isActive()) {
+            return new Builder().build(false);
+        }
+        Member member = memberOpt.get();
+        Person person = member.getPerson();
+        DocumentParts parts = person != null
+                ? new DocumentParts(person.getDocumentType(), person.getDocumentNumber())
+                : new DocumentParts(null, null);
+
+        if (person == null || !person.isActive()) {
+            return base(ValidationStatus.NOT_FOUND, parts).build(false);
+        }
 
         Optional<Membership> membershipOpt = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId());
         if (membershipOpt.isEmpty()) {

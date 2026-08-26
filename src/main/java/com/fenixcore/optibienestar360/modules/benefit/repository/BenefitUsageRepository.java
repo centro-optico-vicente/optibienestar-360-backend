@@ -45,6 +45,30 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
     Page<BenefitUsage> findByAllyUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
 
     /**
+     * Same scope as {@link #findByAllyUserUuid}, filtered by the member's
+     * document number, full name, or member UUID — the counter operator's
+     * "search" box on the Consumos screen. The UUID branch is forward-looking
+     * for a future member-card QR (encodes {@code memberUuid}); a scan lands
+     * here as an exact match instead of the substring match used for the
+     * other two fields. {@code :search} is matched case-insensitively;
+     * blank/null callers should use the unfiltered overload instead.
+     */
+    @Query("""
+            SELECT bu FROM BenefitUsage bu
+            WHERE bu.active = true
+              AND bu.ally.id IN (
+                  SELECT au.ally.id FROM AllyUser au
+                  WHERE au.user.uuid = :userUuid AND au.active = true
+              )
+              AND (
+                  LOWER(bu.membership.member.person.documentNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(bu.membership.member.person.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(CAST(bu.membership.member.uuid AS string)) = LOWER(:search)
+              )
+            """)
+    Page<BenefitUsage> findByAllyUserUuidAndSearch(@Param("userUuid") UUID userUuid, @Param("search") String search, Pageable pageable);
+
+    /**
      * Powers {@code GET /v1/me/usage-history} (vertical-9) — every benefit usage
      * on the caller's own membership history. Walks {@code user.person →
      * member.person → membership → benefit_usage} so a member sees their whole
