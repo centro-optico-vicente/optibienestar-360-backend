@@ -72,12 +72,12 @@ class PermissionControllerIT {
                 new PermissionDomainDto(UUID.randomUUID(), "USERS", "Usuarios", "i-lucide-users",
                         "Gestión de usuarios", 10,
                         List.of(
-                                new PermissionDto(UUID.randomUUID(), "Ver usuarios", "Listar y ver el detalle"),
-                                new PermissionDto(UUID.randomUUID(), "Crear usuarios", null))),
+                                new PermissionDto(UUID.randomUUID(), "USER_VIEW_ALL", "Ver usuarios", "Listar y ver el detalle"),
+                                new PermissionDto(UUID.randomUUID(), "USER_CREATE", "Crear usuarios", null))),
                 new PermissionDomainDto(UUID.randomUUID(), "MEMBERS", "Afiliados", "i-lucide-id-card",
                         "Gestión de afiliados", 20,
                         List.of(
-                                new PermissionDto(UUID.randomUUID(), "Ver afiliados", null)))
+                                new PermissionDto(UUID.randomUUID(), "MEMBER_VIEW_ALL", "Ver afiliados", null)))
         );
     }
 
@@ -112,8 +112,9 @@ class PermissionControllerIT {
                 .andExpect(jsonPath("$[0].displayOrder").value(10))
                 .andExpect(jsonPath("$[1].code").value("MEMBERS"))
                 .andExpect(jsonPath("$[1].displayOrder").value(20))
-                // Permissions nested under their domain, technical codes never exposed.
+                // Permissions nested under their domain, both technical code and label exposed.
                 .andExpect(jsonPath("$[0].permissions.length()").value(2))
+                .andExpect(jsonPath("$[0].permissions[0].code").value("USER_VIEW_ALL"))
                 .andExpect(jsonPath("$[0].permissions[0].name").value("Ver usuarios"))
                 .andExpect(jsonPath("$[1].permissions.length()").value(1));
 

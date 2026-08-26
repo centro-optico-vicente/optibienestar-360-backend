@@ -58,9 +58,12 @@ public class PermissionService {
     private static PermissionDto toPermissionDto(Permission permission) {
         // Permission entity currently has only one user-facing string (description).
         // We expose it as `name` (the short label for the checkbox); `description`
-        // is reserved for a future longer help-text column.
+        // is reserved for a future longer help-text column. `code` is the raw
+        // technical key (e.g. MEMBER_CREATE), used by the frontend to group/bulk
+        // -toggle permissions by action suffix.
         return new PermissionDto(
                 permission.getUuid(),
+                permission.getName(),
                 permission.getDescription(),
                 null
         );
