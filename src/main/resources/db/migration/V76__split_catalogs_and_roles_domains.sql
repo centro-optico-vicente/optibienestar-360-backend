@@ -43,7 +43,7 @@ SET domain_id = (SELECT permission_domains_id FROM permission_domains WHERE code
 WHERE name IN (
     'ROLE_VIEW', 'ROLE_CREATE', 'ROLE_UPDATE', 'ROLE_DELETE',
     'ROLE_PERMISSION_EDIT', 'ROLE_USERS_MANAGE',
-    'ROLE_AUDIT_VIEW', 'ROLE_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW'
+    'ROLE_RECORD_AUDIT_VIEW', 'ROLE_RECORD_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW'
 );
 
 -- CATALOGS split: one UPDATE per entity, moving its WRITE + audit pair (when

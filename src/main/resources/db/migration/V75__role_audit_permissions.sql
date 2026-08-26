@@ -12,8 +12,12 @@ SET search_path TO app, public;
 --
 -- Named ROLE_* (not USER_*) so it can be granted independently of user-level
 -- audit access, same reasoning as V73's per-catalog-entity split within
--- CATALOGS. ROLE_AUDIT_RESTORE mirrors every other domain's *_AUDIT_RESTORE:
--- permission created, restore functionality not implemented (V66).
+-- CATALOGS. Uses the RECORD_AUDIT_VIEW/RECORD_AUDIT_RESTORE naming from the
+-- start (V77 renames every other domain's older AUDIT_VIEW/AUDIT_RESTORE to
+-- this shape) since this permission is new — no point minting it with the old
+-- name just to rename it again in the same PR. ROLE_RECORD_AUDIT_RESTORE
+-- mirrors every other domain's *_RECORD_AUDIT_RESTORE: permission created,
+-- restore functionality not implemented (V66).
 --
 -- SYSTEM receives every new permission automatically via the V30 trigger.
 -- ADMINISTRADOR gets explicit grants for the same reason as V66/V71.
@@ -22,9 +26,9 @@ SET search_path TO app, public;
 INSERT INTO permissions (name, domain_id, description)
 SELECT v.name, pd.permission_domains_id, v.description
 FROM (VALUES
-    ('ROLE_AUDIT_VIEW',        'USERS', 'Ver el historial de cambios de un rol'),
-    ('ROLE_AUDIT_RESTORE',     'USERS', 'Restaurar un rol a un punto de su historial'),
-    ('ROLE_REPORT_AUDIT_VIEW', 'USERS', 'Ver el historial de reportes generados de roles')
+    ('ROLE_RECORD_AUDIT_VIEW',    'USERS', 'Ver el historial de cambios de un rol'),
+    ('ROLE_RECORD_AUDIT_RESTORE', 'USERS', 'Restaurar un rol a un punto de su historial'),
+    ('ROLE_REPORT_AUDIT_VIEW',    'USERS', 'Ver el historial de reportes generados de roles')
 ) AS v(name, domain_code, description)
 JOIN permission_domains pd ON pd.code = v.domain_code;
 
@@ -35,7 +39,7 @@ SELECT r.roles_id, p.permissions_id
 FROM roles r
          CROSS JOIN permissions p
 WHERE r.name = 'ADMINISTRADOR'
-  AND p.name IN ('ROLE_AUDIT_VIEW', 'ROLE_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW')
+  AND p.name IN ('ROLE_RECORD_AUDIT_VIEW', 'ROLE_RECORD_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 
@@ -45,7 +49,7 @@ DECLARE
     new_permission TEXT;
 BEGIN
     FOREACH new_permission IN ARRAY ARRAY[
-        'ROLE_AUDIT_VIEW', 'ROLE_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW'
+        'ROLE_RECORD_AUDIT_VIEW', 'ROLE_RECORD_AUDIT_RESTORE', 'ROLE_REPORT_AUDIT_VIEW'
     ]
     LOOP
         IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = new_permission) THEN
