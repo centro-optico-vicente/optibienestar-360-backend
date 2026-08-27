@@ -164,8 +164,8 @@ BEGIN
         'LEADERBOARD_PRIZE_VIEW_ALL', 'LEADERBOARD_PRIZE_CREATE', 'LEADERBOARD_PRIZE_UPDATE', 'LEADERBOARD_PRIZE_DELETE',
         'PAYMENT_CREATE'
     );
-    IF n <> 34 THEN
-        RAISE EXCEPTION 'V79: expected 34 new permissions, found %', n;
+    IF n <> 35 THEN
+        RAISE EXCEPTION 'V79: expected 35 new permissions, found %', n;
     END IF;
 
     SELECT count(*) INTO n FROM permissions
