@@ -82,7 +82,7 @@ public class AdminPaymentController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('PAYMENT_REGISTER')")
+    @PreAuthorize("hasAuthority('PAYMENT_CREATE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") PaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile) {

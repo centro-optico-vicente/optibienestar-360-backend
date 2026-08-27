@@ -27,9 +27,10 @@ import java.util.UUID;
  * management of contracts (COMMERCIAL / MEDICAL / EXCLUSIVITY / SUPPLY)
  * between the platform and the ally.
  *
- * <p>Uses {@code ALLY_AGREEMENT_MANAGE} (already in the V6 seed) for both
- * read and write — agreements include commercial terms that the standard
- * {@code ALLY_VIEW_ALL} role should not see.</p>
+ * <p>Granular per V79: {@code ALLY_AGREEMENT_VIEW_ALL} / {@code _CREATE} /
+ * {@code _UPDATE} / {@code _DELETE} — even reads stay off the standard
+ * {@code ALLY_VIEW_ALL}, since agreements include commercial terms that
+ * shouldn't be visible to every ally-viewer role.</p>
  */
 @RestController
 @RequestMapping("/v1/admin/allies/{allyUuid}/agreements")
@@ -39,20 +40,20 @@ public class AdminAllyAgreementsController {
     private final AllyAgreementsService agreementsService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_VIEW_ALL')")
     public ResponseEntity<List<AllyAgreementDto>> list(@PathVariable UUID allyUuid) {
         return ResponseEntity.ok(agreementsService.listForAlly(allyUuid));
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_VIEW_ALL')")
     public ResponseEntity<AllyAgreementDto> get(@PathVariable UUID allyUuid,
                                                 @PathVariable UUID uuid) {
         return ResponseEntity.ok(agreementsService.get(allyUuid, uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_CREATE')")
     public ResponseEntity<AllyAgreementDto> create(@PathVariable UUID allyUuid,
                                                    @Valid @RequestBody AllyAgreementCreateRequest request) {
         AllyAgreementDto created = agreementsService.create(allyUuid, request);
@@ -64,7 +65,7 @@ public class AdminAllyAgreementsController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_UPDATE')")
     public ResponseEntity<AllyAgreementDto> update(@PathVariable UUID allyUuid,
                                                    @PathVariable UUID uuid,
                                                    @Valid @RequestBody AllyAgreementUpdateRequest request) {
@@ -72,7 +73,7 @@ public class AdminAllyAgreementsController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_AGREEMENT_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID allyUuid,
                                        @PathVariable UUID uuid) {
         agreementsService.delete(allyUuid, uuid);

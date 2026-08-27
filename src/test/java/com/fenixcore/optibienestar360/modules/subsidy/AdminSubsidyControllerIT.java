@@ -37,7 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT of {@link AdminSubsidyController} (V41): reads gated by
- * {@code SUBSIDY_VIEW_ALL}, mutations by {@code SUBSIDY_APPROVE}. Service mocked.
+ * {@code SUBSIDY_VIEW_ALL}. Mutations are granular per V78: {@code SUBSIDY_CREATE} /
+ * {@code SUBSIDY_UPDATE} / {@code SUBSIDY_DELETE}. Service mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -82,7 +83,7 @@ class AdminSubsidyControllerIT {
 
     @Test
     void list_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/subsidies").with(principal("SUBSIDY_APPROVE")))
+        mockMvc.perform(get("/v1/admin/subsidies").with(principal("SUBSIDY_CREATE")))
                 .andExpect(status().isForbidden());
     }
 
@@ -95,7 +96,7 @@ class AdminSubsidyControllerIT {
                 .andExpect(jsonPath("$.content.length()").value(1));
     }
 
-    // ─── create (write, APPROVE) ─────────────────────────────────────────────
+    // ─── create (write, CREATE) ──────────────────────────────────────────────
 
     @Test
     void create_withoutPermission_is403() throws Exception {
@@ -111,7 +112,7 @@ class AdminSubsidyControllerIT {
         when(service.create(any(), any())).thenReturn(dto());
 
         mockMvc.perform(post("/v1/admin/subsidies")
-                        .with(principal("SUBSIDY_APPROVE"))
+                        .with(principal("SUBSIDY_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(VALID_CREATE_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.monthlyPercentage").value(100));
@@ -124,18 +125,18 @@ class AdminSubsidyControllerIT {
                  "reason":"  ","validFrom":"2026-01-01"}
                 """;
         mockMvc.perform(post("/v1/admin/subsidies")
-                        .with(principal("SUBSIDY_APPROVE"))
+                        .with(principal("SUBSIDY_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(badJson))
                 .andExpect(status().isBadRequest());
         verify(service, never()).create(any(), any());
     }
 
-    // ─── revoke (write, APPROVE) ─────────────────────────────────────────────
+    // ─── revoke (write, DELETE) ──────────────────────────────────────────────
 
     @Test
     void revoke_withPermission_is204() throws Exception {
         mockMvc.perform(delete("/v1/admin/subsidies/{u}", UUID.randomUUID())
-                        .with(principal("SUBSIDY_APPROVE")))
+                        .with(principal("SUBSIDY_DELETE")))
                 .andExpect(status().isNoContent());
         verify(service).revoke(any(), any());
     }

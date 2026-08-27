@@ -38,9 +38,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT of the admin corporate-contract contract (v2 PDF — "Contratos
- * Corporativos", V38, {@link AdminCorporateContractController}): reads gated by
- * {@code CORPORATE_CONTRACT_VIEW_ALL}, mutations by {@code CORPORATE_CONTRACT_MANAGE}.
- * The service is mocked.
+ * Corporativos", V38, {@link AdminCorporateContractController}): granular per
+ * V79 — contract CRUD via {@code CORPORATE_CONTRACT_VIEW_ALL}/{@code _CREATE}/
+ * {@code _UPDATE}/{@code _DELETE}, member association via
+ * {@code CORPORATE_CONTRACT_MEMBER_VIEW_ALL}/{@code _CREATE}. The service is mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -91,7 +92,7 @@ class AdminCorporateContractControllerIT {
 
     @Test
     void list_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/corporate-contracts").with(principal("CORPORATE_CONTRACT_MANAGE")))
+        mockMvc.perform(get("/v1/admin/corporate-contracts").with(principal("CORPORATE_CONTRACT_CREATE")))
                 .andExpect(status().isForbidden());
     }
 
@@ -104,7 +105,7 @@ class AdminCorporateContractControllerIT {
                 .andExpect(jsonPath("$.content.length()").value(1));
     }
 
-    // ─── create (write, MANAGE) ──────────────────────────────────────────────
+    // ─── create (write, CREATE) ─────────────────────────────────────────────
 
     @Test
     void create_withoutPermission_is403() throws Exception {
@@ -120,7 +121,7 @@ class AdminCorporateContractControllerIT {
         when(service.create(any())).thenReturn(contractDto());
 
         mockMvc.perform(post("/v1/admin/corporate-contracts")
-                        .with(principal("CORPORATE_CONTRACT_MANAGE"))
+                        .with(principal("CORPORATE_CONTRACT_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(VALID_CREATE_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.payerMode").value("INSTITUTION_BULK"));
@@ -133,23 +134,23 @@ class AdminCorporateContractControllerIT {
                  "institutionTaxId":"J-1","payerMode":"INSTITUTION_BULK"}
                 """;
         mockMvc.perform(post("/v1/admin/corporate-contracts")
-                        .with(principal("CORPORATE_CONTRACT_MANAGE"))
+                        .with(principal("CORPORATE_CONTRACT_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(badJson))
                 .andExpect(status().isBadRequest());
         verify(service, never()).create(any());
     }
 
-    // ─── delete (write, MANAGE) ──────────────────────────────────────────────
+    // ─── delete (write, DELETE) ─────────────────────────────────────────────
 
     @Test
     void delete_withPermission_is204() throws Exception {
         mockMvc.perform(delete("/v1/admin/corporate-contracts/{u}", UUID.randomUUID())
-                        .with(principal("CORPORATE_CONTRACT_MANAGE")))
+                        .with(principal("CORPORATE_CONTRACT_DELETE")))
                 .andExpect(status().isNoContent());
         verify(service).delete(any());
     }
 
-    // ─── bulk enroll (write, MANAGE) ─────────────────────────────────────────
+    // ─── bulk enroll (write, MEMBER_CREATE) ──────────────────────────────────
 
     @Test
     void enrollMembers_withoutPermission_is403() throws Exception {
@@ -166,7 +167,7 @@ class AdminCorporateContractControllerIT {
                 new CorporateBulkEnrollResponse(1, 1, 0, List.of()));
 
         mockMvc.perform(post("/v1/admin/corporate-contracts/{u}/members", UUID.randomUUID())
-                        .with(principal("CORPORATE_CONTRACT_MANAGE"))
+                        .with(principal("CORPORATE_CONTRACT_MEMBER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(VALID_BULK_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enrolled").value(1));
@@ -175,7 +176,7 @@ class AdminCorporateContractControllerIT {
     @Test
     void enrollMembers_emptyList_is400() throws Exception {
         mockMvc.perform(post("/v1/admin/corporate-contracts/{u}/members", UUID.randomUUID())
-                        .with(principal("CORPORATE_CONTRACT_MANAGE"))
+                        .with(principal("CORPORATE_CONTRACT_MEMBER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"members\":[]}"))
                 .andExpect(status().isBadRequest());
         verify(service, never()).enrollMembers(any(), any());
@@ -188,14 +189,14 @@ class AdminCorporateContractControllerIT {
         when(service.listMembers(any(), any())).thenReturn(new PageImpl<>(List.<MemberListItemDto>of()));
 
         mockMvc.perform(get("/v1/admin/corporate-contracts/{u}/members", UUID.randomUUID())
-                        .with(principal("CORPORATE_CONTRACT_VIEW_ALL")))
+                        .with(principal("CORPORATE_CONTRACT_MEMBER_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
 
     @Test
     void listMembers_withoutPermission_is403() throws Exception {
         mockMvc.perform(get("/v1/admin/corporate-contracts/{u}/members", UUID.randomUUID())
-                        .with(principal("CORPORATE_CONTRACT_MANAGE")))
+                        .with(principal("CORPORATE_CONTRACT_VIEW_ALL")))
                 .andExpect(status().isForbidden());
         verify(service, never()).listMembers(any(), any());
     }

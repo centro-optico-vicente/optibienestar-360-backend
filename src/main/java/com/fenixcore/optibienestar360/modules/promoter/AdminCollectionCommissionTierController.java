@@ -28,8 +28,9 @@ import java.net.URI;
 import java.util.UUID;
 
 /**
- * Admin CRUD for collection commission tiers (ADR 0013 §3, V44). All operations
- * gated by {@code COLLECTION_COMMISSION_TIER_MANAGE}.
+ * Admin CRUD for collection commission tiers (ADR 0013 §3, V44). Granular per
+ * V79: {@code COLLECTION_COMMISSION_TIER_VIEW_ALL} / {@code _CREATE} /
+ * {@code _UPDATE} / {@code _DELETE}.
  */
 @RestController
 @RequestMapping("/v1/admin/collection-commission-tiers")
@@ -39,7 +40,7 @@ public class AdminCollectionCommissionTierController {
     private final CollectionCommissionTiersService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<Page<CollectionCommissionTierDto>> list(
             @PageableDefault(size = 50, sort = "maxDays", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
@@ -50,13 +51,13 @@ public class AdminCollectionCommissionTierController {
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<CollectionCommissionTierDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.get(uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_CREATE')")
     public ResponseEntity<CollectionCommissionTierDto> create(@Valid @RequestBody CollectionCommissionTierCreateRequest request) {
         CollectionCommissionTierDto created = service.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -65,20 +66,20 @@ public class AdminCollectionCommissionTierController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_UPDATE')")
     public ResponseEntity<CollectionCommissionTierDto> update(@PathVariable UUID uuid,
             @Valid @RequestBody CollectionCommissionTierUpdateRequest request) {
         return ResponseEntity.ok(service.update(uuid, request));
     }
 
     @GetMapping("/{uuid}/usage")
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.getUsage(uuid));
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COLLECTION_COMMISSION_TIER_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid,
             @RequestParam(defaultValue = "false") boolean physical) {
         service.delete(uuid, physical);

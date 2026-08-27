@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT covering authorization + CRUD wiring of the collection-commission-tier
- * admin surface (ADR 0013 §3, V44), gated by {@code COLLECTION_COMMISSION_TIER_MANAGE}.
+ * admin surface (ADR 0013 §3, V44). Granular per V79:
+ * {@code COLLECTION_COMMISSION_TIER_VIEW_ALL} / {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}.
  * Service mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
@@ -67,14 +68,14 @@ class AdminCollectionCommissionTierControllerIT {
 
     @Test
     void list_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COMMISSION_TIER_MANAGE")))
+        mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void list_withPermission_is200() throws Exception {
         when(service.list(any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
-        mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_MANAGE")))
+        mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
 
@@ -84,7 +85,7 @@ class AdminCollectionCommissionTierControllerIT {
         String json = """
                 {"name":"Hasta 5 días","maxDays":5,"commissionPct":35}
                 """;
-        mockMvc.perform(post("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_MANAGE"))
+        mockMvc.perform(post("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated());
     }
@@ -96,7 +97,7 @@ class AdminCollectionCommissionTierControllerIT {
                 {"commissionPct":30}
                 """;
         mockMvc.perform(put("/v1/admin/collection-commission-tiers/" + UUID.randomUUID())
-                        .with(principal("COLLECTION_COMMISSION_TIER_MANAGE"))
+                        .with(principal("COLLECTION_COMMISSION_TIER_UPDATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk());
     }
@@ -105,7 +106,7 @@ class AdminCollectionCommissionTierControllerIT {
     void delete_withPermission_is204() throws Exception {
         doNothing().when(service).delete(any(), anyBoolean());
         mockMvc.perform(delete("/v1/admin/collection-commission-tiers/" + UUID.randomUUID())
-                        .with(principal("COLLECTION_COMMISSION_TIER_MANAGE")))
+                        .with(principal("COLLECTION_COMMISSION_TIER_DELETE")))
                 .andExpect(status().isNoContent());
     }
 

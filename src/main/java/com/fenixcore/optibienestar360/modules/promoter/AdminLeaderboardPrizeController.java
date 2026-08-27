@@ -30,9 +30,12 @@ import java.util.UUID;
 
 /**
  * Admin config of leaderboard prizes (v2 PDF #5, V42) + a manual award trigger.
- * All gated by {@code LEADERBOARD_PRIZE_MANAGE}. Automatic awarding at period
- * close is driven by {@code LeaderboardPrizeJobRunner}; this endpoint is the
- * manual override / preview ({@code dryRun}).
+ * Granular per V79: {@code LEADERBOARD_PRIZE_VIEW_ALL} / {@code _CREATE} /
+ * {@code _UPDATE} / {@code _DELETE}. {@code /award} persists real award
+ * records against promoters, so it's gated by {@code _CREATE} too — even in
+ * {@code dryRun} mode, which is just a preview flag on the same endpoint.
+ * Automatic awarding at period close is driven by
+ * {@code LeaderboardPrizeJobRunner}; this endpoint is the manual override.
  */
 @RestController
 @RequestMapping("/v1/admin/leaderboard-prizes")
@@ -42,19 +45,19 @@ public class AdminLeaderboardPrizeController {
     private final LeaderboardPrizeService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_VIEW_ALL')")
     public ResponseEntity<List<LeaderboardPrizeDto>> list() {
         return ResponseEntity.ok(service.list());
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_VIEW_ALL')")
     public ResponseEntity<LeaderboardPrizeDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.get(uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_CREATE')")
     public ResponseEntity<LeaderboardPrizeDto> create(@Valid @RequestBody LeaderboardPrizeRequest request) {
         LeaderboardPrizeDto created = service.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -63,14 +66,14 @@ public class AdminLeaderboardPrizeController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_UPDATE')")
     public ResponseEntity<LeaderboardPrizeDto> update(@PathVariable UUID uuid,
             @Valid @RequestBody LeaderboardPrizeRequest request) {
         return ResponseEntity.ok(service.update(uuid, request));
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         service.delete(uuid);
         return ResponseEntity.noContent().build();
@@ -78,7 +81,7 @@ public class AdminLeaderboardPrizeController {
 
     /** Manual award/preview for the {@code strategy} period containing {@code period}. */
     @PostMapping("/award")
-    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_MANAGE')")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_CREATE')")
     public ResponseEntity<PrizeAwardResult> award(
             @RequestParam(required = false) String period,
             @RequestParam(required = false, defaultValue = "MONTHLY") PeriodStrategy strategy,
