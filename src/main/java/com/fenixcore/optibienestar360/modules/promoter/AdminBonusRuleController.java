@@ -30,7 +30,10 @@ import java.util.UUID;
 
 /**
  * Admin CRUD over the configurable bonus rules (v2 PDF #5) plus the manual
- * evaluation trigger. All gated by {@code BONUS_RULE_MANAGE}; the scheduled
+ * evaluation trigger. Granular per V79: {@code BONUS_RULE_VIEW_ALL} /
+ * {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}. {@code /evaluate} is a
+ * preview that doesn't persist, gated by create-or-update since it's part of
+ * building/adjusting a rule, not viewing already-persisted ones. The scheduled
  * runner performs the same evaluation monthly without a request.
  */
 @RestController
@@ -42,7 +45,7 @@ public class AdminBonusRuleController {
     private final BonusEvaluationService bonusEvaluationService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAuthority('BONUS_RULE_VIEW_ALL')")
     public ResponseEntity<Page<BonusRuleDto>> list(
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String filter,
@@ -53,13 +56,13 @@ public class AdminBonusRuleController {
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAuthority('BONUS_RULE_VIEW_ALL')")
     public ResponseEntity<BonusRuleDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(bonusRulesService.get(uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAuthority('BONUS_RULE_CREATE')")
     public ResponseEntity<BonusRuleDto> create(@Valid @RequestBody BonusRuleRequest request) {
         BonusRuleDto created = bonusRulesService.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -70,14 +73,14 @@ public class AdminBonusRuleController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAuthority('BONUS_RULE_UPDATE')")
     public ResponseEntity<BonusRuleDto> update(@PathVariable UUID uuid,
                                                @Valid @RequestBody BonusRuleRequest request) {
         return ResponseEntity.ok(bonusRulesService.update(uuid, request));
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAuthority('BONUS_RULE_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         bonusRulesService.delete(uuid);
         return ResponseEntity.noContent().build();
@@ -88,7 +91,7 @@ public class AdminBonusRuleController {
      * previews the awards that would be granted without persisting.
      */
     @PostMapping("/evaluate")
-    @PreAuthorize("hasAuthority('BONUS_RULE_MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BONUS_RULE_CREATE', 'BONUS_RULE_UPDATE')")
     public ResponseEntity<BonusEvaluationResponse> evaluate(
             @RequestBody(required = false) BonusEvaluationRequest request) {
         BonusEvaluationRequest req = request != null ? request : new BonusEvaluationRequest(null, false);

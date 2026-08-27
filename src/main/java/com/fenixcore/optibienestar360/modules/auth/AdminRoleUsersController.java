@@ -26,11 +26,10 @@ import java.util.UUID;
  * {@link com.fenixcore.optibienestar360.modules.ally.AdminAllyUsersController}'s
  * conventions.
  *
- * <p>Listing is guarded by {@code USER_VIEW_ALL} (viewing users, regardless of
- * which role they hold); assigning/removing is guarded by the dedicated
- * {@code ROLE_USERS_MANAGE} permission — distinct from
- * {@code ROLE_PERMISSION_EDIT} (which governs the role's own permission set,
- * not its membership).</p>
+ * <p>Granular per V79: listing is guarded by {@code ROLE_USER_VIEW_ALL};
+ * assigning by {@code ROLE_USER_CREATE}; removing by {@code ROLE_USER_DELETE}.
+ * Distinct from {@code ROLE_PERMISSION_EDIT} (which governs the role's own
+ * permission set, not its membership).</p>
  */
 @RestController
 @RequestMapping("/v1/admin/roles/{roleUuid}/users")
@@ -40,13 +39,13 @@ public class AdminRoleUsersController {
     private final RoleService roleService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('ROLE_USER_VIEW_ALL')")
     public ResponseEntity<List<RoleUserDto>> list(@PathVariable UUID roleUuid) {
         return ResponseEntity.ok(roleService.listUsers(roleUuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_USERS_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_USER_CREATE')")
     public ResponseEntity<Void> assign(@PathVariable UUID roleUuid,
                                        @Valid @RequestBody AssignRoleUserRequest request) {
         roleService.assignUser(roleUuid, request.userUuid());
@@ -58,7 +57,7 @@ public class AdminRoleUsersController {
     }
 
     @DeleteMapping("/{userUuid}")
-    @PreAuthorize("hasAuthority('ROLE_USERS_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_USER_DELETE')")
     public ResponseEntity<Void> remove(@PathVariable UUID roleUuid,
                                        @PathVariable UUID userUuid) {
         roleService.removeUser(roleUuid, userUuid);

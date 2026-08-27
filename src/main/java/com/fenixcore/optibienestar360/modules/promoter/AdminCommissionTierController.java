@@ -28,9 +28,9 @@ import java.net.URI;
 import java.util.UUID;
 
 /**
- * Admin CRUD for commission tiers (v2 PDF #5, V42). All operations gated by
- * {@code COMMISSION_TIER_MANAGE} — configuring the commission calculation is an
- * admin-only concern.
+ * Admin CRUD for commission tiers (v2 PDF #5, V42). Granular per V79:
+ * {@code COMMISSION_TIER_VIEW_ALL} / {@code _CREATE} / {@code _UPDATE} /
+ * {@code _DELETE}.
  */
 @RestController
 @RequestMapping("/v1/admin/commission-tiers")
@@ -40,7 +40,7 @@ public class AdminCommissionTierController {
     private final CommissionTiersService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<Page<CommissionTierDto>> list(
             @PageableDefault(size = 50, sort = "thresholdCount", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String filter,
@@ -51,13 +51,13 @@ public class AdminCommissionTierController {
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<CommissionTierDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.get(uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_CREATE')")
     public ResponseEntity<CommissionTierDto> create(@Valid @RequestBody CommissionTierCreateRequest request) {
         CommissionTierDto created = service.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -66,20 +66,20 @@ public class AdminCommissionTierController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_UPDATE')")
     public ResponseEntity<CommissionTierDto> update(@PathVariable UUID uuid,
             @Valid @RequestBody CommissionTierUpdateRequest request) {
         return ResponseEntity.ok(service.update(uuid, request));
     }
 
     @GetMapping("/{uuid}/usage")
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_VIEW_ALL')")
     public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.getUsage(uuid));
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('COMMISSION_TIER_MANAGE')")
+    @PreAuthorize("hasAuthority('COMMISSION_TIER_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid,
             @RequestParam(defaultValue = "false") boolean physical) {
         service.delete(uuid, physical);

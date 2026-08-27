@@ -42,9 +42,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT covering the authorization of the three new commission-engine admin
- * surfaces (V42): tiers ({@code COMMISSION_TIER_MANAGE}), leaderboard
- * ({@code LEADERBOARD_VIEW}), prizes ({@code LEADERBOARD_PRIZE_MANAGE}). Services
- * mocked; one context for all three to keep the suite lean.
+ * surfaces (V42), granular per V79: tiers ({@code COMMISSION_TIER_VIEW_ALL} /
+ * {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}), leaderboard
+ * ({@code LEADERBOARD_VIEW}), prizes ({@code LEADERBOARD_PRIZE_VIEW_ALL} /
+ * {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}). Services mocked; one
+ * context for all three to keep the suite lean.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -85,7 +87,7 @@ class AdminCommissionEngineControllerIT {
     @Test
     void tiers_list_withPermission_is200() throws Exception {
         when(tiersService.list(any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
-        mockMvc.perform(get("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_MANAGE")))
+        mockMvc.perform(get("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
 
@@ -96,7 +98,7 @@ class AdminCommissionEngineControllerIT {
                 {"name":"Gold","thresholdCount":10,"commissionPct":25,
                  "periodStrategy":"MONTHLY","appliesTo":"BOTH"}
                 """;
-        mockMvc.perform(post("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_MANAGE"))
+        mockMvc.perform(post("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated());
     }
@@ -105,7 +107,7 @@ class AdminCommissionEngineControllerIT {
 
     @Test
     void leaderboard_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/leaderboard").with(principal("COMMISSION_TIER_MANAGE")))
+        mockMvc.perform(get("/v1/admin/leaderboard").with(principal("COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isForbidden());
     }
 
@@ -123,7 +125,7 @@ class AdminCommissionEngineControllerIT {
     @Test
     void prizes_list_withPermission_is200() throws Exception {
         when(prizeService.list()).thenReturn(List.of());
-        mockMvc.perform(get("/v1/admin/leaderboard-prizes").with(principal("LEADERBOARD_PRIZE_MANAGE")))
+        mockMvc.perform(get("/v1/admin/leaderboard-prizes").with(principal("LEADERBOARD_PRIZE_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
 
@@ -133,7 +135,7 @@ class AdminCommissionEngineControllerIT {
                 new PrizeAwardResult(PeriodStrategy.MONTHLY, LocalDate.of(2026, 6, 1),
                         LocalDate.of(2026, 6, 30), true, 0, BigDecimal.ZERO, "USD"));
         mockMvc.perform(post("/v1/admin/leaderboard-prizes/award").param("dryRun", "true")
-                        .with(principal("LEADERBOARD_PRIZE_MANAGE")))
+                        .with(principal("LEADERBOARD_PRIZE_CREATE")))
                 .andExpect(status().isOk());
     }
 

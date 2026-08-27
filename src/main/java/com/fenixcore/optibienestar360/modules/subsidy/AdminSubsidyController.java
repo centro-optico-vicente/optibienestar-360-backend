@@ -32,9 +32,10 @@ import java.util.UUID;
 
 /**
  * Admin surface for subsidies & exonerations (v2 PDF item #1, V41). Reads gated
- * by {@code SUBSIDY_VIEW_ALL}; create / modify / revoke by {@code SUBSIDY_APPROVE}
- * (a single permission for all mutations, per the vertical-12 decision). Every
- * mutation is recorded in the immutable audit log, surfaced by {@code /{uuid}/log}.
+ * by {@code SUBSIDY_VIEW_ALL}; create / update / revoke are granular (V78):
+ * {@code SUBSIDY_CREATE} / {@code SUBSIDY_UPDATE} / {@code SUBSIDY_DELETE}.
+ * Every mutation is recorded in the immutable audit log, surfaced by
+ * {@code /{uuid}/log}.
  */
 @RestController
 @RequestMapping("/v1/admin/subsidies")
@@ -60,7 +61,7 @@ public class AdminSubsidyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SUBSIDY_APPROVE')")
+    @PreAuthorize("hasAuthority('SUBSIDY_CREATE')")
     public ResponseEntity<SubsidyDto> create(
             @Valid @RequestBody SubsidyCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
@@ -73,7 +74,7 @@ public class AdminSubsidyController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('SUBSIDY_APPROVE')")
+    @PreAuthorize("hasAuthority('SUBSIDY_UPDATE')")
     public ResponseEntity<SubsidyDto> update(
             @PathVariable UUID uuid,
             @Valid @RequestBody SubsidyUpdateRequest request,
@@ -82,7 +83,7 @@ public class AdminSubsidyController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('SUBSIDY_APPROVE')")
+    @PreAuthorize("hasAuthority('SUBSIDY_DELETE')")
     public ResponseEntity<Void> revoke(
             @PathVariable UUID uuid,
             @AuthenticationPrincipal CustomUserDetails actor) {

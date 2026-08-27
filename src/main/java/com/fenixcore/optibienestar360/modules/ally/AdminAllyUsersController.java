@@ -27,10 +27,10 @@ import java.util.UUID;
  * system users can operate on this ally and with what intra-ally role
  * (OWNER / STAFF / VIEWER) + primary contact flag.
  *
- * <p>Reads are guarded by {@code ALLY_VIEW_ALL}. Writes are guarded by
- * {@code ALLY_USERS_MANAGE} — a dedicated permission distinct from
- * {@code ALLY_UPDATE} (which governs the ally's own business data, not who
- * operates on its behalf).</p>
+ * <p>Granular per V79: {@code ALLY_USER_VIEW_ALL} / {@code _CREATE} /
+ * {@code _UPDATE} / {@code _DELETE} — decoupled from {@code ALLY_VIEW_ALL}
+ * (viewing the ally's own business data) and from {@code ALLY_UPDATE} (editing
+ * it), since who operates on an ally's behalf is a distinct concern.</p>
  */
 @RestController
 @RequestMapping("/v1/admin/allies/{allyUuid}/users")
@@ -40,20 +40,20 @@ public class AdminAllyUsersController {
     private final AllyUsersService usersService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('ALLY_USER_VIEW_ALL')")
     public ResponseEntity<List<AllyUserDto>> list(@PathVariable UUID allyUuid) {
         return ResponseEntity.ok(usersService.listForAlly(allyUuid));
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('ALLY_USER_VIEW_ALL')")
     public ResponseEntity<AllyUserDto> get(@PathVariable UUID allyUuid,
                                            @PathVariable UUID uuid) {
         return ResponseEntity.ok(usersService.get(allyUuid, uuid));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_USER_CREATE')")
     public ResponseEntity<AllyUserDto> add(@PathVariable UUID allyUuid,
                                            @Valid @RequestBody AllyUserCreateRequest request) {
         AllyUserDto created = usersService.add(allyUuid, request);
@@ -65,7 +65,7 @@ public class AdminAllyUsersController {
     }
 
     @PutMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_USER_UPDATE')")
     public ResponseEntity<AllyUserDto> update(@PathVariable UUID allyUuid,
                                               @PathVariable UUID uuid,
                                               @Valid @RequestBody AllyUserUpdateRequest request) {
@@ -73,7 +73,7 @@ public class AdminAllyUsersController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('ALLY_USERS_MANAGE')")
+    @PreAuthorize("hasAuthority('ALLY_USER_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID allyUuid,
                                        @PathVariable UUID uuid) {
         usersService.delete(allyUuid, uuid);

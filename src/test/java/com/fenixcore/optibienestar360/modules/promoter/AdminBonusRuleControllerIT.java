@@ -44,7 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT of the bonus-rule admin contract (v2 PDF #5, {@link AdminBonusRuleController}):
- * every endpoint is gated by {@code BONUS_RULE_MANAGE}. Services are mocked.
+ * granular per V79: {@code BONUS_RULE_VIEW_ALL} / {@code _CREATE} / {@code _UPDATE} /
+ * {@code _DELETE}; {@code /evaluate} needs create-or-update. Services are mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -83,7 +84,7 @@ class AdminBonusRuleControllerIT {
              "thresholdCount":300,"windowStrategy":"MONTHLY","rewardType":"FLAT","flatAmount":50.00}
             """;
 
-    // ─── list (read, BONUS_RULE_MANAGE) ──────────────────────────────────────
+    // ─── list (read, BONUS_RULE_VIEW_ALL) ────────────────────────────────────
 
     @Test
     void list_anonymous_is401() throws Exception {
@@ -102,12 +103,12 @@ class AdminBonusRuleControllerIT {
         when(bonusRulesService.list(any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(new PageImpl<>(List.of(ruleDto())));
 
-        mockMvc.perform(get("/v1/admin/bonus-rules").with(principal("BONUS_RULE_MANAGE")))
+        mockMvc.perform(get("/v1/admin/bonus-rules").with(principal("BONUS_RULE_VIEW_ALL")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
     }
 
-    // ─── create (write, BONUS_RULE_MANAGE) ───────────────────────────────────
+    // ─── create (write, BONUS_RULE_CREATE) ───────────────────────────────────
 
     @Test
     void create_withoutPermission_is403() throws Exception {
@@ -123,13 +124,13 @@ class AdminBonusRuleControllerIT {
         when(bonusRulesService.create(any())).thenReturn(ruleDto());
 
         mockMvc.perform(post("/v1/admin/bonus-rules")
-                        .with(principal("BONUS_RULE_MANAGE"))
+                        .with(principal("BONUS_RULE_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(VALID_RULE_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.thresholdCount").value(300));
     }
 
-    // ─── evaluate (write, BONUS_RULE_MANAGE) ─────────────────────────────────
+    // ─── evaluate (create-or-update) ─────────────────────────────────────────
 
     @Test
     void evaluate_withoutPermission_is403() throws Exception {
@@ -146,7 +147,7 @@ class AdminBonusRuleControllerIT {
                         new BigDecimal("100.00"), "USD", Instant.parse("2026-06-01T12:00:00Z"), List.of()));
 
         mockMvc.perform(post("/v1/admin/bonus-rules/evaluate")
-                        .with(principal("BONUS_RULE_MANAGE"))
+                        .with(principal("BONUS_RULE_UPDATE"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"dryRun\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.awardsCreated").value(1))
