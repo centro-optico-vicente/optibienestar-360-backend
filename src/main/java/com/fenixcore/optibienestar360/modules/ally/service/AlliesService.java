@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
@@ -67,6 +68,14 @@ public class AlliesService {
 
     private static final String[] SEARCHABLE_FIELDS = {"name", "email", "phone"};
 
+	/** Columns exposed as sortable table headers in the admin allies list. */
+	private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+		"name", "email", "phone", "website",
+		"taxDocumentType", "taxDocumentNumber",
+		"published", "publishedAt", "joinedAt",
+		"createdAt", "updatedAt", "active", "status"
+	);
+
     private final AllyRepository repository;
     private final AllyTypeRepository allyTypeRepository;
     private final CityRepository cityRepository;
@@ -99,6 +108,7 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+		SortFieldValidator.validate(pageable.getSort(), ALLOWED_SORT_FIELDS, "ally.sort.field_not_allowed");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally.filter.field_not_allowed");
@@ -383,4 +393,5 @@ public class AlliesService {
                 cb.isTrue(root.get("published"))
         );
     }
+
 }
