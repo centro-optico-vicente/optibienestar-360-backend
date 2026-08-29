@@ -115,7 +115,7 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-		Pageable resolvedPageable = SortFieldValidator.resolve(pageable, SORTABLE_FIELDS, "ally.sort.field_not_allowed");
+		Pageable resolvedPageable = SortFieldValidator.resolve(pageable, SORTABLE_FIELDS, "ally");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally.filter.field_not_allowed");

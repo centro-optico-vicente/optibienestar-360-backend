@@ -35,9 +35,10 @@ import java.util.UUID;
  *
  * <p>Pagination convention follows the project standard (see
  * {@code .ai/specs/06-rest-api.md}): default page size 20 + sort by
- * {@code name} ASC; client may override via {@code ?page=}, {@code ?size=},
- * {@code ?sort=}. Sentinel {@code size=-1} or {@code unpaged=true} returns
- * everything (resolved by {@code UnpagedAwarePageableArgumentResolver}).</p>
+ * {@code createdAt} DESC (most recently created first); client may override
+ * via {@code ?page=}, {@code ?size=}, {@code ?sort=}. Sentinel {@code
+ * size=-1} or {@code unpaged=true} returns everything (resolved by {@code
+ * UnpagedAwarePageableArgumentResolver}).</p>
  */
 @RestController
 @RequestMapping("/v1/admin/allies")
@@ -49,7 +50,7 @@ public class AdminAllyController {
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
     public ResponseEntity<Page<AllyListItemDto>> list(
-            @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable,
+			@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {

@@ -15,32 +15,40 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 /**
- * Resolves and validates the properties referenced by a Spring Data
- * {@link Sort} against a per-entity sortable-field map, blocking a client
- * from ordering by (and thereby probing the existence/shape of) a column or
- * association that isn't deliberately exposed — analogous to
- * {@link RsqlFieldValidator} for the {@code ?filter=} parameter.
+ * Translates the properties referenced by a Spring Data {@link Sort} into
+ * their real JPA paths against a per-entity sortable-field map.
  *
  * <p>The sortable map has two parts:</p>
  * <ul>
  *   <li><b>Scalar columns</b> — every non-association field the entity
- *   declares on itself. These are derived automatically via
- *   {@link #sortableFieldsOf}, so adding a plain {@code @Column} to an
- *   entity makes it sortable with zero backend changes.</li>
+ *   declares on itself or inherits from a {@code @MappedSuperclass} (e.g.
+ *   {@code createdAt}/{@code updatedAt} from {@code BaseEntity}). These are
+ *   derived automatically via {@link #sortableFieldsOf}, so adding a plain
+ *   {@code @Column} to an entity makes it sortable with zero backend
+ *   changes.</li>
  *   <li><b>Relation "display" columns</b> — a list-item DTO field like
  *   {@code cityName} that's actually {@code city.name} under a
  *   {@code @ManyToOne}. These can't be inferred safely (which field of the
- *   related entity to show is a conscious choice, same as
- *   {@code RsqlFieldValidator}'s allow-list is for filter paths), so the
- *   caller supplies them explicitly as {@code relationAliases}.</li>
+ *   related entity to show is a conscious choice), so the caller supplies
+ *   them explicitly as {@code relationAliases}.</li>
  * </ul>
+ *
+ * <p>{@link #resolve} is intentionally tolerant, not a security whitelist:
+ * the only caller of a {@code ?sort=} field is the admin table itself,
+ * clicking on the columns it renders, so a field it doesn't recognize is
+ * either a stale request or a frontend/backend drift to notice in the logs
+ * — not something to reject the whole page load for.</p>
  */
 public final class SortFieldValidator {
+
+	private static final Logger log = LoggerFactory.getLogger(SortFieldValidator.class);
 
 	private static final Set<Class<? extends Annotation>> ASSOCIATION_ANNOTATIONS = Set.of(
 		ManyToOne.class,
@@ -53,37 +61,37 @@ public final class SortFieldValidator {
 	private SortFieldValidator() {}
 
 	/**
-	 * Auto-derives the sortable scalar fields of {@code entityClass} by
-	 * reflection (excluding JPA associations, {@code @Transient}, and static
-	 * fields) and merges in {@code relationAliases} — keyed by the name the
-	 * client sends (matching the list-item DTO field), valued by the real
-	 * JPA property path (dotted for relations).
+	 * Auto-derives the sortable scalar fields of {@code entityClass} — walking
+	 * up through every {@code @MappedSuperclass} so inherited fields like
+	 * {@code createdAt} are included — by reflection (excluding JPA
+	 * associations, {@code @Transient}, and static fields) and merges in
+	 * {@code relationAliases} — keyed by the name the client sends (matching
+	 * the list-item DTO field), valued by the real JPA property path (dotted
+	 * for relations).
 	 */
 	public static Map<String, String> sortableFieldsOf(Class<?> entityClass, Map<String, String> relationAliases) {
 		Map<String, String> fields = new LinkedHashMap<>();
-		for (Field f : entityClass.getDeclaredFields()) {
-			boolean isAssociation = ASSOCIATION_ANNOTATIONS.stream().anyMatch(f::isAnnotationPresent);
-			if (isAssociation || f.isAnnotationPresent(Transient.class) || Modifier.isStatic(f.getModifiers())) {
-				continue;
+		for (Class<?> c = entityClass; c != null && c != Object.class; c = c.getSuperclass()) {
+			for (Field f : c.getDeclaredFields()) {
+				boolean isAssociation = ASSOCIATION_ANNOTATIONS.stream().anyMatch(f::isAnnotationPresent);
+				if (isAssociation || f.isAnnotationPresent(Transient.class) || Modifier.isStatic(f.getModifiers())) {
+					continue;
+				}
+				fields.putIfAbsent(f.getName(), f.getName());
 			}
-			fields.put(f.getName(), f.getName());
 		}
 		fields.putAll(relationAliases);
 		return Collections.unmodifiableMap(fields);
 	}
 
 	/**
-	 * Validates every property in {@code pageable}'s {@link Sort} against
-	 * {@code sortableFields} and returns an equivalent {@link Pageable} with
-	 * each property translated to its real JPA path.
-	 *
-	 * @throws IllegalArgumentException with {@code errorCode} as the message
-	 *         when any sorted property is outside {@code sortableFields}. The
-	 *         exception message is a localization code (resolved by
-	 *         {@code GlobalExceptionHandler} into a 422 {@code ProblemDetail}),
-	 *         same mechanism as {@link RsqlFieldValidator#validate}.
+	 * Translates every property in {@code pageable}'s {@link Sort} to its real
+	 * JPA path via {@code sortableFields}, silently dropping (and logging a
+	 * warning for) any property that isn't in the map instead of failing the
+	 * request. {@code entityKey} is only used to identify the entity in the
+	 * warning log line.
 	 */
-	public static Pageable resolve(Pageable pageable, Map<String, String> sortableFields, String errorCode) {
+	public static Pageable resolve(Pageable pageable, Map<String, String> sortableFields, String entityKey) {
 		if (pageable.getSort().isUnsorted()) {
 			return pageable;
 		}
@@ -91,9 +99,13 @@ public final class SortFieldValidator {
 		for (Sort.Order order : pageable.getSort()) {
 			String jpaPath = sortableFields.get(order.getProperty());
 			if (jpaPath == null) {
-				throw new IllegalArgumentException(errorCode);
+				log.warn("Ignoring unsupported sort field '{}' for entity '{}'", order.getProperty(), entityKey);
+				continue;
 			}
 			mapped.add(order.withProperty(jpaPath));
+		}
+		if (mapped.isEmpty()) {
+			return pageable.isUnpaged() ? Pageable.unpaged() : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 		}
 		Sort resolvedSort = Sort.by(mapped);
 		return pageable.isUnpaged()
