@@ -43,7 +43,7 @@ public class ReportAuditService {
     private final ReportAuditLogRepository reportAuditLogRepository;
     private final AttachedFileRepository attachedFileRepository;
     private final ObjectProvider<StorageService> storageProvider;
-    private final AuditEntityConfigService auditEntityConfigService;
+	private final EntityConfigService entityConfigService;
     private final SystemConfigService systemConfigService;
     private final AuditContextResolver auditContextResolver;
 
@@ -101,7 +101,7 @@ public class ReportAuditService {
             // (same fail-open-toward-recording stance as an unscoped report).
             return true;
         }
-        var config = auditEntityConfigService.findConfig(entityKey);
+		var config = entityConfigService.findConfig(entityKey);
         return config == null || config.isAuditReport();
     }
 
@@ -134,4 +134,5 @@ public class ReportAuditService {
             return null;
         }
     }
+
 }

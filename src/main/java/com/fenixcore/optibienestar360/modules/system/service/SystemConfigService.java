@@ -1,11 +1,15 @@
 package com.fenixcore.optibienestar360.modules.system.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditMode;
+import com.fenixcore.optibienestar360.core.util.CommonSortFields;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.system.dto.UpdateSystemConfigRequest;
 import com.fenixcore.optibienestar360.modules.system.entity.SystemConfig;
 import com.fenixcore.optibienestar360.modules.system.repository.SystemConfigRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class SystemConfigService {
@@ -85,6 +89,21 @@ public class SystemConfigService {
 		;
 	}
 
+	/**
+	 * The global fallback default sort (V82), empty (never {@code null})
+	 * when unconfigured — the caller (e.g. {@code AlliesService}) decides
+	 * its own final hard fallback ({@code createdAt DESC}).
+	 */
+	@Transactional(readOnly = true)
+	public List<SortOrder> getDefaultSort() {
+		return systemConfigRepository
+			.findFirstByActiveTrue()
+			.map(SystemConfig::getDefaultSort)
+			.filter(sort -> sort != null)
+			.orElse(List.of())
+		;
+	}
+
     /**
      * Updates the singleton system configuration report footer.
      */
@@ -120,6 +139,9 @@ public class SystemConfigService {
 		if (request.loginSessionExpirationDays() != null) {
 			config.setLoginSessionExpirationDays(request.loginSessionExpirationDays());
 		}
+		if (request.defaultSort() != null) {
+			config.setDefaultSort(validateCommonSort(request.defaultSort()));
+		}
 
         return systemConfigRepository.save(config);
     }
@@ -128,5 +150,25 @@ public class SystemConfigService {
         return systemConfigRepository.findFirstByActiveTrue()
                 .orElseGet(SystemConfig::new);
     }
+
+	/**
+	 * Restricts a global default-sort request to
+	 * {@link CommonSortFields#COMMON_SORTABLE_FIELDS} — unlike
+	 * {@code entity_config.default_sort}, this one isn't checked against any
+	 * single entity's own sortable-fields map, so it needs its own
+	 * whitelist. An empty list normalizes to {@code null} ("no global
+	 * default configured").
+	 */
+	private List<SortOrder> validateCommonSort(List<SortOrder> defaultSort) {
+		if (defaultSort.isEmpty()) {
+			return null;
+		}
+		for (SortOrder order : defaultSort) {
+			if (!CommonSortFields.COMMON_SORTABLE_FIELDS.contains(order.field())) {
+				throw new IllegalArgumentException("system_config.default_sort.field_not_allowed");
+			}
+		}
+		return defaultSort;
+	}
 
 }

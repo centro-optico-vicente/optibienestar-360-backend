@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.system.entity;
 
 import com.fenixcore.optibienestar360.core.audit.AuditMode;
 import com.fenixcore.optibienestar360.core.entity.BaseAuditEntity;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,6 +12,10 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -50,5 +55,19 @@ public class SystemConfig extends BaseAuditEntity {
 	 */
 	@Column(name = "login_session_expiration_days", nullable = false)
 	private int loginSessionExpirationDays = 30;
+
+	/**
+	 * Global fallback default sort (V82) — applied by a list endpoint when
+	 * the entity has no {@code entity_config} row (or none with its own
+	 * {@code default_sort}) at all. Restricted at the service layer to
+	 * {@link com.fenixcore.optibienestar360.core.util.CommonSortFields},
+	 * since (unlike {@code entity_config.default_sort}) it isn't checked
+	 * against any single entity's sortable-fields map. {@code null} means
+	 * "no global default configured" — callers fall back to
+	 * {@code createdAt DESC} in code.
+	 */
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "default_sort", columnDefinition = "jsonb")
+	private List<SortOrder> defaultSort;
 
 }

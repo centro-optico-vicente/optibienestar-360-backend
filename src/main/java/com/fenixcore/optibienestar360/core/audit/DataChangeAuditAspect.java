@@ -28,14 +28,14 @@ public class DataChangeAuditAspect {
     /** Tried in order against {@code joinPoint.getTarget()} to snapshot "before" state. */
     private static final List<String> SNAPSHOT_METHOD_NAMES = List.of("getDetail", "get", "findDetail");
 
-    private final AuditEntityConfigService auditEntityConfigService;
+	private final EntityConfigService entityConfigService;
     private final AuditContextResolver auditContextResolver;
     private final DataChangeAuditWriter dataChangeAuditWriter;
     private final ObjectMapper objectMapper;
 
     @Around("@annotation(auditable)")
     public Object around(ProceedingJoinPoint joinPoint, Auditable auditable) throws Throwable {
-        boolean shouldAudit = safely(() -> auditEntityConfigService.isEnabled(auditable.entity(), auditable.action()), false);
+		boolean shouldAudit = safely(() -> entityConfigService.isEnabled(auditable.entity(), auditable.action()), false);
 
         UUID entityUuid = auditable.uuidArgIndex() >= 0
                 ? (UUID) joinPoint.getArgs()[auditable.uuidArgIndex()]
@@ -43,7 +43,7 @@ public class DataChangeAuditAspect {
 
         Object beforeSnapshot = null;
         if (shouldAudit && auditable.action() != AuditAction.CREATE && entityUuid != null
-                && safely(() -> auditEntityConfigService.captureBeforeAfter(auditable.entity()), false)) {
+				&& safely(() -> entityConfigService.captureBeforeAfter(auditable.entity()), false)) {
             beforeSnapshot = safely(() -> snapshot(joinPoint.getTarget(), entityUuid), null);
         }
 
@@ -65,7 +65,7 @@ public class DataChangeAuditAspect {
         UUID resolvedUuid = entityUuid != null ? entityUuid : extractUuid(result);
         Object afterSnapshot = auditable.action() == AuditAction.DELETE ? null : result;
 
-        boolean captureBeforeAfter = safely(() -> auditEntityConfigService.captureBeforeAfter(auditable.entity()), true);
+		boolean captureBeforeAfter = safely(() -> entityConfigService.captureBeforeAfter(auditable.entity()), true);
 
         dataChangeAuditWriter.write(
                 auditable.entity(),
@@ -129,4 +129,5 @@ public class DataChangeAuditAspect {
             return fallback;
         }
     }
+
 }

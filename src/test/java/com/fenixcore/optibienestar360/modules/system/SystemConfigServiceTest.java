@@ -88,7 +88,7 @@ class SystemConfigServiceTest {
         when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SystemConfig updated = service.updateSystemConfig(
-                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false, null));
+                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false, null, null));
 
         assertEquals("Centro Óptico Vicente - Personalizado", updated.getReportFooter());
         assertEquals(AuditMode.FORCE_DISABLED, updated.getDataChangeAuditMode());
@@ -105,7 +105,8 @@ class SystemConfigServiceTest {
         when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SystemConfig updated = service.updateSystemConfig(
-                new UpdateSystemConfigRequest(null, null, null, null, 90));
+			new UpdateSystemConfigRequest(null, null, null, null, 90, null)
+		);
 
         assertEquals(90, updated.getLoginSessionExpirationDays());
         assertEquals(AuditMode.PER_ENTITY, updated.getDataChangeAuditMode());
