@@ -2,9 +2,12 @@ package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.audit.EntityConfigService;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
@@ -29,7 +32,9 @@ import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +97,8 @@ public class AlliesService {
     private final AllyServiceRepository allyServiceRepository;
     private final AllyAgreementRepository allyAgreementRepository;
     private final BenefitUsageRepository benefitUsageRepository;
+	private final EntityConfigService entityConfigService;
+	private final SystemConfigService systemConfigService;
 
     // ─── Finders ────────────────────────────────────────────────────────────
 
@@ -115,7 +122,8 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-		Pageable resolvedPageable = SortFieldValidator.resolve(pageable, SORTABLE_FIELDS, "ally");
+		Pageable defaultedPageable = withDefaultSortIfUnsorted(pageable);
+		Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally.filter.field_not_allowed");
@@ -126,6 +134,32 @@ public class AlliesService {
         }
 		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
     }
+
+	/**
+	 * When the request has no explicit {@code ?sort=} (the controller sets no
+	 * {@code @PageableDefault} sort on purpose), resolves a default in three
+	 * layers: {@code entity_config}'s own default for {@code "ally"}, then
+	 * {@code system_configs}' global fallback, then the hard-coded
+	 * {@code createdAt DESC}. Field names still go through the same
+	 * {@code SORTABLE_FIELDS} translation as a client-supplied sort.
+	 */
+	private Pageable withDefaultSortIfUnsorted(Pageable pageable) {
+		if (pageable.getSort().isSorted()) {
+			return pageable;
+		}
+		List<SortOrder> configured = entityConfigService.getDefaultSort("ally");
+		if (configured.isEmpty()) {
+			configured = systemConfigService.getDefaultSort();
+		}
+		Sort defaultSort = configured.isEmpty()
+			? Sort.by(Sort.Direction.DESC, "createdAt")
+			: Sort.by(configured.stream()
+				.map(o -> new Sort.Order(Sort.Direction.fromString(o.direction()), o.field()))
+				.toList());
+		return pageable.isUnpaged()
+			? Pageable.unpaged(defaultSort)
+			: PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
+	}
 
     /**
      * Public-directory query. Filters {@code is_active AND is_published}, so

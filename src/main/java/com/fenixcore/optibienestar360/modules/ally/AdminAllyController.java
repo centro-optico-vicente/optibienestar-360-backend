@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,11 +33,14 @@ import java.util.UUID;
  * "/v1/admin/allies/{id}/specialties|services|agreements|users".
  *
  * <p>Pagination convention follows the project standard (see
- * {@code .ai/specs/06-rest-api.md}): default page size 20 + sort by
- * {@code createdAt} DESC (most recently created first); client may override
- * via {@code ?page=}, {@code ?size=}, {@code ?sort=}. Sentinel {@code
- * size=-1} or {@code unpaged=true} returns everything (resolved by {@code
- * UnpagedAwarePageableArgumentResolver}).</p>
+ * {@code .ai/specs/06-rest-api.md}): default page size 20; client may
+ * override via {@code ?page=}, {@code ?size=}, {@code ?sort=}. Sentinel
+ * {@code size=-1} or {@code unpaged=true} returns everything (resolved by
+ * {@code UnpagedAwarePageableArgumentResolver}). No default sort here on
+ * purpose — an unsorted {@code Pageable} lets {@link AlliesService} tell a
+ * client-requested sort apart from "none given" and fall back to
+ * {@code entity_config}'s configured default (or {@code createdAt DESC} if
+ * unconfigured).</p>
  */
 @RestController
 @RequestMapping("/v1/admin/allies")
@@ -50,7 +52,7 @@ public class AdminAllyController {
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
     public ResponseEntity<Page<AllyListItemDto>> list(
-			@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+			@PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
@@ -100,4 +102,5 @@ public class AdminAllyController {
     public ResponseEntity<AllyDetailDto> restore(@PathVariable UUID uuid) {
         return ResponseEntity.ok(alliesService.restore(uuid));
     }
+
 }

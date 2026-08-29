@@ -40,13 +40,14 @@ public class SystemConfigController {
 
     private static SystemConfigDto toDto(SystemConfig config) {
         return new SystemConfigDto(
-                config.getUuid(),
-                config.getReportFooter(),
-                config.getDataChangeAuditMode(),
-                config.getReportAuditMode(),
-                config.isLoginAuditEnabled(),
-				config.getLoginSessionExpirationDays(),
-                config.getUpdatedAt()
+			config.getUuid(),
+			config.getReportFooter(),
+			config.getDataChangeAuditMode(),
+			config.getReportAuditMode(),
+			config.isLoginAuditEnabled(),
+			config.getLoginSessionExpirationDays(),
+			config.getDefaultSort(),
+			config.getUpdatedAt()
         );
     }
 }

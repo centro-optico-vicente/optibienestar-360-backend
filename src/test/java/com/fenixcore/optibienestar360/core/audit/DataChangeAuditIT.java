@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 16-audit.md §Aspecto AOP) — not just that the annotation/aspect classes
  * compile. Same real-Postgres, skip-if-unreachable pattern as
  * {@code FlywayMigrationIT}, since {@code data_change_audit_log} (V62) and
- * {@code audit_entity_config} (V60, seeded with {@code ally_type}) don't
+ * {@code entity_config} (V60/V80, seeded with {@code ally_type}) don't
  * exist in the H2 "test" profile (Flyway disabled there).
  *
  * <p>Deliberately NOT {@code @Transactional} — {@link DataChangeAuditWriter}
