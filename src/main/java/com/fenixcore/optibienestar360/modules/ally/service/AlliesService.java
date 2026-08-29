@@ -37,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -68,12 +69,18 @@ public class AlliesService {
 
     private static final String[] SEARCHABLE_FIELDS = {"name", "email", "phone"};
 
-	/** Columns exposed as sortable table headers in the admin allies list. */
-	private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
-		"name", "email", "phone", "website",
-		"taxDocumentType", "taxDocumentNumber",
-		"published", "publishedAt", "joinedAt",
-		"createdAt", "updatedAt", "active", "status"
+	/**
+	 * Columns exposed as sortable table headers in the admin allies list.
+	 * Scalar columns are derived automatically from {@link Ally}'s own
+	 * fields; only the relation "display" columns need an explicit alias
+	 * (which field of the related entity to sort by).
+	 */
+	private static final Map<String, String> SORTABLE_FIELDS = SortFieldValidator.sortableFieldsOf(
+		Ally.class,
+		Map.of(
+				"allyTypeName", "allyType.name",
+				"cityName", "city.name"
+		)
 	);
 
     private final AllyRepository repository;
@@ -108,7 +115,7 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-		SortFieldValidator.validate(pageable.getSort(), ALLOWED_SORT_FIELDS, "ally.sort.field_not_allowed");
+		Pageable resolvedPageable = SortFieldValidator.resolve(pageable, SORTABLE_FIELDS, "ally.sort.field_not_allowed");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "ally.filter.field_not_allowed");
@@ -117,7 +124,7 @@ public class AlliesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(mapper::toListItem);
+		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
     }
 
     /**
