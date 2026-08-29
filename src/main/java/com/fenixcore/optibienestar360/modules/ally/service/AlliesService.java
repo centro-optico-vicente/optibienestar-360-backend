@@ -78,8 +78,8 @@ public class AlliesService {
 	private static final Map<String, String> SORTABLE_FIELDS = SortFieldValidator.sortableFieldsOf(
 		Ally.class,
 		Map.of(
-				"allyTypeName", "allyType.name",
-				"cityName", "city.name"
+			"allyTypeName", "allyType.name",
+			"cityName", "city.name"
 		)
 	);
 
