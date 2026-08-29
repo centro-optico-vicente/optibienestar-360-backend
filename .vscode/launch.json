@@ -6,8 +6,8 @@
 			"name": "Launch OptiBienestar 360",
 			"request": "launch",
 			"mainClass": "com.fenixcore.optibienestar360.OptiBienestar360Application",
-			"projectName": "optibienestar-360-backend",
 			"args": "",
+			"cwd": "${workspaceFolder:optibienestar-360-backend}",
 			"env": {
 				"SPRING_PROFILES_ACTIVE": "dev"
 			}
