@@ -88,6 +88,21 @@ public ResponseEntity<Page<MemberDto>> list(
 
 (Spring Data devuelve `Page` con propiedades en camelCase por default; Jackson convierte a snake_case por config).
 
+### Valores presentacionales — sufijo `_Display` ([hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md))
+
+Los list/detail DTOs exponen etiquetas de FK y escalares presentacionales como siblings
+`_Display` **resueltos/formateados en el servidor por `Locale`** — el front no re-formatea:
+
+- **FK:** par `<rel>_Uuid` + `<rel>_Display` (default `name → code`; overrides por tipo). Nada de
+  `<rel>Name` suelto ni `CatalogRef` anidado en DTOs de negocio.
+- **Escalares** (fecha, fecha-hora, monto `VES`, decimal, enum/estado, boolean): par `<campo>`
+  crudo + `<campo>_Display`.
+- `_Display` es solo-lectura (Jackson lo ignora al deserializar); el `<rel>_Id` BIGINT es interno,
+  nunca se serializa; la clave de sort de una columna FK es `<rel>_Display`.
+- Mecanismo (`core/display/DisplayFormatter` + `@Display` + `BeanSerializerModifier`, refactor de
+  `AuditDisplayResolver`) y rollout **piloto Aliados** en
+  [`16-audit.md`](16-audit.md) §"Mecanismo `DisplayFormatter`".
+
 ## Endpoint `/options` para selects
 
 > **Regla obligatoria** (ver [ADR 0013](../decisions/0013-options-endpoint-conventions.md)). Todo endpoint de listado paginado tiene un hermano `GET /<recurso>/options` que devuelve `List<OptionDto>` **sin paginar** — sin `Page`, sin `total_elements`/`total_pages` — pensado para poblar selects/dropdowns/typeaheads sin pagar el costo del DTO completo.
