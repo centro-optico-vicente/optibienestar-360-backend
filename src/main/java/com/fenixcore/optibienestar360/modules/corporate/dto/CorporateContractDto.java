@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.corporate.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract.PayerMode;
 
@@ -9,9 +10,9 @@ import java.util.UUID;
 /**
  * Output DTO for the admin corporate-contract surface (list + detail). Flat
  * record; the plan and contact user are surfaced by UUID (+ plan name for
- * display) rather than nested. Mapped via {@link #from} inside the service
- * transaction so the LAZY {@code plan} / {@code contactUser} associations
- * resolve without an open-session-in-view.
+ * display). Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
+ * Mapped via {@link #from} inside the service transaction so the LAZY
+ * {@code plan} / {@code contactUser} associations resolve.
  */
 public record CorporateContractDto(
         UUID uuid,
@@ -20,13 +21,13 @@ public record CorporateContractDto(
         String institutionName,
         String institutionTaxId,
         UUID contactUserUuid,
-        PayerMode payerMode,
+        @Display(Display.Kind.ENUM) PayerMode payerMode,
         Integer expectedMemberCount,
         int actualMemberCount,
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "corporate_contract.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {
     public static CorporateContractDto from(CorporateContract c) {
         return new CorporateContractDto(

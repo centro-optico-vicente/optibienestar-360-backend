@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.core.audit.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -11,9 +13,10 @@ import java.util.UUID;
  * is resolved from {@code actorId} and {@code fileUuid} from {@code attachedFileId}
  * at read time.
  *
- * <p>{@code entityDisplay} and {@code actor_Display} follow the same
- * humanized-value convention as {@link DataChangeAuditLogDto}, resolved via
- * {@link com.fenixcore.optibienestar360.core.audit.AuditDisplayResolver}.</p>
+ * <p>{@code entityDisplay} and {@code actor_Display} are pre-resolved by
+ * {@link com.fenixcore.optibienestar360.core.audit.AuditDisplayResolver};
+ * {@code generatedAt} gets its {@code _Display} from the shared mechanism
+ * (hub ADR 0014).</p>
  */
 public record ReportAuditLogDto(
         UUID uuid,
@@ -29,5 +32,5 @@ public record ReportAuditLogDto(
         UUID fileUuid,
         String fileName,
         Long sizeBytes,
-        Instant generatedAt
+        @Display(Display.Kind.DATETIME) Instant generatedAt
 ) {}

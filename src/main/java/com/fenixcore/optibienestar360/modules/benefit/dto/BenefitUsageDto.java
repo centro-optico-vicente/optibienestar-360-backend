@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.benefit.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -12,7 +13,7 @@ import java.util.UUID;
  * Output DTO for {@code POST /v1/ally/benefit-usage} (and any future
  * read endpoints / usage history). Flat record — the relationships are
  * resolved into UUID + label pairs so the ally portal renders without a
- * second round-trip.
+ * second round-trip. Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BenefitUsageDto(
@@ -34,11 +35,11 @@ public record BenefitUsageDto(
         UUID allyUserUuid,
 
         // When
-        LocalDate usageDate,
-        Instant usageDatetime,
+        @Display(Display.Kind.DATE) LocalDate usageDate,
+        @Display(Display.Kind.DATETIME) Instant usageDatetime,
 
         // Co-pay
-        BigDecimal copayAmount,
+        @Display(Display.Kind.MONEY) BigDecimal copayAmount,
         String copayCurrency,
 
         // Detail
@@ -46,7 +47,7 @@ public record BenefitUsageDto(
         String notes,
 
         // Audit
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(value = Display.Kind.ENUM, enumScope = "benefit_usage.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}
