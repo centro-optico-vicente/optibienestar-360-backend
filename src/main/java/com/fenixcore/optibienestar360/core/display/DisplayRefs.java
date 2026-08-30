@@ -28,58 +28,59 @@ import java.util.UUID;
 @Slf4j
 public final class DisplayRefs {
 
-    private static final String[] NAME_GETTERS = {
-            "getFullName", "getDisplayName", "getName", "getInstitutionName"
-    };
+	private static final String[] NAME_GETTERS = {
+			"getFullName", "getDisplayName", "getName", "getInstitutionName"
+	};
 
-    private DisplayRefs() {
-    }
+	private DisplayRefs() {
+	}
 
-    /** Person-shaped: document number in {@code code}, full name in {@code name}. */
-    public static DisplayRef ref(Person person) {
-        return person == null ? null
-                : DisplayRef.of(person.getUuid(), person.getTaxDocumentNumber(), person.getFullName());
-    }
+	/** Person-shaped: document number in {@code code}, full name in {@code name}. */
+	public static DisplayRef ref(Person person) {
+		return person == null ? null
+				: DisplayRef.of(person.getUuid(), person.getTaxDocumentNumber(), person.getFullName());
+	}
 
-    /** A user is labelled by its login email. */
-    public static DisplayRef ref(User user) {
-        return user == null ? null : DisplayRef.of(user.getUuid(), null, user.getEmail());
-    }
+	/** A user is labelled by its login email. */
+	public static DisplayRef ref(User user) {
+		return user == null ? null : DisplayRef.of(user.getUuid(), null, user.getEmail());
+	}
 
-    /** Reflective fallback — works for catalogs, plan, ally, promoter, contract, tiers… */
-    public static DisplayRef ref(Object entity) {
-        if (entity == null) {
-            return null;
-        }
-        UUID uuid = call(entity, "getUuid") instanceof UUID u ? u : null;
-        String code = str(call(entity, "getCode"));
-        String name = null;
-        for (String getter : NAME_GETTERS) {
-            name = str(call(entity, getter));
-            if (name != null) {
-                break;
-            }
-        }
-        return DisplayRef.of(uuid, code, name);
-    }
+	/** Reflective fallback — works for catalogs, plan, ally, promoter, contract, tiers… */
+	public static DisplayRef ref(Object entity) {
+		if (entity == null) {
+			return null;
+		}
+		UUID uuid = call(entity, "getUuid") instanceof UUID u ? u : null;
+		String code = str(call(entity, "getCode"));
+		String name = null;
+		for (String getter : NAME_GETTERS) {
+			name = str(call(entity, getter));
+			if (name != null) {
+				break;
+			}
+		}
+		return DisplayRef.of(uuid, code, name);
+	}
 
-    private static Object call(Object target, String getter) {
-        try {
-            Method m = target.getClass().getMethod(getter);
-            return m.invoke(target);
-        } catch (NoSuchMethodException absent) {
-            return null;
-        } catch (ReflectiveOperationException e) {
-            log.debug("DisplayRefs.{} failed on {}", getter, target.getClass().getSimpleName(), e);
-            return null;
-        }
-    }
+	private static Object call(Object target, String getter) {
+		try {
+			Method m = target.getClass().getMethod(getter);
+			return m.invoke(target);
+		} catch (NoSuchMethodException absent) {
+			return null;
+		} catch (ReflectiveOperationException e) {
+			log.debug("DisplayRefs.{} failed on {}", getter, target.getClass().getSimpleName(), e);
+			return null;
+		}
+	}
 
-    private static String str(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String s = value.toString();
-        return s.isBlank() ? null : s;
-    }
+	private static String str(Object value) {
+		if (value == null) {
+			return null;
+		}
+		String s = value.toString();
+		return s.isBlank() ? null : s;
+	}
+
 }

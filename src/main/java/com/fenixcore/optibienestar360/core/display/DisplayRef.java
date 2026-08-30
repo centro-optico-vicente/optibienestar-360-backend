@@ -15,8 +15,9 @@ import java.util.UUID;
  */
 public record DisplayRef(UUID uuid, String code, String name) {
 
-    /** {@code null} when every part is {@code null} (an absent optional FK). */
-    public static DisplayRef of(UUID uuid, String code, String name) {
-        return (uuid == null && code == null && name == null) ? null : new DisplayRef(uuid, code, name);
-    }
+	/** {@code null} when every part is {@code null} (an absent optional FK). */
+	public static DisplayRef of(UUID uuid, String code, String name) {
+		return (uuid == null && code == null && name == null) ? null : new DisplayRef(uuid, code, name);
+	}
+
 }

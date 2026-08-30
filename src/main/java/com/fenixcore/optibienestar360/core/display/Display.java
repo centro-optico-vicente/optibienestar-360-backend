@@ -31,23 +31,24 @@ import java.lang.annotation.Target;
 @Target({ ElementType.RECORD_COMPONENT, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER })
 public @interface Display {
 
-    /** Scalar format. Ignored when the field is a {@link DisplayRef} / {@link #fk()} is set. */
-    Kind value() default Kind.AUTO;
+	/** Scalar format. Ignored when the field is a {@link DisplayRef} / {@link #fk()} is set. */
+	Kind value() default Kind.AUTO;
 
-    /**
-     * Foreign-key relation key for {@link DisplayFormatter#fkLabel} (e.g.
-     * {@code "allyType"}, {@code "promoterType"}). Non-empty marks the field
-     * as a FK even if it is not typed {@link DisplayRef}. When empty and the
-     * field is a {@link DisplayRef}, the field name is used as the relation
-     * key.
-     */
-    String fk() default "";
+	/**
+	 * Foreign-key relation key for {@link DisplayFormatter#fkLabel} (e.g.
+	 * {@code "allyType"}, {@code "promoterType"}). Non-empty marks the field
+	 * as a FK even if it is not typed {@link DisplayRef}. When empty and the
+	 * field is a {@link DisplayRef}, the field name is used as the relation
+	 * key.
+	 */
+	String fk() default "";
 
-    /**
-     * Message-key scope for {@link Kind#ENUM} — {@code display.enum.<scope>.<VALUE>}.
-     * Defaults to the field name.
-     */
-    String enumScope() default "";
+	/**
+	 * Message-key scope for {@link Kind#ENUM} — {@code display.enum.<scope>.<VALUE>}.
+	 * Defaults to the field name.
+	 */
+	String enumScope() default "";
 
-    enum Kind { AUTO, DATETIME, DATE, MONEY, NUMBER, PERCENT, ENUM, BOOLEAN }
+	enum Kind { AUTO, DATETIME, DATE, MONEY, NUMBER, PERCENT, ENUM, BOOLEAN }
+
 }
