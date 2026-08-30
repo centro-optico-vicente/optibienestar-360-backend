@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -20,7 +22,7 @@ public record PublicAllyServiceDto(
         String categoryName,
         String name,
         String description,
-        BigDecimal priceUsd,
-        BigDecimal discountPct,
-        boolean requiresAppointment
+        @Display(Display.Kind.NUMBER) BigDecimal priceUsd,
+        @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        @Display(Display.Kind.BOOLEAN) boolean requiresAppointment
 ) {}

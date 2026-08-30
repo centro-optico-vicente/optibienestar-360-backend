@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.membership.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 
 import java.math.BigDecimal;
@@ -33,16 +34,16 @@ public record PublicPlanDto(
         String code,
         String name,
         String description,
-        PlanType type,
+        @Display(Display.Kind.ENUM) PlanType type,
 
         // Pricing
-        BigDecimal inscriptionFee,
-        BigDecimal monthlyFee,
+        @Display(Display.Kind.MONEY) BigDecimal inscriptionFee,
+        @Display(Display.Kind.MONEY) BigDecimal monthlyFee,
 
         // Beneficiaries (public selling points)
         int includedBeneficiaries,
         Integer maxBeneficiaries,
-        BigDecimal extraBeneficiaryInscriptionFee,
+        @Display(Display.Kind.MONEY) BigDecimal extraBeneficiaryInscriptionFee,
 
         int gracePeriodDays
 ) {}
