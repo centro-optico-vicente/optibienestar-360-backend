@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MaritalStatus;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Occupation;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MedicalRecordDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
@@ -21,18 +22,17 @@ import org.mapstruct.Mapping;
 
 import java.util.UUID;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = DisplayRefs.class)
 public interface MemberMapper {
 
     // ─── Member → DTOs ──────────────────────────────────────────────────────
 
-    @Mapping(target = "fullName",              source = "person.fullName")
-    @Mapping(target = "documentType",          source = "person.documentType")
-    @Mapping(target = "documentNumber",        source = "person.documentNumber")
-    @Mapping(target = "phone",                 source = "person.phone")
-    @Mapping(target = "cityName",              source = "person.city.name")
-    @Mapping(target = "currentPromoterUuid",   source = "promoter.uuid")
-    @Mapping(target = "currentPromoterName",   source = "promoter.displayName")
+    @Mapping(target = "fullName",        source = "person.fullName")
+    @Mapping(target = "documentType",    source = "person.documentType")
+    @Mapping(target = "documentNumber",  source = "person.documentNumber")
+    @Mapping(target = "phone",           source = "person.phone")
+    @Mapping(target = "city",            source = "person.city")
+    @Mapping(target = "currentPromoter", source = "promoter")
     MemberListItemDto toListItem(Member member);
 
     @Mapping(target = "personUuid",         source = "person.uuid")
