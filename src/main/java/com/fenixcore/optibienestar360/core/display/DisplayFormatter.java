@@ -1,16 +1,20 @@
 package com.fenixcore.optibienestar360.core.display;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Currency;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -20,26 +24,39 @@ import java.util.regex.Pattern;
  * sibling — dates, money, decimals, enums/status and booleans — plus the
  * label of a foreign-key relation from its already-loaded entity.
  *
- * <p>The formatting rules mirror {@code AuditDisplayResolver} exactly (same
- * zone, same date/number patterns, same {@code ENUM_SHAPED} detection) so a
- * value looks identical in a list, a detail view and an audit snapshot.
- * {@code AuditDisplayResolver} keeps its own resolution registries (JSON key
- * → repository) for now and will delegate its formatting here in a follow-up
- * PR; this pilot introduces the component and wires the Aliados list to it.</p>
+ * <p>Everything that varies by locale — the date/time patterns included — is
+ * resolved through {@code MessageSource}, so adding a language is a bundle
+ * change, never a code change: number/currency come from
+ * {@link NumberFormat} keyed by {@link Locale}, enums/booleans from message
+ * keys, and the date patterns from {@code display.format.datetime} /
+ * {@code display.format.date} (parsed once, then cached). The display zone is
+ * the {@code TZ} environment variable, falling back to {@code America/Caracas}
+ * (ADR 0010) when {@code TZ} is unset or invalid.</p>
+ *
+ * <p>Output matches {@code AuditDisplayResolver} for the {@code es}/{@code en}
+ * bundles shipped today; that resolver keeps its own resolution registries
+ * (JSON key → repository) for now and will delegate its formatting here in a
+ * follow-up PR. This pilot introduces the component and wires the Aliados
+ * list to it.</p>
  *
  * <p>This component never runs a query — it receives values and
  * already-materialized associations.</p>
  */
+@Slf4j
 @Component
 public class DisplayFormatter {
 
-    /** JVM-wide default (ADR 0010 — Venezuela is the only deployment). */
-    private static final ZoneId DISPLAY_ZONE = ZoneId.of("America/Caracas");
+    /** Fallback zone when {@code TZ} is unset or invalid — ADR 0010. */
+    private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Caracas");
 
-    private static final DateTimeFormatter DATE_TIME_ES = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-    private static final DateTimeFormatter DATE_TIME_EN = DateTimeFormatter.ofPattern("MM-dd-yyyy HH:mm");
-    private static final DateTimeFormatter DATE_ONLY_ES = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-    private static final DateTimeFormatter DATE_ONLY_EN = DateTimeFormatter.ofPattern("MM-dd-yyyy");
+    /** Resolved once: {@code TZ} env var if valid, else {@link #DEFAULT_ZONE}. */
+    private static final ZoneId DISPLAY_ZONE = resolveDisplayZone();
+
+    private static final String KEY_DATETIME_PATTERN = "display.format.datetime";
+    private static final String KEY_DATE_PATTERN = "display.format.date";
+    /** Fallbacks if a bundle omits the pattern key — keep in sync with messages.properties. */
+    private static final String DEFAULT_DATETIME_PATTERN = "dd-MM-yyyy HH:mm";
+    private static final String DEFAULT_DATE_PATTERN = "dd-MM-yyyy";
 
     /** UPPER_SNAKE_CASE enum token, e.g. {@code ACTIVE}, {@code IN_REVIEW}. */
     private static final Pattern ENUM_SHAPED = Pattern.compile("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$");
@@ -47,6 +64,9 @@ public class DisplayFormatter {
     private static final Currency VES = Currency.getInstance("VES");
 
     private final MessageSource messageSource;
+
+    /** Parsed-pattern cache, keyed by the pattern string (not the locale). */
+    private final Map<String, DateTimeFormatter> formatterCache = new ConcurrentHashMap<>();
 
     public DisplayFormatter(MessageSource messageSource) {
         this.messageSource = messageSource;
@@ -63,21 +83,21 @@ public class DisplayFormatter {
                 "display.boolean." + value, null, value ? "Yes" : "No", locale);
     }
 
-    /** {@code dd-MM-yyyy HH:mm} (es) / {@code MM-dd-yyyy HH:mm} (en), zone {@code America/Caracas}. */
+    /** Locale's {@code display.format.datetime} pattern, in zone {@code America/Caracas}. */
     public String dateTime(Instant value, Locale locale) {
         if (value == null) {
             return null;
         }
-        DateTimeFormatter pattern = isSpanish(locale) ? DATE_TIME_ES : DATE_TIME_EN;
-        return value.atZone(DISPLAY_ZONE).format(pattern);
+        return value.atZone(DISPLAY_ZONE)
+                .format(formatter(KEY_DATETIME_PATTERN, DEFAULT_DATETIME_PATTERN, locale));
     }
 
-    /** {@code dd-MM-yyyy} (es) / {@code MM-dd-yyyy} (en). */
+    /** Locale's {@code display.format.date} pattern. */
     public String date(LocalDate value, Locale locale) {
         if (value == null) {
             return null;
         }
-        return value.format(isSpanish(locale) ? DATE_ONLY_ES : DATE_ONLY_EN);
+        return value.format(formatter(KEY_DATE_PATTERN, DEFAULT_DATE_PATTERN, locale));
     }
 
     /** Currency amount in {@code VES} — {@code "Bs. 1.200,00"} (es). */
@@ -167,7 +187,32 @@ public class DisplayFormatter {
         return label(code, name);
     }
 
-    private static boolean isSpanish(Locale locale) {
-        return locale != null && "es".equals(locale.getLanguage());
+    /**
+     * Resolves the locale's date pattern from {@code MessageSource} (falling
+     * back to {@code defaultPattern} if the bundle omits the key) and returns
+     * the parsed {@link DateTimeFormatter}, caching by pattern string so each
+     * distinct pattern is compiled once regardless of how many locales map
+     * to it.
+     */
+    private DateTimeFormatter formatter(String key, String defaultPattern, Locale locale) {
+        String pattern = messageSource.getMessage(key, null, defaultPattern, locale);
+        return formatterCache.computeIfAbsent(pattern, DateTimeFormatter::ofPattern);
+    }
+
+    /**
+     * Display zone from the {@code TZ} environment variable (e.g.
+     * {@code America/Bogota}); {@link #DEFAULT_ZONE} when {@code TZ} is unset,
+     * blank, or not a valid zone id.
+     */
+    private static ZoneId resolveDisplayZone() {
+        String tz = System.getenv("TZ");
+        if (tz != null && !tz.isBlank()) {
+            try {
+                return ZoneId.of(tz.trim());
+            } catch (DateTimeException invalid) {
+                log.warn("Invalid TZ env value '{}', falling back to {}", tz, DEFAULT_ZONE);
+            }
+        }
+        return DEFAULT_ZONE;
     }
 }

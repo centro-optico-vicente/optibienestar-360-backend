@@ -324,11 +324,14 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 
 ### `core/display/DisplayFormatter` (`@Component`) — autoridad única de presentación
 
-- **Escalares:** formatea por tipo (fechas, montos `VES`, decimales, porcentajes, enums, booleanos)
-  reusando zona `America/Caracas`, los patrones de fecha/número y el detector `ENUM_SHAPED` que hoy
-  viven inline en `AuditDisplayResolver`. Enums/booleanos → `MessageSource`
-  (`display.enum.<campo>.<VALOR>` con fallback `display.enum.common.<VALOR>`;
-  `display.boolean.true|false`).
+- **Escalares:** formatea por tipo (fechas, montos `VES`, decimales, porcentajes, enums, booleanos).
+  Todo lo que varía por idioma sale del `MessageSource`, **incluido el patrón de fecha**
+  (`display.format.datetime` / `display.format.date`, parseado y cacheado por patrón) — un idioma
+  nuevo es alta de bundle, no de código. Enums/booleanos → `display.enum.<campo>.<VALOR>` con
+  fallback `display.enum.common.<VALOR>` y `audit.enum.common.<VALOR>`; `display.boolean.true|false`.
+  Números/moneda → `NumberFormat` por `Locale`. La zona de display sale de la env `TZ` (fallback
+  `America/Caracas`, ADR 0010, si falta o es inválida). Detector `ENUM_SHAPED` reusado de
+  `AuditDisplayResolver`.
 - **FK:** formatea a partir de la **entidad asociada ya cargada**. `Map<String, Function<Object,
   String>>` (clave = `<rel>` lógico) poblado en el constructor + **default reflexivo** alineado con
   `GenericEntityExtractorService.extractDisplayStringFromObject`
