@@ -338,9 +338,18 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
   `person.fullName + " — " + plan.name`; `corporateContract` `institutionName`; etc.).
 - **No hace queries.** Recibe siempre el valor / la asociación ya materializados.
 
-### Emisión: anotación `@Display` (en el DTO) + `BeanSerializerModifier`
+### Emisión — dos etapas
 
-Los DTOs son `record` inmutables → no se agrega `xxx_Display` campo por campo a mano.
+**Etapa 1 (piloto Aliados, ya implementada):** el `record` del list DTO declara los campos
+`_Display` explícitamente (`allyType_Display`, `city_Display`, `active_Display`, `status_Display`,
+`published_Display`, `publishedAt_Display`, `createdAt_Display`) y `AlliesService` los puebla
+llamando a `DisplayFormatter` con `LocaleContextHolder.getLocale()` al construir cada fila (no en
+`AllyMapper`, que no tiene acceso al `Locale`). Simple, sin infraestructura Jackson, verificable de
+inmediato — suficiente para un solo DTO.
+
+**Etapa 2 (cuando se migren varios módulos):** anotación `@Display` + `BeanSerializerModifier`.
+
+Los DTOs son `record` inmutables → no se agrega `xxx_Display` campo por campo a mano en cada uno.
 
 - `@Display` sobre el campo del `record`: `@Display(Kind.MONEY)`, `@Display(Kind.DATETIME)`,
   `@Display(Kind.DATE)`, `@Display(Kind.ENUM)`, `@Display(Kind.BOOLEAN)`,
@@ -356,12 +365,16 @@ Los DTOs son `record` inmutables → no se agrega `xxx_Display` campo por campo 
   el camelCase histórico). El `<rel>_Id` BIGINT es **interno** (instanciar/enlazar entidades) y
   **nunca** se serializa.
 
-### Refactor de `AuditDisplayResolver`
+### Refactor de `AuditDisplayResolver` (pendiente — no en el PR piloto)
 
-Mantiene sus dos registros de *resolución* (`entity_key` → repo, `field key` → repo); el *formato*
-(`code + " - " + name`, fechas, números, enums, booleanos) se delega en `DisplayFormatter`. Sin
-cambio de comportamiento observable — `ally_Display`, `totalCommissionPaid_Display`,
-`createdAt_Display` se ven idénticos en un listado, un detalle y un snapshot de auditoría.
+`DisplayFormatter` nace **standalone** (reimplementa el mismo formato: zona, patrones de
+fecha/número, `ENUM_SHAPED`, `MessageSource`). El paso de hacer que `AuditDisplayResolver` delegue
+su *formato* aquí — manteniendo sus dos registros de *resolución* (`entity_key` → repo, `field key`
+→ repo) — queda para un PR posterior, para no arriesgar el comportamiento de auditoría sin un build
+de integración corriendo. Objetivo: que `ally_Display`, `totalCommissionPaid_Display`,
+`createdAt_Display` se vean idénticos en un listado, un detalle y un snapshot de auditoría con un
+solo método de formato. Mientras tanto, ambos usan las **mismas claves i18n**
+(`display.boolean.*`, con fallback de `DisplayFormatter` a `audit.enum.common.*`).
 
 ### Alineación con el motor de reportes
 
@@ -376,11 +389,21 @@ reflexivo de etiqueta; al implementar, revisar ambos para no divergir.
   columnas FK vía reflexión —, sort multi-columna del frontend en `allies/index.vue`), no en
   paralelo:
   - `AllyListItemDto`: pares FK → `allyType_Uuid`/`allyType_Display`, `city_Uuid`/`city_Display`;
-    `_Display` en escalares del listado (`createdAt`, `active`, `status`). Se eliminan
-    `allyTypeName`/`cityName`.
-  - `AllyMapper.toListItem`: delega en el mecanismo (proyecta la asociación, no `.name` plano).
-  - `ALLOWED_SORT_FIELDS` / `SortFieldValidator`: claves alineadas con `<rel>_Display` (hoy la clave
-    pública era `allyTypeName`).
+    `_Display` en escalares del listado (`active`, `status`, `published`, `publishedAt`,
+    `createdAt`). Se eliminan `allyTypeUuid`/`allyTypeName`/`cityUuid`/`cityName`. Se agregan
+    `taxDocumentType`/`taxDocumentNumber` crudos (la columna RIF del listado los pedía y llegaban
+    `undefined`).
+  - `AllyMapper.toListItem` se **elimina**: la fila se construye en `AlliesService.toListItem(Ally,
+    Locale)` para tener acceso al `Locale` y a `DisplayFormatter`. El resto de `AllyMapper` (detalle,
+    proyecciones públicas) no se toca — siguen con `<rel>Name` plano (grandfathered).
+  - `SORTABLE_FIELDS` (`AlliesService`): los alias de relación pasan de `allyTypeName`/`cityName` a
+    `allyType_Display`/`city_Display` (→ `allyType.name` / `city.name`). Los escalares se siguen
+    auto-derivando de `Ally` por reflexión (`SortFieldValidator.sortableFieldsOf`).
+  - `messages*.properties`: `display.boolean.true|false` (es/en/default).
+  - Frontend: `AllyListItemDto` nuevo en `app/types/allies.ts` (par `<rel>_Uuid` + `<rel>_Display`,
+    escalares `_Display`); `useAllies.list` → `Page<AllyListItemDto>`; `allies/index.vue` pinta
+    `a.allyType_Display` / `a.city_Display` / `effectiveStatusLabel` con `status_Display`, y las
+    claves de sort del `<th>` pasan a `allyType_Display` / `city_Display`.
 - Sin doble campo permanente. Si el contrato del ADR no encaja con Aliados, se ajusta el ADR en el
   mismo PR.
 

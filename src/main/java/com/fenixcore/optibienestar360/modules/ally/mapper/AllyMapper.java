@@ -3,7 +3,6 @@ package com.fenixcore.optibienestar360.modules.ally.mapper;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
@@ -38,11 +37,9 @@ public interface AllyMapper {
 
     // ─── Ally → DTOs ───────────────────────────────────────────────────────
 
-    @Mapping(target = "allyTypeUuid", source = "allyType.uuid")
-    @Mapping(target = "allyTypeName", source = "allyType.name")
-    @Mapping(target = "cityUuid",     source = "city.uuid")
-    @Mapping(target = "cityName",     source = "city.name")
-    AllyListItemDto toListItem(Ally ally);
+    // AllyListItemDto is built in AlliesService: it needs the request Locale
+    // and DisplayFormatter to resolve the `_Display` siblings (ADR 0014),
+    // which MapStruct can't express cleanly.
 
     /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */
     @Mapping(target = "allyTypeName", source = "allyType.name")
