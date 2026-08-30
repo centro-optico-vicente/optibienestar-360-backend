@@ -141,40 +141,40 @@ public class AlliesService {
 		return repository.findAll(spec, resolvedPageable).map(ally -> toListItem(ally, locale));
     }
 
-    /**
-     * Builds the compact list-item projection with its {@code _Display}
-     * siblings (ADR 0014). Foreign keys travel as {@code <rel>_Uuid} +
-     * {@code <rel>_Display}; presentational scalars as the raw value + a
-     * localized {@code <field>_Display} resolved by {@link DisplayFormatter}
-     * from the request {@code Locale}. Done here rather than in
-     * {@link AllyMapper} because the mapper has no access to the locale.
-     */
-    private AllyListItemDto toListItem(Ally ally, Locale locale) {
-        AllyType type = ally.getAllyType();
-        City city = ally.getCity();
-        return new AllyListItemDto(
-                ally.getUuid(),
-                ally.getName(),
-                type != null ? type.getUuid() : null,
-                type != null ? displayFormatter.catalogLabel(type.getCode(), type.getName()) : null,
-                city != null ? city.getUuid() : null,
-                city != null ? displayFormatter.label(null, city.getName()) : null,
-                ally.getTaxDocumentType(),
-                ally.getTaxDocumentNumber(),
-                ally.getLogoUrl(),
-                ally.getPhone(),
-                ally.isPublished(),
-                displayFormatter.bool(ally.isPublished(), locale),
-                ally.getPublishedAt(),
-                displayFormatter.dateTime(ally.getPublishedAt(), locale),
-                ally.isActive(),
-                displayFormatter.bool(ally.isActive(), locale),
-                ally.getStatus(),
-                displayFormatter.enumLabel("ally.status", ally.getStatus(), locale),
-                ally.getCreatedAt(),
-                displayFormatter.dateTime(ally.getCreatedAt(), locale)
-        );
-    }
+	/**
+	 * Builds the compact list-item projection with its {@code _Display}
+	 * siblings (ADR 0014). Foreign keys travel as {@code <rel>_Uuid} +
+	 * {@code <rel>_Display}; presentational scalars as the raw value + a
+	 * localized {@code <field>_Display} resolved by {@link DisplayFormatter}
+	 * from the request {@code Locale}. Done here rather than in
+	 * {@link AllyMapper} because the mapper has no access to the locale.
+	 */
+	private AllyListItemDto toListItem(Ally ally, Locale locale) {
+		AllyType type = ally.getAllyType();
+		City city = ally.getCity();
+		return new AllyListItemDto(
+			ally.getUuid(),
+			ally.getName(),
+			type != null ? type.getUuid() : null,
+			type != null ? displayFormatter.catalogLabel(type.getCode(), type.getName()) : null,
+			city != null ? city.getUuid() : null,
+			city != null ? displayFormatter.label(null, city.getName()) : null,
+			ally.getTaxDocumentType(),
+			ally.getTaxDocumentNumber(),
+			ally.getLogoUrl(),
+			ally.getPhone(),
+			ally.isPublished(),
+			displayFormatter.bool(ally.isPublished(), locale),
+			ally.getPublishedAt(),
+			displayFormatter.dateTime(ally.getPublishedAt(), locale),
+			ally.isActive(),
+			displayFormatter.bool(ally.isActive(), locale),
+			ally.getStatus(),
+			displayFormatter.enumLabel("ally.status", ally.getStatus(), locale),
+			ally.getCreatedAt(),
+			displayFormatter.dateTime(ally.getCreatedAt(), locale)
+		);
+	}
 
 	/**
 	 * When the request has no explicit {@code ?sort=} (the controller sets no

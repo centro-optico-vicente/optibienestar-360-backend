@@ -18,34 +18,34 @@ import java.util.UUID;
  * never sent back in a request.</p>
  */
 public record AllyListItemDto(
-        UUID uuid,
-        String name,
+	UUID uuid,
+	String name,
 
-        // ─── Foreign keys — <rel>_Uuid + <rel>_Display pair ────────────────
-        UUID allyType_Uuid,
-        String allyType_Display,
+	// ─── Foreign keys — <rel>_Uuid + <rel>_Display pair ────────────────
+	UUID allyType_Uuid,
+	String allyType_Display,
 
-        UUID city_Uuid,
-        String city_Display,
+	UUID city_Uuid,
+	String city_Display,
 
-        String taxDocumentType,
-        String taxDocumentNumber,
+	String taxDocumentType,
+	String taxDocumentNumber,
 
-        String logoUrl,
-        String phone,
+	String logoUrl,
+	String phone,
 
-        // ─── Presentational scalars — raw + <field>_Display sibling ────────
-        boolean published,
-        String published_Display,
-        Instant publishedAt,
-        String publishedAt_Display,
+	// ─── Presentational scalars — raw + <field>_Display sibling ────────
+	boolean published,
+	String published_Display,
+	Instant publishedAt,
+	String publishedAt_Display,
 
-        boolean active,
-        String active_Display,
+	boolean active,
+	String active_Display,
 
-        String status,
-        String status_Display,
+	String status,
+	String status_Display,
 
-        Instant createdAt,
-        String createdAt_Display
+	Instant createdAt,
+	String createdAt_Display
 ) {}
