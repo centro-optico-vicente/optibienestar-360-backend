@@ -119,12 +119,11 @@ public interface AllyMapper {
      * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
      * {@code uuid} is deliberately the ally's — see {@link MyAllyDto}.
      */
-    @Mapping(target = "uuid",         source = "ally.uuid")
-    @Mapping(target = "name",         source = "ally.name")
-    @Mapping(target = "allyTypeUuid", source = "ally.allyType.uuid")
-    @Mapping(target = "allyTypeName", source = "ally.allyType.name")
-    @Mapping(target = "logoUrl",      source = "ally.logoUrl")
-    @Mapping(target = "phone",        source = "ally.phone")
+    @Mapping(target = "uuid",     source = "ally.uuid")
+    @Mapping(target = "name",     source = "ally.name")
+    @Mapping(target = "allyType", source = "ally.allyType")
+    @Mapping(target = "logoUrl",  source = "ally.logoUrl")
+    @Mapping(target = "phone",    source = "ally.phone")
     MyAllyDto toMyAllyDto(AllyUser allyUser);
 
     /**
@@ -135,8 +134,7 @@ public interface AllyMapper {
      * scoped to "only my active memberships" the way {@code /v1/me/allies}
      * is.
      */
-    @Mapping(target = "allyUuid",  source = "ally.uuid")
-    @Mapping(target = "allyName",  source = "ally.name")
+    @Mapping(target = "ally", source = "ally")
     UserAllyDto toUserAllyDto(AllyUser allyUser);
 
     // ─── Nested catalog DTOs (default methods consumed by the generated impl) ─

@@ -3,7 +3,6 @@ package com.fenixcore.optibienestar360.core.display;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
@@ -13,10 +12,13 @@ import java.util.UUID;
  * (reflection): {@code getUuid()} + optional {@code getCode()} + the first of
  * {@code getFullName() / getDisplayName() / getName() / getInstitutionName()}.
  *
- * <p>Mappers pull it in via {@code @Mapper(uses = DisplayRefs.class)} so a
- * {@code SomeEntity → DisplayRef} target mapping resolves with no per-mapper
- * boilerplate. Person-shaped relations (whose label is document number + full
- * name from a nested {@code Person}) get an explicit typed overload here.</p>
+ * <p>Stateless utility with {@code static} methods so mappers can pull it in
+ * via {@code @Mapper(uses = DisplayRefs.class)} (MapStruct calls it
+ * statically — no bean, no field injection, works in plain unit tests). A
+ * {@code SomeEntity → DisplayRef} target mapping then resolves with no
+ * per-mapper boilerplate. Person-shaped relations (labelled by document
+ * number + full name from a nested {@code Person}) get an explicit typed
+ * overload.</p>
  *
  * <p>The reflective order matches
  * {@code GenericEntityExtractorService.extractDisplayStringFromObject} and
@@ -24,26 +26,28 @@ import java.util.UUID;
  * view, an audit snapshot and a report.</p>
  */
 @Slf4j
-@Component
-public class DisplayRefs {
+public final class DisplayRefs {
 
     private static final String[] NAME_GETTERS = {
             "getFullName", "getDisplayName", "getName", "getInstitutionName"
     };
 
+    private DisplayRefs() {
+    }
+
     /** Person-shaped: document number in {@code code}, full name in {@code name}. */
-    public DisplayRef ref(Person person) {
+    public static DisplayRef ref(Person person) {
         return person == null ? null
                 : DisplayRef.of(person.getUuid(), person.getTaxDocumentNumber(), person.getFullName());
     }
 
     /** A user is labelled by its login email. */
-    public DisplayRef ref(User user) {
+    public static DisplayRef ref(User user) {
         return user == null ? null : DisplayRef.of(user.getUuid(), null, user.getEmail());
     }
 
     /** Reflective fallback — works for catalogs, plan, ally, promoter, contract, tiers… */
-    public DisplayRef ref(Object entity) {
+    public static DisplayRef ref(Object entity) {
         if (entity == null) {
             return null;
         }
