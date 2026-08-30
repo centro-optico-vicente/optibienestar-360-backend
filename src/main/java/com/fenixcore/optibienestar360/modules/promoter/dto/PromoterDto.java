@@ -1,44 +1,42 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Output DTO for {@code GET /v1/admin/promoters} (list) and
- * {@code GET /v1/admin/promoters/{uuid}} (detail). Flat record with
- * person + user refs extracted as UUIDs so the admin UI renders without
- * a follow-up call.
+ * {@code GET /v1/admin/promoters/{uuid}} (detail).
+ *
+ * <p>{@code _Display} convention (hub ADR 0014): {@code @Display} foreign
+ * keys serialize as {@code <rel>_Uuid} + {@code <rel>_Display}, and
+ * {@code @Display} scalars keep their raw value and gain a localized
+ * {@code <field>_Display} sibling. {@code user}/{@code person} carry the
+ * identity links (both {@code null} on the {@code INSTITUCION} system row);
+ * {@code promoterType} is nullable on legacy rows.</p>
  */
 public record PromoterDto(
         UUID uuid,
         String displayName,
         String description,
         String referralCode,
-        boolean system,
+        @Display(Display.Kind.BOOLEAN) boolean system,
 
-        // Identity links (null on the INSTITUCION system row)
-        UUID userUuid,
-        String userEmail,
-        UUID personUuid,
-        String personFullName,
-        String personRif,
+        @Display DisplayRef user,
+        @Display DisplayRef person,
+        @Display DisplayRef promoterType,
 
-        // Promoter type classification (nullable — legacy rows have none)
-        UUID promoterTypeUuid,
-        String promoterTypeName,
-
-        // Contact
         String email,
         String phone,
 
-        // Snapshot counters
         int totalReferrals,
-        BigDecimal totalCommissionPaid,
+        @Display(Display.Kind.MONEY) BigDecimal totalCommissionPaid,
 
-        // Audit + lifecycle status
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "promoter.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

@@ -197,7 +197,15 @@ public class DisplayFormatter {
 	 */
 	private static final java.util.Set<String> CATALOG_RELS = java.util.Set.of(
 			"allyType", "gender", "maritalStatus", "promoterType", "medicalSpecialty",
-			"serviceCategory", "documentType", "occupation");
+			"serviceCategory", "documentType", "occupation", "country", "state");
+
+	/**
+	 * Person-shaped relations whose {@code _Display} is
+	 * {@code "<taxDocumentNumber> <fullName>"} — the {@link DisplayRef} carries
+	 * the document number in {@code code} and the full name in {@code name}.
+	 */
+	private static final java.util.Set<String> PERSON_RELS = java.util.Set.of(
+			"person", "member", "beneficiary", "holder", "titular", "reviewedBy", "actor");
 
 	/**
 	 * Label for a foreign-key relation from its {@link DisplayRef}. {@code rel}
@@ -212,7 +220,18 @@ public class DisplayFormatter {
 		if (CATALOG_RELS.contains(rel)) {
 			return catalogLabel(ref.code(), ref.name());
 		}
+		if (PERSON_RELS.contains(rel)) {
+			return personLabel(ref.code(), ref.name());
+		}
 		return label(ref.code(), ref.name());
+	}
+
+	/** {@code "<doc> <fullName>"}; falls back to {@link #label} when a part is missing. */
+	private String personLabel(String taxDocument, String fullName) {
+		if (taxDocument != null && !taxDocument.isBlank() && fullName != null && !fullName.isBlank()) {
+			return taxDocument + " " + fullName;
+		}
+		return label(taxDocument, fullName);
 	}
 
 	/**
