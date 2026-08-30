@@ -314,6 +314,76 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 - **`<DOMAIN>_REPORT_GENERATE`** — generar reporte sobre esa entidad.
 - **`REPORT_SHARE`** (único, no por dominio) — crear enlace de `report_share` (permiso y tabla listos, funcionalidad **no implementada**).
 
+## Mecanismo `DisplayFormatter` — convención `_Display` generalizada
+
+> Congela [hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md).
+> El sufijo `_Display` deja de ser exclusivo de auditoría: pasa a ser la forma única en que **cualquier**
+> list/detail DTO expone etiquetas de FK y escalares presentacionales (fecha, fecha-hora, monto,
+> decimal, enum, boolean), resueltos por `Locale` en el servidor. **Piloto: solo módulo Aliados**
+> (ver §Rollout); el resto se migra módulo por módulo en PRs posteriores.
+
+### `core/display/DisplayFormatter` (`@Component`) — autoridad única de presentación
+
+- **Escalares:** formatea por tipo (fechas, montos `VES`, decimales, porcentajes, enums, booleanos)
+  reusando zona `America/Caracas`, los patrones de fecha/número y el detector `ENUM_SHAPED` que hoy
+  viven inline en `AuditDisplayResolver`. Enums/booleanos → `MessageSource`
+  (`display.enum.<campo>.<VALOR>` con fallback `display.enum.common.<VALOR>`;
+  `display.boolean.true|false`).
+- **FK:** formatea a partir de la **entidad asociada ya cargada**. `Map<String, Function<Object,
+  String>>` (clave = `<rel>` lógico) poblado en el constructor + **default reflexivo** alineado con
+  `GenericEntityExtractorService.extractDisplayStringFromObject`
+  (`getFullName → getDisplayName → getName → getCode`; si todo falla → `null`, nunca el UUID).
+  Overrides iniciales = las lambdas actuales de `AuditDisplayResolver` (catálogos tipados
+  `code + " - " + name`; `person` y derivados `taxDocumentNumber + " " + fullName`; `membership`
+  `person.fullName + " — " + plan.name`; `corporateContract` `institutionName`; etc.).
+- **No hace queries.** Recibe siempre el valor / la asociación ya materializados.
+
+### Emisión: anotación `@Display` (en el DTO) + `BeanSerializerModifier`
+
+Los DTOs son `record` inmutables → no se agrega `xxx_Display` campo por campo a mano.
+
+- `@Display` sobre el campo del `record`: `@Display(Kind.MONEY)`, `@Display(Kind.DATETIME)`,
+  `@Display(Kind.DATE)`, `@Display(Kind.ENUM)`, `@Display(Kind.BOOLEAN)`,
+  `@Display(fk = "allyType")`.
+- Un `BeanSerializerModifier` (`@JsonComponent`) inyecta, al serializar, el sibling
+  `"<campo>_Display"` llamando a `DisplayFormatter` con `LocaleContextHolder.getLocale()`.
+- **FK:** se prefiere que el list DTO proyecte la asociación (el join ya está en
+  `findAll(spec, pageable)`) → el modifier pasa la asociación al formatter, **sin N+1**. Si el DTO
+  solo trae el `<rel>_Uuid`, se delega en `AuditDisplayResolver` (que re-carga por repo).
+- `_Display` nunca se acepta en un request: no es campo del `record`, Jackson lo ignora al
+  deserializar.
+- **Nomenclatura:** el par FK es `<rel>_Uuid` + `<rel>_Display` (guión bajo antes del sufijo, rompe
+  el camelCase histórico). El `<rel>_Id` BIGINT es **interno** (instanciar/enlazar entidades) y
+  **nunca** se serializa.
+
+### Refactor de `AuditDisplayResolver`
+
+Mantiene sus dos registros de *resolución* (`entity_key` → repo, `field key` → repo); el *formato*
+(`code + " - " + name`, fechas, números, enums, booleanos) se delega en `DisplayFormatter`. Sin
+cambio de comportamiento observable — `ally_Display`, `totalCommissionPaid_Display`,
+`createdAt_Display` se ven idénticos en un listado, un detalle y un snapshot de auditoría.
+
+### Alineación con el motor de reportes
+
+`GenericEntityExtractorService.formatValue` / `SPANISH_ENUM_LABELS` (Jasper/PDF) y `DisplayFormatter`
+**no comparten código** pero deben coincidir en formato de escalares y en el orden del extractor
+reflexivo de etiqueta; al implementar, revisar ambos para no divergir.
+
+### Rollout — piloto Aliados
+
+- El PR piloto **se construye sobre** los cambios de ordenamiento multi-columna ya en curso para
+  Aliados (`AlliesService.ALLOWED_SORT_FIELDS` + `SortFieldValidator` — que ya resuelve alias de
+  columnas FK vía reflexión —, sort multi-columna del frontend en `allies/index.vue`), no en
+  paralelo:
+  - `AllyListItemDto`: pares FK → `allyType_Uuid`/`allyType_Display`, `city_Uuid`/`city_Display`;
+    `_Display` en escalares del listado (`createdAt`, `active`, `status`). Se eliminan
+    `allyTypeName`/`cityName`.
+  - `AllyMapper.toListItem`: delega en el mecanismo (proyecta la asociación, no `.name` plano).
+  - `ALLOWED_SORT_FIELDS` / `SortFieldValidator`: claves alineadas con `<rel>_Display` (hoy la clave
+    pública era `allyTypeName`).
+- Sin doble campo permanente. Si el contrato del ADR no encaja con Aliados, se ajusta el ADR en el
+  mismo PR.
+
 ## Archivos críticos
 
 - `modules/auth/service/AuthService.java` (login, líneas 76-113)
