@@ -396,13 +396,15 @@ Un solo branch (`feature/display-value-convention-rollout`), un commit por módu
 | **member** | `MemberListItemDto` | `cityName` → `city` `DisplayRef`, `currentPromoter*` → `currentPromoter` `DisplayRef`; escalares `_Display`. `MemberDetailDto` **intacto** (edit-response, mantiene DTOs de catálogo anidados, como `AllyDetailDto`). |
 | **membership** | `MembershipDto` | Solo escalares `@Display` (montos, fechas, `planType`, `status`, `active`). FK plano `plan*` intacto (expone code+name+type — no es colapso limpio). |
 | **payment** | `PaymentDto` | Solo escalares `@Display` (montos, método, fechas, `status`, flags). FK planos intactos. |
+| **auth** | `UserDto`, `RoleUserDto` | Solo escalares `@Display` (`status`, `active`, `lastLoginAt`) — `UserDto` es edit-response (mantiene person-flat + `roles` anidado). |
+| **ally (pivots)** | `AllyUserDto`, `UserAllyDto`, `MyAllyDto` | `AllyUserDto`: escalares. `UserAllyDto`: `ally*` → `DisplayRef ally`. `MyAllyDto`: `allyType*` → `DisplayRef allyType`. `DisplayRefs` pasó a utilidad `static` (MapStruct lo llama sin inyección → mappers usables en unit tests). |
 
-**Pendiente** (mismos criterios; PRs/commits posteriores): sub-DTOs de promoter (incentivos —
+**Pendiente** (mismos criterios; commits posteriores): sub-DTOs de promoter (incentivos —
 `CommissionDto`, `CommissionTierDto`, `BonusRuleDto`, `BonusAwardDto`, `CollectionCommissionTierDto`,
 `LeaderboardEntryDto`, `MyReferralDto` — front aún sin construir), `subsidy`, `corporate`, `benefit`,
-`card`, `auth` (`UserDto`/`RoleUserDto`), `scheduling`, `core/audit` (`EntityConfigDto`/
-`ReportAuditLogDto`), `validator`, sub-DTOs de ally (`AllyUserDto`, `MyAllyDto`, `UserAllyDto`,
-`Public*`). Regla: **list DTOs y proyecciones de solo lectura** migran; **detail/edit-response**
+`card`, `scheduling`, `core/audit` (`EntityConfigDto`/`ReportAuditLogDto`), `validator`, sub-DTOs
+públicas de ally (`PublicAllyListItemDto`, `PublicServiceListItemDto`, `PublicAllyServiceDto`).
+Regla: **list DTOs y proyecciones de solo lectura** migran; **detail/edit-response**
 (mantienen DTOs de catálogo anidados) y **request DTOs** no. Colapsar a `<rel>_Uuid` + `<rel>_Display`
 solo cuando la relación aporta un par `uuid (+ name/code)` limpio; si el DTO usa 3+ atributos
 independientes de una relación, solo se agregan escalares `_Display`.
