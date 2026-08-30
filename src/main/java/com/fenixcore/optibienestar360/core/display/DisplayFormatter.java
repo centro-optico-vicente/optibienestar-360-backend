@@ -188,6 +188,34 @@ public class DisplayFormatter {
 	}
 
 	/**
+	 * Typed catalogs whose {@code _Display} is {@code "<code> - <name>"} — the
+	 * same set {@code AuditDisplayResolver} treats that way. Any other
+	 * relation key falls through to the {@link #label} default
+	 * ({@code name → code}); person-shaped relations put the document number
+	 * in {@code code} and the full name in {@code name}, so the default joins
+	 * them naturally.
+	 */
+	private static final java.util.Set<String> CATALOG_RELS = java.util.Set.of(
+			"allyType", "gender", "maritalStatus", "promoterType", "medicalSpecialty",
+			"serviceCategory", "documentType", "occupation");
+
+	/**
+	 * Label for a foreign-key relation from its {@link DisplayRef}. {@code rel}
+	 * is the logical relation name (the DTO field name, or {@code @Display.fk}).
+	 * {@code null} when {@code ref} is {@code null} or nothing resolves — the
+	 * raw {@code <rel>_Uuid} stays as the client's fallback.
+	 */
+	public String fkLabel(String rel, DisplayRef ref) {
+		if (ref == null) {
+			return null;
+		}
+		if (CATALOG_RELS.contains(rel)) {
+			return catalogLabel(ref.code(), ref.name());
+		}
+		return label(ref.code(), ref.name());
+	}
+
+	/**
 	 * Resolves the locale's date pattern from {@code MessageSource} (falling
 	 * back to {@code defaultPattern} if the bundle omits the key) and returns
 	 * the parsed {@link DateTimeFormatter}, caching by pattern string so each
