@@ -1,14 +1,16 @@
 package com.fenixcore.optibienestar360.modules.auth.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Flattened view of User + its Person. Returned by all admin and /me
- * endpoints. The four name parts are exposed alongside the derived
- * {@code fullName} so the frontend can use either depending on the surface
- * (form fields vs label).
+ * endpoints — an edit-response shape, so the person name parts and the
+ * nested {@code roles} stay as-is. Only the presentational scalars gain a
+ * localized {@code _Display} sibling (hub ADR 0014).
  */
 public record UserDto(
         UUID uuid,
@@ -32,9 +34,9 @@ public record UserDto(
         String locale,
 
         // Auth
-        String status,
-        boolean active,
-        Instant lastLoginAt,
+        @Display(value = Display.Kind.ENUM, enumScope = "user.status") String status,
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(Display.Kind.DATETIME) Instant lastLoginAt,
 
         List<RoleDto> roles
 ) {}

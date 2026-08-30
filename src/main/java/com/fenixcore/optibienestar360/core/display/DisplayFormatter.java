@@ -188,6 +188,53 @@ public class DisplayFormatter {
 	}
 
 	/**
+	 * Typed catalogs whose {@code _Display} is {@code "<code> - <name>"} — the
+	 * same set {@code AuditDisplayResolver} treats that way. Any other
+	 * relation key falls through to the {@link #label} default
+	 * ({@code name → code}); person-shaped relations put the document number
+	 * in {@code code} and the full name in {@code name}, so the default joins
+	 * them naturally.
+	 */
+	private static final java.util.Set<String> CATALOG_RELS = java.util.Set.of(
+			"allyType", "gender", "maritalStatus", "promoterType", "medicalSpecialty",
+			"serviceCategory", "documentType", "occupation", "country", "state");
+
+	/**
+	 * Person-shaped relations whose {@code _Display} is
+	 * {@code "<taxDocumentNumber> <fullName>"} — the {@link DisplayRef} carries
+	 * the document number in {@code code} and the full name in {@code name}.
+	 */
+	private static final java.util.Set<String> PERSON_RELS = java.util.Set.of(
+			"person", "member", "beneficiary", "holder", "titular", "reviewedBy", "actor");
+
+	/**
+	 * Label for a foreign-key relation from its {@link DisplayRef}. {@code rel}
+	 * is the logical relation name (the DTO field name, or {@code @Display.fk}).
+	 * {@code null} when {@code ref} is {@code null} or nothing resolves — the
+	 * raw {@code <rel>_Uuid} stays as the client's fallback.
+	 */
+	public String fkLabel(String rel, DisplayRef ref) {
+		if (ref == null) {
+			return null;
+		}
+		if (CATALOG_RELS.contains(rel)) {
+			return catalogLabel(ref.code(), ref.name());
+		}
+		if (PERSON_RELS.contains(rel)) {
+			return personLabel(ref.code(), ref.name());
+		}
+		return label(ref.code(), ref.name());
+	}
+
+	/** {@code "<doc> <fullName>"}; falls back to {@link #label} when a part is missing. */
+	private String personLabel(String taxDocument, String fullName) {
+		if (taxDocument != null && !taxDocument.isBlank() && fullName != null && !fullName.isBlank()) {
+			return taxDocument + " " + fullName;
+		}
+		return label(taxDocument, fullName);
+	}
+
+	/**
 	 * Resolves the locale's date pattern from {@code MessageSource} (falling
 	 * back to {@code defaultPattern} if the bundle omits the key) and returns
 	 * the parsed {@link DateTimeFormatter}, caching by pattern string so each

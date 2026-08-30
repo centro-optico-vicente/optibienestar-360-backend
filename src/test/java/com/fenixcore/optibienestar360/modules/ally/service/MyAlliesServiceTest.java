@@ -62,7 +62,7 @@ class MyAlliesServiceTest {
         assertThat(dto.uuid()).isEqualTo(ally.getUuid());
         assertThat(dto.uuid()).isNotEqualTo(pivot.getUuid());
         assertThat(dto.name()).isEqualTo("Clínica Vicente");
-        assertThat(dto.allyTypeName()).isEqualTo("Clínica");
+        assertThat(dto.allyType().name()).isEqualTo("Clínica");
         assertThat(dto.allyRole()).isEqualTo(AllyRole.STAFF);
         assertThat(dto.primary()).isFalse();
     }

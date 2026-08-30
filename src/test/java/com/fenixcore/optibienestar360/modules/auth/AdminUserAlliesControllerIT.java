@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.dto.UserAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyUsersService;
@@ -81,14 +82,14 @@ class AdminUserAlliesControllerIT {
         UUID userUuid = UUID.randomUUID();
         UUID allyUuid = UUID.randomUUID();
         when(allyUsersService.listAlliesForUser(userUuid)).thenReturn(List.of(
-                new UserAllyDto(allyUuid, "Optica Central", AllyRole.STAFF, false,
+                new UserAllyDto(new DisplayRef(allyUuid, null, "Optica Central"), AllyRole.STAFF, false,
                         LocalDate.of(2026, 1, 15), true)));
 
         mockMvc.perform(get(URL, userUuid).with(principal("ALLY_VIEW_ALL")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].allyUuid").value(allyUuid.toString()))
-                .andExpect(jsonPath("$[0].allyName").value("Optica Central"))
+                .andExpect(jsonPath("$[0].ally_Uuid").value(allyUuid.toString()))
+                .andExpect(jsonPath("$[0].ally_Display").value("Optica Central"))
                 .andExpect(jsonPath("$[0].allyRole").value("STAFF"))
                 .andExpect(jsonPath("$[0].primary").value(false))
                 .andExpect(jsonPath("$[0].active").value(true));

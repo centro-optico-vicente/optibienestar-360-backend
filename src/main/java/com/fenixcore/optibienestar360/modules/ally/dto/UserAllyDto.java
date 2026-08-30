@@ -1,9 +1,10 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 /**
  * Output DTO for {@code GET /v1/admin/users/{userUuid}/allies} — "which
@@ -14,17 +15,14 @@ import java.util.UUID;
  * AllyUser} pivot) but for the admin reverse-lookup instead of the
  * self-service {@code /v1/me/allies}.
  *
- * <p>Exists so the user detail page in the admin panel can show a user's
- * ally memberships without an N+1 walk over every ally's staff list — the
- * reverse of {@link AllyUserDto}, which flattens user info onto the ally
- * side.</p>
+ * <p>{@code ally} serializes as {@code ally_Uuid} + {@code ally_Display};
+ * membership scalars carry their {@code _Display} sibling (hub ADR 0014).</p>
  */
 public record UserAllyDto(
-        UUID allyUuid,
-        String allyName,
+        @Display DisplayRef ally,
 
-        AllyRole allyRole,
-        boolean primary,
-        LocalDate joinedAt,
-        boolean active
+        @Display(Display.Kind.ENUM) AllyRole allyRole,
+        @Display(Display.Kind.BOOLEAN) boolean primary,
+        @Display(Display.Kind.DATE) LocalDate joinedAt,
+        @Display(Display.Kind.BOOLEAN) boolean active
 ) {}

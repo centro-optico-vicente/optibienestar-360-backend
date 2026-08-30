@@ -82,8 +82,8 @@ class AllyUsersServiceListAlliesForUserTest {
 
         UserAllyDto dto = service.listAlliesForUser(userUuid).getFirst();
 
-        assertThat(dto.allyUuid()).isEqualTo(ally.getUuid());
-        assertThat(dto.allyName()).isEqualTo("Optica Central");
+        assertThat(dto.ally().uuid()).isEqualTo(ally.getUuid());
+        assertThat(dto.ally().name()).isEqualTo("Optica Central");
         assertThat(dto.allyRole()).isEqualTo(AllyRole.OWNER);
         assertThat(dto.primary()).isTrue();
         assertThat(dto.joinedAt()).isEqualTo(LocalDate.of(2026, 1, 15));

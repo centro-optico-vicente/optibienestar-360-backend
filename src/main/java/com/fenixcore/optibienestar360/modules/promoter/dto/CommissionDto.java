@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 
@@ -12,12 +13,8 @@ import java.util.UUID;
 /**
  * Output DTO for {@code GET /v1/admin/commissions}. Flat record with
  * promoter / payment / member refs extracted as UUIDs + labels so the
- * admin queue renders without N+1.
- *
- * <p>The calculation snapshot (basis, pct, flat, tier name) is echoed
- * back so reports stay legible without re-deriving from the live
- * commission_tiers table (which may have moved since this row was
- * computed).</p>
+ * admin queue renders without N+1. Presentational scalars carry a localized
+ * {@code _Display} sibling (hub ADR 0014).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CommissionDto(
@@ -31,30 +28,30 @@ public record CommissionDto(
         UUID memberUuid,
 
         // Money + snapshot
-        BigDecimal amount,
+        @Display(Display.Kind.MONEY) BigDecimal amount,
         String currency,
-        BigDecimal calculationBasis,
-        BigDecimal commissionPct,
-        BigDecimal flatAmount,
+        @Display(Display.Kind.MONEY) BigDecimal calculationBasis,
+        @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
+        @Display(Display.Kind.MONEY) BigDecimal flatAmount,
         String tierNameSnapshot,
 
         // Categorization
-        AppliesTo appliesTo,
-        PeriodStrategy periodStrategy,
-        LocalDate periodStart,
-        LocalDate periodEnd,
-        Instant earnedAt,
+        @Display(Display.Kind.ENUM) AppliesTo appliesTo,
+        @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
+        @Display(Display.Kind.DATE) LocalDate periodStart,
+        @Display(Display.Kind.DATE) LocalDate periodEnd,
+        @Display(Display.Kind.DATETIME) Instant earnedAt,
 
         // Payout tracking
         String payoutReference,
-        Instant paidAt,
-        Instant voidedAt,
+        @Display(Display.Kind.DATETIME) Instant paidAt,
+        @Display(Display.Kind.DATETIME) Instant voidedAt,
         String voidReason,
         String adminNotes,
 
         // Audit + workflow status
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "commission.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

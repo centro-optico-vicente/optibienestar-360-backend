@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentMethod;
 
 import java.math.BigDecimal;
@@ -11,6 +12,10 @@ import java.util.UUID;
  * Output DTO for {@code GET /v1/admin/payments/{uuid}} (single + the
  * response of POST). Plan / member identification kept flat so the admin
  * UI can render a payment card without a follow-up GET.
+ *
+ * <p>Presentational scalars (amounts, method, dates, status) carry a
+ * localized {@code _Display} sibling (hub ADR 0014) so the frontend renders
+ * them without re-formatting.</p>
  *
  * <p>The {@code support_file_*} columns expose the file metadata (name,
  * size, content type) but never the raw URL — the presigned URL endpoint
@@ -31,24 +36,24 @@ public record PaymentDto(
         UUID payerUserUuid,
 
         // Money
-        BigDecimal amount,
+        @Display(Display.Kind.MONEY) BigDecimal amount,
         String currency,
 
         // Method
-        PaymentMethod paymentMethod,
+        @Display(Display.Kind.ENUM) PaymentMethod paymentMethod,
         String referenceNumber,
 
         // Dates
-        LocalDate paymentDate,
-        Instant receivedAt,
+        @Display(Display.Kind.DATE) LocalDate paymentDate,
+        @Display(Display.Kind.DATETIME) Instant receivedAt,
 
         // Allocation
-        boolean inscription,
-        LocalDate appliedPeriod,
+        @Display(Display.Kind.BOOLEAN) boolean inscription,
+        @Display(Display.Kind.DATE) LocalDate appliedPeriod,
 
         // Proof of payment (metadata only; raw URL is fetched via
         // /support presigned endpoint when wired up)
-        boolean supportFileAvailable,
+        @Display(Display.Kind.BOOLEAN) boolean supportFileAvailable,
         String supportFileName,
         String supportFileContentType,
         Long supportFileSizeBytes,
@@ -57,19 +62,19 @@ public record PaymentDto(
         String adminNotes,
 
         // Review state (status is the BaseEntity column)
-        String status,
+        @Display(value = Display.Kind.ENUM, enumScope = "payment.status") String status,
         UUID reviewedByUserUuid,
-        Instant reviewedAt,
+        @Display(Display.Kind.DATETIME) Instant reviewedAt,
         String reviewReason,
 
         // One-off discount (V41; null when none applied)
-        BigDecimal discountAmount,
+        @Display(Display.Kind.MONEY) BigDecimal discountAmount,
         String discountReason,
         UUID discountedByUserUuid,
-        Instant discountedAt,
+        @Display(Display.Kind.DATETIME) Instant discountedAt,
 
         // Audit
-        boolean active,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

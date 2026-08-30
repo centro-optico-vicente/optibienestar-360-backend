@@ -1,8 +1,10 @@
 package com.fenixcore.optibienestar360.modules.ally.mapper;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
@@ -32,14 +34,19 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = DisplayRefs.class)
 public interface AllyMapper {
 
     // ─── Ally → DTOs ───────────────────────────────────────────────────────
 
-    // AllyListItemDto is built in AlliesService: it needs the request Locale
-    // and DisplayFormatter to resolve the `_Display` siblings (ADR 0014),
-    // which MapStruct can't express cleanly.
+    /**
+     * Compact list row. {@code allyType} / {@code city} map to {@link
+     * com.fenixcore.optibienestar360.core.display.DisplayRef} via
+     * {@link DisplayRefs}; the serializer flattens them to
+     * {@code <rel>_Uuid} + {@code <rel>_Display} and adds the scalar
+     * {@code _Display} siblings from the request {@code Locale} (ADR 0014).
+     */
+    AllyListItemDto toListItem(Ally ally);
 
     /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */
     @Mapping(target = "allyTypeName", source = "allyType.name")
@@ -112,12 +119,11 @@ public interface AllyMapper {
      * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
      * {@code uuid} is deliberately the ally's — see {@link MyAllyDto}.
      */
-    @Mapping(target = "uuid",         source = "ally.uuid")
-    @Mapping(target = "name",         source = "ally.name")
-    @Mapping(target = "allyTypeUuid", source = "ally.allyType.uuid")
-    @Mapping(target = "allyTypeName", source = "ally.allyType.name")
-    @Mapping(target = "logoUrl",      source = "ally.logoUrl")
-    @Mapping(target = "phone",        source = "ally.phone")
+    @Mapping(target = "uuid",     source = "ally.uuid")
+    @Mapping(target = "name",     source = "ally.name")
+    @Mapping(target = "allyType", source = "ally.allyType")
+    @Mapping(target = "logoUrl",  source = "ally.logoUrl")
+    @Mapping(target = "phone",    source = "ally.phone")
     MyAllyDto toMyAllyDto(AllyUser allyUser);
 
     /**
@@ -128,8 +134,7 @@ public interface AllyMapper {
      * scoped to "only my active memberships" the way {@code /v1/me/allies}
      * is.
      */
-    @Mapping(target = "allyUuid",  source = "ally.uuid")
-    @Mapping(target = "allyName",  source = "ally.name")
+    @Mapping(target = "ally", source = "ally")
     UserAllyDto toUserAllyDto(AllyUser allyUser);
 
     // ─── Nested catalog DTOs (default methods consumed by the generated impl) ─

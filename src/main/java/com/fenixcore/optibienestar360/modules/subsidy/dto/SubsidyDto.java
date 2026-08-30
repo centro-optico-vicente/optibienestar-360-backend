@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.subsidy.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.Subsidy;
 
 import java.math.BigDecimal;
@@ -11,24 +12,25 @@ import java.util.UUID;
 /**
  * Output DTO for the admin + self-service subsidy surfaces. Flat record; the
  * member and authorizer are surfaced by UUID (+ member name for display) and the
- * per-beneficiary exonerations are nested. Built via {@link #from} inside the
+ * per-beneficiary exonerations are nested. Scalars carry a localized
+ * {@code _Display} sibling (hub ADR 0014). Built via {@link #from} inside the
  * service transaction so the LAZY associations resolve without open-session-in-view.
  */
 public record SubsidyDto(
         UUID uuid,
         UUID memberUuid,
         String memberName,
-        BigDecimal monthlyPercentage,
-        BigDecimal inscriptionPercentage,
+        @Display(Display.Kind.NUMBER) BigDecimal monthlyPercentage,
+        @Display(Display.Kind.NUMBER) BigDecimal inscriptionPercentage,
         Integer maxExoneratedBeneficiaries,
         String reason,
         UUID authorizedByUuid,
-        LocalDate validFrom,
-        LocalDate validUntil,
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt,
+        @Display(Display.Kind.DATE) LocalDate validFrom,
+        @Display(Display.Kind.DATE) LocalDate validUntil,
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "subsidy.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt,
         List<SubsidyBeneficiaryDto> beneficiaries
 ) {
     public static SubsidyDto from(Subsidy s) {

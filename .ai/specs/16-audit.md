@@ -319,8 +319,8 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 > Congela [hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md).
 > El sufijo `_Display` deja de ser exclusivo de auditoría: pasa a ser la forma única en que **cualquier**
 > list/detail DTO expone etiquetas de FK y escalares presentacionales (fecha, fecha-hora, monto,
-> decimal, enum, boolean), resueltos por `Locale` en el servidor. **Piloto: solo módulo Aliados**
-> (ver §Rollout); el resto se migra módulo por módulo en PRs posteriores.
+> decimal, enum, boolean), resueltos por `Locale` en el servidor. Mecanismo `@Display` +
+> `BeanSerializerModifier` implementado; migración por módulo en curso (ver §Rollout — estado).
 
 ### `core/display/DisplayFormatter` (`@Component`) — autoridad única de presentación
 
@@ -341,43 +341,42 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
   `person.fullName + " — " + plan.name`; `corporateContract` `institutionName`; etc.).
 - **No hace queries.** Recibe siempre el valor / la asociación ya materializados.
 
-### Emisión — dos etapas
+### Emisión — anotación `@Display` + `BeanSerializerModifier` (implementado)
 
-**Etapa 1 (piloto Aliados, ya implementada):** el `record` del list DTO declara los campos
-`_Display` explícitamente (`allyType_Display`, `city_Display`, `active_Display`, `status_Display`,
-`published_Display`, `publishedAt_Display`, `createdAt_Display`) y `AlliesService` los puebla
-llamando a `DisplayFormatter` con `LocaleContextHolder.getLocale()` al construir cada fila (no en
-`AllyMapper`, que no tiene acceso al `Locale`). Simple, sin infraestructura Jackson, verificable de
-inmediato — suficiente para un solo DTO.
+Los DTOs son `record` inmutables → nada de `xxx_Display` campo por campo. La emisión es en
+serialización:
 
-**Etapa 2 (cuando se migren varios módulos):** anotación `@Display` + `BeanSerializerModifier`.
-
-Los DTOs son `record` inmutables → no se agrega `xxx_Display` campo por campo a mano en cada uno.
-
-- `@Display` sobre el campo del `record`: `@Display(Kind.MONEY)`, `@Display(Kind.DATETIME)`,
-  `@Display(Kind.DATE)`, `@Display(Kind.ENUM)`, `@Display(Kind.BOOLEAN)`,
-  `@Display(fk = "allyType")`.
-- Un `BeanSerializerModifier` (`@JsonComponent`) inyecta, al serializar, el sibling
-  `"<campo>_Display"` llamando a `DisplayFormatter` con `LocaleContextHolder.getLocale()`.
-- **FK:** se prefiere que el list DTO proyecte la asociación (el join ya está en
-  `findAll(spec, pageable)`) → el modifier pasa la asociación al formatter, **sin N+1**. Si el DTO
-  solo trae el `<rel>_Uuid`, se delega en `AuditDisplayResolver` (que re-carga por repo).
-- `_Display` nunca se acepta en un request: no es campo del `record`, Jackson lo ignora al
-  deserializar.
-- **Nomenclatura:** el par FK es `<rel>_Uuid` + `<rel>_Display` (guión bajo antes del sufijo, rompe
-  el camelCase histórico). El `<rel>_Id` BIGINT es **interno** (instanciar/enlazar entidades) y
-  **nunca** se serializa.
-
-### Refactor de `AuditDisplayResolver` (pendiente — no en el PR piloto)
-
-`DisplayFormatter` nace **standalone** (reimplementa el mismo formato: zona, patrones de
-fecha/número, `ENUM_SHAPED`, `MessageSource`). El paso de hacer que `AuditDisplayResolver` delegue
-su *formato* aquí — manteniendo sus dos registros de *resolución* (`entity_key` → repo, `field key`
-→ repo) — queda para un PR posterior, para no arriesgar el comportamiento de auditoría sin un build
-de integración corriendo. Objetivo: que `ally_Display`, `totalCommissionPaid_Display`,
-`createdAt_Display` se vean idénticos en un listado, un detalle y un snapshot de auditoría con un
-solo método de formato. Mientras tanto, ambos usan las **mismas claves i18n**
-(`display.boolean.*`, con fallback de `DisplayFormatter` a `audit.enum.common.*`).
+- **`core/display/Display`** — anotación sobre el componente del `record`:
+  `@Display(Kind.MONEY|DATETIME|DATE|NUMBER|PERCENT|ENUM|BOOLEAN)` para escalares
+  (`Kind.AUTO` infiere por tipo runtime: temporal→datetime, `Boolean`→sí/no, `Number`→separadores,
+  `String`→enum); `@Display(fk = "allyType")` **o** un campo tipado `DisplayRef` para FK;
+  `enumScope` fija la clave i18n (`display.enum.<scope>.<VALOR>`).
+- **`core/display/DisplayRef(uuid, code, name)`** — carrier compacto de una FK dentro del DTO.
+  Nunca se serializa como objeto.
+- **`core/display/DisplayRefs`** (`@Component`) — construye el `DisplayRef` desde la asociación ya
+  cargada, por reflexión (`getUuid` + `getCode` + primero de
+  `getFullName/getDisplayName/getName/getInstitutionName`), con overloads tipados `ref(Person)`
+  (doc + nombre) y `ref(User)` (email). Los mappers lo traen con `@Mapper(uses = DisplayRefs.class)`
+  → un target `SomeEntity → DisplayRef` resuelve sin boilerplate por mapper.
+- **`core/display/DisplayBeanSerializerModifier`** — registrado en el `ObjectMapper` `@Primary`
+  (`core/config/JacksonConfig`). Para cada campo `@Display`:
+  - FK (`DisplayRef` o `fk` no vacío): reemplaza el campo por `<rel>_Uuid` + `<rel>_Display`; el
+    objeto `DisplayRef` **no** se emite.
+  - Escalar: deja el valor crudo y agrega `<campo>_Display`.
+  - Respeta `@JsonInclude(NON_NULL)` (`willSuppressNulls()`): en un DTO NON_NULL los siblings nulos
+    se omiten; en un DTO normal se escriben siempre (incluso `null`).
+- **`DisplayFormatter.fkLabel(rel, ref)`** — `"code - name"` para catálogos tipados
+  (`allyType`, `gender`, `maritalStatus`, `promoterType`, `medicalSpecialty`, `serviceCategory`,
+  `documentType`, `occupation`, `country`, `state`); `"doc fullName"` para relaciones tipo persona
+  (`person`, `member`, `beneficiary`, `holder`, `titular`, `reviewedBy`, `actor`); resto → `name`,
+  si no `code`, si no `null` (nunca el UUID).
+- El modifier **no hace queries**: el `DisplayRef` lo arma el mapper desde la asociación que ya
+  trae el `findAll(spec, pageable)` → sin N+1.
+- `_Display` / `<rel>_Uuid` derivado nunca se aceptan en un request (no son componentes del
+  `record`; Jackson los ignora al deserializar). El `<rel>_Id` BIGINT sigue **interno**.
+- Test sin Spring: `core/display/DisplayBeanSerializerModifierTest` serializa un DTO de muestra
+  contra los bundles reales (par FK plano, sin objeto anidado, siblings escalares, nulos, es/en,
+  NON_NULL).
 
 ### Alineación con el motor de reportes
 
@@ -385,30 +384,41 @@ solo método de formato. Mientras tanto, ambos usan las **mismas claves i18n**
 **no comparten código** pero deben coincidir en formato de escalares y en el orden del extractor
 reflexivo de etiqueta; al implementar, revisar ambos para no divergir.
 
-### Rollout — piloto Aliados
+### Rollout — estado
 
-- El PR piloto **se construye sobre** los cambios de ordenamiento multi-columna ya en curso para
-  Aliados (`AlliesService.ALLOWED_SORT_FIELDS` + `SortFieldValidator` — que ya resuelve alias de
-  columnas FK vía reflexión —, sort multi-columna del frontend en `allies/index.vue`), no en
-  paralelo:
-  - `AllyListItemDto`: pares FK → `allyType_Uuid`/`allyType_Display`, `city_Uuid`/`city_Display`;
-    `_Display` en escalares del listado (`active`, `status`, `published`, `publishedAt`,
-    `createdAt`). Se eliminan `allyTypeUuid`/`allyTypeName`/`cityUuid`/`cityName`. Se agregan
-    `taxDocumentType`/`taxDocumentNumber` crudos (la columna RIF del listado los pedía y llegaban
-    `undefined`).
-  - `AllyMapper.toListItem` se **elimina**: la fila se construye en `AlliesService.toListItem(Ally,
-    Locale)` para tener acceso al `Locale` y a `DisplayFormatter`. El resto de `AllyMapper` (detalle,
-    proyecciones públicas) no se toca — siguen con `<rel>Name` plano (grandfathered).
-  - `SORTABLE_FIELDS` (`AlliesService`): los alias de relación pasan de `allyTypeName`/`cityName` a
-    `allyType_Display`/`city_Display` (→ `allyType.name` / `city.name`). Los escalares se siguen
-    auto-derivando de `Ally` por reflexión (`SortFieldValidator.sortableFieldsOf`).
-  - `messages*.properties`: `display.boolean.true|false` (es/en/default).
-  - Frontend: `AllyListItemDto` nuevo en `app/types/allies.ts` (par `<rel>_Uuid` + `<rel>_Display`,
-    escalares `_Display`); `useAllies.list` → `Page<AllyListItemDto>`; `allies/index.vue` pinta
-    `a.allyType_Display` / `a.city_Display` / `effectiveStatusLabel` con `status_Display`, y las
-    claves de sort del `<th>` pasan a `allyType_Display` / `city_Display`.
-- Sin doble campo permanente. Si el contrato del ADR no encaja con Aliados, se ajusta el ADR en el
-  mismo PR.
+Un solo branch (`feature/display-value-convention-rollout`), un commit por módulo. **Backend
+únicamente** — cada endpoint renombrado rompe su consumidor de frontend, que se migra después.
+
+| Módulo | DTO(s) | Alcance aplicado |
+|---|---|---|
+| **ally** | `AllyListItemDto` | FK `allyType`/`city` → `DisplayRef`; escalares `_Display`; `taxDocument*` crudos. `AllyMapper.toListItem` con `uses = DisplayRefs`. `SORTABLE_FIELDS` alias `allyType_Display`/`city_Display`. |
+| **promoter** | `PromoterDto` (list + detail) | FK `user`/`person`/`promoterType` → `DisplayRef`; escalares `_Display`. Mapper sin `@Mapping` planos. |
+| **member** | `MemberListItemDto` | `cityName` → `city` `DisplayRef`, `currentPromoter*` → `currentPromoter` `DisplayRef`; escalares `_Display`. `MemberDetailDto` **intacto** (edit-response, mantiene DTOs de catálogo anidados, como `AllyDetailDto`). |
+| **membership** | `MembershipDto` | Solo escalares `@Display` (montos, fechas, `planType`, `status`, `active`). FK plano `plan*` intacto (expone code+name+type — no es colapso limpio). |
+| **payment** | `PaymentDto` | Solo escalares `@Display` (montos, método, fechas, `status`, flags). FK planos intactos. |
+| **auth** | `UserDto`, `RoleUserDto` | Solo escalares `@Display` (`status`, `active`, `lastLoginAt`) — `UserDto` es edit-response (mantiene person-flat + `roles` anidado). |
+| **ally (pivots)** | `AllyUserDto`, `UserAllyDto`, `MyAllyDto` | `AllyUserDto`: escalares. `UserAllyDto`: `ally*` → `DisplayRef ally`. `MyAllyDto`: `allyType*` → `DisplayRef allyType`. `DisplayRefs` pasó a utilidad `static` (MapStruct lo llama sin inyección → mappers usables en unit tests). |
+
+| **resto** (escalares `@Display` aditivos, sin renombrar campos) | `CommissionDto`, `CommissionTierDto`, `BonusRuleDto`, `BonusAwardDto`, `CollectionCommissionTierDto`, `LeaderboardEntryDto`, `MyReferralDto`, `SubsidyDto`, `SubsidyBeneficiaryDto`, `CorporateContractDto`, `BenefitUsageDto`, `DigitalCardDto`, `ScheduledJobDto`, `EntityConfigDto`, `ReportAuditLogDto`, `ValidationResultDto`, `MemberPromoterAssignmentDto` | montos / fechas / enums / booleanos con `_Display`. Pares `<rel>Uuid`+`<rel>Name` intactos (exponen varios atributos de una relación); `pct` → `NUMBER` (sin `%` falso). |
+
+Regla aplicada: **list DTOs y proyecciones de solo lectura** migran (con colapso FK →
+`<rel>_Uuid` + `<rel>_Display` cuando la relación aporta un par `uuid (+ name/code)` limpio);
+**detail/edit-response** (mantienen DTOs de catálogo anidados) y **request DTOs** no; si el DTO usa
+3+ atributos independientes de una relación, solo escalares `_Display`.
+
+DTOs públicos: `PublicPlanDto` (fees `MONEY`, `type` `ENUM`), `PublicAllyServiceDto` /
+`PublicServiceListItemDto` (`priceUsd`/`discountPct` `NUMBER` — es USD, no `VES`;
+`requiresAppointment` `BOOLEAN`). `PublicAllyListItemDto` / `PublicAllyDetailDto` no tienen escalar
+que anotar (money/fechas/status excluidos a propósito de la forma sanitizada).
+
+**Pendiente:** refactor de `AuditDisplayResolver` para delegar el formato en `DisplayFormatter`;
+`./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos tocados +
+`DisplayBeanSerializerModifierTest` están en verde.
+
+### Refactor de `AuditDisplayResolver` (pendiente)
+
+Sigue standalone; el paso de delegar su *formato* en `DisplayFormatter` queda para después (ver
+arriba). Ambos ya comparten claves i18n.
 
 ## Archivos críticos
 

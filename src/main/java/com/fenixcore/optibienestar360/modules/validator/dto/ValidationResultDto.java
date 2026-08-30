@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.validator.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -12,17 +13,14 @@ import java.util.UUID;
  *
  * <p>{@code status} is the headline answer for the ally counter operator:
  * only {@link ValidationStatus#ACTIVE} authorizes applying the benefit.
- * Other terminal values explain why so the operator can tell the affiliate
- * exactly what's wrong (suspended for non-payment, expired beyond grace,
- * cancelled, never enrolled, document not registered at all).</p>
+ * It carries a localized {@code status_Display} sibling (hub ADR 0014) so
+ * the counter can show the reason without a client-side label map.</p>
  *
- * <p>{@code cached} is non-authoritative — purely diagnostic, indicates
- * whether the answer came from Redis or was freshly computed. Used by
- * monitoring to compute the cache hit ratio.</p>
+ * <p>{@code cached} is non-authoritative — purely diagnostic.</p>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ValidationResultDto(
-        ValidationStatus status,
+        @Display(Display.Kind.ENUM) ValidationStatus status,
         String documentType,
         String documentNumber,
 
@@ -39,9 +37,9 @@ public record ValidationResultDto(
         String planName,
 
         UUID membershipUuid,
-        LocalDate enrolledAt,
-        LocalDate nextDueDate,
-        LocalDate lastPaidThrough,
+        @Display(Display.Kind.DATE) LocalDate enrolledAt,
+        @Display(Display.Kind.DATE) LocalDate nextDueDate,
+        @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
         Integer gracePeriodDays,
 
         // Diagnostic only — tells the ally portal whether this response

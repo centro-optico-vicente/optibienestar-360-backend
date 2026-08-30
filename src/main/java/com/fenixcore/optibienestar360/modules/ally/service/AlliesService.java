@@ -3,7 +3,6 @@ package com.fenixcore.optibienestar360.modules.ally.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.audit.EntityConfigService;
-import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
@@ -36,7 +35,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +42,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -97,7 +94,6 @@ public class AlliesService {
     private final CityRepository cityRepository;
     private final MedicalSpecialtyRepository medicalSpecialtyRepository;
     private final AllyMapper mapper;
-    private final DisplayFormatter displayFormatter;
     private final AllyUserRepository allyUserRepository;
     private final AllyServiceRepository allyServiceRepository;
     private final AllyAgreementRepository allyAgreementRepository;
@@ -137,44 +133,8 @@ public class AlliesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-		Locale locale = LocaleContextHolder.getLocale();
-		return repository.findAll(spec, resolvedPageable).map(ally -> toListItem(ally, locale));
+		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
     }
-
-	/**
-	 * Builds the compact list-item projection with its {@code _Display}
-	 * siblings (ADR 0014). Foreign keys travel as {@code <rel>_Uuid} +
-	 * {@code <rel>_Display}; presentational scalars as the raw value + a
-	 * localized {@code <field>_Display} resolved by {@link DisplayFormatter}
-	 * from the request {@code Locale}. Done here rather than in
-	 * {@link AllyMapper} because the mapper has no access to the locale.
-	 */
-	private AllyListItemDto toListItem(Ally ally, Locale locale) {
-		AllyType type = ally.getAllyType();
-		City city = ally.getCity();
-		return new AllyListItemDto(
-			ally.getUuid(),
-			ally.getName(),
-			type != null ? type.getUuid() : null,
-			type != null ? displayFormatter.catalogLabel(type.getCode(), type.getName()) : null,
-			city != null ? city.getUuid() : null,
-			city != null ? displayFormatter.label(null, city.getName()) : null,
-			ally.getTaxDocumentType(),
-			ally.getTaxDocumentNumber(),
-			ally.getLogoUrl(),
-			ally.getPhone(),
-			ally.isPublished(),
-			displayFormatter.bool(ally.isPublished(), locale),
-			ally.getPublishedAt(),
-			displayFormatter.dateTime(ally.getPublishedAt(), locale),
-			ally.isActive(),
-			displayFormatter.bool(ally.isActive(), locale),
-			ally.getStatus(),
-			displayFormatter.enumLabel("ally.status", ally.getStatus(), locale),
-			ally.getCreatedAt(),
-			displayFormatter.dateTime(ally.getCreatedAt(), locale)
-		);
-	}
 
 	/**
 	 * When the request has no explicit {@code ?sort=} (the controller sets no

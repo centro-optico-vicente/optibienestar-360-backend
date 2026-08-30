@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -8,36 +9,31 @@ import java.util.UUID;
 
 /**
  * Affiliate-side view of a single referral row, returned by
- * {@code GET /v1/me/referrals}. The caller is always the REFERRER, so
- * referrer identity is implicit; only the {@link #referredMemberUuid}
- * (the friend who enrolled) needs to be echoed.
+ * {@code GET /v1/me/referrals}. The caller is always the REFERRER.
  *
- * <p>{@code referredMemberUuid} and {@code referredMemberName} are null
- * while the referral is {@code PENDING_ENROLLMENT} or {@code EXPIRED}
- * (the friend never actually enrolled).</p>
- *
- * <p>Reward snapshot is echoed verbatim from the row — when v2
- * {@code referral_programs} introduces DB-driven config, historical
- * rows keep displaying the original reward they were promised.</p>
+ * <p>{@code referredMemberUuid} / {@code referredMemberName} are null while
+ * the referral is {@code PENDING_ENROLLMENT} or {@code EXPIRED}. Reward
+ * snapshot is echoed verbatim from the row. Scalars carry a localized
+ * {@code _Display} sibling (hub ADR 0014).</p>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record MyReferralDto(
         UUID uuid,
-        String status,
+        @Display(value = Display.Kind.ENUM, enumScope = "referral.status") String status,
         String referralCode,
 
         UUID referredMemberUuid,
         String referredMemberName,
 
-        Instant enrolledAt,
-        Instant expiresAt,
+        @Display(Display.Kind.DATETIME) Instant enrolledAt,
+        @Display(Display.Kind.DATETIME) Instant expiresAt,
 
-        BigDecimal rewardPct,
-        BigDecimal rewardFlatAmount,
+        @Display(Display.Kind.NUMBER) BigDecimal rewardPct,
+        @Display(Display.Kind.MONEY) BigDecimal rewardFlatAmount,
         String rewardCurrency,
 
         UUID rewardPaymentUuid,
-        Instant rewardGrantedAt,
+        @Display(Display.Kind.DATETIME) Instant rewardGrantedAt,
 
-        Instant createdAt
+        @Display(Display.Kind.DATETIME) Instant createdAt
 ) {}

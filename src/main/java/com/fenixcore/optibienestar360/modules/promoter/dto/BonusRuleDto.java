@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.AccrualMode;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.BonusMetric;
@@ -15,6 +16,7 @@ import java.util.UUID;
 /**
  * Admin read view of a bonus rule. {@code campaign*} present only for CAMPAIGN
  * windows; {@code flatAmount}/{@code rewardPct} mutually exclusive per reward type.
+ * Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BonusRuleDto(
@@ -23,19 +25,19 @@ public record BonusRuleDto(
         String description,
         UUID promoterTypeUuid,
         String promoterTypeName,
-        BonusMetric metric,
-        AccrualMode accrual,
+        @Display(Display.Kind.ENUM) BonusMetric metric,
+        @Display(Display.Kind.ENUM) AccrualMode accrual,
         int thresholdCount,
-        WindowStrategy windowStrategy,
-        LocalDate campaignStart,
-        LocalDate campaignEnd,
-        RewardType rewardType,
-        BigDecimal flatAmount,
-        BigDecimal rewardPct,
+        @Display(Display.Kind.ENUM) WindowStrategy windowStrategy,
+        @Display(Display.Kind.DATE) LocalDate campaignStart,
+        @Display(Display.Kind.DATE) LocalDate campaignEnd,
+        @Display(Display.Kind.ENUM) RewardType rewardType,
+        @Display(Display.Kind.MONEY) BigDecimal flatAmount,
+        @Display(Display.Kind.NUMBER) BigDecimal rewardPct,
         String rewardCurrency,
-        boolean includeSystemPromoters,
-        boolean active,
-        Instant createdAt
+        @Display(Display.Kind.BOOLEAN) boolean includeSystemPromoters,
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(Display.Kind.DATETIME) Instant createdAt
 ) {
 
     public static BonusRuleDto from(CommissionBonusRule r) {
