@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.core.display;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -99,6 +100,23 @@ class DisplayBeanSerializerModifierTest {
         assertThat(json.get("createdAt_Display").isNull()).isTrue();
         assertThat(json.get("active_Display").asText()).isEqualTo("No");
         assertThat(json.get("status_Display").isNull()).isTrue();
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record NonNullSample(
+            UUID uuid,
+            @Display(fk = "person") DisplayRef person,
+            @Display(Display.Kind.MONEY) java.math.BigDecimal amount
+    ) {}
+
+    @Test
+    void nonNullDtoSuppressesNullDisplaySiblings() throws Exception {
+        LocaleContextHolder.setLocale(new Locale("es"));
+        JsonNode json = mapper.valueToTree(new NonNullSample(UUID.randomUUID(), null, null));
+
+        assertThat(json.has("person_Uuid")).isFalse();
+        assertThat(json.has("person_Display")).isFalse();
+        assertThat(json.has("amount_Display")).isFalse();
     }
 
     @Test

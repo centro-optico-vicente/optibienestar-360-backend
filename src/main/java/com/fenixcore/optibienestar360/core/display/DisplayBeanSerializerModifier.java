@@ -85,6 +85,9 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
         @Override
         public void serializeAsField(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception {
             DisplayRef ref = (DisplayRef) get(bean);
+            if (ref == null && willSuppressNulls()) {
+                return;
+            }
             String base = getName();
             if (ref == null || ref.uuid() == null) {
                 gen.writeNullField(base + "_Uuid");
@@ -108,7 +111,11 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 
         @Override
         public void serializeAsField(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception {
-            String value = scalarDisplay(formatter, get(bean), display, getName(), LocaleContextHolder.getLocale());
+            Object raw = get(bean);
+            if (raw == null && willSuppressNulls()) {
+                return;
+            }
+            String value = scalarDisplay(formatter, raw, display, getName(), LocaleContextHolder.getLocale());
             writeStringOrNull(gen, getName() + "_Display", value);
         }
     }
