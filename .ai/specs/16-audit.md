@@ -406,10 +406,14 @@ Regla aplicada: **list DTOs y proyecciones de solo lectura** migran (con colapso
 **detail/edit-response** (mantienen DTOs de catálogo anidados) y **request DTOs** no; si el DTO usa
 3+ atributos independientes de una relación, solo escalares `_Display`.
 
-**Pendiente:** proyecciones públicas de ally (`PublicAllyListItemDto`, `PublicServiceListItemDto`,
-`PublicAllyServiceDto`); refactor de `AuditDisplayResolver` para delegar el formato en
-`DisplayFormatter`; `./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos
-tocados + `DisplayBeanSerializerModifierTest` están en verde.
+DTOs públicos: `PublicPlanDto` (fees `MONEY`, `type` `ENUM`), `PublicAllyServiceDto` /
+`PublicServiceListItemDto` (`priceUsd`/`discountPct` `NUMBER` — es USD, no `VES`;
+`requiresAppointment` `BOOLEAN`). `PublicAllyListItemDto` / `PublicAllyDetailDto` no tienen escalar
+que anotar (money/fechas/status excluidos a propósito de la forma sanitizada).
+
+**Pendiente:** refactor de `AuditDisplayResolver` para delegar el formato en `DisplayFormatter`;
+`./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos tocados +
+`DisplayBeanSerializerModifierTest` están en verde.
 
 ### Refactor de `AuditDisplayResolver` (pendiente)
 
