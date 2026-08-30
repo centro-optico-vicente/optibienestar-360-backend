@@ -399,15 +399,17 @@ Un solo branch (`feature/display-value-convention-rollout`), un commit por módu
 | **auth** | `UserDto`, `RoleUserDto` | Solo escalares `@Display` (`status`, `active`, `lastLoginAt`) — `UserDto` es edit-response (mantiene person-flat + `roles` anidado). |
 | **ally (pivots)** | `AllyUserDto`, `UserAllyDto`, `MyAllyDto` | `AllyUserDto`: escalares. `UserAllyDto`: `ally*` → `DisplayRef ally`. `MyAllyDto`: `allyType*` → `DisplayRef allyType`. `DisplayRefs` pasó a utilidad `static` (MapStruct lo llama sin inyección → mappers usables en unit tests). |
 
-**Pendiente** (mismos criterios; commits posteriores): sub-DTOs de promoter (incentivos —
-`CommissionDto`, `CommissionTierDto`, `BonusRuleDto`, `BonusAwardDto`, `CollectionCommissionTierDto`,
-`LeaderboardEntryDto`, `MyReferralDto` — front aún sin construir), `subsidy`, `corporate`, `benefit`,
-`card`, `scheduling`, `core/audit` (`EntityConfigDto`/`ReportAuditLogDto`), `validator`, sub-DTOs
-públicas de ally (`PublicAllyListItemDto`, `PublicServiceListItemDto`, `PublicAllyServiceDto`).
-Regla: **list DTOs y proyecciones de solo lectura** migran; **detail/edit-response**
-(mantienen DTOs de catálogo anidados) y **request DTOs** no. Colapsar a `<rel>_Uuid` + `<rel>_Display`
-solo cuando la relación aporta un par `uuid (+ name/code)` limpio; si el DTO usa 3+ atributos
-independientes de una relación, solo se agregan escalares `_Display`.
+| **resto** (escalares `@Display` aditivos, sin renombrar campos) | `CommissionDto`, `CommissionTierDto`, `BonusRuleDto`, `BonusAwardDto`, `CollectionCommissionTierDto`, `LeaderboardEntryDto`, `MyReferralDto`, `SubsidyDto`, `SubsidyBeneficiaryDto`, `CorporateContractDto`, `BenefitUsageDto`, `DigitalCardDto`, `ScheduledJobDto`, `EntityConfigDto`, `ReportAuditLogDto`, `ValidationResultDto`, `MemberPromoterAssignmentDto` | montos / fechas / enums / booleanos con `_Display`. Pares `<rel>Uuid`+`<rel>Name` intactos (exponen varios atributos de una relación); `pct` → `NUMBER` (sin `%` falso). |
+
+Regla aplicada: **list DTOs y proyecciones de solo lectura** migran (con colapso FK →
+`<rel>_Uuid` + `<rel>_Display` cuando la relación aporta un par `uuid (+ name/code)` limpio);
+**detail/edit-response** (mantienen DTOs de catálogo anidados) y **request DTOs** no; si el DTO usa
+3+ atributos independientes de una relación, solo escalares `_Display`.
+
+**Pendiente:** proyecciones públicas de ally (`PublicAllyListItemDto`, `PublicServiceListItemDto`,
+`PublicAllyServiceDto`); refactor de `AuditDisplayResolver` para delegar el formato en
+`DisplayFormatter`; `./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos
+tocados + `DisplayBeanSerializerModifierTest` están en verde.
 
 ### Refactor de `AuditDisplayResolver` (pendiente)
 
