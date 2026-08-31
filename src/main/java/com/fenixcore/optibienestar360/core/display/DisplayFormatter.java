@@ -142,6 +142,12 @@ public class DisplayFormatter {
 	 * (e.g. {@code "ally.status"}).
 	 */
 	public String enumLabel(String field, String value, Locale locale) {
+		// "code" is always a natural key (UPPER_SNAKE_CASE by convention), never an enum
+		// value — even when it happens to collide with an unrelated enum constant (e.g. a
+		// plan's code "CORPORATIVO" matching PlanType.CORPORATIVO). See fix #195.
+		if ("code".equals(field)) {
+			return null;
+		}
 		if (value == null || !ENUM_SHAPED.matcher(value).matches()) {
 			return null;
 		}
@@ -226,8 +232,13 @@ public class DisplayFormatter {
 		return label(ref.code(), ref.name());
 	}
 
-	/** {@code "<doc> <fullName>"}; falls back to {@link #label} when a part is missing. */
-	private String personLabel(String taxDocument, String fullName) {
+	/**
+	 * {@code "<doc> <fullName>"}; falls back to {@link #label} when a part is
+	 * missing. Public — {@code AuditDisplayResolver}'s person-shaped
+	 * resolvers (which look up {@code code}/{@code name} straight from a repo
+	 * without building a {@link DisplayRef}) call this directly.
+	 */
+	public String personLabel(String taxDocument, String fullName) {
 		if (taxDocument != null && !taxDocument.isBlank() && fullName != null && !fullName.isBlank()) {
 			return taxDocument + " " + fullName;
 		}
