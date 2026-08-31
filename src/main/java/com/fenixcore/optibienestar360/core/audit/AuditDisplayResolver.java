@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.core.audit;
 
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
@@ -219,6 +220,9 @@ public class AuditDisplayResolver {
         if (value == null) {
             return Optional.empty();
         }
+		if (value instanceof Map<?, ?> nested) {
+			return tryNestedCatalogDisplay(key, nested);
+		}
         if (value instanceof Boolean b) {
             return Optional.of(displayFormatter.bool(b, locale));
         }
@@ -238,6 +242,40 @@ public class AuditDisplayResolver {
         }
         return Optional.empty();
     }
+
+	/**
+	 * Handles a snapshot field whose value is a <b>nested</b> object rather
+	 * than a flat {@code <field>Uuid} — a detail/edit-response DTO nesting a
+	 * catalog DTO (e.g. {@code AllyDetailDto.city} is a whole {@code CityDto},
+	 * not a {@code cityUuid} string). {@link #fieldResolvers} only knows flat
+	 * {@code *Uuid} keys, so those objects fell through with no
+	 * {@code _Display} and rendered as raw JSON in the audit UI. Instead of
+	 * re-querying, this builds the label straight from the object's own
+	 * {@code uuid}/{@code code}/{@code name} — already in the snapshot — via
+	 * the same {@code catalogLabel}/{@code personLabel}/{@code label} rules
+	 * {@link DisplayFormatter#fkLabel} uses for every other relation.
+	 */
+	private Optional<String> tryNestedCatalogDisplay(String key, Map<?, ?> nested) {
+		String code = asString(nested.get("code"));
+		String name = asString(nested.get("name"));
+		if (code == null && name == null) {
+			return Optional.empty();
+		}
+		UUID uuid = asUuid(nested.get("uuid"));
+		return Optional.ofNullable(displayFormatter.fkLabel(key, DisplayRef.of(uuid, code, name)));
+	}
+
+	private static String asString(Object value) {
+		return value instanceof String s && !s.isBlank() ? s : null;
+	}
+
+	private static UUID asUuid(Object value) {
+		try {
+			return value instanceof String s ? UUID.fromString(s) : null;
+		} catch (IllegalArgumentException notAUuid) {
+			return null;
+		}
+	}
 
     private Optional<String> tryFkDisplay(String key, String value) {
         Function<UUID, Optional<String>> resolver = fieldResolvers.get(key);
