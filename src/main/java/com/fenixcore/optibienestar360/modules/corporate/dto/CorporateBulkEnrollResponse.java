@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.corporate.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +32,7 @@ public record CorporateBulkEnrollResponse(
             String documentType,
             String documentNumber,
             String fullName,
-            Outcome outcome,
+            @Display(Display.Kind.ENUM) Outcome outcome,
             UUID memberUuid
     ) {}
 

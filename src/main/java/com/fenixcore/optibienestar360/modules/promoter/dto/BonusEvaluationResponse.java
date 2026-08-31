@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,16 +12,18 @@ import java.util.UUID;
 /**
  * Outcome of an evaluation run — the envelope returned by the manual trigger and
  * the shape the scheduled runner summarizes into its job-run record.
+ *
+ * <p>Scalars carry a localized {@code _Display} sibling (ADR 0014).</p>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BonusEvaluationResponse(
-        LocalDate asOf,
-        boolean dryRun,
+        @Display(Display.Kind.DATE) LocalDate asOf,
+        @Display(Display.Kind.BOOLEAN) boolean dryRun,
         int rulesEvaluated,
         int awardsCreated,
-        BigDecimal totalAmount,
+        @Display(Display.Kind.MONEY) BigDecimal totalAmount,
         String currency,
-        Instant executedAt,
+        @Display(Display.Kind.DATETIME) Instant executedAt,
         List<RuleOutcome> perRule
 ) {
 
@@ -33,6 +36,6 @@ public record BonusEvaluationResponse(
             String accrual,
             int promotersAwarded,
             int blocksAwarded,
-            BigDecimal amount
+            @Display(Display.Kind.MONEY) BigDecimal amount
     ) {}
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.member.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.Relationship;
 
 import java.time.Instant;
@@ -33,16 +34,16 @@ public record BeneficiaryDto(
         String fullName,
         String documentType,
         String documentNumber,
-        LocalDate birthDate,
+        @Display(Display.Kind.DATE) LocalDate birthDate,
         String phone,
         String email,
 
-        Relationship relationship,
-        boolean extraInscriptionPaid,
+        @Display(Display.Kind.ENUM) Relationship relationship,
+        @Display(Display.Kind.BOOLEAN) boolean extraInscriptionPaid,
         UUID inscriptionPaymentUuid,
 
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "beneficiary.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

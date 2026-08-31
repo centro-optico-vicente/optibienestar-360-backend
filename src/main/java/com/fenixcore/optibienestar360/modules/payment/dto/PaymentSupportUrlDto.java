@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+
 import java.time.Instant;
 
 /**
@@ -13,7 +15,7 @@ import java.time.Instant;
  */
 public record PaymentSupportUrlDto(
         String url,
-        Instant expiresAt,
+        @Display(Display.Kind.DATETIME) Instant expiresAt,
         long expiresInSeconds,
 
         // Metadata also echoed so the frontend can render a "Download

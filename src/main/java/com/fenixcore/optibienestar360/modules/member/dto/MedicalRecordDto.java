@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.member.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.member.entity.MedicalRecord.EmergencyContactRelationship;
 
 import java.time.Instant;
@@ -38,14 +39,14 @@ public record MedicalRecordDto(
 
         String emergencyContactName,
         String emergencyContactPhone,
-        EmergencyContactRelationship emergencyContactRelationship,
+        @Display(Display.Kind.ENUM) EmergencyContactRelationship emergencyContactRelationship,
 
         String notes,
 
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt,
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "medical_record.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt,
 
         boolean exists
 ) {}

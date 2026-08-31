@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,10 +36,10 @@ public record PromoterDashboardDto(
         int affiliatesOverdue,
         int affiliatesWithoutMembership,
 
-        BigDecimal periodCommissions,
+        @Display(Display.Kind.MONEY) BigDecimal periodCommissions,
         String periodCurrency,
-        LocalDate periodStart,
-        LocalDate periodEnd,
+        @Display(Display.Kind.DATE) LocalDate periodStart,
+        @Display(Display.Kind.DATE) LocalDate periodEnd,
 
         Integer leaderboardPosition,
 

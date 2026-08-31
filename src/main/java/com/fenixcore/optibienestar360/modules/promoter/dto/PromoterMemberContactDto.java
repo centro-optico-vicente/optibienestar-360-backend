@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterMemberContact.ContactType;
 
 import java.math.BigDecimal;
@@ -17,9 +18,9 @@ import java.util.UUID;
 public record PromoterMemberContactDto(
         UUID uuid,
         UUID memberUuid,
-        ContactType type,
+        @Display(Display.Kind.ENUM) ContactType type,
         String note,
-        BigDecimal promisedAmount,
-        LocalDate promisedAtDate,
-        Instant createdAt
+        @Display(Display.Kind.MONEY) BigDecimal promisedAmount,
+        @Display(Display.Kind.DATE) LocalDate promisedAtDate,
+        @Display(Display.Kind.DATETIME) Instant createdAt
 ) {}
