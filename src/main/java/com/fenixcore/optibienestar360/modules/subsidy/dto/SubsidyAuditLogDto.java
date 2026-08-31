@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.subsidy.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.SubsidyAuditLog;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.SubsidyAuditLog.Action;
 
@@ -14,12 +15,12 @@ import java.util.UUID;
  */
 public record SubsidyAuditLogDto(
         UUID uuid,
-        Action action,
+        @Display(Display.Kind.ENUM) Action action,
         UUID actorUuid,
         Map<String, Object> before,
         Map<String, Object> after,
         String reason,
-        Instant at
+        @Display(Display.Kind.DATETIME) Instant at
 ) {
     public static SubsidyAuditLogDto from(SubsidyAuditLog log) {
         return new SubsidyAuditLogDto(

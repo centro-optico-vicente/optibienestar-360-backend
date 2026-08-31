@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 
@@ -17,6 +18,10 @@ import java.util.UUID;
  * normally land in PROPOSED and reach APPROVED via the dedicated workflow
  * endpoints; {@code published} is orthogonal (admin controls visibility
  * independently of approval).</p>
+ *
+ * <p>Scalars carry a localized {@code _Display} sibling (ADR 0014); prices
+ * are in USD, so they use {@code NUMBER} rather than {@code MONEY} (which
+ * formats as {@code VES}), matching {@code PublicAllyServiceDto}.</p>
  */
 public record AllyServiceDto(
         UUID uuid,
@@ -25,23 +30,23 @@ public record AllyServiceDto(
 
         String name,
         String description,
-        BigDecimal priceUsd,
-        BigDecimal discountPct,
-        boolean requiresAppointment,
+        @Display(Display.Kind.NUMBER) BigDecimal priceUsd,
+        @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
 
-        ReviewStatus reviewStatus,
+        @Display(Display.Kind.ENUM) ReviewStatus reviewStatus,
         UUID reviewedByUuid,
-        Instant reviewedAt,
+        @Display(Display.Kind.DATETIME) Instant reviewedAt,
         String reviewReason,
 
-        boolean published,
-        Instant publishedAt,
+        @Display(Display.Kind.BOOLEAN) boolean published,
+        @Display(Display.Kind.DATETIME) Instant publishedAt,
 
         /** Derived {@code publicBaseUrl + imageKey}; {@code null} until the image is explicitly published (spec §5). */
         String imageUrl,
 
-        boolean active,
-        String status,
-        Instant createdAt,
-        Instant updatedAt
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_service.status") String status,
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

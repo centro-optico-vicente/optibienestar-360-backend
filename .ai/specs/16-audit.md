@@ -411,9 +411,23 @@ DTOs públicos: `PublicPlanDto` (fees `MONEY`, `type` `ENUM`), `PublicAllyServic
 `requiresAppointment` `BOOLEAN`). `PublicAllyListItemDto` / `PublicAllyDetailDto` no tienen escalar
 que anotar (money/fechas/status excluidos a propósito de la forma sanitizada).
 
-**Pendiente:** refactor de `AuditDisplayResolver` para delegar el formato en `DisplayFormatter`;
-`./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos tocados +
-`DisplayBeanSerializerModifierTest` están en verde.
+#### Cierre de cobertura (post-rollout, PRs #216 / #217)
+
+Auditoría posterior de los 76 DTOs de respuesta encontró huecos que el rollout inicial no cubrió
+(ninguno era exclusión deliberada):
+
+| Tanda | DTO(s) | Alcance |
+|---|---|---|
+| consistencia (#216) | `PromoterTypeDto` (`active` faltaba), `LeaderboardPrizeDto`, `PlanDto` admin (su gemelo `PublicPlanDto` ya estaba) | escalares `@Display` para alinearlos con sus hermanos ya migrados |
+| cobertura nueva (#217) | **ally**: `AllyAgreementDto`, `AllyServiceDto`, `AllyServiceReviewLogDto` · **member**: `BeneficiaryDto`, `MedicalRecordDto`, `MemberDocumentDto` · **promoter**: `CommissionPayoutResponse` (+ nested), `CommissionReRatingResponse` (+ nested), `BonusEvaluationResponse` (+ nested), `CommissionPeriodSummaryDto`, `LeaderboardDto`, `PromoterDashboardDto`, `PromoterMemberRow`, `PromoterMemberContactDto`, `CollectionScoreDto` · **payment**: `PaymentSupportUrlDto` · **scheduling**: `ScheduledJobRunDto` · **subsidy**: `SubsidyAuditLogDto` · **system**: `SystemConfigDto` · **corporate**: `CorporateBulkEnrollResponse.Entry` | escalares `@Display` (montos `MONEY`, salvo precios en USD → `NUMBER`; fechas `DATE`/`DATETIME`; enums y `status` string `ENUM`; booleanos `BOOLEAN`). Sin renombrar campos, sin tocar mappers/JPQL constructor expressions. `MedicalRecordDto.exists` queda sin anotar (flag de control, no presentacional). |
+
+Sigue intacto por diseño: `AllyDetailDto` / `MemberDetailDto` (edit-response con catálogos anidados),
+`MemberPromoterAssignmentDto` (3+ FKs independientes), DTOs de request, y DTOs de auth sin campos
+anotables (`PermissionDto`, `RoleDto`, tokens).
+
+**Pendiente:** `./gradlew build` completo + ITs (Postgres). Los tests unitarios de los módulos
+tocados + `DisplayBeanSerializerModifierTest` están en verde. El refactor de `AuditDisplayResolver`
+(delegar formato en `DisplayFormatter`) ya está mergeado (#214).
 
 ### Refactor de `AuditDisplayResolver` (pendiente)
 
