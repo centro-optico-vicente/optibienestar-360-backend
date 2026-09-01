@@ -45,8 +45,20 @@ import org.springframework.data.domain.Sort;
  * clicking on the columns it renders, so a field it doesn't recognize is
  * either a stale request or a frontend/backend drift to notice in the logs
  * — not something to reject the whole page load for.</p>
+ *
+ * <p>Every {@code String}-typed field sorts case-insensitively (Spring
+ * Data's {@link Sort.Order#ignoreCase()}, which {@code QueryUtils} turns
+ * into a {@code LOWER(...)}-wrapped {@code ORDER BY}) — Postgres' default
+ * collation is byte-order, so without this every uppercase-starting value
+ * sorts before every lowercase one instead of interleaving alphabetically
+ * (e.g. "alexander" landing after "Jefferson" instead of next to
+ * "Alexander"). Non-{@code String} fields (dates, booleans, enums, numbers)
+ * keep their natural ordering.</p>
  */
 public final class SortFieldValidator {
+
+	/** A sortable field's real JPA path plus whether it needs case-insensitive ordering. */
+	public record SortableField(String jpaPath, boolean caseInsensitive) {}
 
 	private static final Logger log = LoggerFactory.getLogger(SortFieldValidator.class);
 
@@ -67,20 +79,24 @@ public final class SortFieldValidator {
 	 * associations, {@code @Transient}, and static fields) and merges in
 	 * {@code relationAliases} — keyed by the name the client sends (matching
 	 * the list-item DTO field), valued by the real JPA property path (dotted
-	 * for relations).
+	 * for relations). A scalar field is marked case-insensitive when its
+	 * declared type is {@code String}; a relation alias always is — every
+	 * current alias points at a {@code name}-shaped display column, and the
+	 * caller only supplies aliases for exactly that kind of column (see
+	 * class Javadoc).
 	 */
-	public static Map<String, String> sortableFieldsOf(Class<?> entityClass, Map<String, String> relationAliases) {
-		Map<String, String> fields = new LinkedHashMap<>();
+	public static Map<String, SortableField> sortableFieldsOf(Class<?> entityClass, Map<String, String> relationAliases) {
+		Map<String, SortableField> fields = new LinkedHashMap<>();
 		for (Class<?> c = entityClass; c != null && c != Object.class; c = c.getSuperclass()) {
 			for (Field f : c.getDeclaredFields()) {
 				boolean isAssociation = ASSOCIATION_ANNOTATIONS.stream().anyMatch(f::isAnnotationPresent);
 				if (isAssociation || f.isAnnotationPresent(Transient.class) || Modifier.isStatic(f.getModifiers())) {
 					continue;
 				}
-				fields.putIfAbsent(f.getName(), f.getName());
+				fields.putIfAbsent(f.getName(), new SortableField(f.getName(), f.getType() == String.class));
 			}
 		}
-		fields.putAll(relationAliases);
+		relationAliases.forEach((key, jpaPath) -> fields.put(key, new SortableField(jpaPath, true)));
 		return Collections.unmodifiableMap(fields);
 	}
 
@@ -91,18 +107,19 @@ public final class SortFieldValidator {
 	 * request. {@code entityKey} is only used to identify the entity in the
 	 * warning log line.
 	 */
-	public static Pageable resolve(Pageable pageable, Map<String, String> sortableFields, String entityKey) {
+	public static Pageable resolve(Pageable pageable, Map<String, SortableField> sortableFields, String entityKey) {
 		if (pageable.getSort().isUnsorted()) {
 			return pageable;
 		}
 		List<Sort.Order> mapped = new ArrayList<>();
 		for (Sort.Order order : pageable.getSort()) {
-			String jpaPath = sortableFields.get(order.getProperty());
-			if (jpaPath == null) {
+			SortableField target = sortableFields.get(order.getProperty());
+			if (target == null) {
 				log.warn("Ignoring unsupported sort field '{}' for entity '{}'", order.getProperty(), entityKey);
 				continue;
 			}
-			mapped.add(order.withProperty(jpaPath));
+			Sort.Order mappedOrder = order.withProperty(target.jpaPath());
+			mapped.add(target.caseInsensitive() ? mappedOrder.ignoreCase() : mappedOrder);
 		}
 		if (mapped.isEmpty()) {
 			return pageable.isUnpaged() ? Pageable.unpaged() : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());

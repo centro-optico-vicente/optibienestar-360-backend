@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,12 +52,16 @@ public class AdminAllyController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
-    public ResponseEntity<Page<AllyListItemDto>> list(
+	public ResponseEntity<AppliedSortPage<AllyListItemDto>> list(
 			@PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(alliesService.list(pageable, filter, q, includeInactive));
+		// Reports back which columns/directions an unsorted request actually landed
+		// on (entity_config → system_configs → createdAt DESC) — the table has no
+		// other way to reflect that default in its header arrows.
+		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive);
+		return ResponseEntity.ok(new AppliedSortPage<>(page, alliesService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")
