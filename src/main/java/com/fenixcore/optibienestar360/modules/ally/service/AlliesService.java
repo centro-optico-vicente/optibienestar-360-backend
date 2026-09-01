@@ -80,7 +80,7 @@ public class AlliesService {
 	 * fields; only the relation "display" columns need an explicit alias
 	 * (which field of the related entity to sort by).
 	 */
-	private static final Map<String, String> SORTABLE_FIELDS = SortFieldValidator.sortableFieldsOf(
+	private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS = SortFieldValidator.sortableFieldsOf(
 		Ally.class,
 		Map.of(
 			// ADR 0014: the public sort key for a FK column is its `_Display` alias.
@@ -134,29 +134,51 @@ public class AlliesService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
 		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
-    }
+	}
+
+	/**
+	 * The sort {@link #list} actually applies for {@code pageable}, in
+	 * client-facing field names (not translated JPA paths) — same value
+	 * whether it came from an explicit {@code ?sort=} or from the
+	 * {@code entity_config}/{@code system_configs} fallback below. Exposed so
+	 * the controller can report it back to the admin table via
+	 * {@link com.fenixcore.optibienestar360.core.util.AppliedSortPage} — the
+	 * table has no other way to know which columns (and directions) an
+	 * unsorted request actually landed on.
+	 */
+	public List<SortOrder> effectiveSort(Pageable pageable) {
+		if (pageable.getSort().isSorted()) {
+			return pageable.getSort().stream()
+				.map(o -> new SortOrder(o.getProperty(), o.getDirection().name()))
+				.toList()
+			;
+		}
+		List<SortOrder> configured = entityConfigService.getDefaultSort("ally");
+		if (!configured.isEmpty()) {
+			return configured;
+		}
+		List<SortOrder> global = systemConfigService.getDefaultSort();
+		if (!global.isEmpty()) {
+			return global;
+		}
+		return List.of(new SortOrder("createdAt", "DESC"));
+	}
 
 	/**
 	 * When the request has no explicit {@code ?sort=} (the controller sets no
-	 * {@code @PageableDefault} sort on purpose), resolves a default in three
-	 * layers: {@code entity_config}'s own default for {@code "ally"}, then
-	 * {@code system_configs}' global fallback, then the hard-coded
-	 * {@code createdAt DESC}. Field names still go through the same
+	 * {@code @PageableDefault} sort on purpose), resolves a default via
+	 * {@link #effectiveSort}. Field names still go through the same
 	 * {@code SORTABLE_FIELDS} translation as a client-supplied sort.
 	 */
 	private Pageable withDefaultSortIfUnsorted(Pageable pageable) {
 		if (pageable.getSort().isSorted()) {
 			return pageable;
 		}
-		List<SortOrder> configured = entityConfigService.getDefaultSort("ally");
-		if (configured.isEmpty()) {
-			configured = systemConfigService.getDefaultSort();
-		}
-		Sort defaultSort = configured.isEmpty()
-			? Sort.by(Sort.Direction.DESC, "createdAt")
-			: Sort.by(configured.stream()
+		Sort defaultSort = Sort.by(
+			effectiveSort(pageable).stream()
 				.map(o -> new Sort.Order(Sort.Direction.fromString(o.direction()), o.field()))
-				.toList());
+				.toList()
+		);
 		return pageable.isUnpaged()
 			? Pageable.unpaged(defaultSort)
 			: PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
