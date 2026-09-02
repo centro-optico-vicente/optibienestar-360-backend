@@ -32,6 +32,11 @@ import java.util.List;
  * configured default" — callers fall back to their own hard default
  * ({@code createdAt DESC}).</p>
  *
+ * <p><b>Before/after snapshot capture</b> — {@link #captureBeforeAfter}
+ * follows the same two-layer precedence as enable/disable, via
+ * {@code system_configs.capture_before_after_mode} (V83) over
+ * {@code entity_config.capture_before_after}.</p>
+ *
  * <p><b>Default sort</b> — {@link #getDefaultSort(String)} returns the
  * ordered {@code default_sort} column, empty when unconfigured. Callers
  * translate each field through their own {@code SortFieldValidator}
@@ -81,6 +86,14 @@ public class EntityConfigService {
 
 	@Transactional(readOnly = true)
 	public boolean captureBeforeAfter(String entityKey) {
+		AuditMode globalMode = systemConfigService.getCaptureBeforeAfterMode();
+		if (globalMode == AuditMode.FORCE_DISABLED) {
+			return false;
+		}
+		if (globalMode == AuditMode.FORCE_ENABLED) {
+			return true;
+		}
+
 		EntityConfig config = findConfig(entityKey);
 		return config != null && config.isCaptureBeforeAfter();
 	}
@@ -109,8 +122,10 @@ public class EntityConfigService {
 	@Transactional
 	public EntityConfig updateConfig(String entityKey, EntityConfig changes) {
 		EntityConfig config = entityConfigRepository.findByEntityKey(entityKey)
-				.orElseThrow(() -> new java.util.NoSuchElementException(
-						"entity_config.entity_key not found: " + entityKey));
+			.orElseThrow(() -> new java.util.NoSuchElementException(
+				"entity_config.entity_key not found: " + entityKey)
+			)
+		;
 
 		config.setEnabled(changes.isEnabled());
 		config.setAuditCreate(changes.isAuditCreate());
