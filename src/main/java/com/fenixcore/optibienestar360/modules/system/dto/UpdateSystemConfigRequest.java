@@ -19,7 +19,10 @@ import java.util.List;
 public record UpdateSystemConfigRequest(
 	@Size(max = 500, message = "system_config.report_footer.max_size")
 	String reportFooter,
-	AuditMode dataChangeAuditMode,
+	AuditMode auditCreateMode,
+	AuditMode auditUpdateMode,
+	AuditMode auditDeleteMode,
+	AuditMode captureBeforeAfterMode,
 	AuditMode reportAuditMode,
 	Boolean loginAuditEnabled,
 	@Positive(message = "system_config.login_session_expiration_days.positive")

@@ -75,7 +75,10 @@ class SystemConfigServiceTest {
     void testAuditOverridesDefaults() {
         SystemConfig fresh = new SystemConfig();
 
-        assertEquals(AuditMode.PER_ENTITY, fresh.getDataChangeAuditMode());
+        assertEquals(AuditMode.PER_ENTITY, fresh.getAuditCreateMode());
+        assertEquals(AuditMode.PER_ENTITY, fresh.getAuditUpdateMode());
+        assertEquals(AuditMode.PER_ENTITY, fresh.getAuditDeleteMode());
+        assertEquals(AuditMode.PER_ENTITY, fresh.getCaptureBeforeAfterMode());
         assertEquals(AuditMode.PER_ENTITY, fresh.getReportAuditMode());
         assertTrue(fresh.isLoginAuditEnabled());
         assertEquals(30, fresh.getLoginSessionExpirationDays());
@@ -88,10 +91,15 @@ class SystemConfigServiceTest {
         when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SystemConfig updated = service.updateSystemConfig(
-                new UpdateSystemConfigRequest(null, AuditMode.FORCE_DISABLED, null, false, null, null));
+                new UpdateSystemConfigRequest(
+                        null, AuditMode.FORCE_DISABLED, AuditMode.FORCE_DISABLED, AuditMode.FORCE_DISABLED,
+                        null, null, false, null, null));
 
         assertEquals("Centro Óptico Vicente - Personalizado", updated.getReportFooter());
-        assertEquals(AuditMode.FORCE_DISABLED, updated.getDataChangeAuditMode());
+        assertEquals(AuditMode.FORCE_DISABLED, updated.getAuditCreateMode());
+        assertEquals(AuditMode.FORCE_DISABLED, updated.getAuditUpdateMode());
+        assertEquals(AuditMode.FORCE_DISABLED, updated.getAuditDeleteMode());
+        assertEquals(AuditMode.PER_ENTITY, updated.getCaptureBeforeAfterMode());
         assertEquals(AuditMode.PER_ENTITY, updated.getReportAuditMode());
         assertFalse(updated.isLoginAuditEnabled());
         assertEquals(30, updated.getLoginSessionExpirationDays());
@@ -105,11 +113,11 @@ class SystemConfigServiceTest {
         when(repository.save(any(SystemConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SystemConfig updated = service.updateSystemConfig(
-			new UpdateSystemConfigRequest(null, null, null, null, 90, null)
+			new UpdateSystemConfigRequest(null, null, null, null, null, null, null, 90, null)
 		);
 
         assertEquals(90, updated.getLoginSessionExpirationDays());
-        assertEquals(AuditMode.PER_ENTITY, updated.getDataChangeAuditMode());
+        assertEquals(AuditMode.PER_ENTITY, updated.getAuditCreateMode());
         verify(repository).save(sampleConfig);
     }
 }

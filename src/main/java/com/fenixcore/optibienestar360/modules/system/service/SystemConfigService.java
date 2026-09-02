@@ -42,20 +42,54 @@ public class SystemConfigService {
     }
 
     /**
-     * Resolves the global override for data-change auditing (spec 16-audit.md,
-     * Decisión 8). Fail-safe: falls back to {@link AuditMode#PER_ENTITY} if the
-     * singleton row is missing.
+     * Resolves the global override for CREATE data-change auditing (spec
+     * 16-audit.md, Decisión 8; split per action in V83). Fail-safe: falls
+     * back to {@link AuditMode#PER_ENTITY} if the singleton row is missing.
      */
     @Transactional(readOnly = true)
-    public AuditMode getDataChangeAuditMode() {
+    public AuditMode getAuditCreateMode() {
         return systemConfigRepository.findFirstByActiveTrue()
-                .map(SystemConfig::getDataChangeAuditMode)
+                .map(SystemConfig::getAuditCreateMode)
+                .orElse(AuditMode.PER_ENTITY);
+    }
+
+    /**
+     * Resolves the global override for UPDATE data-change auditing. Same
+     * fail-safe fallback as {@link #getAuditCreateMode()}.
+     */
+    @Transactional(readOnly = true)
+    public AuditMode getAuditUpdateMode() {
+        return systemConfigRepository.findFirstByActiveTrue()
+                .map(SystemConfig::getAuditUpdateMode)
+                .orElse(AuditMode.PER_ENTITY);
+    }
+
+    /**
+     * Resolves the global override for DELETE data-change auditing. Same
+     * fail-safe fallback as {@link #getAuditCreateMode()}.
+     */
+    @Transactional(readOnly = true)
+    public AuditMode getAuditDeleteMode() {
+        return systemConfigRepository.findFirstByActiveTrue()
+                .map(SystemConfig::getAuditDeleteMode)
+                .orElse(AuditMode.PER_ENTITY);
+    }
+
+    /**
+     * Resolves the global override for {@code entity_config.capture_before_after}
+     * (V83) — previously only configurable per entity. Same fail-safe
+     * fallback as {@link #getAuditCreateMode()}.
+     */
+    @Transactional(readOnly = true)
+    public AuditMode getCaptureBeforeAfterMode() {
+        return systemConfigRepository.findFirstByActiveTrue()
+                .map(SystemConfig::getCaptureBeforeAfterMode)
                 .orElse(AuditMode.PER_ENTITY);
     }
 
     /**
      * Resolves the global override for report-generation auditing. Same
-     * fail-safe fallback as {@link #getDataChangeAuditMode()}.
+     * fail-safe fallback as {@link #getAuditCreateMode()}.
      */
     @Transactional(readOnly = true)
     public AuditMode getReportAuditMode() {
@@ -127,8 +161,17 @@ public class SystemConfigService {
             String footer = request.reportFooter();
             config.setReportFooter(footer.isBlank() ? null : footer.trim());
         }
-        if (request.dataChangeAuditMode() != null) {
-            config.setDataChangeAuditMode(request.dataChangeAuditMode());
+        if (request.auditCreateMode() != null) {
+            config.setAuditCreateMode(request.auditCreateMode());
+        }
+        if (request.auditUpdateMode() != null) {
+            config.setAuditUpdateMode(request.auditUpdateMode());
+        }
+        if (request.auditDeleteMode() != null) {
+            config.setAuditDeleteMode(request.auditDeleteMode());
+        }
+        if (request.captureBeforeAfterMode() != null) {
+            config.setCaptureBeforeAfterMode(request.captureBeforeAfterMode());
         }
         if (request.reportAuditMode() != null) {
             config.setReportAuditMode(request.reportAuditMode());
