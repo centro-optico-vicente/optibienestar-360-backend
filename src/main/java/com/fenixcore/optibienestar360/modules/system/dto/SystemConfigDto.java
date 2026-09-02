@@ -12,7 +12,10 @@ import java.util.UUID;
 public record SystemConfigDto(
 	UUID uuid,
 	String reportFooter,
-	@Display(Display.Kind.ENUM) AuditMode dataChangeAuditMode,
+	@Display(Display.Kind.ENUM) AuditMode auditCreateMode,
+	@Display(Display.Kind.ENUM) AuditMode auditUpdateMode,
+	@Display(Display.Kind.ENUM) AuditMode auditDeleteMode,
+	@Display(Display.Kind.ENUM) AuditMode captureBeforeAfterMode,
 	@Display(Display.Kind.ENUM) AuditMode reportAuditMode,
 	@Display(Display.Kind.BOOLEAN) boolean loginAuditEnabled,
 	int loginSessionExpirationDays,

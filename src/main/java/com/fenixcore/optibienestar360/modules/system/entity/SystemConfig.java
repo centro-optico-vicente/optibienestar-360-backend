@@ -29,12 +29,31 @@ public class SystemConfig extends BaseAuditEntity {
     private String reportFooter;
 
     /**
-     * Global override above the per-entity {@code audit_entity_config} — see
-     * {@link AuditMode} and spec 16-audit.md, Decisión 8.
+     * Global overrides above the per-entity {@code entity_config} flags — see
+     * {@link AuditMode} and spec 16-audit.md, Decisión 8. Split per action
+     * (V83) so, e.g., deletes can be force-disabled globally without also
+     * forcing creates/updates.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "data_change_audit_mode", nullable = false, length = 20)
-    private AuditMode dataChangeAuditMode = AuditMode.PER_ENTITY;
+    @Column(name = "audit_create_mode", nullable = false, length = 20)
+    private AuditMode auditCreateMode = AuditMode.PER_ENTITY;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "audit_update_mode", nullable = false, length = 20)
+    private AuditMode auditUpdateMode = AuditMode.PER_ENTITY;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "audit_delete_mode", nullable = false, length = 20)
+    private AuditMode auditDeleteMode = AuditMode.PER_ENTITY;
+
+    /**
+     * Global override for {@code entity_config.capture_before_after} (V83) —
+     * previously only configurable per entity, with no way to force it on/off
+     * system-wide.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "capture_before_after_mode", nullable = false, length = 20)
+    private AuditMode captureBeforeAfterMode = AuditMode.PER_ENTITY;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_audit_mode", nullable = false, length = 20)

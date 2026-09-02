@@ -19,9 +19,10 @@ import java.util.List;
  *
  * <p><b>Audit enable/disable</b> — two layers, in order:</p>
  * <ol>
- *   <li>{@code system_configs}' global {@link AuditMode} override
- *       (Decisión 8) — {@code FORCE_ENABLED}/{@code FORCE_DISABLED} short-circuit
- *       everything below; only {@code PER_ENTITY} falls through.</li>
+ *   <li>{@code system_configs}' global per-action {@link AuditMode} override
+ *       (Decisión 8, split per action in V83) — {@code FORCE_ENABLED}/{@code
+ *       FORCE_DISABLED} short-circuit everything below for that action; only
+ *       {@code PER_ENTITY} falls through.</li>
  *   <li>{@code entity_config}'s per-entity {@code enabled} + per-action flag.</li>
  * </ol>
  *
@@ -47,7 +48,11 @@ public class EntityConfigService {
 
 	@Transactional(readOnly = true)
 	public boolean isEnabled(String entityKey, AuditAction action) {
-		AuditMode globalMode = systemConfigService.getDataChangeAuditMode();
+		AuditMode globalMode = switch (action) {
+			case CREATE -> systemConfigService.getAuditCreateMode();
+			case UPDATE -> systemConfigService.getAuditUpdateMode();
+			case DELETE -> systemConfigService.getAuditDeleteMode();
+		};
 		if (globalMode == AuditMode.FORCE_DISABLED) {
 			return false;
 		}

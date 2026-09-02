@@ -42,7 +42,10 @@ public class SystemConfigController {
         return new SystemConfigDto(
 			config.getUuid(),
 			config.getReportFooter(),
-			config.getDataChangeAuditMode(),
+			config.getAuditCreateMode(),
+			config.getAuditUpdateMode(),
+			config.getAuditDeleteMode(),
+			config.getCaptureBeforeAfterMode(),
 			config.getReportAuditMode(),
 			config.isLoginAuditEnabled(),
 			config.getLoginSessionExpirationDays(),
