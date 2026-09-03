@@ -70,12 +70,15 @@ class DisplayBeanSerializerModifierTest {
 
 		JsonNode json = mapper.valueToTree(dto);
 
-		// FK: flat pair, no nested object
+		// FK: flat triple, no nested object
 		assertThat(json.has("allyType")).isFalse();
 		assertThat(json.get("allyType_Uuid").asText()).isEqualTo(typeUuid.toString());
 		assertThat(json.get("allyType_Display").asText()).isEqualTo("OPT - Óptica");
+		assertThat(json.get("allyType_Code").asText()).isEqualTo("OPT");
 		assertThat(json.get("city_Uuid").isNull()).isFalse();
 		assertThat(json.get("city_Display").asText()).isEqualTo("Maracaibo");
+		// city has no natural key → _Code is omitted (not written as null)
+		assertThat(json.has("city_Code")).isFalse();
 
 		// Scalars: raw kept + _Display sibling
 		assertThat(json.get("createdAt").asText()).startsWith("2026-03-14T13:22:05");
@@ -97,6 +100,7 @@ class DisplayBeanSerializerModifierTest {
 
 		assertThat(json.get("allyType_Uuid").isNull()).isTrue();
 		assertThat(json.get("allyType_Display").isNull()).isTrue();
+		assertThat(json.has("allyType_Code")).isFalse();
 		assertThat(json.get("createdAt_Display").isNull()).isTrue();
 		assertThat(json.get("active_Display").asText()).isEqualTo("No");
 		assertThat(json.get("status_Display").isNull()).isTrue();
@@ -116,7 +120,22 @@ class DisplayBeanSerializerModifierTest {
 
 		assertThat(json.has("person_Uuid")).isFalse();
 		assertThat(json.has("person_Display")).isFalse();
+		assertThat(json.has("person_Code")).isFalse();
 		assertThat(json.has("amount_Display")).isFalse();
+	}
+
+	@Test
+	void personShapedFkEmitsDocumentNumberAsCode() throws Exception {
+		LocaleContextHolder.setLocale(new Locale("es"));
+		UUID personUuid = UUID.randomUUID();
+		JsonNode json = mapper.valueToTree(new NonNullSample(
+				UUID.randomUUID(),
+				new DisplayRef(personUuid, "V-12345678", "Juan Pérez"),
+				null));
+
+		assertThat(json.get("person_Uuid").asText()).isEqualTo(personUuid.toString());
+		assertThat(json.get("person_Display").asText()).isEqualTo("V-12345678 Juan Pérez");
+		assertThat(json.get("person_Code").asText()).isEqualTo("V-12345678");
 	}
 
 	@Test
@@ -137,8 +156,9 @@ class DisplayBeanSerializerModifierTest {
 		assertThat(json.get("active_Display").asText()).isEqualTo("Yes");
 		assertThat(json.get("status_Display").asText()).isEqualTo("Active");
 		assertThat(json.get("createdAt_Display").asText()).isEqualTo("03-14-2026 09:22");
-		// catalog label is data, not translated
+		// catalog label + code are data, not translated
 		assertThat(json.get("allyType_Display").asText()).isEqualTo("OPT - Óptica");
+		assertThat(json.get("allyType_Code").asText()).isEqualTo("OPT");
 	}
 
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.corporate;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateBulkEnrollResponse;
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateContractDto;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract.PayerMode;
@@ -67,7 +68,8 @@ class AdminCorporateContractControllerIT {
     }
 
     private CorporateContractDto contractDto() {
-        return new CorporateContractDto(UUID.randomUUID(), UUID.randomUUID(), "Corp Plan",
+        return new CorporateContractDto(UUID.randomUUID(),
+                new DisplayRef(UUID.randomUUID(), null, "Corp Plan"),
                 "Clínica X", "J-123456789", null, PayerMode.INSTITUTION_BULK, 100, 0,
                 true, null, null, null);
     }

@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
@@ -15,8 +17,7 @@ public record CommissionTierDto(
         UUID uuid,
         String name,
         @Display(Display.Kind.ENUM) PlanType planType,
-        UUID promoterTypeUuid,
-        String promoterTypeName,
+        @Display DisplayRef promoterType,
         int thresholdCount,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
@@ -30,8 +31,7 @@ public record CommissionTierDto(
     public static CommissionTierDto from(CommissionTier t) {
         return new CommissionTierDto(
                 t.getUuid(), t.getName(), t.getPlanType(),
-                t.getPromoterType() != null ? t.getPromoterType().getUuid() : null,
-                t.getPromoterType() != null ? t.getPromoterType().getName() : null,
+                DisplayRefs.ref(t.getPromoterType()),
                 t.getThresholdCount(),
                 t.getCommissionPct(), t.getFlatAmount(), t.getPeriodStrategy(), t.getAppliesTo(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());

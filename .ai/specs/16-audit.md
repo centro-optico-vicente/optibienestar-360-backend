@@ -429,6 +429,34 @@ anotables (`PermissionDto`, `RoleDto`, tokens).
 tocados + `DisplayBeanSerializerModifierTest` están en verde. El refactor de `AuditDisplayResolver`
 (delegar formato en `DisplayFormatter`) ya está mergeado (#214).
 
+#### Enmienda: FK tripleta `_Uuid` / `_Display` / `_Code`
+
+La FK aplanada pasa de par a **tripleta**: además de `<rel>_Uuid` + `<rel>_Display`, los serializers
+(`DisplayBeanSerializerModifier` y `DisplayValueSerializerModifier`) emiten `<rel>_Code` **cuando el
+`DisplayRef` trae `code` no nulo** — catálogos tipados (su `code`), `plan` (SKU), person-shaped
+(nº de documento). Relaciones sin code (`city`, `user`) omiten la clave. `DisplayRef` ya cargaba
+`code`; el cambio es sólo en el `FkPairWriter` de cada serializer. Los pilotos ya migrados
+(`AllyListItemDto`, `PromoterDto`, `MemberListItemDto`, pivots) ganan `<rel>_Code` de forma
+aditiva. `"plan"` se agregó a `CATALOG_RELS` en `DisplayFormatter` (→ `plan_Display` = `"CÓDIGO - Nombre"`).
+
+DTOs migrados de FK plana (`<rel>Uuid` + `<rel>Name`/`<rel>Code`/`<rel>DisplayName`) a
+`@Display DisplayRef <rel>` en este lote:
+
+| Módulo | DTO | FK migrada(s) |
+|---|---|---|
+| promoter | `CommissionDto` | `promoter` (`_Code` = referral code) |
+| promoter | `CommissionTierDto`, `CollectionCommissionTierDto`, `BonusRuleDto` | `promoterType` |
+| promoter | `BonusAwardDto` | `rule` (uuid + name-snapshot), `promoter` |
+| payment | `PaymentDto` | `plan` (`_Code` = SKU, preserva el viejo `planCode`) |
+| corporate | `CorporateContractDto` | `plan` |
+| subsidy | `SubsidyDto` | `member` (uuid del member, label person-shaped, `_Code` = documento) |
+| catalog | `StateDto` | `country` (`_Code` = ISO) |
+| catalog | `CityDto` | `state` — nested en `MemberDetailDto`/`AllyDetailDto` (firmas sin cambio) |
+
+Único fix de test backend: `CorporateContractsServiceTest` (`dto.planName()` → `dto.plan().name()`).
+Frontend: `CommissionDto`/`PaymentDto` + registro de catálogos (`parentDisplayField` → `_Code`) +
+cascade estado→ciudad de los forms de edición (`city.stateUuid` → `city.state_Uuid`).
+
 ### Refactor de `AuditDisplayResolver` (pendiente)
 
 Sigue standalone; el paso de delegar su *formato* en `DisplayFormatter` queda para después (ver

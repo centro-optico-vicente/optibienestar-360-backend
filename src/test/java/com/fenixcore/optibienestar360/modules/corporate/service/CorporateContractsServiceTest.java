@@ -85,7 +85,7 @@ class CorporateContractsServiceTest {
         assertThat(saved.getPayerMode()).isEqualTo(PayerMode.INSTITUTION_BULK);
         assertThat(saved.getContactUser()).isNull();
         assertThat(saved.getActualMemberCount()).isZero();
-        assertThat(dto.planName()).isEqualTo(plan.getName());
+        assertThat(dto.plan().name()).isEqualTo(plan.getName());
         assertThat(dto.expectedMemberCount()).isEqualTo(100);
     }
 

@@ -112,6 +112,6 @@ class AdminCollectionCommissionTierControllerIT {
 
     private static CollectionCommissionTierDto tierDto() {
         return new CollectionCommissionTierDto(UUID.randomUUID(), "Hasta 5 días", 5,
-                new BigDecimal("35"), null, null, true, null, null, null);
+                new BigDecimal("35"), null, true, null, null, null);
     }
 }

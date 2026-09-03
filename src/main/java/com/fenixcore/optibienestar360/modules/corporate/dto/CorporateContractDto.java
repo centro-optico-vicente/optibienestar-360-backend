@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.corporate.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract.PayerMode;
 
@@ -16,8 +18,7 @@ import java.util.UUID;
  */
 public record CorporateContractDto(
         UUID uuid,
-        UUID planUuid,
-        String planName,
+        @Display DisplayRef plan,
         String institutionName,
         String institutionTaxId,
         UUID contactUserUuid,
@@ -32,8 +33,7 @@ public record CorporateContractDto(
     public static CorporateContractDto from(CorporateContract c) {
         return new CorporateContractDto(
                 c.getUuid(),
-                c.getPlan() != null ? c.getPlan().getUuid() : null,
-                c.getPlan() != null ? c.getPlan().getName() : null,
+                DisplayRefs.ref(c.getPlan()),
                 c.getInstitutionName(),
                 c.getInstitutionTaxId(),
                 c.getContactUser() != null ? c.getContactUser().getUuid() : null,

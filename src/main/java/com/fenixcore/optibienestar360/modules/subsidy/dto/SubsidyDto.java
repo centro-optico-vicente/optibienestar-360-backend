@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.subsidy.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.Subsidy;
 
 import java.math.BigDecimal;
@@ -18,8 +19,7 @@ import java.util.UUID;
  */
 public record SubsidyDto(
         UUID uuid,
-        UUID memberUuid,
-        String memberName,
+        @Display DisplayRef member,
         @Display(Display.Kind.NUMBER) BigDecimal monthlyPercentage,
         @Display(Display.Kind.NUMBER) BigDecimal inscriptionPercentage,
         Integer maxExoneratedBeneficiaries,
@@ -43,8 +43,10 @@ public record SubsidyDto(
                         .toList();
         return new SubsidyDto(
                 s.getUuid(),
-                member != null ? member.getUuid() : null,
-                person != null ? person.getFullName() : null,
+                DisplayRef.of(
+                        member != null ? member.getUuid() : null,
+                        person != null ? person.getTaxDocumentNumber() : null,
+                        person != null ? person.getFullName() : null),
                 s.getMonthlyPercentage(),
                 s.getInscriptionPercentage(),
                 s.getMaxExoneratedBeneficiaries(),

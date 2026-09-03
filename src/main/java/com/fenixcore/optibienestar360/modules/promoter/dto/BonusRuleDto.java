@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.AccrualMode;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.BonusMetric;
@@ -23,8 +25,7 @@ public record BonusRuleDto(
         UUID uuid,
         String name,
         String description,
-        UUID promoterTypeUuid,
-        String promoterTypeName,
+        @Display DisplayRef promoterType,
         @Display(Display.Kind.ENUM) BonusMetric metric,
         @Display(Display.Kind.ENUM) AccrualMode accrual,
         int thresholdCount,
@@ -45,8 +46,7 @@ public record BonusRuleDto(
                 r.getUuid(),
                 r.getName(),
                 r.getDescription(),
-                r.getPromoterType() != null ? r.getPromoterType().getUuid() : null,
-                r.getPromoterType() != null ? r.getPromoterType().getName() : null,
+                DisplayRefs.ref(r.getPromoterType()),
                 r.getMetric(),
                 r.getAccrual(),
                 r.getThresholdCount(),

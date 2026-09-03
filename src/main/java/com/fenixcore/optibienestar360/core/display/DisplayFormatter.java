@@ -203,7 +203,7 @@ public class DisplayFormatter {
 	 */
 	private static final java.util.Set<String> CATALOG_RELS = java.util.Set.of(
 			"allyType", "gender", "maritalStatus", "promoterType", "medicalSpecialty",
-			"serviceCategory", "documentType", "occupation", "country", "state");
+			"serviceCategory", "documentType", "occupation", "country", "state", "plan");
 
 	/**
 	 * Person-shaped relations whose {@code _Display} is

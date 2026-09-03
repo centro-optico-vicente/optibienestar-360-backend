@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 
@@ -21,9 +22,7 @@ public record CommissionDto(
         UUID uuid,
 
         // Subject (flat refs)
-        UUID promoterUuid,
-        String promoterCode,
-        String promoterDisplayName,
+        @Display DisplayRef promoter,
         UUID paymentUuid,
         UUID memberUuid,
 
