@@ -47,7 +47,11 @@ public class CityService {
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("name", "state");
     private static final String[] SEARCHABLE_FIELDS = {"name"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-        SortFieldValidator.sortableFieldsOf(City.class, Map.of("state_Display", "state.name"));
+        SortFieldValidator.sortableFieldsOf(City.class, Map.of(
+            "state_Display", "state.name",
+            // The catalogs table's "parent" column actually renders `state_Code`, not `state_Display` — alias both.
+            "state_Code", "state.code"
+        ));
 
     private final CityRepository repository;
     private final StateRepository stateRepository;

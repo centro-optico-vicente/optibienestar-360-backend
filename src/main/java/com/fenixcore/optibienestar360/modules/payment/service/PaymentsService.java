@@ -98,7 +98,11 @@ public class PaymentsService {
 
     /** {@code plan_Display} → plan's catalog name (ADR 0014 default; only FK Payment's list DTO surfaces as a display column). */
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-            SortFieldValidator.sortableFieldsOf(Payment.class, Map.of("plan_Display", "plan.name"));
+            SortFieldValidator.sortableFieldsOf(Payment.class, Map.of(
+                "plan_Display", "plan.name",
+                // The admin table's "plan reference" column actually renders `plan_Code`, not `plan_Display` — alias both.
+                "plan_Code", "plan.code"
+            ));
 
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
