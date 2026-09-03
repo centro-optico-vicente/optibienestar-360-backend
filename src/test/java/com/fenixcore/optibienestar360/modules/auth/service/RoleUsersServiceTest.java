@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.PermissionReposito
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,13 +44,14 @@ class RoleUsersServiceTest {
     @Mock private UserRoleRepository userRoleRepository;
     @Mock private UserMapper userMapper;
     @Mock private TokenBlacklistService blacklistService;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private RoleService service;
 
     @BeforeEach
     void setup() {
         service = new RoleService(roleRepository, permissionRepository, userRepository,
-                userRoleRepository, userMapper, blacklistService);
+                userRoleRepository, userMapper, blacklistService, defaultSortResolver);
     }
 
     @Test

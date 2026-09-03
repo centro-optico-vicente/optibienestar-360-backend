@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.ally.service.AllyServicesAdminServ
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,8 +47,8 @@ public class AdminAllyServicesController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
-    public ResponseEntity<List<AllyServiceDto>> list(@PathVariable UUID allyUuid) {
-        return ResponseEntity.ok(servicesService.listForAlly(allyUuid));
+    public ResponseEntity<List<AllyServiceDto>> list(@PathVariable UUID allyUuid, Pageable pageable) {
+        return ResponseEntity.ok(servicesService.listForAlly(allyUuid, pageable));
     }
 
     @GetMapping("/{uuid}")

@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -66,8 +67,9 @@ public class AdminMemberDocumentController {
     @PreAuthorize("hasAnyAuthority('MEMBER_DOCUMENT_VIEW_ALL', 'MEMBER_DOCUMENT_VIEW_OWN')")
     public ResponseEntity<List<MemberDocumentDto>> list(
             @PathVariable UUID memberUuid,
-            @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor)));
+            @AuthenticationPrincipal CustomUserDetails actor,
+            Pageable pageable) {
+        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor), pageable));
     }
 
     /** Recaudos completeness checklist — reserved for reviewers holding {@code MEMBER_DOCUMENT_VIEW_ALL}. */

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.auth.repository;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,7 +22,7 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
     // ─── By role FK ─────────────────────────────────────────────────────────
     List<UserRole> findByRoleId(Long roleId);
 
-    List<UserRole> findByRoleIdAndActiveTrue(Long roleId);
+    List<UserRole> findByRoleIdAndActiveTrue(Long roleId, Sort sort);
 
     boolean existsByRoleId(Long roleId);
 

@@ -17,9 +17,13 @@ import com.fenixcore.optibienestar360.modules.member.entity.MemberDocument;
 import com.fenixcore.optibienestar360.modules.member.entity.MemberDocument.DocumentType;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +32,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -54,12 +59,20 @@ public class MemberDocumentService {
     public static final Set<DocumentType> REQUIRED_TYPES =
             EnumSet.of(DocumentType.ID_FRONT, DocumentType.ID_BACK, DocumentType.MEMBER_PHOTO);
 
+    /** {@code sizeBytes}/{@code uploadedAt} are DTO names for the entity's {@code fileSizeBytes}/{@code createdAt} (inherited from {@code BaseEntity}). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(MemberDocument.class, Map.of(
+                    "sizeBytes", "fileSizeBytes",
+                    "uploadedAt", "createdAt"
+            ));
+
     private final MemberRepository memberRepository;
     private final MemberDocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final ObjectProvider<StorageService> storageProvider;
     private final FileValidationService fileValidationService;
     private final PresignedUrlPolicy presignedUrlPolicy;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Transactional
     @Auditable(entity = "member_document", action = AuditAction.CREATE)
@@ -95,9 +108,12 @@ public class MemberDocumentService {
         return toDto(document);
     }
 
-    public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll) {
+    public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, Pageable pageable) {
         Member member = findMember(memberUuid);
-        return documentRepository.findByMemberIdAndActiveTrue(member.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "member_document", pageable, new SortOrder("uploadedAt", "DESC"));
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "member_document");
+        return documentRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
                 .filter(d -> hasViewAll || visibleTo(d, currentUserUuid))
                 .map(this::toDto)
                 .toList();

@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
 import com.fenixcore.optibienestar360.modules.auth.service.RoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,8 +41,8 @@ public class AdminRoleUsersController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_USER_VIEW_ALL')")
-    public ResponseEntity<List<RoleUserDto>> list(@PathVariable UUID roleUuid) {
-        return ResponseEntity.ok(roleService.listUsers(roleUuid));
+    public ResponseEntity<List<RoleUserDto>> list(@PathVariable UUID roleUuid, Pageable pageable) {
+        return ResponseEntity.ok(roleService.listUsers(roleUuid, pageable));
     }
 
     @PostMapping

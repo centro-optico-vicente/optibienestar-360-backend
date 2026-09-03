@@ -12,12 +12,17 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -36,17 +41,27 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AllyServicesAdminService {
 
+    /** {@code serviceCategory} is nested (not a flat {@code _Display} field) — sorted by its own catalog name. */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyService.class, Map.of(
+                    "serviceCategory", "serviceCategory.name"
+            ));
+
     private final AllyRepository allyRepository;
     private final AllyServiceRepository serviceRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final AllyMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
 
-    public List<AllyServiceDto> listForAlly(UUID allyUuid) {
+    public List<AllyServiceDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
-        return serviceRepository.findByAllyIdAndActiveTrue(ally.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "ally_service", pageable, new SortOrder("name", "ASC"));
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_service");
+        return serviceRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(service -> mapper.toServiceDto(service, publicBaseUrl))
                 .toList();
     }

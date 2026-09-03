@@ -69,6 +69,17 @@ public class CorporateContractsService {
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(CorporateContract.class, Map.of("plan_Display", "plan.name"));
 
+    /** Same aliases as {@code MembersService.SORTABLE_FIELDS} — {@code fullName}/{@code documentType}/{@code documentNumber}/{@code phone} are flattened person columns, not on {@code Member} itself. */
+    private static final Map<String, SortFieldValidator.SortableField> MEMBER_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Member.class, Map.of(
+                    "fullName", "person.fullName",
+                    "documentType", "person.documentType",
+                    "documentNumber", "person.documentNumber",
+                    "phone", "person.phone",
+                    "city_Display", "person.city.name",
+                    "currentPromoter_Display", "promoter.displayName"
+            ));
+
     private final CorporateContractRepository repository;
     private final PlanRepository planRepository;
     private final UserRepository userRepository;
@@ -107,9 +118,17 @@ public class CorporateContractsService {
     /** A contract's active member portfolio ({@code GET /{uuid}/members}). */
     public Page<MemberListItemDto> listMembers(UUID uuid, Pageable pageable) {
         CorporateContract contract = findManaged(uuid);
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "corporate_contract_member", pageable, new SortOrder("createdAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, MEMBER_SORTABLE_FIELDS, "corporate_contract_member");
         return memberRepository
-                .findByCorporateContractIdAndActiveTrue(contract.getId(), pageable)
+                .findByCorporateContractIdAndActiveTrue(contract.getId(), resolvedPageable)
                 .map(memberMapper::toListItem);
+    }
+
+    /** The sort {@link #listMembers} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSortMembers(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("corporate_contract_member", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────

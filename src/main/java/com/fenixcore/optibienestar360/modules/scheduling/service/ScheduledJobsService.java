@@ -71,6 +71,8 @@ public class ScheduledJobsService {
     private static final String[] SEARCHABLE_FIELDS = {"code", "displayName", "description"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(ScheduledJob.class, Map.of());
+    private static final Map<String, SortFieldValidator.SortableField> RUN_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(ScheduledJobRun.class, Map.of());
 
     private final ScheduledJobRepository jobRepository;
     private final ScheduledJobRunRepository runRepository;
@@ -234,8 +236,16 @@ public class ScheduledJobsService {
 
     public Page<ScheduledJobRunDto> listRuns(UUID jobUuid, Pageable pageable) {
         ScheduledJob job = findManaged(jobUuid);
-        return runRepository.findByScheduledJobIdOrderByStartedAtDesc(job.getId(), pageable)
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "scheduled_job_run", pageable, new SortOrder("startedAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, RUN_SORTABLE_FIELDS, "scheduled_job_run");
+        return runRepository.findByScheduledJobId(job.getId(), resolvedPageable)
                 .map(runMapper::toDto);
+    }
+
+    /** The sort {@link #listRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSortRuns(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("scheduled_job_run", pageable, new SortOrder("startedAt", "DESC"));
     }
 
     // ─── Internals ─────────────────────────────────────────────────────────

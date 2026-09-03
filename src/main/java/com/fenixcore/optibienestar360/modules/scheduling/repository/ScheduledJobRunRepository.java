@@ -15,7 +15,7 @@ public interface ScheduledJobRunRepository extends JpaRepository<ScheduledJobRun
 
     Optional<ScheduledJobRun> findByUuid(UUID uuid);
 
-    Page<ScheduledJobRun> findByScheduledJobIdOrderByStartedAtDesc(Long scheduledJobId, Pageable pageable);
+    Page<ScheduledJobRun> findByScheduledJobId(Long scheduledJobId, Pageable pageable);
 
     /**
      * Usage check for {@code ScheduledJobsService.countUsages}. {@code

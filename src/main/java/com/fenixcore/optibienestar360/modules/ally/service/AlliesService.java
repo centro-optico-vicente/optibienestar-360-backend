@@ -32,10 +32,13 @@ import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -347,10 +350,41 @@ public class AlliesService {
      * a dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/specialties}
      * endpoint family.
      */
+    /** Client-facing sortable keys for {@link #listSpecialties} — {@code MedicalSpecialty} has no relations, only its own scalar columns. */
+    private static final Map<String, SortFieldValidator.SortableField> SPECIALTY_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(MedicalSpecialty.class, Map.of());
+
     public List<com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto>
-            listSpecialties(UUID allyUuid) {
+            listSpecialties(UUID allyUuid, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
-        return mapper.toMedicalSpecialtyDtoList(ally.getSpecialties());
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "ally_specialty", pageable, new SortOrder("name", "ASC"));
+        Sort sort = SortFieldValidator.resolve(defaulted, SPECIALTY_SORTABLE_FIELDS, "ally_specialty").getSort();
+        // `Ally.specialties` is an in-memory `@ManyToMany` Set (no natural order, not backed
+        // by a repository query) — sorted here by reflection instead of at the DB.
+        List<MedicalSpecialty> specialties = new ArrayList<>(ally.getSpecialties());
+        specialties.sort(specialtyComparator(sort));
+        return specialties.stream().map(mapper::toMedicalSpecialtyDto).toList();
+    }
+
+    private static Comparator<MedicalSpecialty> specialtyComparator(Sort sort) {
+        Comparator<MedicalSpecialty> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<MedicalSpecialty> fieldComparator = switch (order.getProperty()) {
+                case "code" -> Comparator.comparing(MedicalSpecialty::getCode, String.CASE_INSENSITIVE_ORDER);
+                case "name" -> Comparator.comparing(MedicalSpecialty::getName, String.CASE_INSENSITIVE_ORDER);
+                case "active" -> Comparator.comparing(MedicalSpecialty::isActive);
+                default -> null;
+            };
+            if (fieldComparator == null) {
+                continue;
+            }
+            if (order.isDescending()) {
+                fieldComparator = fieldComparator.reversed();
+            }
+            comparator = comparator == null ? fieldComparator : comparator.thenComparing(fieldComparator);
+        }
+        return comparator != null ? comparator : Comparator.comparing(MedicalSpecialty::getName, String.CASE_INSENSITIVE_ORDER);
     }
 
     /**

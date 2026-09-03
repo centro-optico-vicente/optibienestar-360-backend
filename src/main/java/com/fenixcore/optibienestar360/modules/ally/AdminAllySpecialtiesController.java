@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,8 +32,8 @@ public class AdminAllySpecialtiesController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
-    public ResponseEntity<List<MedicalSpecialtyDto>> list(@PathVariable UUID allyUuid) {
-        return ResponseEntity.ok(alliesService.listSpecialties(allyUuid));
+    public ResponseEntity<List<MedicalSpecialtyDto>> list(@PathVariable UUID allyUuid, Pageable pageable) {
+        return ResponseEntity.ok(alliesService.listSpecialties(allyUuid, pageable));
     }
 
     @PostMapping("/{specialtyUuid}")
