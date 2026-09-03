@@ -3,9 +3,9 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusAwardDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.BonusAwardsService;
 import lombok.RequiredArgsConstructor;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,11 +31,12 @@ public class AdminBonusAwardController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('BONUS_AWARD_VIEW_ALL')")
-    public ResponseEntity<Page<BonusAwardDto>> list(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<BonusAwardDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(bonusAwardsService.list(pageable, filter, q));
+        Page<BonusAwardDto> page = bonusAwardsService.list(pageable, filter, q);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, bonusAwardsService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

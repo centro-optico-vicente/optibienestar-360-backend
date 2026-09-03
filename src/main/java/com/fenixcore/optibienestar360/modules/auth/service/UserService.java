@@ -16,8 +16,11 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
@@ -56,6 +59,14 @@ public class UserService {
             "email", "person.fullName", "person.documentNumber"
     };
 
+    /** {@code fullName}/{@code documentType}/{@code documentNumber} are flattened person columns (see {@code UserMapper}). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(User.class, Map.of(
+                    "fullName", "person.fullName",
+                    "documentType", "person.documentType",
+                    "documentNumber", "person.documentNumber"
+            ));
+
     private static final String SYSTEM_ROLE_NAME = "SYSTEM";
     private static final String ACTIVE_STATUS = "ACTIVE";
 
@@ -68,6 +79,7 @@ public class UserService {
     private final PersonService personService;
     private final AllyUserRepository allyUserRepository;
     private final PromoterRepository promoterRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── /v1/me ───────────────────────────────────────────────────────────────
 
@@ -80,6 +92,9 @@ public class UserService {
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
     public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "user", pageable, new SortOrder("createdAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "user");
         Specification<User> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
@@ -94,7 +109,12 @@ public class UserService {
         if (!isSystemActor(actorUuid)) {
             spec = spec.and(excludeSystemUsers());
         }
-        return userRepository.findAll(spec, pageable).map(userMapper::toDto);
+        return userRepository.findAll(spec, resolvedPageable).map(userMapper::toDto);
+    }
+
+    /** The sort {@link #listUsers} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("user", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (User has no own code). */

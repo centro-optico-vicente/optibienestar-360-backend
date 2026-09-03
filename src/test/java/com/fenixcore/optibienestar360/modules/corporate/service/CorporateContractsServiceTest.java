@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.corporate.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateBulkEnrollResponse;
@@ -38,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,10 +59,13 @@ class CorporateContractsServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private MembersService membersService;
     @Mock private MemberMapper memberMapper;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private CorporateContractsService sut() {
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
         return new CorporateContractsService(repository, planRepository, userRepository,
-                memberRepository, membersService, memberMapper);
+                memberRepository, membersService, memberMapper, defaultSortResolver);
     }
 
     // ─── create ───────────────────────────────────────────────────────────────

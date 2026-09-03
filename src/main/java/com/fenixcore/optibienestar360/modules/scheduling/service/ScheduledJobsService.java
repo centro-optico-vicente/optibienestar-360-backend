@@ -2,8 +2,11 @@ package com.fenixcore.optibienestar360.modules.scheduling.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.scheduling.config.DynamicScheduledJobsRegistry;
 import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobCreateRequest;
@@ -30,6 +33,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -64,12 +69,15 @@ public class ScheduledJobsService {
     );
 
     private static final String[] SEARCHABLE_FIELDS = {"code", "displayName", "description"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(ScheduledJob.class, Map.of());
 
     private final ScheduledJobRepository jobRepository;
     private final ScheduledJobRunRepository runRepository;
     private final ScheduledJobMapper mapper;
     private final ScheduledJobRunMapper runMapper;
     private final ObjectProvider<DynamicScheduledJobsRegistry> registryProvider;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Job read ──────────────────────────────────────────────────────────
 
@@ -78,6 +86,9 @@ public class ScheduledJobsService {
     }
 
     public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "scheduled_job", pageable, new SortOrder("code", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "scheduled_job");
         Specification<ScheduledJob> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -87,7 +98,12 @@ public class ScheduledJobsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return jobRepository.findAll(spec, pageable).map(mapper::toDto);
+        return jobRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("scheduled_job", pageable, new SortOrder("code", "ASC"));
     }
 
     // ─── Job create ────────────────────────────────────────────────────────

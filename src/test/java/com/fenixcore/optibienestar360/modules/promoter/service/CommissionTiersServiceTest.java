@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepo
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -21,6 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,9 +33,12 @@ class CommissionTiersServiceTest {
     @Mock private CommissionTierRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
     @Mock private CommissionRepository commissionRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private CommissionTiersService sut() {
-        return new CommissionTiersService(repository, promoterTypeRepository, commissionRepository);
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        return new CommissionTiersService(repository, promoterTypeRepository, commissionRepository, defaultSortResolver);
     }
 
     @Test

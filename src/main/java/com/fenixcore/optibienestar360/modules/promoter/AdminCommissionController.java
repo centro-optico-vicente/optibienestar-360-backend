@@ -10,9 +10,9 @@ import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatin
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -47,12 +47,13 @@ public class AdminCommissionController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
-    public ResponseEntity<Page<CommissionDto>> list(
-            @PageableDefault(size = 20, sort = "earnedAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<CommissionDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(commissionsService.list(pageable, filter, q, includeInactive));
+        Page<CommissionDto> page = commissionsService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, commissionsService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

@@ -2,12 +2,11 @@ package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
-import com.fenixcore.optibienestar360.core.audit.EntityConfigService;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
-import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
@@ -32,9 +31,7 @@ import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,8 +95,7 @@ public class AlliesService {
     private final AllyServiceRepository allyServiceRepository;
     private final AllyAgreementRepository allyAgreementRepository;
     private final BenefitUsageRepository benefitUsageRepository;
-	private final EntityConfigService entityConfigService;
-	private final SystemConfigService systemConfigService;
+	private final DefaultSortResolver defaultSortResolver;
 
     // ─── Finders ────────────────────────────────────────────────────────────
 
@@ -123,7 +119,8 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-		Pageable defaultedPageable = withDefaultSortIfUnsorted(pageable);
+		Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+			"ally", pageable, new SortOrder("createdAt", "DESC"));
 		Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -137,51 +134,14 @@ public class AlliesService {
 	}
 
 	/**
-	 * The sort {@link #list} actually applies for {@code pageable}, in
-	 * client-facing field names (not translated JPA paths) — same value
-	 * whether it came from an explicit {@code ?sort=} or from the
-	 * {@code entity_config}/{@code system_configs} fallback below. Exposed so
-	 * the controller can report it back to the admin table via
-	 * {@link com.fenixcore.optibienestar360.core.util.AppliedSortPage} — the
+	 * The sort {@link #list} actually applies for {@code pageable} — see
+	 * {@link DefaultSortResolver#effectiveSort}. Exposed so the controller can
+	 * report it back to the admin table via {@link AppliedSortPage} — the
 	 * table has no other way to know which columns (and directions) an
 	 * unsorted request actually landed on.
 	 */
 	public List<SortOrder> effectiveSort(Pageable pageable) {
-		if (pageable.getSort().isSorted()) {
-			return pageable.getSort().stream()
-				.map(o -> new SortOrder(o.getProperty(), o.getDirection().name()))
-				.toList()
-			;
-		}
-		List<SortOrder> configured = entityConfigService.getDefaultSort("ally");
-		if (!configured.isEmpty()) {
-			return configured;
-		}
-		List<SortOrder> global = systemConfigService.getDefaultSort();
-		if (!global.isEmpty()) {
-			return global;
-		}
-		return List.of(new SortOrder("createdAt", "DESC"));
-	}
-
-	/**
-	 * When the request has no explicit {@code ?sort=} (the controller sets no
-	 * {@code @PageableDefault} sort on purpose), resolves a default via
-	 * {@link #effectiveSort}. Field names still go through the same
-	 * {@code SORTABLE_FIELDS} translation as a client-supplied sort.
-	 */
-	private Pageable withDefaultSortIfUnsorted(Pageable pageable) {
-		if (pageable.getSort().isSorted()) {
-			return pageable;
-		}
-		Sort defaultSort = Sort.by(
-			effectiveSort(pageable).stream()
-				.map(o -> new Sort.Order(Sort.Direction.fromString(o.direction()), o.field()))
-				.toList()
-		);
-		return pageable.isUnpaged()
-			? Pageable.unpaged(defaultSort)
-			: PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
+		return defaultSortResolver.effectiveSort("ally", pageable, new SortOrder("createdAt", "DESC"));
 	}
 
     /**

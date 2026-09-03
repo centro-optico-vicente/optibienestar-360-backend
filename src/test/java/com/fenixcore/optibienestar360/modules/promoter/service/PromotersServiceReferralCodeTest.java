@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
@@ -50,6 +51,7 @@ class PromotersServiceReferralCodeTest {
     @Mock private LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
     @Mock private MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     @Mock private PromoterMemberContactRepository promoterMemberContactRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private PromotersService service;
 
@@ -60,7 +62,7 @@ class PromotersServiceReferralCodeTest {
     void setup() {
         service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository, mapper,
                 commissionRepository, promoterBonusAwardRepository, leaderboardPrizeAwardRepository,
-                memberPromoterAssignmentRepository, promoterMemberContactRepository);
+                memberPromoterAssignmentRepository, promoterMemberContactRepository, defaultSortResolver);
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);

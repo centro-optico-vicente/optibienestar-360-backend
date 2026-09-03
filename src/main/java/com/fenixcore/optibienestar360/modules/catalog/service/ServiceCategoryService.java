@@ -2,9 +2,12 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryUpdateRequest;
@@ -25,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -35,10 +39,14 @@ import java.util.UUID;
 public class ServiceCategoryService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "description");
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+        SortFieldValidator.sortableFieldsOf(ServiceCategory.class, Map.of());
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
 
     private final ServiceCategoryRepository repository;
     private final AllyServiceRepository allyServiceRepository;
+
+    private final DefaultSortResolver defaultSortResolver;
 
     @Autowired @Lazy
     private ServiceCategoryService self;
@@ -47,6 +55,9 @@ public class ServiceCategoryService {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+            "service_category", pageable, new SortOrder("name", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "service_category");
         Specification<ServiceCategory> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
@@ -57,7 +68,12 @@ public class ServiceCategoryService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(ServiceCategoryService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(ServiceCategoryService::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("service_category", pageable, new SortOrder("name", "ASC"));
     }
 
     @Cacheable(value = "catalogs", key = "'service_category:all'")

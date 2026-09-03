@@ -3,10 +3,13 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationUpdateRequest;
@@ -27,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -37,10 +41,14 @@ import java.util.UUID;
 public class OccupationService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("name", "description");
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+        SortFieldValidator.sortableFieldsOf(Occupation.class, Map.of());
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
     private final OccupationRepository repository;
     private final MemberRepository memberRepository;
+
+    private final DefaultSortResolver defaultSortResolver;
 
     @Autowired @Lazy
     private OccupationService self;
@@ -49,6 +57,9 @@ public class OccupationService {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+            "occupation", pageable, new SortOrder("name", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "occupation");
         Specification<Occupation> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
@@ -59,7 +70,12 @@ public class OccupationService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(OccupationService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(OccupationService::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("occupation", pageable, new SortOrder("name", "ASC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (Occupation has no own code). */

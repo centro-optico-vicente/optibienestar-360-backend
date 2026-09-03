@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.service.UserService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -42,13 +43,14 @@ public class AdminUserController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
-    public ResponseEntity<Page<UserDto>> list(
+    public ResponseEntity<AppliedSortPage<UserDto>> list(
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
+            @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid()));
+        Page<UserDto> page = userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid());
+        return ResponseEntity.ok(new AppliedSortPage<>(page, userService.effectiveSort(pageable)));
     }
 
     @GetMapping("/options")

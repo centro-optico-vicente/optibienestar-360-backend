@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
@@ -13,7 +14,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,12 +48,13 @@ public class AdminPromoterController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
-    public ResponseEntity<Page<PromoterDto>> list(
-            @PageableDefault(size = 50, sort = "displayName", direction = Sort.Direction.ASC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<PromoterDto>> list(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(promotersService.list(pageable, filter, q, includeInactive));
+        Page<PromoterDto> page = promotersService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, promotersService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

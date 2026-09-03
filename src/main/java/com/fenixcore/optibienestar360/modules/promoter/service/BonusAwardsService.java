@@ -1,7 +1,10 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusAwardDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterBonusAward;
@@ -15,7 +18,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,12 +41,19 @@ public class BonusAwardsService {
             "createdAt", "active", "promoter.uuid", "rule.uuid"
     );
 
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(PromoterBonusAward.class, Map.of(
+                    "rule_Display", "rule.name",
+                    "promoter_Display", "promoter.displayName"
+            ));
+
     private static final String[] SEARCHABLE_FIELDS = {
             "ruleNameSnapshot", "payoutReference", "adminNotes"
     };
 
     private final PromoterBonusAwardRepository repository;
     private final PromoterRepository promoterRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Admin queue ──────────────────────────────────────────────────────────
 
@@ -51,6 +63,9 @@ public class BonusAwardsService {
     }
 
     public Page<BonusAwardDto> list(Pageable pageable, String filter, String q) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "bonus_award", pageable, new SortOrder("createdAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "bonus_award");
         Specification<PromoterBonusAward> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -60,7 +75,12 @@ public class BonusAwardsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(BonusAwardDto::from);
+        return repository.findAll(spec, resolvedPageable).map(BonusAwardDto::from);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("bonus_award", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     // ─── Promoter self-service ────────────────────────────────────────────────

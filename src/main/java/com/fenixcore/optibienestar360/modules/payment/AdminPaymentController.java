@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -14,7 +15,6 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -68,11 +68,12 @@ public class AdminPaymentController {
      */
     @GetMapping
     @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
-    public ResponseEntity<Page<PaymentDto>> list(
-            @PageableDefault(size = 20, sort = "receivedAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<PaymentDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(paymentsService.list(pageable, filter, q));
+        Page<PaymentDto> page = paymentsService.list(pageable, filter, q);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, paymentsService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

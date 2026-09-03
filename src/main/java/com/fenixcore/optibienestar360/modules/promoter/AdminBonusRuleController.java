@@ -8,9 +8,9 @@ import com.fenixcore.optibienestar360.modules.promoter.service.BonusEvaluationSe
 import com.fenixcore.optibienestar360.modules.promoter.service.BonusRulesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,13 +46,14 @@ public class AdminBonusRuleController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('BONUS_RULE_VIEW_ALL')")
-    public ResponseEntity<Page<BonusRuleDto>> list(
-            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<BonusRuleDto>> list(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID promoterTypeUuid,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(bonusRulesService.list(pageable, filter, q, promoterTypeUuid, includeInactive));
+        Page<BonusRuleDto> page = bonusRulesService.list(pageable, filter, q, promoterTypeUuid, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, bonusRulesService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")
