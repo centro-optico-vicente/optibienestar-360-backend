@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogReposit
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -79,6 +81,11 @@ public class LoginAuditQueryService {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("login_audit_log", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "login_audit_log");
         return loginAuditLogRepository.findAll(spec, resolvedPageable).map(this::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("login_audit_log", pageable);
     }
 
     private LoginAuditLogDto toDto(LoginAuditLog log) {

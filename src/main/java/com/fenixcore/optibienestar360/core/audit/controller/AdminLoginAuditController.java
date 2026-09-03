@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.core.audit.controller;
 import com.fenixcore.optibienestar360.core.audit.LoginAuditQueryService;
 import com.fenixcore.optibienestar360.core.audit.LoginAuditResult;
 import com.fenixcore.optibienestar360.core.audit.dto.LoginAuditLogDto;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class AdminLoginAuditController {
 	@GetMapping
 	@PreAuthorize("hasAuthority('AUDIT_VIEW_LOGIN')")
 	@Operation(summary = "Lista la bitácora de intentos de acceso y sesiones, con filtros por usuario, resultado y fecha")
-	public ResponseEntity<Page<LoginAuditLogDto>> list(
+	public ResponseEntity<AppliedSortPage<LoginAuditLogDto>> list(
 			@PageableDefault(size = 20) Pageable pageable,
 			@RequestParam(required = false) String email,
 			@RequestParam(required = false) UUID userUuid,
@@ -44,7 +45,8 @@ public class AdminLoginAuditController {
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
 			@RequestParam(required = false) String filter) {
-		return ResponseEntity.ok(loginAuditQueryService.list(pageable, email, userUuid, result, from, to, filter));
+		Page<LoginAuditLogDto> page = loginAuditQueryService.list(pageable, email, userUuid, result, from, to, filter);
+		return ResponseEntity.ok(new AppliedSortPage<>(page, loginAuditQueryService.effectiveSort(pageable)));
 	}
 
 }
