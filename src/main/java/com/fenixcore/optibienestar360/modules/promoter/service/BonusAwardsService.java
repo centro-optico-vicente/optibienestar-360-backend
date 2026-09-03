@@ -64,7 +64,7 @@ public class BonusAwardsService {
 
     public Page<BonusAwardDto> list(Pageable pageable, String filter, String q) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "bonus_award", pageable, new SortOrder("createdAt", "DESC"));
+                "bonus_award", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "bonus_award");
         Specification<PromoterBonusAward> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -80,7 +80,7 @@ public class BonusAwardsService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("bonus_award", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("bonus_award", pageable);
     }
 
     // ─── Promoter self-service ────────────────────────────────────────────────

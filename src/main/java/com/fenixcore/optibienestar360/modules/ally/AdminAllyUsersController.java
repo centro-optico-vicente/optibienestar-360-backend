@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyUsersService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,8 +42,8 @@ public class AdminAllyUsersController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_USER_VIEW_ALL')")
-    public ResponseEntity<List<AllyUserDto>> list(@PathVariable UUID allyUuid) {
-        return ResponseEntity.ok(usersService.listForAlly(allyUuid));
+    public ResponseEntity<List<AllyUserDto>> list(@PathVariable UUID allyUuid, Pageable pageable) {
+        return ResponseEntity.ok(usersService.listForAlly(allyUuid, pageable));
     }
 
     @GetMapping("/{uuid}")

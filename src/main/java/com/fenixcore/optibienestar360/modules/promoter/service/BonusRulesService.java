@@ -74,7 +74,7 @@ public class BonusRulesService {
     public Page<BonusRuleDto> list(Pageable pageable, String filter, String q,
                                      UUID promoterTypeUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "bonus_rule", pageable, new SortOrder("createdAt", "DESC"));
+                "bonus_rule", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "bonus_rule");
         Specification<CommissionBonusRule> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -93,7 +93,7 @@ public class BonusRulesService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("bonus_rule", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("bonus_rule", pageable);
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────

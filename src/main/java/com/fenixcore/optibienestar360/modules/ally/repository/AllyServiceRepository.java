@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -34,7 +35,7 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
     @EntityGraph(attributePaths = {"ally", "ally.allyType", "ally.city", "serviceCategory"})
     Page<AllyService> findAll(Specification<AllyService> spec, Pageable pageable);
 
-    List<AllyService> findByAllyIdAndActiveTrue(Long allyId);
+    List<AllyService> findByAllyIdAndActiveTrue(Long allyId, Sort sort);
 
     /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
     long countByAllyId(Long allyId);

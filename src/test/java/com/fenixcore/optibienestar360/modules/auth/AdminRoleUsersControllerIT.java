@@ -23,6 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -83,20 +84,20 @@ class AdminRoleUsersControllerIT {
     void anonymous_list_is_401() throws Exception {
         mockMvc.perform(get(LIST_URL, UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
-        verify(roleService, never()).listUsers(any());
+        verify(roleService, never()).listUsers(any(), any());
     }
 
     @Test
     void list_withoutRoleUserViewAll_is403() throws Exception {
         mockMvc.perform(get(LIST_URL, UUID.randomUUID()).with(actorWith("ROLE_VIEW")))
                 .andExpect(status().isForbidden());
-        verify(roleService, never()).listUsers(any());
+        verify(roleService, never()).listUsers(any(), any());
     }
 
     @Test
     void list_withRoleUserViewAll_returns200() throws Exception {
         UUID roleUuid = UUID.randomUUID();
-        when(roleService.listUsers(roleUuid)).thenReturn(
+        when(roleService.listUsers(eq(roleUuid), any())).thenReturn(
                 List.of(new RoleUserDto(UUID.randomUUID(), "a@b.com", "Ana Perez", "ACTIVE", true)));
 
         mockMvc.perform(get(LIST_URL, roleUuid).with(actorWith("ROLE_USER_VIEW_ALL")))
@@ -107,7 +108,7 @@ class AdminRoleUsersControllerIT {
     @Test
     void list_unknownRole_maps404() throws Exception {
         UUID roleUuid = UUID.randomUUID();
-        when(roleService.listUsers(roleUuid)).thenThrow(new NoSuchElementException("role.not_found"));
+        when(roleService.listUsers(eq(roleUuid), any())).thenThrow(new NoSuchElementException("role.not_found"));
 
         mockMvc.perform(get(LIST_URL, roleUuid).with(actorWith("ROLE_USER_VIEW_ALL")))
                 .andExpect(status().isNotFound());

@@ -157,7 +157,7 @@ public class MembersService {
 
     public Page<MemberListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "member", pageable, new SortOrder("enrolledAt", "DESC"));
+                "member", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "member");
         Specification<Member> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -172,7 +172,7 @@ public class MembersService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("member", pageable, new SortOrder("enrolledAt", "DESC"));
+        return defaultSortResolver.effectiveSort("member", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

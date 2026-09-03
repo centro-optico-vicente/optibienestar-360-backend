@@ -73,4 +73,14 @@ public class DefaultSortResolver {
 			: PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), resolved);
 	}
 
+	/** {@link #effectiveSort(String, Pageable, SortOrder)} with the project-wide hard default ({@link SortOrder#DEFAULT}). */
+	public List<SortOrder> effectiveSort(String entityKey, Pageable pageable) {
+		return effectiveSort(entityKey, pageable, SortOrder.DEFAULT);
+	}
+
+	/** {@link #withDefaultSortIfUnsorted(String, Pageable, SortOrder)} with the project-wide hard default ({@link SortOrder#DEFAULT}). */
+	public Pageable withDefaultSortIfUnsorted(String entityKey, Pageable pageable) {
+		return withDefaultSortIfUnsorted(entityKey, pageable, SortOrder.DEFAULT);
+	}
+
 }

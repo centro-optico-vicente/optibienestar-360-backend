@@ -56,7 +56,7 @@ public class DocumentTypeService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "document_type", pageable, new SortOrder("name", "ASC"));
+            "document_type", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "document_type");
         Specification<DocumentType> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -73,7 +73,7 @@ public class DocumentTypeService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("document_type", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("document_type", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

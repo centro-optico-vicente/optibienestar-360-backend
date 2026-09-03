@@ -14,11 +14,15 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,14 +51,25 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AllyUsersService {
 
+    /** {@code userFullName}/{@code userEmail} are flattened User/Person columns, not on {@code AllyUser} itself. */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyUser.class, Map.of(
+                    "userFullName", "user.person.fullName",
+                    "userEmail", "user.email"
+            ));
+
     private final AllyRepository allyRepository;
     private final AllyUserRepository allyUserRepository;
     private final UserRepository userRepository;
     private final AllyMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
 
-    public List<AllyUserDto> listForAlly(UUID allyUuid) {
+    public List<AllyUserDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
-        return allyUserRepository.findByAllyIdAndActiveTrue(ally.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "ally_user", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_user");
+        return allyUserRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(mapper::toAllyUserDto)
                 .toList();
     }

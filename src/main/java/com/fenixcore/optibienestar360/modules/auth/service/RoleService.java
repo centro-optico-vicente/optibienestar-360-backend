@@ -3,8 +3,10 @@ package com.fenixcore.optibienestar360.modules.auth.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
@@ -20,6 +22,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -42,12 +46,22 @@ public class RoleService {
     private static final String ROLE_PERMISSION_EDIT = "ROLE_PERMISSION_EDIT";
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
+    /** {@code fullName}/{@code email}/{@code status}/{@code active} are flattened User(+Person) columns, not on {@code UserRole} itself. */
+    private static final Map<String, SortFieldValidator.SortableField> ROLE_USER_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(UserRole.class, Map.of(
+                    "fullName", "user.person.fullName",
+                    "email", "user.email",
+                    "status", "user.status",
+                    "active", "user.active"
+            ));
+
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserMapper userMapper;
     private final TokenBlacklistService blacklistService;
+    private final DefaultSortResolver defaultSortResolver;
 
     public List<RoleDto> listActiveRoles() {
         return roleRepository.findAllByActiveTrue().stream()
@@ -222,9 +236,12 @@ public class RoleService {
     // ─── Role membership: /v1/admin/roles/{roleUuid}/users ─────────────────
 
     /** Users currently assigned to {@code roleUuid} (active pivot rows only). */
-    public List<RoleUserDto> listUsers(UUID roleUuid) {
+    public List<RoleUserDto> listUsers(UUID roleUuid, Pageable pageable) {
         Role role = findRole(roleUuid);
-        return userRoleRepository.findByRoleIdAndActiveTrue(role.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "role_user", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, ROLE_USER_SORTABLE_FIELDS, "role_user");
+        return userRoleRepository.findByRoleIdAndActiveTrue(role.getId(), resolved.getSort()).stream()
                 .map(UserRole::getUser)
                 .map(userMapper::toRoleUserDto)
                 .toList();

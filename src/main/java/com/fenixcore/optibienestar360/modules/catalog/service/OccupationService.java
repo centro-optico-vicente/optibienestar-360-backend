@@ -58,7 +58,7 @@ public class OccupationService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "occupation", pageable, new SortOrder("name", "ASC"));
+            "occupation", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "occupation");
         Specification<Occupation> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -75,7 +75,7 @@ public class OccupationService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("occupation", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("occupation", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (Occupation has no own code). */

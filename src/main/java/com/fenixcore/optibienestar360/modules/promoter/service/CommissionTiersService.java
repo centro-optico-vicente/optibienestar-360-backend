@@ -67,7 +67,7 @@ public class CommissionTiersService {
     public Page<CommissionTierDto> list(Pageable pageable, String filter, String q,
                                           UUID promoterTypeUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "commission_tier", pageable, new SortOrder("thresholdCount", "ASC"));
+                "commission_tier", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission_tier");
         Specification<CommissionTier> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -85,7 +85,7 @@ public class CommissionTiersService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("commission_tier", pageable, new SortOrder("thresholdCount", "ASC"));
+        return defaultSortResolver.effectiveSort("commission_tier", pageable);
     }
 
     @Transactional

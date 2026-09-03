@@ -64,6 +64,8 @@ class CorporateContractsServiceTest {
     private CorporateContractsService sut() {
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
         return new CorporateContractsService(repository, planRepository, userRepository,
                 memberRepository, membersService, memberMapper, defaultSortResolver);
     }

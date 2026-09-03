@@ -68,7 +68,7 @@ public class CityService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "city", pageable, new SortOrder("name", "ASC"));
+            "city", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "city");
         Specification<City> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -92,7 +92,7 @@ public class CityService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("city", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("city", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (City has no own code). */

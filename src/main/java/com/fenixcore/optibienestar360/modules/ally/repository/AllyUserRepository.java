@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.repository;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -29,7 +30,7 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
     List<AllyUser> findByUserIdAndActiveTrue(Long userId);
 
     /** Listings on the ally side. */
-    List<AllyUser> findByAllyIdAndActiveTrue(Long allyId);
+    List<AllyUser> findByAllyIdAndActiveTrue(Long allyId, Sort sort);
 
     /**
      * Active primary contact for the given ally. The V12 partial unique index

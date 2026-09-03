@@ -91,7 +91,7 @@ public class SubsidiesService {
 
     public Page<SubsidyDto> list(Pageable pageable, UUID memberUuid, String filter, String q) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "subsidy", pageable, new SortOrder("createdAt", "DESC"));
+                "subsidy", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "subsidy");
         Specification<Subsidy> spec = activeOnly();
         if (memberUuid != null) {
@@ -109,7 +109,7 @@ public class SubsidiesService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("subsidy", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("subsidy", pageable);
     }
 
     /** Self-service {@code GET /v1/me/subsidies} — the caller's own live subsidies. */

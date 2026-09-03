@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapperImpl;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,12 +41,13 @@ class AllyUsersServiceListAlliesForUserTest {
     @Mock private AllyRepository allyRepository;
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private UserRepository userRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private AllyUsersService service;
 
     @BeforeEach
     void setup() {
-        service = new AllyUsersService(allyRepository, allyUserRepository, userRepository, new AllyMapperImpl());
+        service = new AllyUsersService(allyRepository, allyUserRepository, userRepository, new AllyMapperImpl(), defaultSortResolver);
     }
 
     @Test

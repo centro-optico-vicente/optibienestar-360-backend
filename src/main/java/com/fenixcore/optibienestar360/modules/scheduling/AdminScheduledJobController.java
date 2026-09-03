@@ -17,7 +17,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -123,10 +122,11 @@ public class AdminScheduledJobController {
 
     @GetMapping("/{uuid}/runs")
     @PreAuthorize("hasAuthority('JOB_VIEW_ALL')")
-    public ResponseEntity<Page<ScheduledJobRunDto>> listRuns(
+    public ResponseEntity<AppliedSortPage<ScheduledJobRunDto>> listRuns(
             @PathVariable UUID uuid,
-            @PageableDefault(size = 20, sort = "startedAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(jobsService.listRuns(uuid, pageable));
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<ScheduledJobRunDto> page = jobsService.listRuns(uuid, pageable);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSortRuns(pageable)));
     }
 
     @GetMapping("/{uuid}/runs/{runUuid}")

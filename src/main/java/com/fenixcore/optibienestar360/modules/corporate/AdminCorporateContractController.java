@@ -12,7 +12,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -101,8 +100,9 @@ public class AdminCorporateContractController {
 
     @GetMapping("/{uuid}/members")
     @PreAuthorize("hasAuthority('CORPORATE_CONTRACT_MEMBER_VIEW_ALL')")
-    public ResponseEntity<Page<MemberListItemDto>> listMembers(@PathVariable UUID uuid,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(service.listMembers(uuid, pageable));
+    public ResponseEntity<AppliedSortPage<MemberListItemDto>> listMembers(@PathVariable UUID uuid,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MemberListItemDto> page = service.listMembers(uuid, pageable);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSortMembers(pageable)));
     }
 }

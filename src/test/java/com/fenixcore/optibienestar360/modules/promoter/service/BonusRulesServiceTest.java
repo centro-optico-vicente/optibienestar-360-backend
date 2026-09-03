@@ -45,6 +45,8 @@ class BonusRulesServiceTest {
     private BonusRulesService service() {
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
         return new BonusRulesService(repository, promoterTypeRepository, defaultSortResolver);
     }
 

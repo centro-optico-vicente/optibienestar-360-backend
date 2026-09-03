@@ -58,7 +58,7 @@ public class GenderService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "gender", pageable, new SortOrder("name", "ASC"));
+            "gender", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "gender");
         Specification<Gender> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -75,7 +75,7 @@ public class GenderService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("gender", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("gender", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

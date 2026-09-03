@@ -74,7 +74,7 @@ public class PlansService {
 
     public Page<PlanDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "plan", pageable, new SortOrder("code", "ASC"));
+                "plan", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "plan");
         Specification<Plan> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -89,7 +89,7 @@ public class PlansService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("plan", pageable, new SortOrder("code", "ASC"));
+        return defaultSortResolver.effectiveSort("plan", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

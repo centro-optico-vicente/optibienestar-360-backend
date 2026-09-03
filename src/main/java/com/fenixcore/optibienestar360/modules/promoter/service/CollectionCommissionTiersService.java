@@ -60,7 +60,7 @@ public class CollectionCommissionTiersService {
     public Page<CollectionCommissionTierDto> list(Pageable pageable, String filter, String q,
                                                     UUID promoterTypeUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "collection_commission_tier", pageable, new SortOrder("maxDays", "ASC"));
+                "collection_commission_tier", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "collection_commission_tier");
         Specification<CollectionCommissionTier> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -78,7 +78,7 @@ public class CollectionCommissionTiersService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("collection_commission_tier", pageable, new SortOrder("maxDays", "ASC"));
+        return defaultSortResolver.effectiveSort("collection_commission_tier", pageable);
     }
 
     @Transactional
