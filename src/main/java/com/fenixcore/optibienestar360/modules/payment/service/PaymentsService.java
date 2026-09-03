@@ -137,7 +137,7 @@ public class PaymentsService {
 
     public Page<PaymentDto> list(Pageable pageable, String filter, String q) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "payment", pageable, new SortOrder("createdAt", "DESC"));
+                "payment", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
         Specification<Payment> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -153,7 +153,7 @@ public class PaymentsService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("payment", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("payment", pageable);
     }
 
     private static Specification<Payment> activeOnly() {

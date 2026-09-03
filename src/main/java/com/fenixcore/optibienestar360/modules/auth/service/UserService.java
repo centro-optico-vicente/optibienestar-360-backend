@@ -93,7 +93,7 @@ public class UserService {
 
     public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "user", pageable, new SortOrder("createdAt", "DESC"));
+                "user", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "user");
         Specification<User> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -114,7 +114,7 @@ public class UserService {
 
     /** The sort {@link #listUsers} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("user", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("user", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (User has no own code). */

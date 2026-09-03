@@ -99,7 +99,7 @@ public class CommissionsService {
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "commission", pageable, new SortOrder("createdAt", "DESC"));
+                "commission", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission");
         Specification<Commission> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -115,7 +115,7 @@ public class CommissionsService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("commission", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("commission", pageable);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

@@ -7,7 +7,6 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
-import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.dto.CreateRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
@@ -240,7 +239,7 @@ public class RoleService {
     public List<RoleUserDto> listUsers(UUID roleUuid, Pageable pageable) {
         Role role = findRole(roleUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "role_user", pageable, new SortOrder("createdAt", "DESC"));
+                "role_user", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, ROLE_USER_SORTABLE_FIELDS, "role_user");
         return userRoleRepository.findByRoleIdAndActiveTrue(role.getId(), resolved.getSort()).stream()
                 .map(UserRole::getUser)

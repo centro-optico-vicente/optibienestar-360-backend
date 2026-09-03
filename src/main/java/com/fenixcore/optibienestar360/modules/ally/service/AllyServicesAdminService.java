@@ -14,7 +14,6 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
-import com.fenixcore.optibienestar360.core.util.SortOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
@@ -59,7 +58,7 @@ public class AllyServicesAdminService {
     public List<AllyServiceDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_service", pageable, new SortOrder("createdAt", "DESC"));
+                "ally_service", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_service");
         return serviceRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(service -> mapper.toServiceDto(service, publicBaseUrl))

@@ -58,7 +58,7 @@ public class CountryService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "country", pageable, new SortOrder("createdAt", "DESC"));
+            "country", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "country");
         Specification<Country> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -75,7 +75,7 @@ public class CountryService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("country", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("country", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

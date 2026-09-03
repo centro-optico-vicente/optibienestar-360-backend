@@ -19,7 +19,6 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRe
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
-import com.fenixcore.optibienestar360.core.util.SortOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -111,7 +110,7 @@ public class MemberDocumentService {
     public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, Pageable pageable) {
         Member member = findMember(memberUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "member_document", pageable, new SortOrder("createdAt", "DESC"));
+                "member_document", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "member_document");
         return documentRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
                 .filter(d -> hasViewAll || visibleTo(d, currentUserUuid))

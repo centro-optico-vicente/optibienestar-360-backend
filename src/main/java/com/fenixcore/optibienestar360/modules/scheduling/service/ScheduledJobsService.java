@@ -89,7 +89,7 @@ public class ScheduledJobsService {
 
     public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "scheduled_job", pageable, new SortOrder("createdAt", "DESC"));
+                "scheduled_job", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "scheduled_job");
         Specification<ScheduledJob> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -105,7 +105,7 @@ public class ScheduledJobsService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("scheduled_job", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("scheduled_job", pageable);
     }
 
     // ─── Job create ────────────────────────────────────────────────────────
@@ -237,7 +237,7 @@ public class ScheduledJobsService {
     public Page<ScheduledJobRunDto> listRuns(UUID jobUuid, Pageable pageable) {
         ScheduledJob job = findManaged(jobUuid);
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "scheduled_job_run", pageable, new SortOrder("createdAt", "DESC"));
+                "scheduled_job_run", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, RUN_SORTABLE_FIELDS, "scheduled_job_run");
         return runRepository.findByScheduledJobId(job.getId(), resolvedPageable)
                 .map(runMapper::toDto);
@@ -245,7 +245,7 @@ public class ScheduledJobsService {
 
     /** The sort {@link #listRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSortRuns(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("scheduled_job_run", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("scheduled_job_run", pageable);
     }
 
     // ─── Internals ─────────────────────────────────────────────────────────

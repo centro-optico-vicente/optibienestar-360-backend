@@ -123,7 +123,7 @@ public class AlliesService {
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
 		Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-			"ally", pageable, new SortOrder("createdAt", "DESC"));
+			"ally", pageable);
 		Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally");
         Specification<Ally> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -144,7 +144,7 @@ public class AlliesService {
 	 * unsorted request actually landed on.
 	 */
 	public List<SortOrder> effectiveSort(Pageable pageable) {
-		return defaultSortResolver.effectiveSort("ally", pageable, new SortOrder("createdAt", "DESC"));
+		return defaultSortResolver.effectiveSort("ally", pageable);
 	}
 
     /**
@@ -358,7 +358,7 @@ public class AlliesService {
             listSpecialties(UUID allyUuid, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_specialty", pageable, new SortOrder("createdAt", "DESC"));
+                "ally_specialty", pageable);
         Sort sort = SortFieldValidator.resolve(defaulted, SPECIALTY_SORTABLE_FIELDS, "ally_specialty").getSort();
         // `Ally.specialties` is an in-memory `@ManyToMany` Set (no natural order, not backed
         // by a repository query) — sorted here by reflection instead of at the DB.

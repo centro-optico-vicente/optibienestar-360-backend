@@ -38,6 +38,8 @@ class CommissionTiersServiceTest {
     private CommissionTiersService sut() {
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
         return new CommissionTiersService(repository, promoterTypeRepository, commissionRepository, defaultSortResolver);
     }
 

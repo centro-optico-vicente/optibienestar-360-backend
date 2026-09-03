@@ -58,7 +58,7 @@ public class MaritalStatusService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "marital_status", pageable, new SortOrder("createdAt", "DESC"));
+            "marital_status", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "marital_status");
         Specification<MaritalStatus> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -75,7 +75,7 @@ public class MaritalStatusService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("marital_status", pageable, new SortOrder("createdAt", "DESC"));
+        return defaultSortResolver.effectiveSort("marital_status", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
