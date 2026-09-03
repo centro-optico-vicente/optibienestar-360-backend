@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +37,7 @@ public class AdminLoginAuditController {
 	@PreAuthorize("hasAuthority('AUDIT_VIEW_LOGIN')")
 	@Operation(summary = "Lista la bitácora de intentos de acceso y sesiones, con filtros por usuario, resultado y fecha")
 	public ResponseEntity<Page<LoginAuditLogDto>> list(
-			@PageableDefault(size = 20, sort = "attemptedAt", direction = Sort.Direction.DESC) Pageable pageable,
+			@PageableDefault(size = 20) Pageable pageable,
 			@RequestParam(required = false) String email,
 			@RequestParam(required = false) UUID userUuid,
 			@RequestParam(required = false) LoginAuditResult result,

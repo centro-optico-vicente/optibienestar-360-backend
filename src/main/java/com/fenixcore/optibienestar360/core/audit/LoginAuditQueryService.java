@@ -3,7 +3,9 @@ package com.fenixcore.optibienestar360.core.audit;
 import com.fenixcore.optibienestar360.core.audit.dto.LoginAuditLogDto;
 import com.fenixcore.optibienestar360.core.audit.entity.LoginAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -35,9 +38,13 @@ public class LoginAuditQueryService {
             "attemptedEmail", "result", "userId", "sessionStatus", "valid", "attemptedAt", "createdAt"
     );
 
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(LoginAuditLog.class, Map.of());
+
     private final LoginAuditLogRepository loginAuditLogRepository;
     private final UserRepository userRepository;
     private final MessageSource messageSource;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Transactional(readOnly = true)
     public Page<LoginAuditLogDto> list(Pageable pageable, String email, UUID userUuid, LoginAuditResult result,
@@ -69,7 +76,9 @@ public class LoginAuditQueryService {
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
 
-        return loginAuditLogRepository.findAll(spec, pageable).map(this::toDto);
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("login_audit_log", pageable);
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "login_audit_log");
+        return loginAuditLogRepository.findAll(spec, resolvedPageable).map(this::toDto);
     }
 
     private LoginAuditLogDto toDto(LoginAuditLog log) {
