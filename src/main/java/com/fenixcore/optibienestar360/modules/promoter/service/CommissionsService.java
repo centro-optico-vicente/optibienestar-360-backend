@@ -52,7 +52,9 @@ public class CommissionsService {
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(Commission.class, Map.of(
-                    "promoter_Display", "promoter.displayName"
+                    "promoter_Display", "promoter.displayName",
+                    // CommissionDto also shows `promoter_Code` (the referral code — Promoter has no generic getCode()).
+                    "promoter_Code", "promoter.referralCode"
             ));
 
     private static final String[] SEARCHABLE_FIELDS = {

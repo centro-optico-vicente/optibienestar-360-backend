@@ -46,7 +46,11 @@ public class StateService {
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "country");
     private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-        SortFieldValidator.sortableFieldsOf(State.class, Map.of("country_Display", "country.name"));
+        SortFieldValidator.sortableFieldsOf(State.class, Map.of(
+            "country_Display", "country.name",
+            // The catalogs table's "parent" column actually renders `country_Code` (the ISO code), not `country_Display` — alias both.
+            "country_Code", "country.isoCode"
+        ));
 
     private final StateRepository repository;
     private final CountryRepository countryRepository;
