@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 
 import java.math.BigDecimal;
@@ -13,8 +15,7 @@ public record CollectionCommissionTierDto(
         String name,
         int maxDays,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
-        UUID promoterTypeUuid,
-        String promoterTypeName,
+        @Display DisplayRef promoterType,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "collection_commission_tier.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
@@ -23,8 +24,7 @@ public record CollectionCommissionTierDto(
     public static CollectionCommissionTierDto from(CollectionCommissionTier t) {
         return new CollectionCommissionTierDto(
                 t.getUuid(), t.getName(), t.getMaxDays(), t.getCommissionPct(),
-                t.getPromoterType() != null ? t.getPromoterType().getUuid() : null,
-                t.getPromoterType() != null ? t.getPromoterType().getName() : null,
+                DisplayRefs.ref(t.getPromoterType()),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusAwardDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.RewardType;
 import com.fenixcore.optibienestar360.modules.promoter.service.BonusAwardsService;
@@ -63,8 +64,9 @@ class PromoterBonusesControllerIT {
     }
 
     private BonusAwardDto awardDto() {
-        return new BonusAwardDto(UUID.randomUUID(), UUID.randomUUID(), "cada 500 nuevos",
-                UUID.randomUUID(), "Juan Pérez", 523, 1,
+        return new BonusAwardDto(UUID.randomUUID(),
+                new DisplayRef(UUID.randomUUID(), null, "cada 500 nuevos"),
+                new DisplayRef(UUID.randomUUID(), null, "Juan Pérez"), 523, 1,
                 LocalDate.of(1970, 1, 1), LocalDate.of(2026, 6, 15),
                 RewardType.FLAT, new BigDecimal("100.00"), null, null, new BigDecimal("100.00"),
                 "USD", "PENDING", Instant.parse("2026-06-15T12:00:00Z"), Instant.parse("2026-06-15T12:00:00Z"));

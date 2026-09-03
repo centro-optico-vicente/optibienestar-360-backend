@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
@@ -149,6 +150,7 @@ public class StateService {
     static StateDto toDto(State s) {
         Country c = s.getCountry();
         return new StateDto(s.getUuid(), s.getCode(), s.getName(),
-                c.getUuid(), c.getIsoCode(), s.isActive());
+                c == null ? null : DisplayRef.of(c.getUuid(), c.getIsoCode(), c.getName()),
+                s.isActive());
     }
 }

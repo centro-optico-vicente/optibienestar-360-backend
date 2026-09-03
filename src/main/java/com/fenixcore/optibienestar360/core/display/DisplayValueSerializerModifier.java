@@ -60,7 +60,12 @@ public class DisplayValueSerializerModifier extends ValueSerializerModifier {
 		}
 	}
 
-	/** Replaces a {@link DisplayRef} field with {@code <name>_Uuid} + {@code <name>_Display}. */
+	/**
+	 * Replaces a {@link DisplayRef} field with the flat triple {@code <name>_Uuid}
+	 * + {@code <name>_Display} + {@code <name>_Code} — see the Jackson 2 twin in
+	 * {@link DisplayBeanSerializerModifier}. {@code _Code} is emitted only when
+	 * the ref carries a non-null natural key.
+	 */
 	private static final class FkPairWriter extends BeanPropertyWriter {
 		private final transient DisplayFormatter formatter;
 		private final String rel;
@@ -84,6 +89,9 @@ public class DisplayValueSerializerModifier extends ValueSerializerModifier {
 				gen.writeStringProperty(base + "_Uuid", ref.uuid().toString());
 			}
 			writeStringOrNull(gen, base + "_Display", formatter.fkLabel(rel, ref));
+			if (ref != null && ref.code() != null) {
+				gen.writeStringProperty(base + "_Code", ref.code());
+			}
 		}
 	}
 

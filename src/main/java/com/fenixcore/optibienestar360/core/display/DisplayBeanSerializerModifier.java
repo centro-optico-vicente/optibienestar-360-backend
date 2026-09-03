@@ -71,7 +71,14 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 
 	// ─── Writers ───────────────────────────────────────────────────────────
 
-	/** Replaces a {@link DisplayRef} field with {@code <name>_Uuid} + {@code <name>_Display}. */
+	/**
+	 * Replaces a {@link DisplayRef} field with the flat triple {@code <name>_Uuid}
+	 * + {@code <name>_Display} + {@code <name>_Code}. The first two are always
+	 * written (as a pair) unless nulls are suppressed; {@code <name>_Code} is
+	 * emitted only when the ref carries a non-null natural key (catalogs, plan,
+	 * person document number) — relations without a code (e.g. {@code city})
+	 * simply omit it.
+	 */
 	private static final class FkPairWriter extends BeanPropertyWriter {
 		private final transient DisplayFormatter formatter;
 		private final String rel;
@@ -95,6 +102,9 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 				gen.writeStringField(base + "_Uuid", ref.uuid().toString());
 			}
 			writeStringOrNull(gen, base + "_Display", formatter.fkLabel(rel, ref));
+			if (ref != null && ref.code() != null) {
+				gen.writeStringField(base + "_Code", ref.code());
+			}
 		}
 	}
 

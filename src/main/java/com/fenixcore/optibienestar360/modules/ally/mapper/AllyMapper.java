@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.mapper;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
@@ -151,8 +152,7 @@ public interface AllyMapper {
         return new CityDto(
                 city.getUuid(),
                 city.getName(),
-                state != null ? state.getUuid() : null,
-                state != null ? state.getCode() : null,
+                state == null ? null : DisplayRef.of(state.getUuid(), state.getCode(), state.getName()),
                 city.isActive()
         );
     }

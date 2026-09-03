@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.subsidy;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyDto;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidiesService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -64,7 +65,8 @@ class AdminSubsidyControllerIT {
     }
 
     private SubsidyDto dto() {
-        return new SubsidyDto(UUID.randomUUID(), UUID.randomUUID(), "Ana Pérez",
+        return new SubsidyDto(UUID.randomUUID(),
+                new DisplayRef(UUID.randomUUID(), null, "Ana Pérez"),
                 new BigDecimal("100"), null, null, "Fundación X", UUID.randomUUID(),
                 LocalDate.of(2026, 1, 1), null, true, null, null, null, List.of());
     }

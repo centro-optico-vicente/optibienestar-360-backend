@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.RewardType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterBonusAward;
@@ -20,10 +22,8 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BonusAwardDto(
         UUID uuid,
-        UUID ruleUuid,
-        String ruleName,
-        UUID promoterUuid,
-        String promoterDisplayName,
+        @Display DisplayRef rule,
+        @Display DisplayRef promoter,
         int metricCount,
         int blocksAwarded,
         @Display(Display.Kind.DATE) LocalDate windowStart,
@@ -43,10 +43,8 @@ public record BonusAwardDto(
         Promoter promoter = a.getPromoter();
         return new BonusAwardDto(
                 a.getUuid(),
-                a.getRule() != null ? a.getRule().getUuid() : null,
-                a.getRuleNameSnapshot(),
-                promoter != null ? promoter.getUuid() : null,
-                promoter != null ? promoter.getDisplayName() : null,
+                DisplayRef.of(a.getRule() != null ? a.getRule().getUuid() : null, null, a.getRuleNameSnapshot()),
+                DisplayRefs.ref(promoter),
                 a.getMetricCount(),
                 a.getBlocksAwarded(),
                 a.getWindowStart(),

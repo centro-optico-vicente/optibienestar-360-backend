@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentMethod;
 
 import java.math.BigDecimal;
@@ -29,8 +30,7 @@ public record PaymentDto(
         // Subject (flat)
         UUID membershipUuid,
         UUID memberUuid,
-        UUID planUuid,
-        String planCode,
+        @Display DisplayRef plan,
 
         // Payer (flat — null when cash-at-counter)
         UUID payerUserUuid,

@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
 import com.fenixcore.optibienestar360.modules.catalog.entity.MaritalStatus;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Occupation;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MedicalRecordDto;
@@ -114,8 +115,7 @@ public interface MemberMapper {
         return new CityDto(
                 c.getUuid(),
                 c.getName(),
-                state != null ? state.getUuid() : null,
-                state != null ? state.getCode() : null,
+                state == null ? null : DisplayRef.of(state.getUuid(), state.getCode(), state.getName()),
                 c.isActive()
         );
     }
