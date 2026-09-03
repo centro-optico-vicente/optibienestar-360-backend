@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateContractDto
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateContractUpdateRequest;
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateMemberBulkRequest;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateContractsService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberListItemDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,11 +51,12 @@ public class AdminCorporateContractController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CORPORATE_CONTRACT_VIEW_ALL')")
-    public ResponseEntity<Page<CorporateContractDto>> list(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<CorporateContractDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(service.list(pageable, filter, q));
+        Page<CorporateContractDto> page = service.list(pageable, filter, q);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

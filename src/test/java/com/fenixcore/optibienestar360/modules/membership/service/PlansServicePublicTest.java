@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.membership.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
@@ -48,12 +49,13 @@ class PlansServicePublicTest {
     @Mock private PlanRepository repository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private CorporateContractRepository corporateContractRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private PlansService service;
 
     @BeforeEach
     void setup() {
-        service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository);
+        service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository, defaultSortResolver);
     }
 
     // ─── publicGetByUuid ─────────────────────────────────────────────────────

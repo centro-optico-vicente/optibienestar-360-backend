@@ -3,9 +3,12 @@ package com.fenixcore.optibienestar360.modules.membership.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
@@ -25,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -53,11 +57,14 @@ public class PlansService {
     );
 
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Plan.class, Map.of());
 
     private final PlanRepository repository;
     private final PlanMapper mapper;
     private final MembershipRepository membershipRepository;
     private final CorporateContractRepository corporateContractRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -66,6 +73,9 @@ public class PlansService {
     }
 
     public Page<PlanDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "plan", pageable, new SortOrder("code", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "plan");
         Specification<Plan> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "plan.filter.field_not_allowed");
@@ -74,7 +84,12 @@ public class PlansService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("plan", pageable, new SortOrder("code", "ASC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

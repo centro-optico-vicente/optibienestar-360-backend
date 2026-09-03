@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.catalog;
 
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeUpdateRequest;
@@ -152,12 +153,13 @@ public class AdminCatalogsController {
     // ═══════════════ countries ═══════════════
     @GetMapping("/countries")
     @PreAuthorize(COUNTRY_VIEW)
-    public ResponseEntity<Page<CountryDto>> listCountries(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<CountryDto>> listCountries(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(countryService.list(pageable, filter, q, includeInactive));
+        Page<CountryDto> page = countryService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, countryService.effectiveSort(pageable)));
     }
 
     @GetMapping("/countries/options")
@@ -207,13 +209,14 @@ public class AdminCatalogsController {
     // ═══════════════ states ═══════════════
     @GetMapping("/states")
     @PreAuthorize(STATE_VIEW)
-    public ResponseEntity<Page<StateDto>> listStates(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<StateDto>> listStates(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(stateService.list(pageable, filter, q, countryIsoCode, includeInactive));
+        Page<StateDto> page = stateService.list(pageable, filter, q, countryIsoCode, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, stateService.effectiveSort(pageable)));
     }
 
     @GetMapping("/states/options")
@@ -264,14 +267,15 @@ public class AdminCatalogsController {
     // ═══════════════ cities ═══════════════
     @GetMapping("/cities")
     @PreAuthorize(CITY_VIEW)
-    public ResponseEntity<Page<CityDto>> listCities(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<CityDto>> listCities(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(name = "stateUuid", required = false) UUID stateUuid,
             @RequestParam(name = "stateCode", required = false) String stateCode,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(cityService.list(pageable, filter, q, stateUuid, stateCode, includeInactive));
+        Page<CityDto> page = cityService.list(pageable, filter, q, stateUuid, stateCode, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, cityService.effectiveSort(pageable)));
     }
 
     @GetMapping("/cities/options")
@@ -322,12 +326,13 @@ public class AdminCatalogsController {
     // ═══════════════ genders ═══════════════
     @GetMapping("/genders")
     @PreAuthorize(GENDER_VIEW)
-    public ResponseEntity<Page<GenderDto>> listGenders(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<GenderDto>> listGenders(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(genderService.list(pageable, filter, q, includeInactive));
+        Page<GenderDto> page = genderService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, genderService.effectiveSort(pageable)));
     }
 
     @GetMapping("/genders/options")
@@ -377,12 +382,13 @@ public class AdminCatalogsController {
     // ═══════════════ document-types ═══════════════
     @GetMapping("/document-types")
     @PreAuthorize(DOCUMENT_TYPE_VIEW)
-    public ResponseEntity<Page<DocumentTypeDto>> listDocumentTypes(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<DocumentTypeDto>> listDocumentTypes(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(documentTypeService.list(pageable, filter, q, includeInactive));
+        Page<DocumentTypeDto> page = documentTypeService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, documentTypeService.effectiveSort(pageable)));
     }
 
     @GetMapping("/document-types/options")
@@ -432,12 +438,13 @@ public class AdminCatalogsController {
     // ═══════════════ marital-statuses ═══════════════
     @GetMapping("/marital-statuses")
     @PreAuthorize(MARITAL_STATUS_VIEW)
-    public ResponseEntity<Page<MaritalStatusDto>> listMaritalStatuses(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<MaritalStatusDto>> listMaritalStatuses(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(maritalStatusService.list(pageable, filter, q, includeInactive));
+        Page<MaritalStatusDto> page = maritalStatusService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, maritalStatusService.effectiveSort(pageable)));
     }
 
     @GetMapping("/marital-statuses/options")
@@ -487,12 +494,13 @@ public class AdminCatalogsController {
     // ═══════════════ occupations ═══════════════
     @GetMapping("/occupations")
     @PreAuthorize(OCCUPATION_VIEW)
-    public ResponseEntity<Page<OccupationDto>> listOccupations(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<OccupationDto>> listOccupations(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(occupationService.list(pageable, filter, q, includeInactive));
+        Page<OccupationDto> page = occupationService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, occupationService.effectiveSort(pageable)));
     }
 
     @GetMapping("/occupations/options")
@@ -542,12 +550,13 @@ public class AdminCatalogsController {
     // ═══════════════ medical-specialties ═══════════════
     @GetMapping("/medical-specialties")
     @PreAuthorize(MEDICAL_SPECIALTY_VIEW)
-    public ResponseEntity<Page<MedicalSpecialtyDto>> listMedicalSpecialties(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<MedicalSpecialtyDto>> listMedicalSpecialties(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q, includeInactive));
+        Page<MedicalSpecialtyDto> page = medicalSpecialtyService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, medicalSpecialtyService.effectiveSort(pageable)));
     }
 
     @GetMapping("/medical-specialties/options")
@@ -597,12 +606,13 @@ public class AdminCatalogsController {
     // ═══════════════ service-categories ═══════════════
     @GetMapping("/service-categories")
     @PreAuthorize(SERVICE_CATEGORY_VIEW)
-    public ResponseEntity<Page<ServiceCategoryDto>> listServiceCategories(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<ServiceCategoryDto>> listServiceCategories(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q, includeInactive));
+        Page<ServiceCategoryDto> page = serviceCategoryService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, serviceCategoryService.effectiveSort(pageable)));
     }
 
     @GetMapping("/service-categories/{uuid}")
@@ -643,12 +653,13 @@ public class AdminCatalogsController {
     // ═══════════════ ally-types ═══════════════
     @GetMapping("/ally-types")
     @PreAuthorize(ALLY_TYPE_VIEW)
-    public ResponseEntity<Page<AllyTypeDto>> listAllyTypes(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<AllyTypeDto>> listAllyTypes(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(allyTypeService.list(pageable, filter, q, includeInactive));
+        Page<AllyTypeDto> page = allyTypeService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, allyTypeService.effectiveSort(pageable)));
     }
 
     @GetMapping("/ally-types/options")
@@ -698,12 +709,13 @@ public class AdminCatalogsController {
     // ═══════════════ promoter-types ═══════════════
     @GetMapping("/promoter-types")
     @PreAuthorize(PROMOTER_TYPE_VIEW)
-    public ResponseEntity<Page<PromoterTypeDto>> listPromoterTypes(
-            @PageableDefault(size = 50, sort = "name") Pageable pageable,
+    public ResponseEntity<AppliedSortPage<PromoterTypeDto>> listPromoterTypes(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(promoterTypeService.list(pageable, filter, q, includeInactive));
+        Page<PromoterTypeDto> page = promoterTypeService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, promoterTypeService.effectiveSort(pageable)));
     }
 
     @GetMapping("/promoter-types/options")

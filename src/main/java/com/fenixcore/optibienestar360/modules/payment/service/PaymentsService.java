@@ -8,8 +8,11 @@ import com.fenixcore.optibienestar360.common.storage.FileValidationService;
 import com.fenixcore.optibienestar360.common.storage.FileVisibility;
 import com.fenixcore.optibienestar360.common.storage.PresignedUrlPolicy;
 import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
@@ -46,6 +49,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -92,10 +96,15 @@ public class PaymentsService {
             "referenceNumber", "adminNotes", "supportFileName"
     };
 
+    /** {@code plan_Display} → plan's catalog name (ADR 0014 default; only FK Payment's list DTO surfaces as a display column). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Payment.class, Map.of("plan_Display", "plan.name"));
+
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final PaymentMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
     private final ObjectProvider<StorageService> storageProvider;
     private final EmailService emailService;
     private final MessageSource messageSource;
@@ -123,6 +132,9 @@ public class PaymentsService {
     }
 
     public Page<PaymentDto> list(Pageable pageable, String filter, String q) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "payment", pageable, new SortOrder("receivedAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
         Specification<Payment> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -132,7 +144,12 @@ public class PaymentsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return paymentRepository.findAll(spec, pageable).map(mapper::toDto);
+        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("payment", pageable, new SortOrder("receivedAt", "DESC"));
     }
 
     private static Specification<Payment> activeOnly() {

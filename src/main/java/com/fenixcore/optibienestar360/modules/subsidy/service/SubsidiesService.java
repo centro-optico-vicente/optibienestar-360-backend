@@ -2,8 +2,11 @@ package com.fenixcore.optibienestar360.modules.subsidy.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
@@ -68,12 +71,17 @@ public class SubsidiesService {
 
     private static final String[] SEARCHABLE_FIELDS = {"reason"};
 
+    /** {@code member_Display} is a 2-hop path — {@code Subsidy.member} then {@code Member.person.fullName} (see {@code SubsidyDto.from}). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Subsidy.class, Map.of("member_Display", "member.person.fullName"));
+
     private final SubsidyRepository repository;
     private final SubsidyAuditLogRepository auditLogRepository;
     private final MemberRepository memberRepository;
     private final MembershipRepository membershipRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final UserRepository userRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -82,6 +90,9 @@ public class SubsidiesService {
     }
 
     public Page<SubsidyDto> list(Pageable pageable, UUID memberUuid, String filter, String q) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "subsidy", pageable, new SortOrder("createdAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "subsidy");
         Specification<Subsidy> spec = activeOnly();
         if (memberUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("member").get("uuid"), memberUuid));
@@ -93,7 +104,12 @@ public class SubsidiesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(SubsidyDto::from);
+        return repository.findAll(spec, resolvedPageable).map(SubsidyDto::from);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("subsidy", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     /** Self-service {@code GET /v1/me/subsidies} — the caller's own live subsidies. */

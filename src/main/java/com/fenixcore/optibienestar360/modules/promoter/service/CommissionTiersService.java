@@ -2,8 +2,11 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
@@ -21,7 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,11 +48,17 @@ public class CommissionTiersService {
             "periodStrategy", "appliesTo", "active", "status", "createdAt", "updatedAt"
     );
 
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(CommissionTier.class, Map.of(
+                    "promoterType_Display", "promoterType.name"
+            ));
+
     private static final String[] SEARCHABLE_FIELDS = {"name"};
 
     private final CommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
     private final com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository commissionRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     public CommissionTierDto get(UUID uuid) {
         return CommissionTierDto.from(findManaged(uuid));
@@ -55,6 +66,9 @@ public class CommissionTiersService {
 
     public Page<CommissionTierDto> list(Pageable pageable, String filter, String q,
                                           UUID promoterTypeUuid, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "commission_tier", pageable, new SortOrder("thresholdCount", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission_tier");
         Specification<CommissionTier> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "commission_tier.filter.field_not_allowed");
@@ -66,7 +80,12 @@ public class CommissionTiersService {
         if (promoterTypeUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
         }
-        return repository.findAll(spec, pageable).map(CommissionTierDto::from);
+        return repository.findAll(spec, resolvedPageable).map(CommissionTierDto::from);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("commission_tier", pageable, new SortOrder("thresholdCount", "ASC"));
     }
 
     @Transactional

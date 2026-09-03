@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.subsidy.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
@@ -47,10 +48,11 @@ class SubsidiesServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private UserRepository userRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private SubsidiesService sut() {
         return new SubsidiesService(repository, auditLogRepository, memberRepository,
-                membershipRepository, beneficiaryRepository, userRepository);
+                membershipRepository, beneficiaryRepository, userRepository, defaultSortResolver);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();

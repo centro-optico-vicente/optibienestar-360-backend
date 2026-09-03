@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member;
 
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberListItemDto;
@@ -11,7 +12,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,12 +48,13 @@ public class AdminMemberController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_VIEW_ALL')")
-    public ResponseEntity<Page<MemberListItemDto>> list(
-            @PageableDefault(size = 20, sort = "enrolledAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<MemberListItemDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(membersService.list(pageable, filter, q, includeInactive));
+        Page<MemberListItemDto> page = membersService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, membersService.effectiveSort(pageable)));
     }
 
     @GetMapping("/options")

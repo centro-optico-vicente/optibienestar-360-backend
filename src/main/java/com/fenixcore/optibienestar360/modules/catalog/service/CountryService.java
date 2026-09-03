@@ -3,10 +3,13 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryUpdateRequest;
@@ -27,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -38,9 +42,12 @@ public class CountryService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("isoCode", "name");
     private static final String[] SEARCHABLE_FIELDS = {"isoCode", "name"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+        SortFieldValidator.sortableFieldsOf(Country.class, Map.of());
 
     private final CountryRepository repository;
     private final StateRepository stateRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Autowired
     @Lazy
@@ -50,6 +57,9 @@ public class CountryService {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+            "country", pageable, new SortOrder("name", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "country");
         Specification<Country> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : activeOnly();
@@ -60,7 +70,12 @@ public class CountryService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(CountryService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(CountryService::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("country", pageable, new SortOrder("name", "ASC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

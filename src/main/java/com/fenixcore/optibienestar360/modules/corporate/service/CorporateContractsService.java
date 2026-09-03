@@ -2,8 +2,11 @@ package com.fenixcore.optibienestar360.modules.corporate.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.dto.CorporateBulkEnrollResponse;
@@ -33,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -61,12 +65,17 @@ public class CorporateContractsService {
 
     private static final String[] SEARCHABLE_FIELDS = {"institutionName", "institutionTaxId"};
 
+    /** {@code plan_Display} → plan's catalog name (ADR 0014 default; only FK the list DTO surfaces as a display column). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(CorporateContract.class, Map.of("plan_Display", "plan.name"));
+
     private final CorporateContractRepository repository;
     private final PlanRepository planRepository;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final MembersService membersService;
     private final MemberMapper memberMapper;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -75,6 +84,9 @@ public class CorporateContractsService {
     }
 
     public Page<CorporateContractDto> list(Pageable pageable, String filter, String q) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "corporate_contract", pageable, new SortOrder("createdAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "corporate_contract");
         Specification<CorporateContract> spec = activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -84,7 +96,12 @@ public class CorporateContractsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(CorporateContractDto::from);
+        return repository.findAll(spec, resolvedPageable).map(CorporateContractDto::from);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("corporate_contract", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     /** A contract's active member portfolio ({@code GET /{uuid}/members}). */

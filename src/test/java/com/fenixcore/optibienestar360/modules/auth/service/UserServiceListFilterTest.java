@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
@@ -47,15 +48,18 @@ class UserServiceListFilterTest {
     @Mock private PersonService personService;
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private PromoterRepository promoterRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private UserService userService;
 
     private static final UUID ACTOR_UUID = UUID.randomUUID();
 
     private UserService newService() {
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
         return new UserService(userRepository, roleRepository, userRoleRepository,
                 userMapper, passwordEncoder, blacklistService, personService,
-                allyUserRepository, promoterRepository);
+                allyUserRepository, promoterRepository, defaultSortResolver);
     }
 
     @Test

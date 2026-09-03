@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.scheduling.service.JobExecutionSer
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ManualRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ScheduledJobsService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -58,12 +59,13 @@ public class AdminScheduledJobController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('JOB_VIEW_ALL')")
-    public ResponseEntity<Page<ScheduledJobDto>> list(
-            @PageableDefault(size = 50, sort = "code", direction = Sort.Direction.ASC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<ScheduledJobDto>> list(
+            @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(jobsService.list(pageable, filter, q, includeInactive));
+        Page<ScheduledJobDto> page = jobsService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

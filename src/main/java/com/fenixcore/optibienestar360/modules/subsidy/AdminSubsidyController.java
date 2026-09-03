@@ -5,12 +5,12 @@ import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidiesService;
+import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,12 +46,13 @@ public class AdminSubsidyController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('SUBSIDY_VIEW_ALL')")
-    public ResponseEntity<Page<SubsidyDto>> list(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+    public ResponseEntity<AppliedSortPage<SubsidyDto>> list(
+            @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) UUID memberUuid,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(service.list(pageable, memberUuid, filter, q));
+        Page<SubsidyDto> page = service.list(pageable, memberUuid, filter, q);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 
     @GetMapping("/{uuid}")

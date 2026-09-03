@@ -12,6 +12,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionBonu
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,6 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,9 +40,12 @@ class BonusRulesServiceTest {
 
     @Mock private CommissionBonusRuleRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private BonusRulesService service() {
-        return new BonusRulesService(repository, promoterTypeRepository);
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        return new BonusRulesService(repository, promoterTypeRepository, defaultSortResolver);
     }
 
     @Test

@@ -1,7 +1,10 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -20,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -46,6 +50,11 @@ public class CommissionsService {
             "promoter.uuid"
     );
 
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Commission.class, Map.of(
+                    "promoter_Display", "promoter.displayName"
+            ));
+
     private static final String[] SEARCHABLE_FIELDS = {
             "payoutReference", "adminNotes", "tierNameSnapshot", "voidReason"
     };
@@ -54,6 +63,7 @@ public class CommissionsService {
     private final CommissionMapper mapper;
     private final CommissionPeriodSummaryRepository periodSummaryRepository;
     private final PromoterRepository promoterRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -86,6 +96,9 @@ public class CommissionsService {
      * liquidation path).
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "commission", pageable, new SortOrder("earnedAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission");
         Specification<Commission> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -95,7 +108,12 @@ public class CommissionsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("commission", pageable, new SortOrder("earnedAt", "DESC"));
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

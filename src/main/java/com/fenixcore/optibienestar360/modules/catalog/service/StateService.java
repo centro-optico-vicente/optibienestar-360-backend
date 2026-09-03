@@ -4,10 +4,13 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateUpdateRequest;
@@ -30,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -41,10 +45,13 @@ public class StateService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "country");
     private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+        SortFieldValidator.sortableFieldsOf(State.class, Map.of("country_Display", "country.name"));
 
     private final StateRepository repository;
     private final CountryRepository countryRepository;
     private final CityRepository cityRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Autowired @Lazy
     private StateService self;
@@ -53,6 +60,9 @@ public class StateService {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, countryIsoCode)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+            "state", pageable, new SortOrder("name", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "state");
         Specification<State> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
@@ -67,7 +77,12 @@ public class StateService {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("country").get("isoCode"), countryIsoCode));
         }
-        return repository.findAll(spec, pageable).map(StateService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(StateService::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("state", pageable, new SortOrder("name", "ASC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

@@ -4,10 +4,13 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -42,11 +46,14 @@ public class CityService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("name", "state");
     private static final String[] SEARCHABLE_FIELDS = {"name"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+        SortFieldValidator.sortableFieldsOf(City.class, Map.of("state_Display", "state.name"));
 
     private final CityRepository repository;
     private final StateRepository stateRepository;
     private final AllyRepository allyRepository;
     private final PersonRepository personRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     @Autowired @Lazy
     private CityService self;
@@ -56,6 +63,9 @@ public class CityService {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, stateUuid, stateCode)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+            "city", pageable, new SortOrder("name", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "city");
         Specification<City> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
@@ -73,7 +83,12 @@ public class CityService {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("state").get("code"), stateCode));
         }
-        return repository.findAll(spec, pageable).map(CityService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(CityService::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("city", pageable, new SortOrder("name", "ASC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. {@code code} is always null (City has no own code). */

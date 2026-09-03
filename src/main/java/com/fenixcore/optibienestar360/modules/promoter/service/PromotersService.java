@@ -2,8 +2,11 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -32,6 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -62,6 +67,14 @@ public class PromotersService {
             "displayName", "description", "referralCode", "email", "phone"
     };
 
+    /** {@code user_Display} → login email, {@code person_Display} → full name, {@code promoterType_Display} → catalog name (ADR 0014 defaults, see DisplayRefs). */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Promoter.class, Map.of(
+                    "user_Display", "user.email",
+                    "person_Display", "person.fullName",
+                    "promoterType_Display", "promoterType.name"
+            ));
+
     /** Length of an auto-generated promoter code — short per PDF #4 ("ej. 6 chars"). */
     private static final int GENERATED_CODE_LENGTH = 6;
 
@@ -78,6 +91,7 @@ public class PromotersService {
     private final LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
     private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     private final PromoterMemberContactRepository promoterMemberContactRepository;
+    private final DefaultSortResolver defaultSortResolver;
     private final SecureRandom random = new SecureRandom();
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -87,6 +101,9 @@ public class PromotersService {
     }
 
     public Page<PromoterDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "promoter", pageable, new SortOrder("displayName", "ASC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "promoter");
         Specification<Promoter> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
@@ -96,7 +113,12 @@ public class PromotersService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, pageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("promoter", pageable, new SortOrder("displayName", "ASC"));
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────

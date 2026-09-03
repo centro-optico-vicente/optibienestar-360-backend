@@ -3,9 +3,12 @@ package com.fenixcore.optibienestar360.modules.member.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Gender;
@@ -93,6 +96,23 @@ public class MembersService {
             "person.fullName", "person.documentNumber", "person.email", "person.phone"
     };
 
+    /**
+     * {@code city_Display} and {@code currentPromoter_Display} (ADR 0014)
+     * aren't {@code Member}'s own fields — {@code city} lives on
+     * {@code person} (2-hop path) and {@code currentPromoter} is the
+     * DTO name for the entity's {@code promoter} relation (see
+     * {@code MemberMapper.toListItem}).
+     */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Member.class, Map.of(
+                    "fullName", "person.fullName",
+                    "documentType", "person.documentType",
+                    "documentNumber", "person.documentNumber",
+                    "phone", "person.phone",
+                    "city_Display", "person.city.name",
+                    "currentPromoter_Display", "promoter.displayName"
+            ));
+
     private final MemberRepository memberRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final MemberDocumentRepository documentRepository;
@@ -112,6 +132,7 @@ public class MembersService {
     private final ReferralRepository referralRepository;
     private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     private final PromoterMemberContactRepository promoterMemberContactRepository;
+    private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -135,6 +156,9 @@ public class MembersService {
     }
 
     public Page<MemberListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
+                "member", pageable, new SortOrder("enrolledAt", "DESC"));
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "member");
         Specification<Member> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "member.filter.field_not_allowed");
@@ -143,7 +167,12 @@ public class MembersService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return memberRepository.findAll(spec, pageable).map(mapper::toListItem);
+        return memberRepository.findAll(spec, resolvedPageable).map(mapper::toListItem);
+    }
+
+    /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    public List<SortOrder> effectiveSort(Pageable pageable) {
+        return defaultSortResolver.effectiveSort("member", pageable, new SortOrder("enrolledAt", "DESC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
