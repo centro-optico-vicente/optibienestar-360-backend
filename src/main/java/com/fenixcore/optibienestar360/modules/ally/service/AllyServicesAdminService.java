@@ -59,7 +59,7 @@ public class AllyServicesAdminService {
     public List<AllyServiceDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_service", pageable, new SortOrder("name", "ASC"));
+                "ally_service", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_service");
         return serviceRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(service -> mapper.toServiceDto(service, publicBaseUrl))

@@ -102,7 +102,7 @@ public class PromotersService {
 
     public Page<PromoterDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "promoter", pageable, new SortOrder("displayName", "ASC"));
+                "promoter", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "promoter");
         Specification<Promoter> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
         if (filter != null && !filter.isBlank()) {
@@ -118,7 +118,7 @@ public class PromotersService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("promoter", pageable, new SortOrder("displayName", "ASC"));
+        return defaultSortResolver.effectiveSort("promoter", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────

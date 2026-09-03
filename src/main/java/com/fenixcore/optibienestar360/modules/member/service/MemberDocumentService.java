@@ -111,7 +111,7 @@ public class MemberDocumentService {
     public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, Pageable pageable) {
         Member member = findMember(memberUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "member_document", pageable, new SortOrder("uploadedAt", "DESC"));
+                "member_document", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "member_document");
         return documentRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
                 .filter(d -> hasViewAll || visibleTo(d, currentUserUuid))

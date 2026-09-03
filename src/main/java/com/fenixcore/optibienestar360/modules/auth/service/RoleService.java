@@ -240,7 +240,7 @@ public class RoleService {
     public List<RoleUserDto> listUsers(UUID roleUuid, Pageable pageable) {
         Role role = findRole(roleUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "role_user", pageable, new SortOrder("fullName", "ASC"));
+                "role_user", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolved = SortFieldValidator.resolve(defaulted, ROLE_USER_SORTABLE_FIELDS, "role_user");
         return userRoleRepository.findByRoleIdAndActiveTrue(role.getId(), resolved.getSort()).stream()
                 .map(UserRole::getUser)

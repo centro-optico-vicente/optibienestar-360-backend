@@ -68,7 +68,7 @@ public class AllyUsersService {
     public List<AllyUserDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_user", pageable, new SortOrder("joinedAt", "DESC"));
+                "ally_user", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_user");
         return allyUserRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(mapper::toAllyUserDto)

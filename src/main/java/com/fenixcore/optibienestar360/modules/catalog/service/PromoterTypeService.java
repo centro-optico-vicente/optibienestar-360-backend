@@ -56,7 +56,7 @@ public class PromoterTypeService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "promoter_type", pageable, new SortOrder("name", "ASC"));
+            "promoter_type", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "promoter_type");
         Specification<PromoterType> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -73,7 +73,7 @@ public class PromoterTypeService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("promoter_type", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("promoter_type", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */

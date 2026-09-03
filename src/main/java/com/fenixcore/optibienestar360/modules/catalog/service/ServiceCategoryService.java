@@ -56,7 +56,7 @@ public class ServiceCategoryService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "service_category", pageable, new SortOrder("name", "ASC"));
+            "service_category", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "service_category");
         Specification<ServiceCategory> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -73,7 +73,7 @@ public class ServiceCategoryService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("service_category", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("service_category", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     @Cacheable(value = "catalogs", key = "'service_category:all'")

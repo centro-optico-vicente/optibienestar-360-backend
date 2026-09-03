@@ -358,7 +358,7 @@ public class AlliesService {
             listSpecialties(UUID allyUuid, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_specialty", pageable, new SortOrder("name", "ASC"));
+                "ally_specialty", pageable, new SortOrder("createdAt", "DESC"));
         Sort sort = SortFieldValidator.resolve(defaulted, SPECIALTY_SORTABLE_FIELDS, "ally_specialty").getSort();
         // `Ally.specialties` is an in-memory `@ManyToMany` Set (no natural order, not backed
         // by a repository query) — sorted here by reflection instead of at the DB.
@@ -374,6 +374,7 @@ public class AlliesService {
                 case "code" -> Comparator.comparing(MedicalSpecialty::getCode, String.CASE_INSENSITIVE_ORDER);
                 case "name" -> Comparator.comparing(MedicalSpecialty::getName, String.CASE_INSENSITIVE_ORDER);
                 case "active" -> Comparator.comparing(MedicalSpecialty::isActive);
+                case "createdAt" -> Comparator.comparing(MedicalSpecialty::getCreatedAt);
                 default -> null;
             };
             if (fieldComparator == null) {
@@ -384,7 +385,8 @@ public class AlliesService {
             }
             comparator = comparator == null ? fieldComparator : comparator.thenComparing(fieldComparator);
         }
-        return comparator != null ? comparator : Comparator.comparing(MedicalSpecialty::getName, String.CASE_INSENSITIVE_ORDER);
+        return comparator != null ? comparator
+                : Comparator.comparing(MedicalSpecialty::getCreatedAt).reversed();
     }
 
     /**

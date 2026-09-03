@@ -58,7 +58,7 @@ public class AllyTypeService {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "ally_type", pageable, new SortOrder("name", "ASC"));
+            "ally_type", pageable, new SortOrder("createdAt", "DESC"));
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally_type");
         Specification<AllyType> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
@@ -75,7 +75,7 @@ public class AllyTypeService {
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("ally_type", pageable, new SortOrder("name", "ASC"));
+        return defaultSortResolver.effectiveSort("ally_type", pageable, new SortOrder("createdAt", "DESC"));
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
