@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.Relationship;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -53,10 +54,11 @@ class BeneficiariesServiceTest {
     @Mock private BeneficiaryInscriptionBiller inscriptionBiller;
     @Mock private SubsidyResolver subsidyResolver;
     @Mock private MemberMapper mapper;
+    @Mock private DefaultSortResolver defaultSortResolver;
 
     private BeneficiariesService sut() {
         return new BeneficiariesService(memberRepository, beneficiaryRepository, membershipRepository,
-                personService, inscriptionBiller, subsidyResolver, mapper);
+                personService, inscriptionBiller, subsidyResolver, mapper, defaultSortResolver);
     }
 
     private static final BigDecimal FEE = new BigDecimal("5.00");
@@ -193,7 +195,7 @@ class BeneficiariesServiceTest {
         Member member = member();
         UUID userUuid = UUID.randomUUID();
         when(memberRepository.findByUserUuid(userUuid)).thenReturn(Optional.of(member));
-        when(beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()))
+        when(beneficiaryRepository.findByMemberIdAndActiveTrue(eq(member.getId()), any()))
                 .thenReturn(List.of(new Beneficiary()));
 
         assertThat(sut().listForUser(userUuid)).hasSize(1);

@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementUpdateRequest;
@@ -11,10 +13,12 @@ import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -29,13 +33,19 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AllyAgreementsService {
 
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyAgreement.class, Map.of());
+
     private final AllyRepository allyRepository;
     private final AllyAgreementRepository agreementRepository;
     private final AllyMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
 
-    public List<AllyAgreementDto> listForAlly(UUID allyUuid) {
+    public List<AllyAgreementDto> listForAlly(UUID allyUuid, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
-        return agreementRepository.findByAllyIdAndActiveTrue(ally.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("ally_agreement", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_agreement");
+        return agreementRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
                 .map(mapper::toAgreementDto)
                 .toList();
     }

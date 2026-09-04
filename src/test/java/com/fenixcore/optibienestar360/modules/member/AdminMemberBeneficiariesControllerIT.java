@@ -83,7 +83,7 @@ class AdminMemberBeneficiariesControllerIT {
 
     @Test
     void list_withPermission_is200() throws Exception {
-        when(beneficiariesService.listForMember(any())).thenReturn(List.of(dto()));
+        when(beneficiariesService.listForMember(any(), any())).thenReturn(List.of(dto()));
 
         mockMvc.perform(get("/v1/admin/members/{m}/beneficiaries", UUID.randomUUID())
                         .with(principal("MEMBER_VIEW_ALL")))

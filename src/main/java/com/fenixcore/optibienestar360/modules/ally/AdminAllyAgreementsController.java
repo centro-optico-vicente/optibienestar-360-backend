@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementUpdateReques
 import com.fenixcore.optibienestar360.modules.ally.service.AllyAgreementsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,8 +42,8 @@ public class AdminAllyAgreementsController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_AGREEMENT_VIEW_ALL')")
-    public ResponseEntity<List<AllyAgreementDto>> list(@PathVariable UUID allyUuid) {
-        return ResponseEntity.ok(agreementsService.listForAlly(allyUuid));
+    public ResponseEntity<List<AllyAgreementDto>> list(@PathVariable UUID allyUuid, Pageable pageable) {
+        return ResponseEntity.ok(agreementsService.listForAlly(allyUuid, pageable));
     }
 
     @GetMapping("/{uuid}")

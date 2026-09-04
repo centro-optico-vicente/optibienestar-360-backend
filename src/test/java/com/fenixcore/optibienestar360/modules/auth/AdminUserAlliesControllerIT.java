@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -81,7 +83,7 @@ class AdminUserAlliesControllerIT {
     void withAllyViewAll_returns200WithMemberships() throws Exception {
         UUID userUuid = UUID.randomUUID();
         UUID allyUuid = UUID.randomUUID();
-        when(allyUsersService.listAlliesForUser(userUuid)).thenReturn(List.of(
+        when(allyUsersService.listAlliesForUser(eq(userUuid), any())).thenReturn(List.of(
                 new UserAllyDto(new DisplayRef(allyUuid, null, "Optica Central"), AllyRole.STAFF, false,
                         LocalDate.of(2026, 1, 15), true)));
 
@@ -98,7 +100,7 @@ class AdminUserAlliesControllerIT {
     @Test
     void withNoMemberships_returnsEmptyList() throws Exception {
         UUID userUuid = UUID.randomUUID();
-        when(allyUsersService.listAlliesForUser(userUuid)).thenReturn(List.of());
+        when(allyUsersService.listAlliesForUser(eq(userUuid), any())).thenReturn(List.of());
 
         mockMvc.perform(get(URL, userUuid).with(principal("ALLY_VIEW_ALL")))
                 .andExpect(status().isOk())
@@ -108,7 +110,7 @@ class AdminUserAlliesControllerIT {
     @Test
     void unknownUser_maps404() throws Exception {
         UUID userUuid = UUID.randomUUID();
-        when(allyUsersService.listAlliesForUser(userUuid))
+        when(allyUsersService.listAlliesForUser(eq(userUuid), any()))
                 .thenThrow(new NoSuchElementException("user.not_found"));
 
         mockMvc.perform(get(URL, userUuid).with(principal("ALLY_VIEW_ALL")))

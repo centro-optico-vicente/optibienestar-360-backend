@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.member.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryUpdateRequest;
@@ -18,12 +20,15 @@ import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidyResolver;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +66,17 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class BeneficiariesService {
 
+    /** {@code fullName}/{@code documentType}/{@code documentNumber}/{@code birthDate}/{@code phone}/{@code email} are flattened Person columns, not on {@code Beneficiary} itself. */
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Beneficiary.class, Map.of(
+                    "fullName", "person.fullName",
+                    "documentType", "person.documentType",
+                    "documentNumber", "person.documentNumber",
+                    "birthDate", "person.birthDate",
+                    "phone", "person.phone",
+                    "email", "person.email"
+            ));
+
     private final MemberRepository memberRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final MembershipRepository membershipRepository;
@@ -68,10 +84,13 @@ public class BeneficiariesService {
     private final BeneficiaryInscriptionBiller inscriptionBiller;
     private final SubsidyResolver subsidyResolver;
     private final MemberMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
 
-    public List<BeneficiaryDto> listForMember(UUID memberUuid) {
+    public List<BeneficiaryDto> listForMember(UUID memberUuid, Pageable pageable) {
         Member member = findMember(memberUuid);
-        return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("beneficiary", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "beneficiary");
+        return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -87,7 +106,7 @@ public class BeneficiariesService {
         Member member = memberRepository.findByUserUuid(userUuid)
                 .filter(Member::isActive)
                 .orElseThrow(() -> new NoSuchElementException("me.member.not_enrolled"));
-        return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId()).stream()
+        return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId(), Sort.unsorted()).stream()
                 .map(this::toDto)
                 .toList();
     }

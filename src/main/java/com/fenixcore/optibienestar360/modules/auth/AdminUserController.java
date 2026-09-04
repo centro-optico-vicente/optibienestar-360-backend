@@ -103,8 +103,8 @@ public class AdminUserController {
      */
     @GetMapping("/{uuid}/allies")
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
-    public ResponseEntity<List<UserAllyDto>> allies(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(allyUsersService.listAlliesForUser(uuid));
+    public ResponseEntity<List<UserAllyDto>> allies(@PathVariable UUID uuid, Pageable pageable) {
+        return ResponseEntity.ok(allyUsersService.listAlliesForUser(uuid, pageable));
     }
 
     @DeleteMapping("/{uuid}")
