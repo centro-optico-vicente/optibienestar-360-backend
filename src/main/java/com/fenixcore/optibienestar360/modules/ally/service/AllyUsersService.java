@@ -58,6 +58,12 @@ public class AllyUsersService {
                     "userEmail", "user.email"
             ));
 
+    /** Reverse lookup (user → allies): {@code ally_Display} is the ally's own name (ADR 0014). */
+    private static final Map<String, SortFieldValidator.SortableField> REVERSE_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyUser.class, Map.of(
+                    "ally_Display", "ally.name"
+            ));
+
     private final AllyRepository allyRepository;
     private final AllyUserRepository allyUserRepository;
     private final UserRepository userRepository;
@@ -86,10 +92,12 @@ public class AllyUsersService {
      *
      * @throws NoSuchElementException if no user exists with that uuid.
      */
-    public List<UserAllyDto> listAlliesForUser(UUID userUuid) {
+    public List<UserAllyDto> listAlliesForUser(UUID userUuid, Pageable pageable) {
         User user = userRepository.findByUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
-        return allyUserRepository.findByUserIdAndActiveTrue(user.getId()).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("user_ally", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, REVERSE_SORTABLE_FIELDS, "user_ally");
+        return allyUserRepository.findByUserIdAndActiveTrue(user.getId(), resolved.getSort()).stream()
                 .map(mapper::toUserAllyDto)
                 .toList();
     }

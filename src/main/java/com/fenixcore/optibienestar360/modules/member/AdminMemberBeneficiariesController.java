@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryUpdateReques
 import com.fenixcore.optibienestar360.modules.member.service.BeneficiariesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,8 +40,8 @@ public class AdminMemberBeneficiariesController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_VIEW_ALL')")
-    public ResponseEntity<List<BeneficiaryDto>> list(@PathVariable UUID memberUuid) {
-        return ResponseEntity.ok(beneficiariesService.listForMember(memberUuid));
+    public ResponseEntity<List<BeneficiaryDto>> list(@PathVariable UUID memberUuid, Pageable pageable) {
+        return ResponseEntity.ok(beneficiariesService.listForMember(memberUuid, pageable));
     }
 
     @GetMapping("/{uuid}")

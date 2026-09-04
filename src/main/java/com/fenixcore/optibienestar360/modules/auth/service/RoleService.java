@@ -46,6 +46,9 @@ public class RoleService {
     private static final String ROLE_PERMISSION_EDIT = "ROLE_PERMISSION_EDIT";
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
+    private static final Map<String, SortFieldValidator.SortableField> ROLE_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Role.class, Map.of());
+
     /** {@code fullName}/{@code email}/{@code status}/{@code active} are flattened User(+Person) columns, not on {@code UserRole} itself. */
     private static final Map<String, SortFieldValidator.SortableField> ROLE_USER_SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(UserRole.class, Map.of(
@@ -70,14 +73,16 @@ public class RoleService {
         ;
     }
 
-    public List<RoleDto> list(String q, boolean includeInactive) {
+    public List<RoleDto> list(String q, boolean includeInactive, Pageable pageable) {
         Specification<Role> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return roleRepository.findAll(spec).stream()
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("role", pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, ROLE_SORTABLE_FIELDS, "role");
+        return roleRepository.findAll(spec, resolved.getSort()).stream()
                 .map(userMapper::roleToDto)
                 .toList();
     }

@@ -27,7 +27,7 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
     long countByUserId(Long userId);
 
     /** Listings on the user side: "what allies does this user belong to?". */
-    List<AllyUser> findByUserIdAndActiveTrue(Long userId);
+    List<AllyUser> findByUserIdAndActiveTrue(Long userId, Sort sort);
 
     /** Listings on the ally side. */
     List<AllyUser> findByAllyIdAndActiveTrue(Long allyId, Sort sort);

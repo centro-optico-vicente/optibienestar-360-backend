@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.repository;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,7 @@ public interface AllyAgreementRepository extends JpaRepository<AllyAgreement, Lo
 
     Optional<AllyAgreement> findByUuid(UUID uuid);
 
-    List<AllyAgreement> findByAllyIdAndActiveTrue(Long allyId);
+    List<AllyAgreement> findByAllyIdAndActiveTrue(Long allyId, Sort sort);
 
     /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
     long countByAllyId(Long allyId);

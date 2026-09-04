@@ -15,7 +15,7 @@ public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long>,
 
     Optional<Beneficiary> findByUuid(UUID uuid);
 
-    List<Beneficiary> findByMemberIdAndActiveTrue(Long memberId);
+    List<Beneficiary> findByMemberIdAndActiveTrue(Long memberId, org.springframework.data.domain.Sort sort);
 
     /** Where else is this person a beneficiary? (validator + digital card flows). */
     List<Beneficiary> findByPersonIdAndActiveTrue(Long personId);

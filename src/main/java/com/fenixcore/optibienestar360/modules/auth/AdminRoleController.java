@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -41,8 +42,9 @@ public class AdminRoleController {
     @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<List<RoleDto>> list(
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(roleService.list(q, includeInactive));
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            Pageable pageable) {
+        return ResponseEntity.ok(roleService.list(q, includeInactive, pageable));
     }
 
     @GetMapping("/options")

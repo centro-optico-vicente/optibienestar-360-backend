@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,6 +26,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +51,8 @@ class AllyUsersServiceListAlliesForUserTest {
     @BeforeEach
     void setup() {
         service = new AllyUsersService(allyRepository, allyUserRepository, userRepository, new AllyMapperImpl(), defaultSortResolver);
+        lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
     }
 
     @Test
@@ -55,7 +60,7 @@ class AllyUsersServiceListAlliesForUserTest {
         UUID userUuid = UUID.randomUUID();
         when(userRepository.findByUuid(userUuid)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.listAlliesForUser(userUuid))
+        assertThatThrownBy(() -> service.listAlliesForUser(userUuid, Pageable.unpaged()))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("user.not_found");
 
@@ -67,9 +72,9 @@ class AllyUsersServiceListAlliesForUserTest {
         UUID userUuid = UUID.randomUUID();
         User user = user(1L, userUuid);
         when(userRepository.findByUuid(userUuid)).thenReturn(Optional.of(user));
-        when(allyUserRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of());
+        when(allyUserRepository.findByUserIdAndActiveTrue(eq(1L), any())).thenReturn(List.of());
 
-        assertThat(service.listAlliesForUser(userUuid)).isEmpty();
+        assertThat(service.listAlliesForUser(userUuid, Pageable.unpaged())).isEmpty();
     }
 
     @Test
@@ -80,9 +85,9 @@ class AllyUsersServiceListAlliesForUserTest {
         AllyUser pivot = pivot(ally, AllyRole.OWNER, true);
 
         when(userRepository.findByUuid(userUuid)).thenReturn(Optional.of(user));
-        when(allyUserRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of(pivot));
+        when(allyUserRepository.findByUserIdAndActiveTrue(eq(1L), any())).thenReturn(List.of(pivot));
 
-        UserAllyDto dto = service.listAlliesForUser(userUuid).getFirst();
+        UserAllyDto dto = service.listAlliesForUser(userUuid, Pageable.unpaged()).getFirst();
 
         assertThat(dto.ally().uuid()).isEqualTo(ally.getUuid());
         assertThat(dto.ally().name()).isEqualTo("Optica Central");
