@@ -24,6 +24,7 @@ CREATE TABLE currencies
     decimal_places SMALLINT     NOT NULL DEFAULT 2 CHECK (decimal_places >= 0),
 
     is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
+    status         VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE',
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     created_by     UUID,

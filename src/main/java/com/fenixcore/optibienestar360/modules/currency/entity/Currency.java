@@ -1,6 +1,6 @@
 package com.fenixcore.optibienestar360.modules.currency.entity;
 
-import com.fenixcore.optibienestar360.core.entity.BaseAuditEntity;
+import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,7 +25,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "currencies")
 @AttributeOverride(name = "id", column = @Column(name = "currencies_id", nullable = false, updatable = false))
-public class Currency extends BaseAuditEntity {
+public class Currency extends BaseEntity {
 
     @Column(length = 4, unique = true, nullable = false)
     private String code;
