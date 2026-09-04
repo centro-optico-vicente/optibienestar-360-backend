@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -57,8 +58,9 @@ public class LeaderboardPrizeAward extends BaseEntity {
     @Column(name = "prize_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal prizeAmount;
 
-    @Column(name = "prize_currency", length = 3, nullable = false)
-    private String prizeCurrency = "USD";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "prize_currency_id", nullable = false)
+    private Currency prizeCurrency;
 
     @Column(name = "awarded_at", nullable = false)
     private Instant awardedAt = Instant.now();

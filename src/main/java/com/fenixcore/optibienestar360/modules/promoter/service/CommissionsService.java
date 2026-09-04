@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -42,7 +43,7 @@ import java.util.UUID;
 public class CommissionsService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "appliesTo", "periodStrategy", "currency",
+            "status", "appliesTo", "periodStrategy", "currency.code",
             "amount", "commissionPct", "flatAmount", "calculationBasis",
             "periodStart", "periodEnd", "earnedAt",
             "paidAt", "voidedAt",
@@ -65,6 +66,7 @@ public class CommissionsService {
     private final CommissionMapper mapper;
     private final CommissionPeriodSummaryRepository periodSummaryRepository;
     private final PromoterRepository promoterRepository;
+    private final CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -80,14 +82,17 @@ public class CommissionsService {
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
         return periodSummaryRepository.findByPromoterIdOrderByPeriodStartDesc(promoter.getId())
                 .stream()
-                .map(CommissionsService::toSummaryDto)
+                .map(this::toSummaryDto)
                 .toList();
     }
 
-    private static CommissionPeriodSummaryDto toSummaryDto(CommissionPeriodSummary s) {
+    private CommissionPeriodSummaryDto toSummaryDto(CommissionPeriodSummary s) {
+        String currencyCode = s.getCurrencyId() != null
+                ? currencyRepository.findById(s.getCurrencyId()).map(c -> c.getCode()).orElse(null)
+                : null;
         return new CommissionPeriodSummaryDto(
                 s.getPeriodStrategy(), s.getPeriodStart(), s.getPeriodEnd(),
-                s.getCommissionCount(), s.getTotalAmount(), s.getCurrency());
+                s.getCommissionCount(), s.getTotalAmount(), currencyCode);
     }
 
     /**

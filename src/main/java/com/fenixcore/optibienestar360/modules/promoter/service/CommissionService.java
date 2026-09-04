@@ -151,7 +151,7 @@ public class CommissionService {
 
         Commission saved = commissionRepository.save(commission);
         log.info("Commission persisted: payment={} promoter={} amount={} {} tier={}",
-                payment.getUuid(), promoter.getReferralCode(), saved.getAmount(), saved.getCurrency(),
+                payment.getUuid(), promoter.getReferralCode(), saved.getAmount(), saved.getCurrency().getCode(),
                 saved.getTierNameSnapshot());
         return Optional.of(saved);
     }

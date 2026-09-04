@@ -56,7 +56,7 @@ public record BonusRuleDto(
                 r.getRewardType(),
                 r.getFlatAmount(),
                 r.getRewardPct(),
-                r.getRewardCurrency(),
+                r.getRewardCurrency().getCode(),
                 r.isIncludeSystemPromoters(),
                 r.isActive(),
                 r.getCreatedAt());

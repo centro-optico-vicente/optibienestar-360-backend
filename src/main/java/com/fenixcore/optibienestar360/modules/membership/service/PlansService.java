@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
@@ -64,6 +65,7 @@ public class PlansService {
     private final PlanMapper mapper;
     private final MembershipRepository membershipRepository;
     private final CorporateContractRepository corporateContractRepository;
+    private final CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -148,6 +150,10 @@ public class PlansService {
         plan.setType(req.type());
         plan.setInscriptionFee(req.inscriptionFee());
         plan.setMonthlyFee(req.monthlyFee());
+        // Plan pricing is USD today (ADR 0008); no per-plan currency knob on the
+        // create payload yet (v2 follow-up per ADR 0015).
+        plan.setCurrency(currencyRepository.findByCode("USD")
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found")));
         if (req.includedBeneficiaries() != null) plan.setIncludedBeneficiaries(req.includedBeneficiaries());
         plan.setMaxBeneficiaries(req.maxBeneficiaries());
         plan.setExtraBeneficiaryInscriptionFee(req.extraBeneficiaryInscriptionFee());

@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceReposit
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class AllyServicesProposeService {
     private final AllyUserRepository allyUserRepository;
     private final AllyServiceRepository serviceRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
+    private final CurrencyRepository currencyRepository;
     private final AllyMapper mapper;
 
     /**
@@ -75,7 +77,12 @@ public class AllyServicesProposeService {
         service.setServiceCategory(category);
         service.setName(req.name());
         service.setDescription(req.description());
-        service.setPriceUsd(req.priceUsd());
+        service.setPriceAmount(req.priceAmount());
+        // Reference price is always entered in USD today (mirrors V91 backfill).
+        if (req.priceAmount() != null) {
+            service.setPriceCurrency(currencyRepository.findByCode("USD")
+                    .orElseThrow(() -> new IllegalStateException("currency.usd_not_seeded")));
+        }
         service.setDiscountPct(req.discountPct());
         if (req.requiresAppointment() != null) {
             service.setRequiresAppointment(req.requiresAppointment());

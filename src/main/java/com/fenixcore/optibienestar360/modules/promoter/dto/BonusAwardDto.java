@@ -54,7 +54,7 @@ public record BonusAwardDto(
                 a.getRewardPct(),
                 a.getBasisAmount(),
                 a.getAmount(),
-                a.getRewardCurrency(),
+                a.getRewardCurrency().getCode(),
                 a.getStatus(),
                 a.getEvaluatedAt(),
                 a.getCreatedAt());

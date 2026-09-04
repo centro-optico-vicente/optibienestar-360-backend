@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -36,6 +38,7 @@ class ReferralServiceTest {
 
     @Mock private ReferralRepository referralRepository;
     @Mock private MemberRepository memberRepository;
+    @Mock private CurrencyRepository currencyRepository;
 
     @InjectMocks private ReferralService service;
 
@@ -48,6 +51,7 @@ class ReferralServiceTest {
         when(memberRepository.findByReferralCode("ABC123")).thenReturn(Optional.of(referrer));
         when(referralRepository.existsActiveByReferrerAndReferred(10L, 20L)).thenReturn(false);
         when(referralRepository.save(any(Referral.class))).thenAnswer(i -> i.getArgument(0));
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd()));
 
         Optional<Referral> result = service.registerOnEnrollment(referred, "ABC123");
 
@@ -58,7 +62,7 @@ class ReferralServiceTest {
         assertThat(r.getReferralCode()).isEqualTo("ABC123");
         assertThat(r.getStatus()).isEqualTo(ReferralStatus.REGISTERED.name());
         assertThat(r.getRewardPct()).isEqualByComparingTo("10.00");
-        assertThat(r.getRewardCurrency()).isEqualTo("USD");
+        assertThat(r.getRewardCurrency().getCode()).isEqualTo("USD");
         assertThat(r.getRewardFlatAmount()).isNull();
         assertThat(r.getEnrolledAt()).isNotNull();
     }
@@ -70,6 +74,7 @@ class ReferralServiceTest {
         when(memberRepository.findByReferralCode("ABC123")).thenReturn(Optional.of(referrer));
         when(referralRepository.existsActiveByReferrerAndReferred(10L, 20L)).thenReturn(false);
         when(referralRepository.save(any(Referral.class))).thenAnswer(i -> i.getArgument(0));
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd()));
 
         Optional<Referral> result = service.registerOnEnrollment(referred, "  ABC123  ");
 
@@ -240,9 +245,18 @@ class ReferralServiceTest {
         r.setReferralCode(referrer.getReferralCode());
         r.setEnrolledAt(enrolledAt);
         r.setRewardPct(new BigDecimal("10.00"));
-        r.setRewardCurrency("USD");
+        r.setRewardCurrency(usd());
         r.setStatus(ReferralStatus.REGISTERED.name());
         return r;
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     private static Payment paymentFor(Member member) {

@@ -13,6 +13,7 @@ public interface PaymentMapper {
     @Mapping(target = "membershipUuid",       source = "membership.uuid")
     @Mapping(target = "memberUuid",           source = "membership.member.uuid")
     @Mapping(target = "plan",                 source = "membership.plan")
+    @Mapping(target = "currency",             source = "currency.code")
     @Mapping(target = "payerUserUuid",        source = "payerUser.uuid")
     @Mapping(target = "reviewedByUserUuid",   source = "reviewedBy.uuid")
     @Mapping(target = "discountedByUserUuid", source = "discountedBy.uuid")

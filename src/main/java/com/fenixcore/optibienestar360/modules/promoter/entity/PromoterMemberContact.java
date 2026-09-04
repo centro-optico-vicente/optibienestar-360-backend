@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -61,6 +62,11 @@ public class PromoterMemberContact extends BaseEntity {
     /** Only for {@link ContactType#PAYMENT_PROMISE}; NULL otherwise (V36 CHECK). */
     @Column(name = "promised_at_date")
     private LocalDate promisedAtDate;
+
+    /** Only for {@link ContactType#PAYMENT_PROMISE}; NULL otherwise (V90). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promised_currency_id")
+    private Currency promisedCurrency;
 
     public enum ContactType {
         REMINDER, PAYMENT_PROMISE, NOTE

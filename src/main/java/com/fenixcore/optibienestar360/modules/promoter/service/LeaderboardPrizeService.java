@@ -8,6 +8,8 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodS
 import com.fenixcore.optibienestar360.modules.promoter.entity.LeaderboardPrize;
 import com.fenixcore.optibienestar360.modules.promoter.entity.LeaderboardPrizeAward;
 import com.fenixcore.optibienestar360.modules.promoter.entity.LeaderboardPrizeAward.AwardStatus;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardService.RankedEntry;
@@ -44,6 +46,7 @@ public class LeaderboardPrizeService {
     private final LeaderboardPrizeRepository prizeRepository;
     private final LeaderboardPrizeAwardRepository awardRepository;
     private final LeaderboardService leaderboardService;
+    private final CurrencyRepository currencyRepository;
 
     // ─── Config CRUD ──────────────────────────────────────────────────────────
 
@@ -66,7 +69,7 @@ public class LeaderboardPrizeService {
         prize.setRank(req.rank());
         prize.setPeriodStrategy(req.periodStrategy());
         prize.setPrizeAmount(req.prizeAmount());
-        prize.setPrizeCurrency(req.prizeCurrency() != null ? req.prizeCurrency() : DEFAULT_CURRENCY);
+        prize.setPrizeCurrency(resolveCurrency(req.prizeCurrency() != null ? req.prizeCurrency() : DEFAULT_CURRENCY));
         return LeaderboardPrizeDto.from(prizeRepository.save(prize));
     }
 
@@ -80,7 +83,7 @@ public class LeaderboardPrizeService {
         prize.setRank(req.rank());
         prize.setPeriodStrategy(req.periodStrategy());
         prize.setPrizeAmount(req.prizeAmount());
-        if (req.prizeCurrency() != null) prize.setPrizeCurrency(req.prizeCurrency());
+        if (req.prizeCurrency() != null) prize.setPrizeCurrency(resolveCurrency(req.prizeCurrency()));
         return LeaderboardPrizeDto.from(prize);   // managed → dirty-check
     }
 
@@ -138,7 +141,7 @@ public class LeaderboardPrizeService {
             }
             created++;
             total = total.add(prize.getPrizeAmount());
-            currency = prize.getPrizeCurrency();
+            currency = prize.getPrizeCurrency().getCode();
         }
         return new PrizeAwardResult(strategy, window.start(), window.end(), dryRun, created, total, currency);
     }
@@ -171,5 +174,10 @@ public class LeaderboardPrizeService {
     private LeaderboardPrize findManaged(UUID uuid) {
         return prizeRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("leaderboard_prize.not_found"));
+    }
+
+    private Currency resolveCurrency(String code) {
+        return currencyRepository.findByCode(code)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
     }
 }

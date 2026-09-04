@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -102,8 +103,9 @@ public class BenefitUsage extends BaseEntity {
     @Column(name = "copay_amount", precision = 10, scale = 2)
     private BigDecimal copayAmount;
 
-    @Column(name = "copay_currency", length = 3)
-    private String copayCurrency;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "copay_currency_id")
+    private Currency copayCurrency;
 
     // ─── Detail ────────────────────────────────────────────────────────────
 

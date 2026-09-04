@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import jakarta.persistence.AttributeOverride;
@@ -70,8 +71,9 @@ public class Commission extends BaseEntity {
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal amount;
 
-    @Column(length = 3, nullable = false)
-    private String currency = "USD";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "currency_id", nullable = false)
+    private Currency currency;
 
     // ─── Calculation snapshot ──────────────────────────────────────────────
 

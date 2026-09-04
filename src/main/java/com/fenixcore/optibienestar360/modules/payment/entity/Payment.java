@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.payment.entity;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -99,8 +100,9 @@ public class Payment extends BaseEntity {
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal amount;
 
-    @Column(length = 3, nullable = false)
-    private String currency = "USD";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "currency_id", nullable = false)
+    private Currency currency;
 
     // ─── Method + reference ────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class BeneficiaryInscriptionBiller {
 
     private final PaymentRepository paymentRepository;
+    private final CurrencyRepository currencyRepository;
 
     /**
      * Registers a PENDING extra-beneficiary inscription payment against the
@@ -44,7 +47,9 @@ public class BeneficiaryInscriptionBiller {
         Payment payment = new Payment();
         payment.setMembership(membership);
         payment.setAmount(fee);
-        payment.setCurrency("USD");   // plan pricing is USD (ADR 0008)
+        // plan pricing is USD (ADR 0008)
+        payment.setCurrency(currencyRepository.findByCode("USD")
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found")));
         payment.setPaymentMethod(Payment.PaymentMethod.OTHER);
         payment.setPaymentDate(LocalDate.now());
         payment.setInscription(true);   // V23 CHECK: inscription rows carry no applied_period

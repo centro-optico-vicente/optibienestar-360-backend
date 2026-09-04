@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.RewardType;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -77,8 +78,9 @@ public class PromoterBonusAward extends BaseEntity {
     @Column(precision = 12, scale = 2, nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "reward_currency", nullable = false, length = 3)
-    private String rewardCurrency = "USD";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "reward_currency_id", nullable = false)
+    private Currency rewardCurrency;
 
     @Column(name = "rule_name_snapshot", nullable = false, length = 150)
     private String ruleNameSnapshot;

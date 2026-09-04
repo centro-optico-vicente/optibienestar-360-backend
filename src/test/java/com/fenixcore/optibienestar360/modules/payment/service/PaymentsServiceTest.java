@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -46,6 +47,7 @@ class PaymentsServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private UserRepository userRepository;
+    @Mock private CurrencyRepository currencyRepository;
     @Mock private PaymentMapper mapper;
     @Mock private ObjectProvider<StorageService> storageProvider;
     @Mock private EmailService emailService;
@@ -58,8 +60,8 @@ class PaymentsServiceTest {
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private PaymentsService sut() {
-        return new PaymentsService(paymentRepository, membershipRepository, userRepository, mapper,
-                defaultSortResolver, storageProvider, emailService, messageSource, validatorCacheService,
+        return new PaymentsService(paymentRepository, membershipRepository, userRepository, currencyRepository,
+                mapper, defaultSortResolver, storageProvider, emailService, messageSource, validatorCacheService,
                 commissionService, corporateBillingResolver, presignedUrlPolicy, fileValidationService);
     }
 

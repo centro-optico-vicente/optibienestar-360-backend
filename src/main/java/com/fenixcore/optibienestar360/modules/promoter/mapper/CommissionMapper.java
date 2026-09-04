@@ -13,6 +13,7 @@ public interface CommissionMapper {
     @Mapping(target = "promoter",    source = "promoter")
     @Mapping(target = "paymentUuid", source = "payment.uuid")
     @Mapping(target = "memberUuid",  source = "member.uuid")
+    @Mapping(target = "currency",    source = "currency.code")
     CommissionDto toDto(Commission commission);
 
     /** {@code promoter_Code} carries the referral code (Promoter has no generic {@code getCode()}). */

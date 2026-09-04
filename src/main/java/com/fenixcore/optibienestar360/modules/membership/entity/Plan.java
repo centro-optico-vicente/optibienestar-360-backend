@@ -1,11 +1,15 @@
 package com.fenixcore.optibienestar360.modules.membership.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -67,6 +71,10 @@ public class Plan extends BaseEntity {
 
     @Column(name = "monthly_fee", precision = 10, scale = 2, nullable = false)
     private BigDecimal monthlyFee;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "currency_id", nullable = false)
+    private Currency currency;
 
     // ─── Beneficiaries (v2 fields) ──────────────────────────────────────────
 

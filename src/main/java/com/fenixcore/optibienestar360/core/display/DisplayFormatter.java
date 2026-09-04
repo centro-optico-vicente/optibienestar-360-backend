@@ -100,6 +100,14 @@ public class DisplayFormatter {
 		return value.format(formatter(KEY_DATE_PATTERN, DEFAULT_DATE_PATTERN, locale));
 	}
 
+	// TODO(ADR 0015): hardcoded to VES — every @Display(MONEY) caller today
+	// (Payment/Commission/etc. amounts) is USD-denominated per the entities
+	// touched by V84-V91, so this formatter is already presenting the wrong
+	// currency for those fields. Fixing it properly means plumbing the
+	// resolved Currency (now available on every money-bearing entity) into
+	// the Display pipeline instead of a single hardcoded NumberFormat here —
+	// a bigger change than this migration-compile-fix pass; out of scope.
+
 	/** Currency amount in {@code VES} — {@code "Bs. 1.200,00"} (es). */
 	public String money(BigDecimal value, Locale locale) {
 		if (value == null) {

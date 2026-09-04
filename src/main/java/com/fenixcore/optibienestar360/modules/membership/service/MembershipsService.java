@@ -92,6 +92,7 @@ public class MembershipsService {
         // this row + enroll a new one.
         membership.setInscriptionFee(plan.getInscriptionFee());
         membership.setMonthlyFee(plan.getMonthlyFee());
+        membership.setCurrency(plan.getCurrency());
         membership.setGracePeriodDays(plan.getGracePeriodDays());
 
         // Lifecycle starts at ACTIVE. The CHECK constraint pins status to

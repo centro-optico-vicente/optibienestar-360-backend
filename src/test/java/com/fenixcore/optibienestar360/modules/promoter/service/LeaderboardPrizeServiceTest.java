@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PrizeAwardResult;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.LeaderboardPrize;
@@ -31,9 +33,10 @@ class LeaderboardPrizeServiceTest {
     @Mock private LeaderboardPrizeRepository prizeRepository;
     @Mock private LeaderboardPrizeAwardRepository awardRepository;
     @Mock private LeaderboardService leaderboardService;
+    @Mock private CurrencyRepository currencyRepository;
 
     private LeaderboardPrizeService sut() {
-        return new LeaderboardPrizeService(prizeRepository, awardRepository, leaderboardService);
+        return new LeaderboardPrizeService(prizeRepository, awardRepository, leaderboardService, currencyRepository);
     }
 
     private static final LocalDate REF = LocalDate.of(2026, 6, 15);
@@ -102,8 +105,17 @@ class LeaderboardPrizeServiceTest {
         p.setRank(rank);
         p.setPeriodStrategy(PeriodStrategy.MONTHLY);
         p.setPrizeAmount(new BigDecimal(amount));
-        p.setPrizeCurrency("USD");
+        p.setPrizeCurrency(usd());
         return p;
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     private static Promoter promoter(long id) {

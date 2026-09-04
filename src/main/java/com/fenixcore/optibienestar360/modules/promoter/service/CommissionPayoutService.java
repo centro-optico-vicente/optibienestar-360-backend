@@ -86,7 +86,7 @@ public class CommissionPayoutService {
             Promoter promoter = entry.getKey();
             List<Commission> rows = entry.getValue();
             BigDecimal promoterTotal = sumAmount(rows);
-            String currency = rows.get(0).getCurrency();
+            String currency = rows.get(0).getCurrency().getCode();
             String csv = buildCsv(rows);
 
             boolean emailDispatched = false;
@@ -173,7 +173,7 @@ public class CommissionPayoutService {
               .append(',')
               .append(c.getAmount().toPlainString())
               .append(',')
-              .append(c.getCurrency())
+              .append(c.getCurrency() != null ? c.getCurrency().getCode() : "")
               .append('\n');
         }
         return sb.toString();

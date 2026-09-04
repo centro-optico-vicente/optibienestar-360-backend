@@ -17,5 +17,6 @@ public interface ReferralMapper {
     @Mapping(target = "referredMemberUuid", source = "referred.uuid")
     @Mapping(target = "referredMemberName", source = "referred.person.fullName")
     @Mapping(target = "rewardPaymentUuid",  source = "rewardPayment.uuid")
+    @Mapping(target = "rewardCurrency",     source = "rewardCurrency.code")
     MyReferralDto toMyDto(Referral referral);
 }

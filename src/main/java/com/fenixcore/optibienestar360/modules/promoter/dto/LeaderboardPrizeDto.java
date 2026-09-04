@@ -21,6 +21,6 @@ public record LeaderboardPrizeDto(
 ) {
     public static LeaderboardPrizeDto from(LeaderboardPrize p) {
         return new LeaderboardPrizeDto(p.getUuid(), p.getRank(), p.getPeriodStrategy(),
-                p.getPrizeAmount(), p.getPrizeCurrency(), p.isActive(), p.getCreatedAt(), p.getUpdatedAt());
+                p.getPrizeAmount(), p.getPrizeCurrency().getCode(), p.isActive(), p.getCreatedAt(), p.getUpdatedAt());
     }
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionScoreDto;
@@ -39,6 +40,7 @@ public class PromoterCollectionService {
     private final PromoterRepository promoterRepository;
     private final MemberRepository memberRepository;
     private final PromoterMemberContactRepository contactRepository;
+    private final CurrencyRepository currencyRepository;
 
     // ─── Writes ─────────────────────────────────────────────────────────────
 
@@ -132,6 +134,11 @@ public class PromoterCollectionService {
         contact.setType(type);
         contact.setNote(note);
         contact.setPromisedAmount(promisedAmount);
+        // Promises are USD in practice today (V90 backfill / ADR 0008 pricing).
+        contact.setPromisedCurrency(promisedAmount != null
+                ? currencyRepository.findByCode("USD")
+                        .orElseThrow(() -> new NoSuchElementException("currency.not_found"))
+                : null);
         contact.setPromisedAtDate(promisedAtDate);
         return contactRepository.save(contact);
     }

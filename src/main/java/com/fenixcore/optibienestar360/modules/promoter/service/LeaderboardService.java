@@ -98,7 +98,7 @@ public class LeaderboardService {
                     e.rank(), e.promoter().getUuid(), e.promoter().getDisplayName(),
                     e.promoter().getReferralCode(), e.totalCommission(), e.commissionCount(),
                     prize != null ? prize.getPrizeAmount() : null,
-                    prize != null ? prize.getPrizeCurrency() : null);
+                    prize != null ? prize.getPrizeCurrency().getCode() : null);
         }).toList();
 
         return new LeaderboardDto(strategy, window.start(), window.end(), entries);

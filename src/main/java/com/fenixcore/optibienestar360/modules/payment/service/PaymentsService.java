@@ -16,6 +16,7 @@ import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -86,7 +87,7 @@ public class PaymentsService {
     private static final FileVisibility VISIBILITY = FileVisibility.CONFIDENTIAL;
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "paymentMethod", "currency",
+            "status", "paymentMethod", "currency.code",
             "amount", "inscription",
             "paymentDate", "receivedAt", "appliedPeriod", "reviewedAt",
             "createdAt", "updatedAt", "active"
@@ -107,6 +108,7 @@ public class PaymentsService {
     private final PaymentRepository paymentRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final CurrencyRepository currencyRepository;
     private final PaymentMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
     private final ObjectProvider<StorageService> storageProvider;
@@ -187,7 +189,9 @@ public class PaymentsService {
         }
 
         payment.setAmount(request.amount());
-        payment.setCurrency(request.currency() != null ? request.currency() : "USD");
+        String currencyCode = request.currency() != null ? request.currency() : "USD";
+        payment.setCurrency(currencyRepository.findByCode(currencyCode)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found")));
         payment.setPaymentMethod(request.paymentMethod());
         payment.setReferenceNumber(request.referenceNumber());
         payment.setPaymentDate(request.paymentDate());
@@ -469,7 +473,7 @@ public class PaymentsService {
         vars.put("fullName", Optional.ofNullable(person.getFullName()).orElse(""));
         vars.put("planName", payment.getMembership().getPlan().getName());
         vars.put("amount", payment.getAmount());
-        vars.put("currency", payment.getCurrency());
+        vars.put("currency", payment.getCurrency().getCode());
         vars.put("paymentMethod", payment.getPaymentMethod().name());
         vars.put("referenceNumber", payment.getReferenceNumber());
         vars.put("paymentDate", payment.getPaymentDate());

@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -40,6 +42,7 @@ class BonusRulesServiceTest {
 
     @Mock private CommissionBonusRuleRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
+    @Mock private CurrencyRepository currencyRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private BonusRulesService service() {
@@ -47,7 +50,17 @@ class BonusRulesServiceTest {
                 .thenAnswer(inv -> inv.getArgument(1));
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
-        return new BonusRulesService(repository, promoterTypeRepository, defaultSortResolver);
+        lenient().when(currencyRepository.findByCode(any())).thenReturn(Optional.of(usd()));
+        return new BonusRulesService(repository, promoterTypeRepository, currencyRepository, defaultSortResolver);
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     @Test
@@ -65,7 +78,7 @@ class BonusRulesServiceTest {
         assertThat(saved.getAccrual()).isEqualTo(AccrualMode.THRESHOLD);
         assertThat(saved.getFlatAmount()).isEqualByComparingTo("50.00");
         assertThat(saved.getRewardPct()).isNull();
-        assertThat(saved.getRewardCurrency()).isEqualTo("USD");
+        assertThat(saved.getRewardCurrency().getCode()).isEqualTo("USD");
         assertThat(dto.thresholdCount()).isEqualTo(300);
     }
 

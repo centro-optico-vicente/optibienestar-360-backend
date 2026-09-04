@@ -14,6 +14,8 @@ import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage.UsageStatus;
 import com.fenixcore.optibienestar360.modules.benefit.mapper.BenefitUsageMapper;
 import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -52,6 +54,7 @@ public class BenefitUsagesService {
     private final AllyRepository allyRepository;
     private final AllyServiceRepository allyServiceRepository;
     private final AllyUserRepository allyUserRepository;
+    private final CurrencyRepository currencyRepository;
     private final BenefitUsageMapper mapper;
 
     /**
@@ -119,12 +122,19 @@ public class BenefitUsagesService {
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
         usage.setCopayAmount(request.copayAmount());
-        usage.setCopayCurrency(request.copayCurrency());
+        usage.setCopayCurrency(resolveCopayCurrency(request.copayCurrency()));
         usage.setMetadata(request.metadata());
         usage.setNotes(request.notes());
         usage.setStatus(UsageStatus.REGISTERED.name());
 
         return mapper.toDto(usageRepository.save(usage));
+    }
+
+    /** {@code copayCurrency} is nullable (paired with copayAmount, V24 CHECK). */
+    private Currency resolveCopayCurrency(String code) {
+        if (code == null || code.isBlank()) return null;
+        return currencyRepository.findByCode(code)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
     }
 
     private static void ensureActiveMembership(Membership membership) {

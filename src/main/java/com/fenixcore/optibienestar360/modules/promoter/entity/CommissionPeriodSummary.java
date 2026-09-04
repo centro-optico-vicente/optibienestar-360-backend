@@ -47,6 +47,6 @@ public class CommissionPeriodSummary {
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(name = "currency", length = 3)
-    private String currency;
+    @Column(name = "currency_id")
+    private Long currencyId;
 }
