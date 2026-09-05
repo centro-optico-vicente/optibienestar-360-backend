@@ -3,7 +3,9 @@ package com.fenixcore.optibienestar360.modules.exchangerate;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateCreateRequest;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateDto;
+import com.fenixcore.optibienestar360.modules.exchangerate.service.ExchangeRateIngestionService;
 import com.fenixcore.optibienestar360.modules.exchangerate.service.ExchangeRateService;
+import com.fenixcore.optibienestar360.modules.exchangerate.service.IngestionSummary;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,6 +35,7 @@ import java.net.URI;
 public class AdminExchangeRateController {
 
     private final ExchangeRateService service;
+    private final ExchangeRateIngestionService ingestionService;
 
     /** History for a pair, newest {@code validFrom} first by default — e.g. {@code ?base=USD&quote=VES}. */
     @GetMapping
@@ -55,5 +58,28 @@ public class AdminExchangeRateController {
                 .replacePath("/v1/admin/exchange-rates")
                 .build().toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /**
+     * Quick action: trigger the same ingestion {@code FetchExchangeRatesJob}
+     * runs daily, synchronously, on demand — "get me the latest rate right
+     * now" (ADR 0015 §3). Delegates to
+     * {@link ExchangeRateIngestionService#fetchAndStoreLatest()}, the exact
+     * same call site the job runner uses, so there is no duplicated
+     * ingestion logic between the scheduled path and this convenience
+     * endpoint. The generic {@code POST
+     * /v1/admin/scheduled-jobs/{uuid}/run-now} can also run this job once
+     * seeded — this endpoint just saves an operator from finding it there.
+     *
+     * <p>Reuses {@code EXCHANGE_RATE_CREATE} (this endpoint results in new
+     * {@code exchange_rates} rows, same as manual entry) rather than adding
+     * a new permission. {@link com.fenixcore.optibienestar360.modules.exchangerate.client.ExchangeRatesApiClient}
+     * keeps tight connect/read timeouts so a slow/unreachable upstream
+     * cannot hang this request indefinitely.</p>
+     */
+    @PostMapping("/fetch-latest")
+    @PreAuthorize("hasAuthority('EXCHANGE_RATE_CREATE')")
+    public ResponseEntity<IngestionSummary> fetchLatest() {
+        return ResponseEntity.ok(ingestionService.fetchAndStoreLatest());
     }
 }
