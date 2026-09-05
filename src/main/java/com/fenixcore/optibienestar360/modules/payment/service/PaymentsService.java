@@ -109,6 +109,7 @@ public class PaymentsService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final CurrencyRepository currencyRepository;
+    private final com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
     private final PaymentMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
     private final ObjectProvider<StorageService> storageProvider;
@@ -281,6 +282,7 @@ public class PaymentsService {
 
         applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
                 request != null ? request.reason() : null);
+        snapshotExchangeRate(payment);
 
         validatorCacheService.evictForMembership(payment.getMembership());
         attributeCommission(payment);
@@ -367,6 +369,32 @@ public class PaymentsService {
         payment.setDiscountedBy(actor);
         payment.setDiscountedAt(Instant.now());
         return mapper.toDto(payment);   // managed → dirty-check on commit
+    }
+
+    /**
+     * Snapshots the exchange rate at approval time (ADR 0015 §5/§7 Caso A)
+     * when the payment settles against a membership denominated in a
+     * different currency. Same currency → both columns stay {@code null},
+     * no {@code exchange_rates} lookup. A missing rate degrades to
+     * {@code null} rather than blocking the approval — per ADR 0015 §7,
+     * this snapshot is informative/reporting, never a hard dependency of
+     * the payment-review workflow.
+     */
+    private void snapshotExchangeRate(Payment payment) {
+        var membershipCurrency = payment.getMembership().getCurrency();
+        if (membershipCurrency == null || membershipCurrency.getId().equals(payment.getCurrency().getId())) {
+            return;
+        }
+        try {
+            var result = currencyConversionService.convert(
+                    payment.getAmount(), payment.getCurrency(), membershipCurrency,
+                    payment.getPaymentDate().atStartOfDay(java.time.ZoneId.of("America/Caracas")).toInstant());
+            payment.setExchangeRateUsed(result.rate());
+            payment.setExchangeRateDate(result.rateDate());
+        } catch (com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException noRate) {
+            log.info("No exchange rate available to snapshot for payment {} ({} -> {}); leaving null",
+                    payment.getUuid(), payment.getCurrency().getCode(), membershipCurrency.getCode());
+        }
     }
 
     private static void ensurePending(Payment payment) {

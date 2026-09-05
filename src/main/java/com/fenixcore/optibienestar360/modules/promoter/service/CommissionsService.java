@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -67,12 +68,20 @@ public class CommissionsService {
     private final CommissionPeriodSummaryRepository periodSummaryRepository;
     private final PromoterRepository promoterRepository;
     private final CurrencyRepository currencyRepository;
+    private final ConversionEnricher conversionEnricher;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public CommissionDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        Commission commission = findManaged(uuid);
+        return enrich(mapper.toDto(commission), commission);
+    }
+
+    /** Live-converts {@code amount} to the org's official currency (ADR 0015 §6 Caso B — no snapshot column on Commission yet). */
+    private CommissionDto enrich(CommissionDto dto, Commission commission) {
+        var conv = conversionEnricher.toOfficial(commission.getAmount(), commission.getCurrency());
+        return dto.withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
     }
 
     /** Monthly commission history for one promoter, most recent period first —
@@ -115,7 +124,7 @@ public class CommissionsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(c -> enrich(mapper.toDto(c), c));
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */

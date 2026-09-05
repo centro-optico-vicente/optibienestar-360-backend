@@ -65,6 +65,22 @@ public class LeaderboardPrizeAward extends BaseEntity {
     @Column(name = "awarded_at", nullable = false)
     private Instant awardedAt = Instant.now();
 
+    // ─── Payout lifecycle (V92) ───────────────────────────────────────────────
+
+    /** When the award was actually paid out — distinct from {@link #awardedAt} (period-close). Null until PAID. */
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    @Column(name = "payout_reference", length = 120)
+    private String payoutReference;
+
+    /** Units of the organization's official currency per 1 unit of {@link #prizeCurrency}, as of {@link #paidAt}. Null when never paid, or paid without a conversion (same currency). */
+    @Column(name = "exchange_rate_used", precision = 18, scale = 8)
+    private BigDecimal exchangeRateUsed;
+
+    @Column(name = "exchange_rate_date")
+    private LocalDate exchangeRateDate;
+
     /** Workflow values pinned by convention (mirrors PromoterBonusAward). */
     public enum AwardStatus {
         PENDING, PAID, VOIDED

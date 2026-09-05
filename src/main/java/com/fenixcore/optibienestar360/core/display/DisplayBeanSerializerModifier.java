@@ -125,7 +125,8 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 			if (raw == null && willSuppressNulls()) {
 				return;
 			}
-			String value = scalarDisplay(formatter, raw, display, getName(), LocaleContextHolder.getLocale());
+			String currencyCode = resolveMoneyCurrency(bean, display);
+			String value = scalarDisplay(formatter, raw, display, getName(), LocaleContextHolder.getLocale(), currencyCode);
 			writeStringOrNull(gen, getName() + "_Display", value);
 		}
 	}
@@ -141,6 +142,11 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 	// ─── Scalar dispatch ───────────────────────────────────────────────────
 
 	static String scalarDisplay(DisplayFormatter formatter, Object value, Display display, String field, Locale locale) {
+		return scalarDisplay(formatter, value, display, field, locale, null);
+	}
+
+	static String scalarDisplay(DisplayFormatter formatter, Object value, Display display, String field,
+			Locale locale, String currencyCode) {
 		if (value == null) {
 			return null;
 		}
@@ -148,13 +154,32 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 		return switch (kind) {
 			case DATETIME -> formatter.dateTime(asInstant(value), locale);
 			case DATE -> value instanceof LocalDate d ? formatter.date(d, locale) : null;
-			case MONEY -> formatter.money(asBigDecimal(value), locale);
+			case MONEY -> formatter.money(asBigDecimal(value), currencyCode, locale);
 			case NUMBER -> value instanceof Number n ? formatter.number(n, locale) : null;
 			case PERCENT -> value instanceof Number n ? formatter.number(n, locale) + "%" : null;
 			case ENUM -> formatter.enumLabel(scope(display, field), String.valueOf(value), locale);
 			case BOOLEAN -> value instanceof Boolean b ? formatter.bool(b, locale) : null;
 			case AUTO -> null;
 		};
+	}
+
+	/**
+	 * Resolves the ISO currency code for a {@code @Display(MONEY)} field from
+	 * its {@code moneyCurrencyField} sibling on the same bean (a zero-arg
+	 * record-component accessor). {@code null} when unset, not {@code MONEY},
+	 * or the reflective call fails for any reason — the formatter degrades to
+	 * its own default rather than the writer throwing.
+	 */
+	static String resolveMoneyCurrency(Object bean, Display display) {
+		if (display.value() != Display.Kind.MONEY || display.moneyCurrencyField().isEmpty()) {
+			return null;
+		}
+		try {
+			Object v = bean.getClass().getMethod(display.moneyCurrencyField()).invoke(bean);
+			return v == null ? null : v.toString();
+		} catch (ReflectiveOperationException unavailable) {
+			return null;
+		}
 	}
 
 	private static Display.Kind infer(Object value) {

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeAwardDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeAwardPayRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PrizeAwardResult;
@@ -87,6 +89,14 @@ public class AdminLeaderboardPrizeController {
             @RequestParam(required = false, defaultValue = "MONTHLY") PeriodStrategy strategy,
             @RequestParam(required = false, defaultValue = "false") boolean dryRun) {
         return ResponseEntity.ok(service.award(strategy, resolveReference(period), dryRun));
+    }
+
+    /** Marks a PENDING award PAID, snapshotting the exchange rate (ADR 0015 §5/§7). 422 if already PAID/VOIDED. */
+    @PutMapping("/awards/{uuid}/pay")
+    @PreAuthorize("hasAuthority('LEADERBOARD_PRIZE_PAY')")
+    public ResponseEntity<LeaderboardPrizeAwardDto> payAward(@PathVariable UUID uuid,
+            @Valid @RequestBody LeaderboardPrizeAwardPayRequest request) {
+        return ResponseEntity.ok(service.pay(uuid, request.payoutReference()));
     }
 
     /** Lenient period → reference date: full date, then month, then year. */

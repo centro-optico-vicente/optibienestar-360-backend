@@ -13,7 +13,7 @@ public record LeaderboardPrizeDto(
         UUID uuid,
         int rank,
         @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
-        @Display(Display.Kind.MONEY) BigDecimal prizeAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "prizeCurrency") BigDecimal prizeAmount,
         String prizeCurrency,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant createdAt,

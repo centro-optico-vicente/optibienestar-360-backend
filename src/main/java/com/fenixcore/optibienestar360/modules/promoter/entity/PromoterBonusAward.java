@@ -96,6 +96,15 @@ public class PromoterBonusAward extends BaseEntity {
     @Column(name = "paid_at")
     private Instant paidAt;
 
+    // ─── Payout currency snapshot (V92, ADR 0015 §5/§7 Caso A) ──────────────
+
+    /** Units of the organization's official currency per 1 unit of {@link #rewardCurrency}, as of {@link #paidAt}. Null when never paid, or paid without a conversion (same currency). */
+    @Column(name = "exchange_rate_used", precision = 18, scale = 8)
+    private java.math.BigDecimal exchangeRateUsed;
+
+    @Column(name = "exchange_rate_date")
+    private LocalDate exchangeRateDate;
+
     @Column(name = "voided_at")
     private Instant voidedAt;
 

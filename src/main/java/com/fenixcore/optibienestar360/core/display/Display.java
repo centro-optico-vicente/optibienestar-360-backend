@@ -49,6 +49,18 @@ public @interface Display {
 	 */
 	String enumScope() default "";
 
+	/**
+	 * Name of the sibling record component (a {@code String} ISO currency
+	 * code, e.g. {@code "currency_Code"}) that carries this {@link Kind#MONEY}
+	 * field's real currency. Read at serialization time via a zero-arg
+	 * reflective call on the same bean (records expose their components as
+	 * same-named accessor methods). Empty (the default) falls back to the
+	 * formatter's own default currency — kept for DTOs that genuinely have no
+	 * currency in scope yet. Ignored for any {@link Kind} other than
+	 * {@code MONEY}.
+	 */
+	String moneyCurrencyField() default "";
+
 	enum Kind { AUTO, DATETIME, DATE, MONEY, NUMBER, PERCENT, ENUM, BOOLEAN }
 
 }

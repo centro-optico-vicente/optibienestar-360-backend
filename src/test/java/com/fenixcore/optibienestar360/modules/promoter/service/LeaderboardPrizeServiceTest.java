@@ -34,9 +34,13 @@ class LeaderboardPrizeServiceTest {
     @Mock private LeaderboardPrizeAwardRepository awardRepository;
     @Mock private LeaderboardService leaderboardService;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher conversionEnricher;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService conversionService;
+    @Mock private com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository organizationRepository;
 
     private LeaderboardPrizeService sut() {
-        return new LeaderboardPrizeService(prizeRepository, awardRepository, leaderboardService, currencyRepository);
+        return new LeaderboardPrizeService(prizeRepository, awardRepository, leaderboardService, currencyRepository,
+                conversionEnricher, conversionService, organizationRepository);
     }
 
     private static final LocalDate REF = LocalDate.of(2026, 6, 15);

@@ -12,6 +12,7 @@ import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
@@ -66,12 +67,19 @@ public class PlansService {
     private final MembershipRepository membershipRepository;
     private final CorporateContractRepository corporateContractRepository;
     private final CurrencyRepository currencyRepository;
+    private final ConversionEnricher conversionEnricher;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public PlanDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        return enrich(findManaged(uuid));
+    }
+
+    /** Live-converts {@link Plan#getMonthlyFee()} to the org's official currency (ADR 0015 §6 Caso B). */
+    private PlanDto enrich(Plan plan) {
+        var conv = conversionEnricher.toOfficial(plan.getMonthlyFee(), plan.getCurrency());
+        return mapper.toDto(plan).withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
     }
 
     public Page<PlanDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
@@ -86,7 +94,7 @@ public class PlansService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(this::enrich);
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */

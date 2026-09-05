@@ -51,6 +51,7 @@ class PlansServicePublicTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private CorporateContractRepository corporateContractRepository;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher conversionEnricher;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private PlansService service;
@@ -58,7 +59,7 @@ class PlansServicePublicTest {
     @BeforeEach
     void setup() {
         service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository,
-                currencyRepository, defaultSortResolver);
+                currencyRepository, conversionEnricher, defaultSortResolver);
     }
 
     // ─── publicGetByUuid ─────────────────────────────────────────────────────

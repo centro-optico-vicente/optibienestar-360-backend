@@ -104,6 +104,19 @@ public class Payment extends BaseEntity {
     @JoinColumn(name = "currency_id", nullable = false)
     private Currency currency;
 
+    /**
+     * Snapshot of the rate applied at approval time when this payment settles
+     * against a membership denominated in a different currency (V88, ADR 0015
+     * §5) — units of the membership's currency per 1 unit of {@link #currency}.
+     * Null when never approved, or approved without a conversion (same
+     * currency as the membership it settles).
+     */
+    @Column(name = "exchange_rate_used", precision = 18, scale = 8)
+    private BigDecimal exchangeRateUsed;
+
+    @Column(name = "exchange_rate_date")
+    private LocalDate exchangeRateDate;
+
     // ─── Method + reference ────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)

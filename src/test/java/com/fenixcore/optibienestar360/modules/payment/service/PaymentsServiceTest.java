@@ -48,6 +48,7 @@ class PaymentsServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private UserRepository userRepository;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
     @Mock private PaymentMapper mapper;
     @Mock private ObjectProvider<StorageService> storageProvider;
     @Mock private EmailService emailService;
@@ -61,8 +62,8 @@ class PaymentsServiceTest {
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, membershipRepository, userRepository, currencyRepository,
-                mapper, defaultSortResolver, storageProvider, emailService, messageSource, validatorCacheService,
-                commissionService, corporateBillingResolver, presignedUrlPolicy, fileValidationService);
+                currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
+                validatorCacheService, commissionService, corporateBillingResolver, presignedUrlPolicy, fileValidationService);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();

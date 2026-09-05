@@ -1,6 +1,11 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
+import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeAwardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardPrizeRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PrizeAwardResult;
@@ -14,10 +19,12 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPri
 import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardService.RankedEntry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +46,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class LeaderboardPrizeService {
 
     private static final String DEFAULT_CURRENCY = "USD";
@@ -47,6 +55,9 @@ public class LeaderboardPrizeService {
     private final LeaderboardPrizeAwardRepository awardRepository;
     private final LeaderboardService leaderboardService;
     private final CurrencyRepository currencyRepository;
+    private final ConversionEnricher conversionEnricher;
+    private final CurrencyConversionService conversionService;
+    private final OrganizationRepository organizationRepository;
 
     // ─── Config CRUD ──────────────────────────────────────────────────────────
 
@@ -169,6 +180,49 @@ public class LeaderboardPrizeService {
             results.add(award(strategy, yesterday, dryRun));
         }
         return results;
+    }
+
+    // ─── Payout ───────────────────────────────────────────────────────────────
+
+    /**
+     * Marks a granted prize award as PAID — leaderboard_prize_awards had no
+     * payout timestamp at all until V92 (only {@code awarded_at}, the
+     * period-close moment). Mirrors {@code BonusAwardsService.pay}: stamps
+     * {@code paidAt}, then snapshots the exchange rate to the organization's
+     * official currency as of now (ADR 0015 §5/§7 Caso A), degrading to a
+     * null snapshot rather than blocking the payout when no rate is vigente.
+     *
+     * @throws IllegalArgumentException (422) when the award is already PAID or VOIDED
+     */
+    @Transactional
+    public LeaderboardPrizeAwardDto pay(UUID uuid, String payoutReference) {
+        LeaderboardPrizeAward award = findManagedAward(uuid);
+        if (!AwardStatus.PENDING.name().equals(award.getStatus())) {
+            throw new IllegalArgumentException("leaderboard_prize_award.pay.not_pending");
+        }
+
+        Instant now = Instant.now();
+        award.setStatus(AwardStatus.PAID.name());
+        award.setPaidAt(now);
+        award.setPayoutReference(payoutReference);
+
+        var official = organizationRepository.findSingleton().getOfficialCurrency();
+        if (!official.getId().equals(award.getPrizeCurrency().getId())) {
+            try {
+                var result = conversionService.convert(award.getPrizeAmount(), award.getPrizeCurrency(), official, now);
+                award.setExchangeRateUsed(result.rate());
+                award.setExchangeRateDate(result.rateDate());
+            } catch (NoExchangeRateAvailableException noRate) {
+                log.info("No exchange rate available to snapshot for leaderboard prize award {}; leaving null", uuid);
+            }
+        }
+
+        return LeaderboardPrizeAwardDto.from(award, conversionEnricher);
+    }
+
+    private LeaderboardPrizeAward findManagedAward(UUID uuid) {
+        return awardRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("leaderboard_prize_award.not_found"));
     }
 
     private LeaderboardPrize findManaged(UUID uuid) {

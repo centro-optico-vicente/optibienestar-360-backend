@@ -69,7 +69,8 @@ class PromoterBonusesControllerIT {
                 new DisplayRef(UUID.randomUUID(), null, "Juan Pérez"), 523, 1,
                 LocalDate.of(1970, 1, 1), LocalDate.of(2026, 6, 15),
                 RewardType.FLAT, new BigDecimal("100.00"), null, null, new BigDecimal("100.00"),
-                "USD", "PENDING", Instant.parse("2026-06-15T12:00:00Z"), Instant.parse("2026-06-15T12:00:00Z"));
+                "USD", null, null, null, null,
+                "PENDING", Instant.parse("2026-06-15T12:00:00Z"), Instant.parse("2026-06-15T12:00:00Z"));
     }
 
     @Test
