@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="reporte_pagos_comisiones" language="java" pageWidth="595" pageHeight="842" columnWidth="555"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1f23456-7890-4cde-fa12-34567890bcde">
+
+    <!-- Parameters -->
+    <parameter name="P_START_DATE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_END_DATE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_PROMOTER_ID" class="java.lang.Long">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_PAYOUT_REFERENCE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_COMPANY_NAME" class="java.lang.String">
+        <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_REPORT_FOOTER" class="java.lang.String">
+        <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+    </parameter>
+
+    <!-- Query -->
+    <queryString>
+        <![CDATA[
+        SELECT
+            c.commissions_id,
+            c.uuid AS commission_uuid,
+            c.status AS status,
+            'Pagada' AS status_label,
+            c.applies_to,
+            CASE 
+                WHEN c.applies_to = 'INSCRIPTION' THEN 'Inscripción'
+                WHEN c.applies_to = 'MONTHLY' THEN 'Mensualidad'
+                ELSE c.applies_to
+            END AS applies_to_label,
+            c.period_start,
+            c.period_end,
+            c.earned_at,
+            c.amount AS amount,
+            cur.code AS currency,
+            c.calculation_basis,
+            c.commission_pct,
+            c.flat_amount,
+            COALESCE(c.tier_name_snapshot, 'Base estándar') AS tier_name,
+            c.payout_reference,
+            c.paid_at,
+            pr.promoters_id,
+            pr.display_name AS promoter_name,
+            pr.referral_code AS promoter_code,
+            COALESCE(pr_p.full_name, pr.display_name) AS promoter_person_name,
+            COALESCE(pr_p.document_type || '-' || pr_p.document_number, 'N/A') AS promoter_document,
+            COALESCE(pr.phone, pr_p.phone, 'N/A') AS promoter_phone,
+            COALESCE(pr.email::text, pr_p.email::text, 'N/A') AS promoter_email,
+            COALESCE(pt.name, 'Estándar') AS promoter_type,
+            m_p.full_name AS member_name,
+            (m_p.document_type || '-' || m_p.document_number) AS member_document,
+            p.payment_date,
+            p.reference_number AS payment_reference,
+            p.amount AS payment_amount,
+            pl.name AS plan_name
+        FROM app.commissions c
+        JOIN app.currencies cur ON c.currency_id = cur.currencies_id
+        JOIN app.promoters pr ON c.promoter_id = pr.promoters_id
+        LEFT JOIN app.persons pr_p ON pr.person_id = pr_p.persons_id
+        LEFT JOIN app.promoter_types pt ON pr.promoter_type_id = pt.promoter_types_id
+        JOIN app.members m ON c.member_id = m.members_id
+        JOIN app.persons m_p ON m.person_id = m_p.persons_id
+        JOIN app.payments p ON c.payment_id = p.payments_id
+        LEFT JOIN app.memberships ms ON p.membership_id = ms.memberships_id
+        LEFT JOIN app.plans pl ON ms.plan_id = pl.plans_id
+        WHERE c.is_active = true
+          AND c.status = 'PAID'
+          AND ($P{P_START_DATE}::date IS NULL OR c.paid_at::date >= $P{P_START_DATE}::date)
+          AND ($P{P_END_DATE}::date IS NULL OR c.paid_at::date <= $P{P_END_DATE}::date)
+          AND ($P{P_PROMOTER_ID}::bigint IS NULL OR c.promoter_id = $P{P_PROMOTER_ID}::bigint)
+          AND ($P{P_PAYOUT_REFERENCE}::varchar IS NULL OR $P{P_PAYOUT_REFERENCE} = '' OR c.payout_reference ILIKE '%' || $P{P_PAYOUT_REFERENCE} || '%')
+        ORDER BY 
+            pr.display_name ASC,
+            c.paid_at DESC,
+            c.payout_reference ASC
+        ]]>
+    </queryString>
+
+    <!-- Fields -->
+    <field name="commissions_id" class="java.lang.Long"/>
+    <field name="status" class="java.lang.String"/>
+    <field name="status_label" class="java.lang.String"/>
+    <field name="applies_to" class="java.lang.String"/>
+    <field name="applies_to_label" class="java.lang.String"/>
+    <field name="period_start" class="java.sql.Date"/>
+    <field name="period_end" class="java.sql.Date"/>
+    <field name="earned_at" class="java.sql.Timestamp"/>
+    <field name="amount" class="java.math.BigDecimal"/>
+    <field name="currency" class="java.lang.String"/>
+    <field name="calculation_basis" class="java.math.BigDecimal"/>
+    <field name="commission_pct" class="java.math.BigDecimal"/>
+    <field name="flat_amount" class="java.math.BigDecimal"/>
+    <field name="tier_name" class="java.lang.String"/>
+    <field name="payout_reference" class="java.lang.String"/>
+    <field name="paid_at" class="java.sql.Timestamp"/>
+    <field name="promoters_id" class="java.lang.Long"/>
+    <field name="promoter_name" class="java.lang.String"/>
+    <field name="promoter_code" class="java.lang.String"/>
+    <field name="promoter_person_name" class="java.lang.String"/>
+    <field name="promoter_document" class="java.lang.String"/>
+    <field name="promoter_phone" class="java.lang.String"/>
+    <field name="promoter_email" class="java.lang.String"/>
+    <field name="promoter_type" class="java.lang.String"/>
+    <field name="member_name" class="java.lang.String"/>
+    <field name="member_document" class="java.lang.String"/>
+    <field name="payment_date" class="java.sql.Date"/>
+    <field name="payment_reference" class="java.lang.String"/>
+    <field name="payment_amount" class="java.math.BigDecimal"/>
+    <field name="plan_name" class="java.lang.String"/>
+
+    <!-- Variables -->
+    <variable name="V_PROMOTER_TOTAL" class="java.math.BigDecimal" resetType="Group" resetGroup="PromoterGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{amount}]]></variableExpression>
+    </variable>
+    <variable name="V_PROMOTER_COUNT" class="java.lang.Integer" resetType="Group" resetGroup="PromoterGroup" calculation="Count">
+        <variableExpression><![CDATA[$F{commissions_id}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_TOTAL" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{amount}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_COUNT" class="java.lang.Integer" calculation="Count">
+        <variableExpression><![CDATA[$F{commissions_id}]]></variableExpression>
+    </variable>
+
+    <!-- Group by Promoter -->
+    <group name="PromoterGroup">
+        <groupExpression><![CDATA[$F{promoters_id}]]></groupExpression>
+        <groupHeader>
+            <band height="44">
+                <rectangle>
+                    <reportElement mode="Opaque" x="0" y="4" width="555" height="22" backcolor="#F0F4F8" forecolor="#D0D7DE"/>
+                    <graphicElement><pen lineWidth="0.5"/></graphicElement>
+                </rectangle>
+                <textField>
+                    <reportElement x="8" y="6" width="260" height="16" forecolor="#0F172A"/>
+                    <textElement verticalAlignment="Middle">
+                        <font fontName="SansSerif" size="9" isBold="true"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA["Promotor: " + $F{promoter_name} + " (" + $F{promoter_code} + ")"]]></textFieldExpression>
+                </textField>
+                <textField>
+                    <reportElement x="270" y="8" width="140" height="14"/>
+                    <textElement verticalAlignment="Middle">
+                        <font fontName="SansSerif" size="8" isBold="false"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA["Doc: " + $F{promoter_document}]]></textFieldExpression>
+                </textField>
+                <textField>
+                    <reportElement x="420" y="8" width="130" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle">
+                        <font fontName="SansSerif" size="8" isBold="false"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA["Tipo: " + $F{promoter_type}]]></textFieldExpression>
+                </textField>
+
+                <!-- Column Headers for Details -->
+                <staticText>
+                    <reportElement mode="Opaque" x="0" y="28" width="60" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Fecha Pago]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="60" y="28" width="85" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Ref. Liquidación]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="145" y="28" width="120" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Afiliado / Cédula]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="265" y="28" width="100" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Concepto / Plan]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="365" y="28" width="55" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <text><![CDATA[Base ($)]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="420" y="28" width="50" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Tasa / Fijo]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="470" y="28" width="85" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <text><![CDATA[Monto Pagado ($)]]></text>
+                </staticText>
+            </band>
+        </groupHeader>
+        <groupFooter>
+            <band height="20">
+                <rectangle>
+                    <reportElement mode="Opaque" x="0" y="1" width="555" height="16" backcolor="#F8FAFC" forecolor="#E2E8F0"/>
+                </rectangle>
+                <textField>
+                    <reportElement x="6" y="2" width="300" height="14"/>
+                    <textElement verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+                    <textFieldExpression><![CDATA["Subtotal pagado a " + $F{promoter_name} + " (" + $V{V_PROMOTER_COUNT} + " pagos):"]]></textFieldExpression>
+                </textField>
+                <textField pattern="$ #,##0.00">
+                    <reportElement x="440" y="2" width="110" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle">
+                        <font size="8" isBold="true"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA[$V{V_PROMOTER_TOTAL}]]></textFieldExpression>
+                </textField>
+            </band>
+        </groupFooter>
+    </group>
+
+    <!-- Title -->
+    <title>
+        <band height="72">
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="0" width="555" height="46" backcolor="#0F172A"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <staticText>
+                <reportElement x="12" y="13" width="360" height="20" forecolor="#FFFFFF"/>
+                <textElement verticalAlignment="Middle">
+                    <font fontName="SansSerif" size="13" isBold="true"/>
+                </textElement>
+                <text><![CDATA[REPORTE DE PAGOS DE COMISIONES]]></text>
+            </staticText>
+            <textField pattern="dd/MM/yyyy HH:mm">
+                <reportElement x="380" y="16" width="165" height="14" forecolor="#94A3B8"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font size="8"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Emitido: " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+            </textField>
+
+            <!-- Filter Badges -->
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="48" width="555" height="18" backcolor="#F1F5F9" forecolor="#CBD5E1"/>
+                <graphicElement><pen lineWidth="0.5"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="6" y="50" width="540" height="14"/>
+                <textElement verticalAlignment="Middle">
+                    <font size="8" isItalic="true" isBold="false"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Filtros aplicados: [Fecha pago: " + ($P{P_START_DATE} != null ? $P{P_START_DATE} : "Inicio") + " al " + ($P{P_END_DATE} != null ? $P{P_END_DATE} : "Hoy") + "] | [Ref. Liquidación: " + ($P{P_PAYOUT_REFERENCE} != null && !$P{P_PAYOUT_REFERENCE}.isEmpty() ? $P{P_PAYOUT_REFERENCE} : "TODAS") + "]"]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <!-- Detail Band -->
+    <detail>
+        <band height="16">
+            <textField pattern="dd/MM/yyyy">
+                <reportElement x="0" y="0" width="60" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$F{paid_at}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="60" y="0" width="85" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{payout_reference}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="145" y="0" width="120" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{member_name} + " (" + $F{member_document} + ")"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="265" y="0" width="100" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{applies_to_label} + " - " + $F{plan_name}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00">
+                <reportElement x="365" y="0" width="55" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/><paragraph rightIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{calculation_basis}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="420" y="0" width="50" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$F{commission_pct} != null ? ($F{commission_pct} + "%") : ("$" + $F{flat_amount})]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="470" y="0" width="85" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font size="7" isBold="true"/>
+                    <paragraph rightIndent="4"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{amount}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+
+    <!-- Page Footer -->
+    <pageFooter>
+        <band height="18">
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="2" width="300" height="14" forecolor="#64748B"/>
+                <textElement verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$P{P_REPORT_FOOTER} != null ? $P{P_REPORT_FOOTER} : ""]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="355" y="2" width="160" height="14" forecolor="#64748B"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER} + " de "]]></textFieldExpression>
+            </textField>
+            <textField evaluationTime="Report">
+                <reportElement x="515" y="2" width="40" height="14" forecolor="#64748B"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+
+    <!-- Summary -->
+    <summary>
+        <band height="40">
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="8" width="555" height="26" backcolor="#0F172A" forecolor="#0F172A"/>
+            </rectangle>
+            <staticText>
+                <reportElement x="12" y="13" width="250" height="16" forecolor="#FFFFFF"/>
+                <textElement verticalAlignment="Middle">
+                    <font fontName="SansSerif" size="9" isBold="true"/>
+                </textElement>
+                <text><![CDATA[TOTAL GENERAL DESEMBOLSADO EN COMISIONES:]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="270" y="13" width="140" height="16" forecolor="#94A3B8"/>
+                <textElement verticalAlignment="Middle">
+                    <font size="8"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$V{V_GRAND_COUNT} + " pagos a promotores"]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="415" y="12" width="135" height="18" forecolor="#38BDF8"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="SansSerif" size="11" isBold="true"/>
+                    <paragraph rightIndent="4"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$V{V_GRAND_TOTAL} != null ? $V{V_GRAND_TOTAL} : BigDecimal.ZERO]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+</jasperReport>
