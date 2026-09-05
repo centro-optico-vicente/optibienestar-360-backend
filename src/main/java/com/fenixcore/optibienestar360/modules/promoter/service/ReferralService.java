@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -67,6 +68,7 @@ public class ReferralService {
 
     private final ReferralRepository referralRepository;
     private final MemberRepository memberRepository;
+    private final CurrencyRepository currencyRepository;
 
     // ─── 1. Register at enrollment ─────────────────────────────────────────
 
@@ -107,7 +109,8 @@ public class ReferralService {
         referral.setEnrolledAt(Instant.now());
         // Reward configured inline at registration; remains pct (v1 policy).
         referral.setRewardPct(V1_REWARD_PCT);
-        referral.setRewardCurrency(V1_REWARD_CURRENCY);
+        referral.setRewardCurrency(currencyRepository.findByCode(V1_REWARD_CURRENCY)
+                .orElseThrow(() -> new java.util.NoSuchElementException("currency.not_found")));
         referral.setStatus(ReferralStatus.REGISTERED.name());
 
         Referral saved = referralRepository.save(referral);

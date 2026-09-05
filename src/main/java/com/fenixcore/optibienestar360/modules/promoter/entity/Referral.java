@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import jakarta.persistence.AttributeOverride;
@@ -81,8 +82,9 @@ public class Referral extends BaseEntity {
     @Column(name = "reward_flat_amount", precision = 10, scale = 2)
     private BigDecimal rewardFlatAmount;
 
-    @Column(name = "reward_currency", length = 3)
-    private String rewardCurrency;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reward_currency_id")
+    private Currency rewardCurrency;
 
     // ─── Reward grant ──────────────────────────────────────────────────────
 

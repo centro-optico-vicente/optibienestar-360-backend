@@ -19,5 +19,6 @@ public interface BenefitUsageMapper {
     @Mapping(target = "allyName",         source = "ally.name")
     @Mapping(target = "allyServiceUuid",  source = "allyService.uuid")
     @Mapping(target = "allyUserUuid",     source = "allyUser.uuid")
+    @Mapping(target = "copayCurrency",    source = "copayCurrency.code")
     BenefitUsageDto toDto(BenefitUsage usage);
 }

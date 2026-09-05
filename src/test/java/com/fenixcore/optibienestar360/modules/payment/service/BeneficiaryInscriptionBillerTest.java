@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.when;
 class BeneficiaryInscriptionBillerTest {
 
     @Mock private PaymentRepository paymentRepository;
+    @Mock private CurrencyRepository currencyRepository;
     @InjectMocks private BeneficiaryInscriptionBiller biller;
 
     @Test
@@ -38,6 +41,7 @@ class BeneficiaryInscriptionBillerTest {
             p.setId(55L);
             return p;
         });
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd()));
 
         Long id = biller.chargeExtraInscription(membership, new BigDecimal("5.00"));
 
@@ -47,7 +51,7 @@ class BeneficiaryInscriptionBillerTest {
         Payment saved = captor.getValue();
         assertThat(saved.getMembership()).isSameAs(membership);
         assertThat(saved.getAmount()).isEqualByComparingTo("5.00");
-        assertThat(saved.getCurrency()).isEqualTo("USD");
+        assertThat(saved.getCurrency().getCode()).isEqualTo("USD");
         assertThat(saved.getPaymentMethod()).isEqualTo(Payment.PaymentMethod.OTHER);
         assertThat(saved.isInscription()).isTrue();
         assertThat(saved.getAppliedPeriod()).isNull();   // V23 CHECK: inscription rows carry no period
@@ -68,5 +72,14 @@ class BeneficiaryInscriptionBillerTest {
         when(paymentRepository.findById(55L)).thenReturn(Optional.of(payment));
 
         assertThat(biller.resolveUuid(55L)).isEqualTo(payment.getUuid());
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 }

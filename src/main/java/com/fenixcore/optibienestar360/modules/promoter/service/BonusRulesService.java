@@ -9,6 +9,8 @@ import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -63,6 +65,7 @@ public class BonusRulesService {
 
     private final CommissionBonusRuleRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -166,7 +169,7 @@ public class BonusRulesService {
         }
     }
 
-    private static void apply(CommissionBonusRule rule, BonusRuleRequest req) {
+    private void apply(CommissionBonusRule rule, BonusRuleRequest req) {
         rule.setName(req.name());
         rule.setDescription(req.description());
         rule.setMetric(req.metric());
@@ -181,8 +184,13 @@ public class BonusRulesService {
         rule.setRewardType(req.rewardType());
         rule.setFlatAmount(req.rewardType() == RewardType.FLAT ? req.flatAmount() : null);
         rule.setRewardPct(req.rewardType() == RewardType.PERCENTAGE ? req.rewardPct() : null);
-        rule.setRewardCurrency(normalizeCurrency(req.rewardCurrency()));
+        rule.setRewardCurrency(resolveCurrency(normalizeCurrency(req.rewardCurrency())));
         rule.setIncludeSystemPromoters(Boolean.TRUE.equals(req.includeSystemPromoters()));
+    }
+
+    private Currency resolveCurrency(String code) {
+        return currencyRepository.findByCode(code)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
     }
 
     private static String normalizeCurrency(String currency) {

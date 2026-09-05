@@ -12,6 +12,8 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +51,7 @@ public class AllyServicesAdminService {
     private final AllyRepository allyRepository;
     private final AllyServiceRepository serviceRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
+    private final CurrencyRepository currencyRepository;
     private final AllyMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -82,7 +85,10 @@ public class AllyServicesAdminService {
         service.setServiceCategory(category);
         service.setName(req.name());
         service.setDescription(req.description());
-        service.setPriceUsd(req.priceUsd());
+        service.setPriceAmount(req.priceAmount());
+        // Reference price is always entered in USD today (v2 checklist pending
+        // multi-currency ally pricing) — mirrors the V91 backfill.
+        service.setPriceCurrency(req.priceAmount() != null ? usdCurrency() : null);
         service.setDiscountPct(req.discountPct());
         if (req.requiresAppointment() != null) {
             service.setRequiresAppointment(req.requiresAppointment());
@@ -104,7 +110,10 @@ public class AllyServicesAdminService {
         }
         if (req.name() != null)                service.setName(req.name());
         if (req.description() != null)         service.setDescription(req.description());
-        if (req.priceUsd() != null)            service.setPriceUsd(req.priceUsd());
+        if (req.priceAmount() != null) {
+            service.setPriceAmount(req.priceAmount());
+            service.setPriceCurrency(usdCurrency());
+        }
         if (req.discountPct() != null)         service.setDiscountPct(req.discountPct());
         if (req.requiresAppointment() != null) service.setRequiresAppointment(req.requiresAppointment());
         if (req.published() != null)           service.setPublished(req.published());
@@ -122,6 +131,12 @@ public class AllyServicesAdminService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /** Reference prices are USD-only today (ADR 0015 follow-up, V91). */
+    private Currency usdCurrency() {
+        return currencyRepository.findByCode("USD")
+                .orElseThrow(() -> new IllegalStateException("currency.usd_not_seeded"));
+    }
 
     private Ally findAlly(UUID uuid) {
         return allyRepository.findByUuid(uuid)

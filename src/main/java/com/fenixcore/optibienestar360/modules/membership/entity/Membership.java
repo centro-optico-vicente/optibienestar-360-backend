@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -96,6 +97,10 @@ public class Membership extends BaseEntity {
 
     @Column(name = "monthly_fee", precision = 10, scale = 2, nullable = false)
     private BigDecimal monthlyFee;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "currency_id", nullable = false)
+    private Currency currency;
 
     @Column(name = "grace_period_days", nullable = false)
     private int gracePeriodDays;

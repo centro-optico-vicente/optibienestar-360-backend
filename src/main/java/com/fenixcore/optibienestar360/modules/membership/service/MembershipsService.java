@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.mapper.MembershipMapper;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,18 +43,25 @@ public class MembershipsService {
     private final PlanRepository planRepository;
     private final MembershipRepository membershipRepository;
     private final MembershipMapper mapper;
+    private final ConversionEnricher conversionEnricher;
 
     // ─── Listing under a member ─────────────────────────────────────────────
 
     public List<MembershipDto> listForMember(UUID memberUuid) {
         Member member = findMember(memberUuid);
         return membershipRepository.findByMemberIdOrderByEnrolledAtDesc(member.getId()).stream()
-                .map(mapper::toDto)
+                .map(this::enrich)
                 .toList();
     }
 
     public MembershipDto get(UUID memberUuid, UUID membershipUuid) {
-        return mapper.toDto(findUnderMember(memberUuid, membershipUuid));
+        return enrich(findUnderMember(memberUuid, membershipUuid));
+    }
+
+    /** Live-converts {@link Membership#getMonthlyFee()} to the org's official currency (ADR 0015 §6 Caso B). */
+    private MembershipDto enrich(Membership membership) {
+        var conv = conversionEnricher.toOfficial(membership.getMonthlyFee(), membership.getCurrency());
+        return mapper.toDto(membership).withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
     }
 
     // ─── Enroll ─────────────────────────────────────────────────────────────
@@ -92,6 +100,7 @@ public class MembershipsService {
         // this row + enroll a new one.
         membership.setInscriptionFee(plan.getInscriptionFee());
         membership.setMonthlyFee(plan.getMonthlyFee());
+        membership.setCurrency(plan.getCurrency());
         membership.setGracePeriodDays(plan.getGracePeriodDays());
 
         // Lifecycle starts at ACTIVE. The CHECK constraint pins status to

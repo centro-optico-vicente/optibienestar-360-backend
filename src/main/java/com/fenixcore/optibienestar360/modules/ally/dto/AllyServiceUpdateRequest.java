@@ -23,7 +23,7 @@ public record AllyServiceUpdateRequest(
 
         @Digits(integer = 8, fraction = 2)
         @DecimalMin(value = "0.0", inclusive = true)
-        BigDecimal priceUsd,
+        BigDecimal priceAmount,
 
         @Digits(integer = 3, fraction = 2)
         @DecimalMin(value = "0.0", inclusive = true)

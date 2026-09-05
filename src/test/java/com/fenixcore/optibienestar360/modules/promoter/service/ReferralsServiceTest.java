@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -90,7 +91,7 @@ class ReferralsServiceTest {
         row.setReferralCode("ABC123");
         row.setEnrolledAt(Instant.parse("2026-01-15T12:00:00Z"));
         row.setRewardPct(new BigDecimal("10.00"));
-        row.setRewardCurrency("USD");
+        row.setRewardCurrency(usd());
         row.setRewardPayment(rewardPayment);
         row.setRewardGrantedAt(Instant.parse("2026-02-05T09:30:00Z"));
         row.setStatus(ReferralStatus.REWARD_GRANTED.name());
@@ -177,5 +178,14 @@ class ReferralsServiceTest {
     private static void setCreatedAt(Referral r, Instant when) {
         // createdAt is in BaseEntity and there's a setter through Lombok.
         r.setCreatedAt(when);
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 }

@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally.entity;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -54,8 +55,12 @@ public class AllyService extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Column(name = "price_usd", precision = 10, scale = 2)
-    private BigDecimal priceUsd;
+    @Column(name = "price_amount", precision = 10, scale = 2)
+    private BigDecimal priceAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "price_currency_id")
+    private Currency priceCurrency;
 
     @Column(name = "discount_pct", precision = 5, scale = 2)
     private BigDecimal discountPct;

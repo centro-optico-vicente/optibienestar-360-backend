@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionScoreDto;
@@ -43,9 +45,19 @@ class PromoterCollectionServiceTest {
     @Mock private PromoterRepository promoterRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private PromoterMemberContactRepository contactRepository;
+    @Mock private CurrencyRepository currencyRepository;
 
     private PromoterCollectionService service() {
-        return new PromoterCollectionService(promoterRepository, memberRepository, contactRepository);
+        return new PromoterCollectionService(promoterRepository, memberRepository, contactRepository, currencyRepository);
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     private final UUID userUuid = UUID.randomUUID();
@@ -77,6 +89,7 @@ class PromoterCollectionServiceTest {
         Member member = member(promoter);
         stubResolve(promoter);
         when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd()));
         stubSave();
 
         service().registerPaymentPromise(userUuid, member.getUuid(),
@@ -86,6 +99,7 @@ class PromoterCollectionServiceTest {
         assertThat(row.getType()).isEqualTo(ContactType.PAYMENT_PROMISE);
         assertThat(row.getPromisedAmount()).isEqualByComparingTo("25.00");
         assertThat(row.getPromisedAtDate()).isEqualTo(LocalDate.of(2026, 8, 15));
+        assertThat(row.getPromisedCurrency().getCode()).isEqualTo("USD");
     }
 
     @Test

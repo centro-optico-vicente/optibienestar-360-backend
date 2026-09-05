@@ -106,7 +106,7 @@ class PublicServicesServiceTest {
         assertThat(dto.uuid()).isEqualTo(svc.getUuid());
         assertThat(dto.name()).isEqualTo("Examen de la vista");
         assertThat(dto.categoryName()).isEqualTo("Optometría");
-        assertThat(dto.priceUsd()).isEqualByComparingTo("15.00");
+        assertThat(dto.priceAmount()).isEqualByComparingTo("15.00");
     }
 
     // ─── search (cross-ally) ─────────────────────────────────────────────────
@@ -174,7 +174,7 @@ class PublicServicesServiceTest {
         svc.setServiceCategory(category);
         svc.setName(name);
         svc.setDescription("Servicio de prueba");
-        svc.setPriceUsd(new BigDecimal("15.00"));
+        svc.setPriceAmount(new BigDecimal("15.00"));
         svc.setRequiresAppointment(true);
         svc.setReviewStatus(ReviewStatus.APPROVED);
         svc.setActive(true);

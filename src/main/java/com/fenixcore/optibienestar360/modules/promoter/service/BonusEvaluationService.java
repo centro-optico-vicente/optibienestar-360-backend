@@ -248,7 +248,7 @@ public class BonusEvaluationService {
 
         log.debug("Bonus award: rule={} promoter={} blocks={} amount={} {}",
                 rule.getName(), promoter.getReferralCode(), comp.blocks(),
-                comp.amount(), rule.getRewardCurrency());
+                comp.amount(), rule.getRewardCurrency().getCode());
     }
 
     // ─── Window computation ───────────────────────────────────────────────────

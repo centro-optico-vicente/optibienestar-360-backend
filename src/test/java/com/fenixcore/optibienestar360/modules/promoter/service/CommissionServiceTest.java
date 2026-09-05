@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -357,13 +358,22 @@ class CommissionServiceTest {
         payment.setUuid(UUID.randomUUID());
         payment.setMembership(membership);
         payment.setAmount(amount);
-        payment.setCurrency("USD");
+        payment.setCurrency(usd());
         payment.setInscription(inscription);
         payment.setPaymentDate(LocalDate.of(2026, 6, 15));
         if (!inscription) {
             payment.setAppliedPeriod(LocalDate.of(2026, 6, 1));
         }
         return payment;
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     private static Promoter promoter(String code, boolean system) {

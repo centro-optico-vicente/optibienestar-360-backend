@@ -35,9 +35,16 @@ public record PaymentDto(
         // Payer (flat — null when cash-at-counter)
         UUID payerUserUuid,
 
-        // Money
-        @Display(Display.Kind.MONEY) BigDecimal amount,
-        String currency,
+        // Money (ADR 0015 §5/§6/§7 — currency_Code is the real denomination;
+        // amountConverted/convertedCurrency_Code/exchangeRateUsed/exchangeRateDate
+        // are the persisted payout snapshot for an approved payment settling in a
+        // different currency than it was registered in — never recomputed)
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal amount,
+        String currency_Code,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
+        String convertedCurrency_Code,
+        BigDecimal exchangeRateUsed,
+        @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
 
         // Method
         @Display(Display.Kind.ENUM) PaymentMethod paymentMethod,
@@ -68,7 +75,7 @@ public record PaymentDto(
         String reviewReason,
 
         // One-off discount (V41; null when none applied)
-        @Display(Display.Kind.MONEY) BigDecimal discountAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal discountAmount,
         String discountReason,
         UUID discountedByUserUuid,
         @Display(Display.Kind.DATETIME) Instant discountedAt,

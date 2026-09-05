@@ -4,10 +4,16 @@ import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface PlanMapper {
 
+    @Mapping(target = "currency_Code", source = "currency.code")
+    @Mapping(target = "amountConverted", ignore = true)
+    @Mapping(target = "convertedCurrency_Code", ignore = true)
+    @Mapping(target = "exchangeRateUsed", ignore = true)
+    @Mapping(target = "exchangeRateDate", ignore = true)
     PlanDto toDto(Plan plan);
 
     /** Sanitized projection for the anonymous pricing surface — see {@link PublicPlanDto}. */

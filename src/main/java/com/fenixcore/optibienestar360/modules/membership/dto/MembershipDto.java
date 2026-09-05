@@ -35,9 +35,17 @@ public record MembershipDto(
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
 
-        // Pricing snapshot
-        @Display(Display.Kind.MONEY) BigDecimal inscriptionFee,
-        @Display(Display.Kind.MONEY) BigDecimal monthlyFee,
+        // Pricing snapshot (ADR 0015 §6 Caso B — an active membership has no
+        // payout snapshot; amountConverted/etc are a live conversion of
+        // monthlyFee to the organization's official currency, computed by
+        // MembershipsService via ConversionEnricher — null when unavailable)
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal inscriptionFee,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal monthlyFee,
+        String currency_Code,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
+        String convertedCurrency_Code,
+        BigDecimal exchangeRateUsed,
+        @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
         int gracePeriodDays,
 
         // Status
@@ -49,4 +57,15 @@ public record MembershipDto(
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant updatedAt
-) {}
+) {
+    /** Rebuilds this record with the live conversion of {@link #monthlyFee} populated — see {@code ConversionEnricher}. */
+    public MembershipDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
+            BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
+        return new MembershipDto(uuid, memberUuid, planUuid, planCode, planName, planType,
+                enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
+                inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
+                exchangeRateUsed, exchangeRateDate, gracePeriodDays,
+                status, lastStatusChangeAt, lastStatusChangeReason,
+                active, createdAt, updatedAt);
+    }
+}

@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.mapper.PlanMapperImpl;
 import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,13 +50,16 @@ class PlansServicePublicTest {
     @Mock private PlanRepository repository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private CorporateContractRepository corporateContractRepository;
+    @Mock private CurrencyRepository currencyRepository;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher conversionEnricher;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private PlansService service;
 
     @BeforeEach
     void setup() {
-        service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository, defaultSortResolver);
+        service = new PlansService(repository, new PlanMapperImpl(), membershipRepository, corporateContractRepository,
+                currencyRepository, conversionEnricher, defaultSortResolver);
     }
 
     // ─── publicGetByUuid ─────────────────────────────────────────────────────

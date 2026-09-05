@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -57,11 +58,28 @@ public class LeaderboardPrizeAward extends BaseEntity {
     @Column(name = "prize_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal prizeAmount;
 
-    @Column(name = "prize_currency", length = 3, nullable = false)
-    private String prizeCurrency = "USD";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "prize_currency_id", nullable = false)
+    private Currency prizeCurrency;
 
     @Column(name = "awarded_at", nullable = false)
     private Instant awardedAt = Instant.now();
+
+    // ─── Payout lifecycle (V92) ───────────────────────────────────────────────
+
+    /** When the award was actually paid out — distinct from {@link #awardedAt} (period-close). Null until PAID. */
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    @Column(name = "payout_reference", length = 120)
+    private String payoutReference;
+
+    /** Units of the organization's official currency per 1 unit of {@link #prizeCurrency}, as of {@link #paidAt}. Null when never paid, or paid without a conversion (same currency). */
+    @Column(name = "exchange_rate_used", precision = 18, scale = 8)
+    private BigDecimal exchangeRateUsed;
+
+    @Column(name = "exchange_rate_date")
+    private LocalDate exchangeRateDate;
 
     /** Workflow values pinned by convention (mirrors PromoterBonusAward). */
     public enum AwardStatus {

@@ -22,7 +22,7 @@ public record PublicAllyServiceDto(
         String categoryName,
         String name,
         String description,
-        @Display(Display.Kind.NUMBER) BigDecimal priceUsd,
+        @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment
 ) {}

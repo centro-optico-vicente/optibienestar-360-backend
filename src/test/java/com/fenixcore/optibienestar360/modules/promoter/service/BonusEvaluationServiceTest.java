@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
@@ -267,8 +268,17 @@ class BonusEvaluationServiceTest {
         rule.setUuid(UUID.randomUUID());
         rule.setActive(true);
         rule.setName(name);
-        rule.setRewardCurrency("USD");
+        rule.setRewardCurrency(usd());
         return rule;
+    }
+
+    private static Currency usd() {
+        Currency c = new Currency();
+        c.setCode("USD");
+        c.setName("Dolar estadounidense");
+        c.setSymbol("US$");
+        c.setDecimalPlaces((short) 2);
+        return c;
     }
 
     private Promoter promoter(long id) {

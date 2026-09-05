@@ -26,9 +26,16 @@ public record CommissionDto(
         UUID paymentUuid,
         UUID memberUuid,
 
-        // Money + snapshot
-        @Display(Display.Kind.MONEY) BigDecimal amount,
-        String currency,
+        // Money + snapshot (ADR 0015 §6 Caso B — commissions have no payout
+        // currency-snapshot column yet, so amountConverted/etc are always a
+        // live conversion to the organization's official currency, computed
+        // by the service via ConversionEnricher; null when unavailable)
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal amount,
+        String currency_Code,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
+        String convertedCurrency_Code,
+        BigDecimal exchangeRateUsed,
+        @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
         @Display(Display.Kind.MONEY) BigDecimal calculationBasis,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
@@ -53,4 +60,15 @@ public record CommissionDto(
         @Display(value = Display.Kind.ENUM, enumScope = "commission.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant updatedAt
-) {}
+) {
+    /** Rebuilds this record with the live conversion fields populated — see {@code ConversionEnricher}. */
+    public CommissionDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
+            BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
+        return new CommissionDto(uuid, promoter, paymentUuid, memberUuid, amount, currency_Code,
+                amountConverted, convertedCurrencyCode, exchangeRateUsed, exchangeRateDate,
+                calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
+                appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
+                payoutReference, paidAt, voidedAt, voidReason, adminNotes,
+                active, status, createdAt, updatedAt);
+    }
+}

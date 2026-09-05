@@ -13,5 +13,10 @@ public interface MembershipMapper {
     @Mapping(target = "planCode",   source = "plan.code")
     @Mapping(target = "planName",   source = "plan.name")
     @Mapping(target = "planType",   source = "plan.type")
+    @Mapping(target = "currency_Code", source = "currency.code")
+    @Mapping(target = "amountConverted", ignore = true)
+    @Mapping(target = "convertedCurrency_Code", ignore = true)
+    @Mapping(target = "exchangeRateUsed", ignore = true)
+    @Mapping(target = "exchangeRateDate", ignore = true)
     MembershipDto toDto(Membership membership);
 }

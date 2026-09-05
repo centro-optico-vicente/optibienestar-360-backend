@@ -45,12 +45,13 @@ class MembershipPricingInvariantsTest {
     @Mock private PlanRepository planRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private MembershipMapper mapper;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher conversionEnricher;
 
     private MembershipsService service;
 
     @BeforeEach
     void setup() {
-        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper);
+        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher);
     }
 
     @Test

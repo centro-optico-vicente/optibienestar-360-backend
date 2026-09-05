@@ -100,14 +100,36 @@ public class DisplayFormatter {
 		return value.format(formatter(KEY_DATE_PATTERN, DEFAULT_DATE_PATTERN, locale));
 	}
 
-	/** Currency amount in {@code VES} — {@code "Bs. 1.200,00"} (es). */
-	public String money(BigDecimal value, Locale locale) {
+	/**
+	 * Currency amount formatted with {@code currencyCode}'s real symbol/decimals
+	 * (ADR 0015) — {@code "US$ 120,00"}, {@code "Bs. 1.200,00"}, etc. Falls back
+	 * to {@code VES} when {@code currencyCode} is {@code null}/blank or not a
+	 * valid ISO 4217 code — same rendering the formatter always produced before
+	 * every money-bearing row carried its own currency, so existing VES-only
+	 * callers (via {@link #money(BigDecimal, Locale)} / an empty
+	 * {@code @Display(moneyCurrencyField)}) see no change.
+	 */
+	public String money(BigDecimal value, String currencyCode, Locale locale) {
 		if (value == null) {
 			return null;
 		}
 		NumberFormat format = NumberFormat.getCurrencyInstance(locale);
-		format.setCurrency(VES);
+		Currency currency = VES;
+		if (currencyCode != null && !currencyCode.isBlank()) {
+			try {
+				currency = Currency.getInstance(currencyCode);
+			} catch (IllegalArgumentException invalidCode) {
+				log.warn("Unknown currency code '{}', falling back to VES", currencyCode);
+			}
+		}
+		format.setCurrency(currency);
 		return format.format(value);
+	}
+
+	/** @deprecated use {@link #money(BigDecimal, String, Locale)} — kept for callers with no currency in scope; renders VES, same as before ADR 0015. */
+	@Deprecated
+	public String money(BigDecimal value, Locale locale) {
+		return money(value, (String) null, locale);
 	}
 
 	/**

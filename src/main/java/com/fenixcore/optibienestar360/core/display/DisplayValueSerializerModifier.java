@@ -112,8 +112,9 @@ public class DisplayValueSerializerModifier extends ValueSerializerModifier {
 			if (raw == null && willSuppressNulls()) {
 				return;
 			}
+			String currencyCode = DisplayBeanSerializerModifier.resolveMoneyCurrency(bean, display);
 			String value = DisplayBeanSerializerModifier.scalarDisplay(
-					formatter, raw, display, getName(), LocaleContextHolder.getLocale());
+					formatter, raw, display, getName(), LocaleContextHolder.getLocale(), currencyCode);
 			writeStringOrNull(gen, getName() + "_Display", value);
 		}
 	}

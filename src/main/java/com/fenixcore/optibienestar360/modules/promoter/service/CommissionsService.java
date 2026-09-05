@@ -5,6 +5,8 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPeriodSummaryDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -42,7 +44,7 @@ import java.util.UUID;
 public class CommissionsService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "appliesTo", "periodStrategy", "currency",
+            "status", "appliesTo", "periodStrategy", "currency.code",
             "amount", "commissionPct", "flatAmount", "calculationBasis",
             "periodStart", "periodEnd", "earnedAt",
             "paidAt", "voidedAt",
@@ -65,12 +67,21 @@ public class CommissionsService {
     private final CommissionMapper mapper;
     private final CommissionPeriodSummaryRepository periodSummaryRepository;
     private final PromoterRepository promoterRepository;
+    private final CurrencyRepository currencyRepository;
+    private final ConversionEnricher conversionEnricher;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public CommissionDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        Commission commission = findManaged(uuid);
+        return enrich(mapper.toDto(commission), commission);
+    }
+
+    /** Live-converts {@code amount} to the org's official currency (ADR 0015 §6 Caso B — no snapshot column on Commission yet). */
+    private CommissionDto enrich(CommissionDto dto, Commission commission) {
+        var conv = conversionEnricher.toOfficial(commission.getAmount(), commission.getCurrency());
+        return dto.withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
     }
 
     /** Monthly commission history for one promoter, most recent period first —
@@ -80,14 +91,17 @@ public class CommissionsService {
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
         return periodSummaryRepository.findByPromoterIdOrderByPeriodStartDesc(promoter.getId())
                 .stream()
-                .map(CommissionsService::toSummaryDto)
+                .map(this::toSummaryDto)
                 .toList();
     }
 
-    private static CommissionPeriodSummaryDto toSummaryDto(CommissionPeriodSummary s) {
+    private CommissionPeriodSummaryDto toSummaryDto(CommissionPeriodSummary s) {
+        String currencyCode = s.getCurrencyId() != null
+                ? currencyRepository.findById(s.getCurrencyId()).map(c -> c.getCode()).orElse(null)
+                : null;
         return new CommissionPeriodSummaryDto(
                 s.getPeriodStrategy(), s.getPeriodStart(), s.getPeriodEnd(),
-                s.getCommissionCount(), s.getTotalAmount(), s.getCurrency());
+                s.getCommissionCount(), s.getTotalAmount(), currencyCode);
     }
 
     /**
@@ -110,7 +124,7 @@ public class CommissionsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return repository.findAll(spec, resolvedPageable).map(c -> enrich(mapper.toDto(c), c));
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
