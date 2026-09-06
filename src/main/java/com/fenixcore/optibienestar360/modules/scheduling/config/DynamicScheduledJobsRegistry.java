@@ -78,6 +78,13 @@ public class DynamicScheduledJobsRegistry {
      * Loads every enabled job from the DB and registers it. Runs after the
      * full ApplicationContext is ready so all {@code ScheduledJobRunner}
      * beans are visible to {@link JobExecutionService}.
+     *
+     * <p>A job with no execution history yet ({@code last_run_at IS NULL} —
+     * freshly seeded, or the app never stayed up past its cron before) also
+     * gets an immediate {@link JobExecutionService#triggerStartupCatchUp}
+     * fire here, so its data isn't stale until whenever the cron next lands.
+     * That catch-up is async and one-off; the {@link #register} call just
+     * above it is what keeps the job running on schedule afterwards.</p>
      */
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void onApplicationReady() {
@@ -87,6 +94,10 @@ public class DynamicScheduledJobsRegistry {
             try {
                 register(job);
                 count++;
+                if (job.getLastRunAt() == null) {
+                    log.info("Job {} has no execution history — triggering startup catch-up run", job.getCode());
+                    executionService.triggerStartupCatchUp(job.getUuid());
+                }
             } catch (RuntimeException ex) {
                 log.error("Failed to register scheduled job {}", job.getCode(), ex);
             }

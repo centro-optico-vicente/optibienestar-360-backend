@@ -155,6 +155,30 @@ class DynamicScheduledJobsRegistryTest {
     }
 
     @Test
+    void onApplicationReady_triggersStartupCatchUp_forJobWithNoRunHistory() {
+        ScheduledJob neverRun = jobFixture("FETCH_EXCHANGE_RATES", "0 0 * * * *", true, true);
+        // lastRunAt left null — never executed.
+        when(jobRepository.findAllByActiveTrueAndEnabledTrue()).thenReturn(java.util.List.of(neverRun));
+        when(taskScheduler.schedule(any(Runnable.class), any(Trigger.class))).thenAnswer(inv -> firstFuture);
+
+        registry.onApplicationReady();
+
+        verify(executionService).triggerStartupCatchUp(neverRun.getUuid());
+    }
+
+    @Test
+    void onApplicationReady_doesNotTriggerCatchUp_forJobWithRunHistory() {
+        ScheduledJob alreadyRan = jobFixture("MEMBERSHIP_STATUS_SWEEP", "0 0 3 * * *", true, true);
+        alreadyRan.setLastRunAt(java.time.Instant.now());
+        when(jobRepository.findAllByActiveTrueAndEnabledTrue()).thenReturn(java.util.List.of(alreadyRan));
+        when(taskScheduler.schedule(any(Runnable.class), any(Trigger.class))).thenAnswer(inv -> firstFuture);
+
+        registry.onApplicationReady();
+
+        verify(executionService, never()).triggerStartupCatchUp(any());
+    }
+
+    @Test
     void trigger_returnsNull_when_job_disabled_at_fire_time() {
         when(taskScheduler.schedule(any(Runnable.class), any(Trigger.class)))
                 .thenAnswer(inv -> firstFuture);
