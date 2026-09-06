@@ -24,6 +24,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -70,6 +71,7 @@ public class CommissionsService {
     private final CurrencyRepository currencyRepository;
     private final ConversionEnricher conversionEnricher;
     private final DefaultSortResolver defaultSortResolver;
+    private final CommissionAuditRecorder auditRecorder;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -130,6 +132,32 @@ public class CommissionsService {
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
         return defaultSortResolver.effectiveSort("commission", pageable);
+    }
+
+    // ─── Write (the one mutation this admin-read service owns) ─────────────
+
+    /**
+     * Voids a single PENDING commission — e.g. a promoter's non-compliance
+     * discovered before the period closes. Excludes it from the next payout
+     * ({@code findPendingForPeriod}'s {@code status = 'PENDING'} predicate)
+     * without touching the rest of that promoter's period, unlike the
+     * all-or-nothing {@code POST /payout} range. Only PENDING is eligible:
+     * PAID is settled money (no retroactive rewrite, same rule
+     * {@code CommissionReRatingService} follows); VOIDED/DISPUTED are
+     * already terminal.
+     */
+    @Transactional
+    public CommissionDto voidCommission(UUID uuid, String reason) {
+        Commission commission = findManaged(uuid);
+        if (!Commission.CommissionStatus.PENDING.name().equals(commission.getStatus())) {
+            throw new IllegalArgumentException("commission.void.not_pending");
+        }
+        Map<String, Object> before = auditRecorder.snapshot(commission);
+        commission.setStatus(Commission.CommissionStatus.VOIDED.name());
+        commission.setVoidedAt(Instant.now());
+        commission.setVoidReason(reason);
+        auditRecorder.recordUpdate(uuid, before, auditRecorder.snapshot(commission));
+        return enrich(mapper.toDto(commission), commission);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
