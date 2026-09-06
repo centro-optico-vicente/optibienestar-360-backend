@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutReque
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingResponse;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionVoidRequest;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionPayoutService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatingService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
@@ -27,9 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 /**
- * Read-only admin surface over the commissions ledger. Mutations
- * (mark-as-paid / void / dispute) live in their own bullets once the
- * payout flow lands.
+ * Admin surface over the commissions ledger. Mostly read-only; the one
+ * mutation it owns directly is {@link #voidCommission} (mark-as-paid comes
+ * in bulk via {@code /payout} — see {@code CommissionPayoutService} — and
+ * dispute isn't built yet).
  *
  * <p>Default sort {@code earnedAt DESC} matches the V26 composite index
  * {@code (member_id, earned_at DESC)} for the per-member view; the
@@ -60,6 +62,18 @@ public class AdminCommissionController {
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
     public ResponseEntity<CommissionDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(commissionsService.get(uuid));
+    }
+
+    /**
+     * Voids one PENDING commission — e.g. a promoter's non-compliance
+     * discovered before the period closes — excluding it from the next
+     * {@code /payout} without touching the rest of that promoter's period.
+     */
+    @PostMapping("/{uuid}/void")
+    @PreAuthorize("hasAuthority('COMMISSION_VOID')")
+    public ResponseEntity<CommissionDto> voidCommission(
+            @PathVariable UUID uuid, @Valid @RequestBody CommissionVoidRequest request) {
+        return ResponseEntity.ok(commissionsService.voidCommission(uuid, request.reason()));
     }
 
     /**
