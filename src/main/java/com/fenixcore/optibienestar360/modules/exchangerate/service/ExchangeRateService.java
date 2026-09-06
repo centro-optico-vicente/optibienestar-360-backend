@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateCreateRequest;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateDto;
+import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateUpdateRequest;
 import com.fenixcore.optibienestar360.modules.exchangerate.entity.ExchangeRate;
 import com.fenixcore.optibienestar360.modules.exchangerate.repository.ExchangeRateRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -26,11 +27,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Admin surface over {@code exchange_rates} (ADR 0015 §2/§7). Read + a manual
- * entry point — no CRUD existed at all until now, since the intended writer
- * ({@code FetchExchangeRatesJob}) hasn't shipped yet (Tarea 2.13). Existing
- * rows are historical fact and never updated/deleted here; a correction is a
- * new row with a later {@code validFrom}, same as a correcting journal entry.
+ * Admin surface over {@code exchange_rates} (ADR 0015 §2/§7). Ingested rows
+ * ({@code source = BCV}/{@code EXCHANGE_RATES_API}) are historical fact and
+ * stay immutable — {@link #update}/{@link #delete} only ever touch
+ * {@code source = MANUAL} rows, so a correction of an actual ingestion is
+ * still a new row with a later {@code validFrom}, same as a correcting
+ * journal entry; a mistaken manual entry can just be fixed or removed.
  */
 @Service
 @RequiredArgsConstructor
@@ -97,6 +99,47 @@ public class ExchangeRateService {
         rate.setStatus("ACTIVE");
 
         return toDto(repository.save(rate));
+    }
+
+    /**
+     * Correct a {@code MANUAL} row's {@code rate}/{@code operationDate}/
+     * {@code validFrom} — PATCH-style, only non-null fields are applied.
+     * Rejects any row not {@code source = MANUAL}: ingested rows are
+     * historical fact (see class javadoc).
+     */
+    @Transactional
+    public ExchangeRateDto update(UUID uuid, ExchangeRateUpdateRequest req) {
+        ExchangeRate rate = requireManual(find(uuid));
+        if (req.rate() != null) {
+            rate.setRate(req.rate());
+        }
+        if (req.operationDate() != null) {
+            rate.setOperationDate(req.operationDate());
+        }
+        if (req.validFrom() != null) {
+            rate.setValidFrom(req.validFrom());
+        }
+        return toDto(repository.save(rate));
+    }
+
+    /** Soft-delete a {@code MANUAL} row — same as the rest of the catalog pattern. */
+    @Transactional
+    public void delete(UUID uuid) {
+        ExchangeRate rate = requireManual(find(uuid));
+        rate.setActive(false);
+        repository.save(rate);
+    }
+
+    private static ExchangeRate requireManual(ExchangeRate rate) {
+        if (rate.getSource() != ExchangeRate.Source.MANUAL) {
+            throw new IllegalArgumentException("exchange_rate.immutable_source");
+        }
+        return rate;
+    }
+
+    private ExchangeRate find(UUID uuid) {
+        return repository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("ExchangeRate not found: " + uuid));
     }
 
     private Currency resolveCurrency(String code) {
