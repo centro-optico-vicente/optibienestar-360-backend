@@ -128,6 +128,7 @@ public class ScheduledJobsService {
         if (req.enabled() != null)          job.setEnabled(req.enabled());
         if (req.allowConcurrent() != null)  job.setAllowConcurrent(req.allowConcurrent());
         if (req.maxSyncSeconds() != null)   job.setMaxSyncSeconds(req.maxSyncSeconds());
+        if (req.parameters() != null)       job.setParameters(req.parameters());
 
         ScheduledJob saved = jobRepository.save(job);
         scheduleAfterCommit(saved.getUuid(), Action.REGISTER);
@@ -161,6 +162,7 @@ public class ScheduledJobsService {
         }
         if (req.allowConcurrent() != null) job.setAllowConcurrent(req.allowConcurrent());
         if (req.maxSyncSeconds() != null)  job.setMaxSyncSeconds(req.maxSyncSeconds());
+        if (req.parameters() != null)      job.setParameters(req.parameters());
         if (req.active() != null) {
             job.setActive(req.active());
             scheduleAffected = true;

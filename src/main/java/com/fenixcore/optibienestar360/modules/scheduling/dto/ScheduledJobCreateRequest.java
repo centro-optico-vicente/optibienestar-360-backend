@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.Map;
+
 /**
  * Payload for {@code POST /v1/admin/scheduled-jobs}. Cron + timezone are
  * required and validated for structural correctness; semantic checks
@@ -27,5 +29,7 @@ public record ScheduledJobCreateRequest(
 
         Boolean enabled,                // default true server-side
         Boolean allowConcurrent,        // default false server-side
-        @Min(0) Integer maxSyncSeconds  // default 30 server-side
+        @Min(0) Integer maxSyncSeconds, // default 30 server-side
+
+        Map<String, Object> parameters  // default {} server-side (V94)
 ) {}

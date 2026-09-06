@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.exchangerate.client.ExchangeRatesApiClient;
 import com.fenixcore.optibienestar360.modules.exchangerate.client.RateResponse;
+import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -54,9 +55,20 @@ public class ExchangeRateIngestionService {
     private static final LocalTime VIGENCY_TIME = LocalTime.of(8, 0);
     private static final String VIGENCY_COUNTRY_ISO_CODE = "VE";
 
+    /**
+     * Code of the {@code scheduled_jobs} row this service reads its
+     * {@code baseUrl} parameter from (V94) — resolved here rather than a
+     * {@code app.exchange-rates-api.base-url} Spring property so a future
+     * job hitting a different external API just carries its own
+     * {@code parameters}, instead of the app accumulating one env var per
+     * integration.
+     */
+    private static final String JOB_CODE = "FETCH_EXCHANGE_RATES";
+
     private final ExchangeRatesApiClient apiClient;
     private final CurrencyRepository currencyRepository;
     private final CountryRepository countryRepository;
+    private final ScheduledJobRepository scheduledJobRepository;
     private final BusinessDayCalculator businessDayCalculator;
     private final ExchangeRateWriter writer;
 
@@ -83,14 +95,39 @@ public class ExchangeRateIngestionService {
             return new IngestionSummary(results);
         }
 
+        Optional<String> baseUrl = resolveApiBaseUrl();
+        if (baseUrl.isEmpty()) {
+            log.error("{} has no 'baseUrl' parameter configured — aborting ingestion run "
+                    + "(set it via PUT /v1/admin/scheduled-jobs/{{uuid}})", JOB_CODE);
+            for (String code : BASE_CURRENCY_CODES) {
+                results.add(new IngestionSummary.CurrencyResult(
+                        code, IngestionSummary.Status.FETCH_FAILED, "job_base_url_not_configured"));
+            }
+            return new IngestionSummary(results);
+        }
+
         for (String baseCode : BASE_CURRENCY_CODES) {
-            results.add(ingestOne(baseCode, quote.get(), vigencyCountry.get()));
+            results.add(ingestOne(baseCode, quote.get(), vigencyCountry.get(), baseUrl.get()));
         }
         return new IngestionSummary(results);
     }
 
-    private IngestionSummary.CurrencyResult ingestOne(String baseCode, Currency quote, Country vigencyCountry) {
-        Optional<RateResponse> response = apiClient.fetchRate(baseCode);
+    /**
+     * Reads {@code baseUrl} out of {@code FETCH_EXCHANGE_RATES.parameters}
+     * (V94) — the single source of truth for this integration's endpoint,
+     * shared by both the scheduled run and the admin quick-action endpoint
+     * (neither hardcodes it or reads a Spring property).
+     */
+    private Optional<String> resolveApiBaseUrl() {
+        return scheduledJobRepository.findByCode(JOB_CODE)
+                .map(job -> job.getParameters().get("baseUrl"))
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .filter(url -> !url.isBlank());
+    }
+
+    private IngestionSummary.CurrencyResult ingestOne(String baseCode, Currency quote, Country vigencyCountry, String baseUrl) {
+        Optional<RateResponse> response = apiClient.fetchRate(baseCode, baseUrl);
         if (response.isEmpty()) {
             return new IngestionSummary.CurrencyResult(
                     baseCode, IngestionSummary.Status.FETCH_FAILED, "upstream_unreachable_or_error");
