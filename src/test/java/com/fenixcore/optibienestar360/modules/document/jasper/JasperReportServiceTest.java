@@ -96,4 +96,96 @@ class JasperReportServiceTest {
     void testXlsxRendererComponent() {
         assertEquals(JasperFormat.XLSX, jasperXlsxRenderer.format());
     }
+
+    @Test
+    @DisplayName("Should compile and validate reporte-comisiones.jrxml successfully")
+    void testCompileReporteComisionesJrxml() throws Exception {
+        org.springframework.core.io.ClassPathResource resource = new org.springframework.core.io.ClassPathResource("reports/reporte-comisiones.jrxml");
+        assertTrue(resource.exists(), "reporte-comisiones.jrxml should exist in classpath");
+        try (var is = resource.getInputStream()) {
+            net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(is);
+            assertNotNull(report);
+            assertEquals("reporte_comisiones", report.getName());
+            assertNotNull(report.getParameters());
+            assertTrue(report.getParameters().length > 0);
+        }
+    }
+
+    @Test
+    @DisplayName("Should compile and validate reporte-pagos.jrxml successfully")
+    void testCompileReportePagosJrxml() throws Exception {
+        org.springframework.core.io.ClassPathResource resource = new org.springframework.core.io.ClassPathResource("reports/reporte-pagos.jrxml");
+        assertTrue(resource.exists(), "reporte-pagos.jrxml should exist in classpath");
+        try (var is = resource.getInputStream()) {
+            net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(is);
+            assertNotNull(report);
+            assertEquals("reporte_pagos", report.getName());
+            assertNotNull(report.getParameters());
+            assertTrue(report.getParameters().length > 0);
+        }
+    }
+
+    @Test
+    @DisplayName("Should compile and validate reporte-pagos-comisiones.jrxml successfully")
+    void testCompileReportePagosComisionesJrxml() throws Exception {
+        org.springframework.core.io.ClassPathResource resource = new org.springframework.core.io.ClassPathResource("reports/reporte-pagos-comisiones.jrxml");
+        assertTrue(resource.exists(), "reporte-pagos-comisiones.jrxml should exist in classpath");
+        try (var is = resource.getInputStream()) {
+            net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(is);
+            assertNotNull(report);
+            assertEquals("reporte_pagos_comisiones", report.getName());
+            assertNotNull(report.getParameters());
+            assertTrue(report.getParameters().length > 0);
+        }
+    }
+
+    @Test
+    @DisplayName("Should generate PDF and XLSX for reporte-comisiones with PostgreSQL connection if available")
+    void testLiveConnectionReporteComisiones() {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                "jdbc:postgresql://localhost:5413/optibienestar360", "optibienestar360_app", "changeme-dev")) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("P_START_DATE", "2026-07-01");
+            params.put("P_END_DATE", "2026-09-30");
+
+            byte[] pdfBytes = jasperReportService.generateReportWithConnection("reports/reporte-comisiones.jrxml", params, conn, JasperFormat.PDF);
+            assertNotNull(pdfBytes);
+            assertTrue(pdfBytes.length > 0);
+            assertEquals("%PDF", new String(pdfBytes, 0, 4, StandardCharsets.ISO_8859_1));
+
+            byte[] xlsxBytes = jasperReportService.generateReportWithConnection("reports/reporte-comisiones.jrxml", params, conn, JasperFormat.XLSX);
+            assertNotNull(xlsxBytes);
+            assertTrue(xlsxBytes.length > 0);
+            assertEquals((byte) 'P', xlsxBytes[0]);
+            assertEquals((byte) 'K', xlsxBytes[1]);
+        } catch (java.sql.SQLException e) {
+            // In environments where postgres is not running, skip gracefully
+            System.out.println("Skipping live connection test (database not reachable): " + e.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Should generate PDF and XLSX for reporte-pagos with PostgreSQL connection if available")
+    void testLiveConnectionReportePagos() {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                "jdbc:postgresql://localhost:5413/optibienestar360", "optibienestar360_app", "changeme-dev")) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("P_START_DATE", "2026-07-01");
+            params.put("P_END_DATE", "2026-09-30");
+
+            byte[] pdfBytes = jasperReportService.generateReportWithConnection("reports/reporte-pagos.jrxml", params, conn, JasperFormat.PDF);
+            assertNotNull(pdfBytes);
+            assertTrue(pdfBytes.length > 0);
+            assertEquals("%PDF", new String(pdfBytes, 0, 4, StandardCharsets.ISO_8859_1));
+
+            byte[] xlsxBytes = jasperReportService.generateReportWithConnection("reports/reporte-pagos.jrxml", params, conn, JasperFormat.XLSX);
+            assertNotNull(xlsxBytes);
+            assertTrue(xlsxBytes.length > 0);
+            assertEquals((byte) 'P', xlsxBytes[0]);
+            assertEquals((byte) 'K', xlsxBytes[1]);
+        } catch (java.sql.SQLException e) {
+            // In environments where postgres is not running, skip gracefully
+            System.out.println("Skipping live connection test (database not reachable): " + e.getMessage());
+        }
+    }
 }

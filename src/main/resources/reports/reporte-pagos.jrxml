@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="reporte_pagos" language="java" orientation="Landscape" pageWidth="842" pageHeight="595" columnWidth="802"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b5f23456-7890-5cde-fa12-34567890bcde">
+
+    <!-- Parameters -->
+    <parameter name="P_START_DATE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_END_DATE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_STATUS" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_PAYMENT_METHOD" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_PLAN_ID" class="java.lang.Long">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_PROMOTER_ID" class="java.lang.Long">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_COMPANY_NAME" class="java.lang.String">
+        <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_REPORT_FOOTER" class="java.lang.String">
+        <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+    </parameter>
+
+    <!-- Query -->
+    <queryString>
+        <![CDATA[
+        SELECT
+            p.payments_id,
+            p.uuid AS payment_uuid,
+            p.payment_date,
+            p.received_at,
+            p.payment_method,
+            CASE 
+                WHEN p.payment_method = 'CASH' THEN 'Efectivo'
+                WHEN p.payment_method = 'PAGO_MOVIL' THEN 'Pago Móvil'
+                WHEN p.payment_method = 'ZELLE' THEN 'Zelle'
+                WHEN p.payment_method = 'BANK_TRANSFER' THEN 'Transferencia Bancaria'
+                WHEN p.payment_method = 'INTERNATIONAL_TRANSFER' THEN 'Transferencia Internacional'
+                WHEN p.payment_method = 'CRYPTO' THEN 'Cripto'
+                WHEN p.payment_method = 'OTHER' THEN 'Otro'
+                ELSE p.payment_method 
+            END AS payment_method_label,
+            COALESCE(p.reference_number, 'S/R') AS reference_number,
+            p.status AS payment_status,
+            CASE 
+                WHEN p.status = 'APPROVED' THEN 'Aprobado'
+                WHEN p.status = 'PENDING' THEN 'Pendiente'
+                WHEN p.status = 'REJECTED' THEN 'Rechazado'
+                ELSE p.status 
+            END AS payment_status_label,
+            p.inscription,
+            CASE 
+                WHEN p.inscription THEN 'Inscripción' 
+                ELSE 'Mensualidad' 
+            END AS concept_label,
+            p.applied_period,
+            p.amount AS gross_amount,
+            cur.code AS currency,
+            COALESCE(p.discount_amount, 0.00) AS discount_amount,
+            (p.amount - COALESCE(p.discount_amount, 0.00)) AS net_amount,
+            COALESCE(p.admin_notes, '-') AS admin_notes,
+            p.reviewed_at,
+            COALESCE(p.review_reason, '-') AS review_reason,
+            COALESCE(ru_p.full_name, 'Sin Revisar') AS reviewer_name,
+            pl.plans_id,
+            pl.code AS plan_code,
+            pl.name AS plan_name,
+            pl.type AS plan_type,
+            m.members_id,
+            m.uuid AS member_uuid,
+            m_p.full_name AS member_name,
+            (m_p.document_type || '-' || m_p.document_number) AS member_document,
+            COALESCE(m_p.phone, 'N/A') AS member_phone,
+            COALESCE(m_p.email::text, 'N/A') AS member_email,
+            COALESCE(pr.display_name, 'Directo / Sin Promotor') AS promoter_name,
+            COALESCE(pr.referral_code, '-') AS promoter_referral_code
+        FROM app.payments p
+        JOIN app.currencies cur ON p.currency_id = cur.currencies_id
+        JOIN app.memberships ms ON p.membership_id = ms.memberships_id
+        JOIN app.plans pl ON ms.plan_id = pl.plans_id
+        JOIN app.members m ON ms.member_id = m.members_id
+        JOIN app.persons m_p ON m.person_id = m_p.persons_id
+        LEFT JOIN app.promoters pr ON m.promoter_id = pr.promoters_id
+        LEFT JOIN app.users ru ON p.reviewed_by = ru.users_id
+        LEFT JOIN app.persons ru_p ON ru.person_id = ru_p.persons_id
+        WHERE p.is_active = true
+          AND ($P{P_START_DATE}::date IS NULL OR p.payment_date >= $P{P_START_DATE}::date)
+          AND ($P{P_END_DATE}::date IS NULL OR p.payment_date <= $P{P_END_DATE}::date)
+          AND ($P{P_STATUS}::varchar IS NULL OR $P{P_STATUS} = '' OR p.status = $P{P_STATUS}::varchar)
+          AND ($P{P_PAYMENT_METHOD}::varchar IS NULL OR $P{P_PAYMENT_METHOD} = '' OR p.payment_method = $P{P_PAYMENT_METHOD}::varchar)
+          AND ($P{P_PLAN_ID}::bigint IS NULL OR pl.plans_id = $P{P_PLAN_ID}::bigint)
+          AND ($P{P_PROMOTER_ID}::bigint IS NULL OR pr.promoters_id = $P{P_PROMOTER_ID}::bigint)
+        ORDER BY 
+            p.payment_method ASC,
+            p.payment_date DESC,
+            p.payments_id DESC
+        ]]>
+    </queryString>
+
+    <!-- Fields -->
+    <field name="payments_id" class="java.lang.Long"/>
+    <field name="payment_date" class="java.sql.Date"/>
+    <field name="payment_method" class="java.lang.String"/>
+    <field name="payment_method_label" class="java.lang.String"/>
+    <field name="reference_number" class="java.lang.String"/>
+    <field name="payment_status" class="java.lang.String"/>
+    <field name="payment_status_label" class="java.lang.String"/>
+    <field name="concept_label" class="java.lang.String"/>
+    <field name="applied_period" class="java.sql.Date"/>
+    <field name="gross_amount" class="java.math.BigDecimal"/>
+    <field name="discount_amount" class="java.math.BigDecimal"/>
+    <field name="net_amount" class="java.math.BigDecimal"/>
+    <field name="reviewer_name" class="java.lang.String"/>
+    <field name="plan_name" class="java.lang.String"/>
+    <field name="member_name" class="java.lang.String"/>
+    <field name="member_document" class="java.lang.String"/>
+    <field name="member_phone" class="java.lang.String"/>
+    <field name="promoter_name" class="java.lang.String"/>
+
+    <!-- Variables -->
+    <variable name="V_METHOD_GROSS" class="java.math.BigDecimal" resetType="Group" resetGroup="MethodGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{gross_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_METHOD_DISCOUNT" class="java.math.BigDecimal" resetType="Group" resetGroup="MethodGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{discount_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_METHOD_NET" class="java.math.BigDecimal" resetType="Group" resetGroup="MethodGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{net_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_METHOD_COUNT" class="java.lang.Integer" resetType="Group" resetGroup="MethodGroup" calculation="Count">
+        <variableExpression><![CDATA[$F{payments_id}]]></variableExpression>
+    </variable>
+
+    <variable name="V_GRAND_GROSS" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{gross_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_DISCOUNT" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{discount_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_NET" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{net_amount}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_COUNT" class="java.lang.Integer" calculation="Count">
+        <variableExpression><![CDATA[$F{payments_id}]]></variableExpression>
+    </variable>
+
+    <!-- Group by Payment Method -->
+    <group name="MethodGroup">
+        <groupExpression><![CDATA[$F{payment_method}]]></groupExpression>
+        <groupHeader>
+            <band height="42">
+                <rectangle>
+                    <reportElement mode="Opaque" x="0" y="4" width="802" height="20" backcolor="#F0F4F8" forecolor="#CBD5E1"/>
+                    <graphicElement><pen lineWidth="0.5"/></graphicElement>
+                </rectangle>
+                <textField>
+                    <reportElement x="8" y="7" width="400" height="14"/>
+                    <textElement verticalAlignment="Middle">
+                        <font fontName="SansSerif" size="9" isBold="true"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA["MÉTODO DE PAGO: " + $F{payment_method_label}]]></textFieldExpression>
+                </textField>
+
+                <!-- Column Headers -->
+                <staticText>
+                    <reportElement mode="Opaque" x="0" y="26" width="55" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Fecha]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="55" y="26" width="80" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Referencia]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="135" y="26" width="160" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Afiliado / Cédula]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="295" y="26" width="90" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Plan]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="385" y="26" width="75" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Concepto]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="460" y="26" width="60" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <text><![CDATA[Monto Bruto]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="520" y="26" width="55" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <text><![CDATA[Descuento]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="575" y="26" width="60" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <text><![CDATA[Monto Neto]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="635" y="26" width="60" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+                    <text><![CDATA[Estado]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement mode="Opaque" x="695" y="26" width="107" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
+                    <text><![CDATA[Promotor Asignado]]></text>
+                </staticText>
+            </band>
+        </groupHeader>
+        <groupFooter>
+            <band height="20">
+                <rectangle>
+                    <reportElement mode="Opaque" x="0" y="2" width="802" height="16" backcolor="#F8FAFC" forecolor="#E2E8F0"/>
+                </rectangle>
+                <textField>
+                    <reportElement x="8" y="3" width="300" height="14"/>
+                    <textElement verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+                    <textFieldExpression><![CDATA["Subtotal " + $F{payment_method_label} + " (" + $V{V_METHOD_COUNT} + " pagos):"]]></textFieldExpression>
+                </textField>
+                <textField pattern="$ #,##0.00">
+                    <reportElement x="450" y="3" width="70" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+                    <textFieldExpression><![CDATA[$V{V_METHOD_GROSS}]]></textFieldExpression>
+                </textField>
+                <textField pattern="$ #,##0.00">
+                    <reportElement x="520" y="3" width="55" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+                    <textFieldExpression><![CDATA[$V{V_METHOD_DISCOUNT}]]></textFieldExpression>
+                </textField>
+                <textField pattern="$ #,##0.00">
+                    <reportElement x="575" y="3" width="60" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+                    <textFieldExpression><![CDATA[$V{V_METHOD_NET}]]></textFieldExpression>
+                </textField>
+            </band>
+        </groupFooter>
+    </group>
+
+    <!-- Title -->
+    <title>
+        <band height="68">
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="0" width="802" height="44" backcolor="#0F172A"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <staticText>
+                <reportElement x="12" y="12" width="500" height="20" forecolor="#FFFFFF"/>
+                <textElement verticalAlignment="Middle">
+                    <font fontName="SansSerif" size="13" isBold="true"/>
+                </textElement>
+                <text><![CDATA[REPORTE DE PAGOS DE AFILIADOS Y RECAUDACIÓN]]></text>
+            </staticText>
+            <textField pattern="dd/MM/yyyy HH:mm">
+                <reportElement x="550" y="15" width="240" height="14" forecolor="#94A3B8"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font size="8"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Emitido: " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+            </textField>
+
+            <!-- Filters Summary -->
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="46" width="802" height="18" backcolor="#F1F5F9" forecolor="#CBD5E1"/>
+                <graphicElement><pen lineWidth="0.5"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="8" y="48" width="785" height="14"/>
+                <textElement verticalAlignment="Middle">
+                    <font size="8" isItalic="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Filtros aplicados: [Fechas: " + ($P{P_START_DATE} != null ? $P{P_START_DATE} : "Inicio") + " al " + ($P{P_END_DATE} != null ? $P{P_END_DATE} : "Hoy") + "] | [Estatus: " + ($P{P_STATUS} != null && !$P{P_STATUS}.isEmpty() ? $P{P_STATUS} : "TODOS") + "] | [Método: " + ($P{P_PAYMENT_METHOD} != null && !$P{P_PAYMENT_METHOD}.isEmpty() ? $P{P_PAYMENT_METHOD} : "TODOS") + "]"]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <!-- Detail Band -->
+    <detail>
+        <band height="16">
+            <textField pattern="dd/MM/yyyy">
+                <reportElement x="0" y="0" width="55" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$F{payment_date}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="55" y="0" width="80" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$F{reference_number}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="135" y="0" width="160" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{member_name} + " (" + $F{member_document} + ")"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="295" y="0" width="90" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{plan_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="385" y="0" width="75" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$F{concept_label}]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="460" y="0" width="60" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/><paragraph rightIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{gross_amount}]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="520" y="0" width="55" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/><paragraph rightIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{discount_amount}]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="575" y="0" width="60" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font size="7" isBold="true"/>
+                    <paragraph rightIndent="4"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{net_amount}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="635" y="0" width="60" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="7" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{payment_status_label}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="695" y="0" width="107" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
+                <textFieldExpression><![CDATA[$F{promoter_name}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+
+    <!-- Page Footer -->
+    <pageFooter>
+        <band height="18">
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="2" width="500" height="14" forecolor="#64748B"/>
+                <textElement verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[$P{P_REPORT_FOOTER} != null ? $P{P_REPORT_FOOTER} : ""]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="600" y="2" width="160" height="14" forecolor="#64748B"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER} + " de "]]></textFieldExpression>
+            </textField>
+            <textField evaluationTime="Report">
+                <reportElement x="760" y="2" width="40" height="14" forecolor="#64748B"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+
+    <!-- Summary Band -->
+    <summary>
+        <band height="36">
+            <rectangle>
+                <reportElement mode="Opaque" x="0" y="6" width="802" height="24" backcolor="#0F172A" forecolor="#0F172A"/>
+            </rectangle>
+            <textField>
+                <reportElement x="12" y="10" width="300" height="16" forecolor="#FFFFFF"/>
+                <textElement verticalAlignment="Middle"><font size="9" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA["TOTAL RECAUDACIÓN (" + $V{V_GRAND_COUNT} + " Pagos):"]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="430" y="10" width="90" height="16" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="9" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA["Bruto: " + new java.text.DecimalFormat("$ #,##0.00").format($V{V_GRAND_GROSS})]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="525" y="10" width="105" height="16" forecolor="#F87171"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="9" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA["Desc: " + new java.text.DecimalFormat("$ #,##0.00").format($V{V_GRAND_DISCOUNT})]]></textFieldExpression>
+            </textField>
+            <textField pattern="$ #,##0.00">
+                <reportElement x="640" y="10" width="150" height="16" forecolor="#38BDF8"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font size="11" isBold="true"/><paragraph rightIndent="8"/></textElement>
+                <textFieldExpression><![CDATA["Neto: " + new java.text.DecimalFormat("$ #,##0.00").format($V{V_GRAND_NET})]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+
+</jasperReport>

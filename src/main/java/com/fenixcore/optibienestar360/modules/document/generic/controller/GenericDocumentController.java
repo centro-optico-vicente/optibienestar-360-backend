@@ -19,7 +19,17 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.sql.Connection;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import javax.sql.DataSource;
 
+import com.fenixcore.optibienestar360.modules.document.jasper.JasperReportService;
+import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
+import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import java.util.Locale;
@@ -40,17 +50,32 @@ public class GenericDocumentController {
     private final GenericRecordResolverService recordResolverService;
     private final MessageSource messageSource;
     private final ReportAuditService reportAuditService;
+    private final JasperReportService jasperReportService;
+    private final DataSource dataSource;
+    private final PromoterRepository promoterRepository;
+    private final PlanRepository planRepository;
+    private final SystemConfigService systemConfigService;
 
     public GenericDocumentController(
             GenericRecordReportService recordReportService,
             GenericRecordResolverService recordResolverService,
             MessageSource messageSource,
-            ReportAuditService reportAuditService
+            ReportAuditService reportAuditService,
+            JasperReportService jasperReportService,
+            DataSource dataSource,
+            PromoterRepository promoterRepository,
+            PlanRepository planRepository,
+            SystemConfigService systemConfigService
     ) {
         this.recordReportService = recordReportService;
         this.recordResolverService = recordResolverService;
         this.messageSource = messageSource;
         this.reportAuditService = reportAuditService;
+        this.jasperReportService = jasperReportService;
+        this.dataSource = dataSource;
+        this.promoterRepository = promoterRepository;
+        this.planRepository = planRepository;
+        this.systemConfigService = systemConfigService;
     }
 
     public record GenericReportRequest(
@@ -163,6 +188,129 @@ public class GenericDocumentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rendered.fileName() + "\"")
                 .contentType(MediaType.parseMediaType(rendered.contentType()))
                 .body(rendered.content());
+    }
+
+    @GetMapping("/jasper/{reportName}")
+    @PreAuthorize("hasAuthority('REPORT_REPORT_GENERATE') or (#reportName.matches('(?i)comision(es)?|commission(s)?|pagos?-comision(es)?|payouts?|commission-payouts?') and (hasAuthority('COMMISSION_REPORT_GENERATE') or hasAuthority('COMMISSION_VIEW_ALL') or hasAuthority('COMMISSION_VIEW_OWN'))) or (#reportName.matches('(?i)pagos?(-afiliados)?|payments?') and (hasAuthority('PAYMENT_REPORT_GENERATE') or hasAuthority('PAYMENT_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_OWN')))")
+    @Operation(summary = "Genera un reporte Jasper profesional (comisiones, pagos de comisiones o pagos de afiliados) en PDF o XLSX con filtros")
+    public ResponseEntity<byte[]> generateJasperReport(
+            @PathVariable String reportName,
+            @RequestParam(defaultValue = "PDF") String format,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String promoter,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String appliesTo,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String plan,
+            @RequestParam(required = false) String payoutReference,
+            @RequestParam(required = false) String companyName
+    ) {
+        String normalizedReport = reportName.trim().toLowerCase();
+        String templatePath;
+        String baseFilename;
+        String entityKey;
+
+        if ("comisiones".equals(normalizedReport) || "commissions".equals(normalizedReport)) {
+            templatePath = "reports/reporte-comisiones.jrxml";
+            baseFilename = "reporte-comisiones";
+            entityKey = "commission";
+        } else if ("pagos-comisiones".equals(normalizedReport) || "commission-payouts".equals(normalizedReport) || "payouts".equals(normalizedReport)) {
+            templatePath = "reports/reporte-pagos-comisiones.jrxml";
+            baseFilename = "reporte-pagos-comisiones";
+            entityKey = "commission_payout";
+        } else if ("pagos".equals(normalizedReport) || "payments".equals(normalizedReport) || "pagos-afiliados".equals(normalizedReport)) {
+            templatePath = "reports/reporte-pagos.jrxml";
+            baseFilename = "reporte-pagos-afiliados";
+            entityKey = "payment";
+        } else {
+            throw new IllegalArgumentException("Reporte Jasper desconocido: " + reportName + ". Disponibles: comisiones, pagos-comisiones, pagos.");
+        }
+
+        JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
+
+        // Resolve promoter ID if UUID or numeric ID is provided
+        Long promoterId = null;
+        if (promoter != null && !promoter.isBlank()) {
+            if (UUID_PATTERN.matcher(promoter.trim()).matches()) {
+                promoterId = promoterRepository.findByUuid(UUID.fromString(promoter.trim()))
+                        .map(Promoter::getId)
+                        .orElse(null);
+            } else {
+                try {
+                    promoterId = Long.parseLong(promoter.trim());
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // Resolve plan ID if UUID or numeric ID is provided
+        Long planId = null;
+        if (plan != null && !plan.isBlank()) {
+            if (UUID_PATTERN.matcher(plan.trim()).matches()) {
+                planId = planRepository.findByUuid(UUID.fromString(plan.trim()))
+                        .map(Plan::getId)
+                        .orElse(null);
+            } else {
+                try {
+                    planId = Long.parseLong(plan.trim());
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        Map<String, Object> parameters = new java.util.HashMap<>();
+        parameters.put("P_START_DATE", (startDate != null && !startDate.isBlank()) ? startDate.trim() : null);
+        parameters.put("P_END_DATE", (endDate != null && !endDate.isBlank()) ? endDate.trim() : null);
+        parameters.put("P_COMPANY_NAME", (companyName != null && !companyName.isBlank()) ? companyName.trim() : "");
+
+        String reportFooter = systemConfigService != null ? systemConfigService.getReportFooter() : null;
+        if (reportFooter == null || reportFooter.isBlank()) {
+            reportFooter = SystemConfigService.DEFAULT_REPORT_FOOTER;
+        }
+        parameters.put("P_REPORT_FOOTER", reportFooter != null ? reportFooter.trim() : "");
+
+        if ("commission".equals(entityKey)) {
+            checkReportAuthority(java.util.List.of("COMMISSION_REPORT_GENERATE", "COMMISSION_VIEW_ALL", "COMMISSION_VIEW_OWN"));
+            parameters.put("P_PROMOTER_ID", promoterId);
+            parameters.put("P_STATUS", (status != null && !status.isBlank()) ? status.trim() : null);
+            parameters.put("P_APPLIES_TO", (appliesTo != null && !appliesTo.isBlank()) ? appliesTo.trim() : null);
+        } else if ("commission_payout".equals(entityKey)) {
+            checkReportAuthority(java.util.List.of("COMMISSION_REPORT_GENERATE", "COMMISSION_VIEW_ALL", "COMMISSION_VIEW_OWN", "COMMISSION_PAYOUT"));
+            parameters.put("P_PROMOTER_ID", promoterId);
+            parameters.put("P_PAYOUT_REFERENCE", (payoutReference != null && !payoutReference.isBlank()) ? payoutReference.trim() : null);
+        } else {
+            checkReportAuthority(java.util.List.of("PAYMENT_REPORT_GENERATE", "PAYMENT_VIEW_ALL", "PAYMENT_VIEW_OWN"));
+            parameters.put("P_STATUS", (status != null && !status.isBlank()) ? status.trim() : null);
+            parameters.put("P_PAYMENT_METHOD", (paymentMethod != null && !paymentMethod.isBlank()) ? paymentMethod.trim() : null);
+            parameters.put("P_PLAN_ID", planId);
+            parameters.put("P_PROMOTER_ID", promoterId);
+        }
+
+        byte[] reportBytes;
+        try (Connection connection = dataSource.getConnection()) {
+            reportBytes = jasperReportService.generateReportWithConnection(templatePath, parameters, connection, selectedFormat);
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar reporte Jasper (" + reportName + "): " + e.getMessage(), e);
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
+        String filename = baseFilename + "_" + timestamp + selectedFormat.getFileExtension();
+
+        reportAuditService.recordGeneration(
+                "JASPER",
+                "commission_payout".equals(entityKey) ? "commission" : entityKey,
+                null,
+                null,
+                selectedFormat.name(),
+                parameters,
+                reportBytes,
+                filename,
+                selectedFormat.getContentType()
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(selectedFormat.getContentType()))
+                .body(reportBytes);
     }
 
     private String toAuditEntityKey(String entityOrTable) {
@@ -279,5 +427,21 @@ public class GenericDocumentController {
         }
 
         return rawIdentifier;
+    }
+
+    private void checkReportAuthority(java.util.List<String> allowedPermissions) {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return;
+        }
+        boolean hasAllowed = auth.getAuthorities().stream()
+                .anyMatch(a -> allowedPermissions.contains(a.getAuthority()));
+        boolean hasGlobal = auth.getAuthorities().stream()
+                .anyMatch(a -> "REPORT_REPORT_GENERATE".equals(a.getAuthority()));
+        if (!hasAllowed && !hasGlobal) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Acceso denegado: se requiere alguno de los permisos " + allowedPermissions + " o REPORT_REPORT_GENERATE");
+        }
     }
 }
