@@ -135,23 +135,49 @@ public class JobExecutionService {
      * immediately if the job is no longer eligible.
      */
     public void runScheduled(UUID jobUuid) {
+        runTriggered(jobUuid, TriggerSource.SCHEDULED);
+    }
+
+    /**
+     * Startup catch-up for a job whose {@code scheduled_jobs.last_run_at} is
+     * still {@code null} — it has never executed, e.g. freshly seeded or the
+     * app hasn't stayed up long enough to hit its own cron. Runs it once,
+     * immediately, so its data isn't stale until the next scheduled firing.
+     *
+     * <p>Called from {@code DynamicScheduledJobsRegistry#onApplicationReady}
+     * <em>after</em> the job's normal cron trigger is armed — that trigger
+     * keeps owning every future firing; this only fills the gap for the one
+     * that already should have happened. Dispatched onto
+     * {@code schedulerExecutor} so it never blocks application startup, and
+     * re-checks {@code lastRunAt} once inside the async task in case another
+     * trigger (e.g. a very tight cron) already ran it in the meantime.</p>
+     */
+    public void triggerStartupCatchUp(UUID jobUuid) {
+        schedulerExecutor.execute(() -> {
+            ScheduledJob job = jobRepository.findByUuid(jobUuid).orElse(null);
+            if (job == null || job.getLastRunAt() != null) return;
+            runTriggered(jobUuid, TriggerSource.STARTUP);
+        });
+    }
+
+    private void runTriggered(UUID jobUuid, TriggerSource source) {
         ScheduledJob job = jobRepository.findByUuid(jobUuid).orElse(null);
         if (job == null || !job.isActive() || !job.isEnabled()) return;
 
         if (!job.isAllowConcurrent() && runRepository.hasRunningFor(job.getId())) {
-            log.info("Skipping scheduled fire for {} — previous run still in flight", job.getCode());
-            recordSkip(job);
+            log.info("Skipping {} fire for {} — previous run still in flight", source, job.getCode());
+            recordSkip(job, source);
             return;
         }
 
         ScheduledJobRunner runner = runnersByCode.get(job.getCode());
         if (runner == null) {
-            log.warn("No runner registered for code {} — scheduled fire skipped", job.getCode());
+            log.warn("No runner registered for code {} — {} fire skipped", job.getCode(), source);
             return;
         }
 
         ScheduledJobRun run = txTemplate.execute(status ->
-                startRun(job, TriggerSource.SCHEDULED, null));
+                startRun(job, source, null));
         Long runId = run.getId();
 
         JobRunResult result;
@@ -165,7 +191,7 @@ public class JobExecutionService {
         try {
             txTemplate.executeWithoutResult(status -> finalizeRun(runId, finalResult));
         } catch (RuntimeException ex) {
-            log.error("Failed to finalize scheduled run {} for job {}", run.getUuid(), job.getCode(), ex);
+            log.error("Failed to finalize {} run {} for job {}", source, run.getUuid(), job.getCode(), ex);
         }
     }
 
@@ -212,7 +238,7 @@ public class JobExecutionService {
         });
     }
 
-    private void recordSkip(ScheduledJob job) {
+    private void recordSkip(ScheduledJob job, TriggerSource source) {
         txTemplate.executeWithoutResult(status -> {
             ScheduledJobRun skip = new ScheduledJobRun();
             skip.setScheduledJob(job);
@@ -220,7 +246,7 @@ public class JobExecutionService {
             skip.setFinishedAt(Instant.now());
             skip.setDurationMs(0L);
             skip.setOutcome(Outcome.SKIPPED_CONCURRENT.name());
-            skip.setTriggeredBy(TriggerSource.SCHEDULED.name());
+            skip.setTriggeredBy(source.name());
             runRepository.save(skip);
         });
     }

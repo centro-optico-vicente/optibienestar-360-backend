@@ -85,7 +85,11 @@ public class ScheduledJobRun extends BaseAuditEntity {
         SCHEDULED,
         /** An admin invoked {@code POST /run-now} directly. */
         MANUAL,
-        /** Reserved for future startup-replay of jobs interrupted by restart. */
+        /**
+         * {@code JobExecutionService#triggerStartupCatchUp} ran this because
+         * the job had never executed ({@code last_run_at IS NULL}) when the
+         * app came up — a one-off catch-up, not a replay of an interrupted run.
+         */
         STARTUP
     }
 }
