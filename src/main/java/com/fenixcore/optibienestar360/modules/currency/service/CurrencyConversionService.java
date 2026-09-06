@@ -58,6 +58,14 @@ public class CurrencyConversionService {
      *         {@code exchange_rates} row is vigente for that pair — in either
      *         direction — at {@code asOf}.
      */
+    // noRollbackFor: this method participates in the caller's ambient
+    // transaction (propagation REQUIRED). Without it, the default rollback
+    // rule marks that *shared* transaction rollback-only the instant this
+    // throws — even when the caller (e.g. ConversionEnricher) catches it and
+    // degrades gracefully — so an unrelated read-only listing later fails at
+    // commit with an opaque UnexpectedRollbackException. A missing rate is
+    // expected, caller-handled data, never a reason to poison the transaction.
+    @Transactional(readOnly = true, noRollbackFor = NoExchangeRateAvailableException.class)
     public ConversionResult convert(BigDecimal amount, Currency from, Currency to, Instant asOf) {
         LocalDate asOfDate = asOf.atZone(ZoneId.of("America/Caracas")).toLocalDate();
 
