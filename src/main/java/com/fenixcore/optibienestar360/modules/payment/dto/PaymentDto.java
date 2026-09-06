@@ -27,9 +27,10 @@ import java.util.UUID;
 public record PaymentDto(
         UUID uuid,
 
-        // Subject (flat)
-        UUID membershipUuid,
-        UUID memberUuid,
+        // Subject (flat refs — member/membership resolve to a readable
+        // _Display via DisplayRefs, never a bare UUID; see ADR 0014)
+        @Display DisplayRef membership,
+        @Display DisplayRef member,
         @Display DisplayRef plan,
 
         // Payer (flat — null when cash-at-counter)
@@ -70,7 +71,7 @@ public record PaymentDto(
 
         // Review state (status is the BaseEntity column)
         @Display(value = Display.Kind.ENUM, enumScope = "payment.status") String status,
-        UUID reviewedByUserUuid,
+        @Display DisplayRef reviewedBy,
         @Display(Display.Kind.DATETIME) Instant reviewedAt,
         String reviewReason,
 

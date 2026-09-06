@@ -13,14 +13,14 @@ import java.math.RoundingMode;
 @Mapper(componentModel = "spring", uses = DisplayRefs.class)
 public interface PaymentMapper {
 
-    @Mapping(target = "membershipUuid",         source = "membership.uuid")
-    @Mapping(target = "memberUuid",             source = "membership.member.uuid")
+    @Mapping(target = "membership",              source = "membership")
+    @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
     @Mapping(target = "currency_Code",           source = "currency.code")
     @Mapping(target = "amountConverted",        expression = "java(convertedAmount(payment))")
     @Mapping(target = "convertedCurrency_Code",  expression = "java(convertedCurrencyCode(payment))")
     @Mapping(target = "payerUserUuid",        source = "payerUser.uuid")
-    @Mapping(target = "reviewedByUserUuid",   source = "reviewedBy.uuid")
+    @Mapping(target = "reviewedBy",            source = "reviewedBy")
     @Mapping(target = "discountedByUserUuid", source = "discountedBy.uuid")
     @Mapping(target = "supportFileAvailable", source = "supportFileUrl", qualifiedByName = "isPresent")
     PaymentDto toDto(Payment payment);

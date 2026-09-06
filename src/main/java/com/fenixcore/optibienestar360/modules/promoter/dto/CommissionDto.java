@@ -21,10 +21,11 @@ import java.util.UUID;
 public record CommissionDto(
         UUID uuid,
 
-        // Subject (flat refs)
+        // Subject (flat refs — payment/member resolve to a readable
+        // _Display via DisplayRefs, never a bare UUID; see ADR 0014)
         @Display DisplayRef promoter,
-        UUID paymentUuid,
-        UUID memberUuid,
+        @Display DisplayRef payment,
+        @Display DisplayRef member,
 
         // Money + snapshot (ADR 0015 §6 Caso B — commissions have no payout
         // currency-snapshot column yet, so amountConverted/etc are always a
@@ -64,7 +65,7 @@ public record CommissionDto(
     /** Rebuilds this record with the live conversion fields populated — see {@code ConversionEnricher}. */
     public CommissionDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
             BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
-        return new CommissionDto(uuid, promoter, paymentUuid, memberUuid, amount, currency_Code,
+        return new CommissionDto(uuid, promoter, payment, member, amount, currency_Code,
                 amountConverted, convertedCurrencyCode, exchangeRateUsed, exchangeRateDate,
                 calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
                 appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,

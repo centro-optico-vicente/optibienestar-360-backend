@@ -1,6 +1,9 @@
 package com.fenixcore.optibienestar360.core.display;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,6 +47,40 @@ public final class DisplayRefs {
 	/** A user is labelled by its login email. */
 	public static DisplayRef ref(User user) {
 		return user == null ? null : DisplayRef.of(user.getUuid(), null, user.getEmail());
+	}
+
+	/**
+	 * A member is person-shaped ({@code "member"} is in {@code DisplayFormatter}'s
+	 * {@code PERSON_RELS}) but keeps its own {@code uuid} — callers route to
+	 * {@code /members/{uuid}} with it, so the ref must not resolve to the
+	 * nested person's identity.
+	 */
+	public static DisplayRef ref(Member member) {
+		if (member == null) {
+			return null;
+		}
+		Person person = member.getPerson();
+		return DisplayRef.of(member.getUuid(),
+				person != null ? person.getTaxDocumentNumber() : null,
+				person != null ? person.getFullName() : null);
+	}
+
+	/**
+	 * A membership has no code/name of its own — labelled by the plan it
+	 * belongs to (falls to {@code null}, i.e. no {@code _Display}, rather than
+	 * a fabricated string, when the plan itself can't be resolved either).
+	 */
+	public static DisplayRef ref(Membership membership) {
+		if (membership == null) {
+			return null;
+		}
+		DisplayRef plan = ref((Object) membership.getPlan());
+		return DisplayRef.of(membership.getUuid(), null, plan != null ? plan.name() : null);
+	}
+
+	/** A payment is labelled by its reference number — the same value the admin sees on the record itself. */
+	public static DisplayRef ref(Payment payment) {
+		return payment == null ? null : DisplayRef.of(payment.getUuid(), payment.getReferenceNumber(), null);
 	}
 
 	/** Reflective fallback — works for catalogs, plan, ally, promoter, contract, tiers… */
