@@ -142,12 +142,12 @@ public class ExchangeRateIngestionService {
         }
         try {
             return Optional.of(OffsetDateTime.parse(timestamp).atZoneSameInstant(ZoneId.of("America/Caracas")).toLocalDate());
-        } catch (DateTimeParseException | DateTimeException ignored) {
-            // fall through to Instant, then LocalDate
+        } catch (DateTimeException ignored) {
+            // covers DateTimeParseException too (it's a DateTimeException subclass) — fall through to Instant, then LocalDate
         }
         try {
             return Optional.of(Instant.parse(timestamp).atZone(ZoneId.of("America/Caracas")).toLocalDate());
-        } catch (DateTimeParseException | DateTimeException ignored) {
+        } catch (DateTimeException ignored) {
             // fall through to LocalDate
         }
         try {
