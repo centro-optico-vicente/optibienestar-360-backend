@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.Map;
+
 /**
  * Payload for {@code PUT /v1/admin/scheduled-jobs/{uuid}}. PATCH semantics —
  * only non-null fields are applied. After commit the
@@ -27,6 +29,10 @@ public record ScheduledJobUpdateRequest(
         Boolean enabled,
         Boolean allowConcurrent,
         @Min(0) Integer maxSyncSeconds,
+
+        // Per-job config (V94) — null means "leave as-is", matching PATCH
+        // semantics of every other field here; pass {} explicitly to clear it.
+        Map<String, Object> parameters,
 
         // Audit knobs (allow disabling without touching enabled flag — e.g.
         // soft-deleting from the admin UI sets active=false directly).

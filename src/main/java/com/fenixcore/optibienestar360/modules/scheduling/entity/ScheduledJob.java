@@ -8,8 +8,12 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Configuration of a runtime-managed scheduled job. The {@link #code} is the
@@ -70,6 +74,19 @@ public class ScheduledJob extends BaseEntity {
 
     @Column(name = "lock_held", nullable = false)
     private boolean lockHeld = false;
+
+    /**
+     * Free-form per-job configuration (V94) — e.g. {@code FETCH_EXCHANGE_RATES}
+     * carries {@code {"baseUrl": "https://rates-api.jeaninformatico.com"}}.
+     * Lets a runner needing external config (a URL, a batch size, ...) read it
+     * from its own row instead of a new {@code app.*} Spring property per
+     * integration — admin-editable via {@code PUT /v1/admin/scheduled-jobs/{uuid}}
+     * with no redeploy. Same JSONB-via-{@link JdbcTypeCode}(SqlTypes.JSON)
+     * precedent {@link ScheduledJobRun#getSummary()} already established.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false)
+    private Map<String, Object> parameters = new HashMap<>();
 
     // ─── Last-run snapshot (cache; full history in scheduled_job_runs) ─────
 

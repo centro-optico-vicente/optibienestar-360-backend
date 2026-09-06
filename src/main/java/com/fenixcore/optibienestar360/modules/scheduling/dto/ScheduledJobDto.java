@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.scheduling.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,6 +28,9 @@ public record ScheduledJobDto(
         @Display(Display.Kind.BOOLEAN) boolean allowConcurrent,
         int maxSyncSeconds,
         @Display(Display.Kind.BOOLEAN) boolean lockHeld,
+
+        // Per-job config (V94) — e.g. {"baseUrl": "..."} for FETCH_EXCHANGE_RATES
+        Map<String, Object> parameters,
 
         // Last-run snapshot
         @Display(Display.Kind.DATETIME) Instant lastRunAt,
