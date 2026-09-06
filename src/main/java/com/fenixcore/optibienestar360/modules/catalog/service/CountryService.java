@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
@@ -16,6 +17,8 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.CountryUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Country;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CountryRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.StateRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +50,7 @@ public class CountryService {
 
     private final CountryRepository repository;
     private final StateRepository stateRepository;
+    private final CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     @Autowired
@@ -107,6 +111,9 @@ public class CountryService {
         Country c = new Country();
         c.setIsoCode(req.isoCode());
         c.setName(req.name());
+        if (req.officialCurrencyUuid() != null) {
+            c.setOfficialCurrency(resolveCurrency(req.officialCurrencyUuid()));
+        }
         return toDto(repository.save(c));
     }
 
@@ -119,7 +126,21 @@ public class CountryService {
         if (req.active() != null) {
             c.setActive(req.active());
         }
+        if (req.officialCurrencyUuid() != null) {
+            c.setOfficialCurrency(resolveCurrency(req.officialCurrencyUuid()));
+        }
         return toDto(repository.save(c));
+    }
+
+    /**
+     * A UUID that doesn't resolve to a real currency is a validation error, not
+     * a value to silently drop — an admin picking from a dropdown should never
+     * be able to submit a dangling reference. Omitting the field entirely
+     * (leave as-is) is the degrade path; a garbage UUID is not.
+     */
+    private Currency resolveCurrency(UUID uuid) {
+        return currencyRepository.findByUuid(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("country.official_currency.not_found"));
     }
 
     public long countUsages(UUID uuid) {
@@ -153,6 +174,7 @@ public class CountryService {
     }
 
     static CountryDto toDto(Country c) {
-        return new CountryDto(c.getUuid(), c.getIsoCode(), c.getName(), c.getLocale(), c.isActive());
+        return new CountryDto(c.getUuid(), c.getIsoCode(), c.getName(), c.getLocale(),
+                DisplayRefs.ref(c.getOfficialCurrency()), c.isActive());
     }
 }

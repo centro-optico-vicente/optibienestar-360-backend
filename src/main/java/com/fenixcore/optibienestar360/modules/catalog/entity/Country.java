@@ -1,9 +1,13 @@
 package com.fenixcore.optibienestar360.modules.catalog.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseAuditEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,4 +29,14 @@ public class Country extends BaseAuditEntity {
 
     @Column(length = 10)
     private String locale;
+
+    /**
+     * Metadata describing the country's own official currency (V96) — nullable,
+     * seeded only for Venezuela. Does NOT replace
+     * {@code organizations.official_currency_id}, which stays the single-tenant
+     * conversion target for the rest of the platform.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "official_currency_id")
+    private Currency officialCurrency;
 }
