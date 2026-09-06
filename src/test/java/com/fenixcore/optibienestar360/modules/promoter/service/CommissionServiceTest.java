@@ -53,6 +53,7 @@ class CommissionServiceTest {
     @Mock private CollectionCommissionTierRepository collectionTierRepository;
     @Mock private PromoterRepository promoterRepository;
     @Mock private MemberRepository memberRepository;
+    @Mock private CommissionAuditRecorder auditRecorder;
 
     @InjectMocks private CommissionService service;
 

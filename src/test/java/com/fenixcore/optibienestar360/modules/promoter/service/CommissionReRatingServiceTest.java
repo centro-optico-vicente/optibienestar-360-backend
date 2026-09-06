@@ -40,6 +40,7 @@ class CommissionReRatingServiceTest {
     @Mock private CommissionRepository commissionRepository;
     @Mock private CommissionTierRepository tierRepository;
     @Mock private MemberRepository memberRepository;
+    @Mock private CommissionAuditRecorder auditRecorder;
 
     @InjectMocks private CommissionReRatingService service;
 

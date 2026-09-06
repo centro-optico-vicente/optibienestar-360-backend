@@ -82,6 +82,7 @@ public class CommissionService {
     private final CollectionCommissionTierRepository collectionTierRepository;
     private final PromoterRepository promoterRepository;
     private final MemberRepository memberRepository;
+    private final CommissionAuditRecorder auditRecorder;
 
     /**
      * Computes + persists a commission row for the given approved payment.
@@ -153,6 +154,7 @@ public class CommissionService {
         log.info("Commission persisted: payment={} promoter={} amount={} {} tier={}",
                 payment.getUuid(), promoter.getReferralCode(), saved.getAmount(), saved.getCurrency().getCode(),
                 saved.getTierNameSnapshot());
+        auditRecorder.recordCreate(saved);
         return Optional.of(saved);
     }
 

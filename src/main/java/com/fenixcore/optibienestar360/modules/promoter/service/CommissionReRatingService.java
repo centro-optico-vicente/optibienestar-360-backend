@@ -45,6 +45,7 @@ public class CommissionReRatingService {
     private final CommissionRepository commissionRepository;
     private final CommissionTierRepository tierRepository;
     private final MemberRepository memberRepository;
+    private final CommissionAuditRecorder auditRecorder;
 
     @Transactional
     public CommissionReRatingResponse execute(CommissionReRatingRequest request) {
@@ -86,11 +87,13 @@ public class CommissionReRatingService {
                 promoterDelta = promoterDelta.add(newAmount.subtract(c.getAmount()));
                 promoterChanged++;
                 if (!dryRun) {
+                    Map<String, Object> before = auditRecorder.snapshot(c);
                     c.setCommissionPct(target.getCommissionPct());
                     c.setFlatAmount(null);
                     c.setAmount(newAmount);
                     c.setCommissionTierId(target.getId());
                     c.setTierNameSnapshot(target.getName());
+                    auditRecorder.recordUpdate(c.getUuid(), before, auditRecorder.snapshot(c));
                 }
             }
 
