@@ -65,6 +65,7 @@ public class CommissionPayoutService {
     private final CommissionRepository commissionRepository;
     private final EmailService emailService;
     private final MessageSource messageSource;
+    private final CommissionAuditRecorder auditRecorder;
 
     @Transactional
     public CommissionPayoutResponse execute(CommissionPayoutRequest request) {
@@ -145,11 +146,14 @@ public class CommissionPayoutService {
         return total;
     }
 
-    private static void markPaid(List<Commission> rows, String payoutReference, Instant at) {
+    /** Audits each row individually (spec 16-audit.md) — a period close touches every promoter's rows in one call, but the audit trail still reads per-commission, same as any other update. */
+    private void markPaid(List<Commission> rows, String payoutReference, Instant at) {
         for (Commission c : rows) {
+            Map<String, Object> before = auditRecorder.snapshot(c);
             c.setStatus(CommissionStatus.PAID.name());
             c.setPaidAt(at);
             c.setPayoutReference(payoutReference);
+            auditRecorder.recordUpdate(c.getUuid(), before, auditRecorder.snapshot(c));
         }
     }
 
