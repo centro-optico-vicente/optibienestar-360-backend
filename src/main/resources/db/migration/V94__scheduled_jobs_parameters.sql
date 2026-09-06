@@ -4,10 +4,10 @@ SET search_path TO app, public;
 -- V94: scheduled_jobs.parameters — per-job JSONB configuration.
 --
 -- Until now, a job needing external config (a URL, an API key reference,
--- a batch size, ...) had no home for it except a new Spring
--- `app.<whatever>=${SOME_ENV_VAR:default}` property per integration —
--- doesn't scale (every future job that calls a different external API
--- adds another env var) and isn't editable from the admin UI without a
+-- a batch size, ...) had no home for it except a new Spring "app.*"
+-- property (sourced from a matching env var) per integration — doesn't
+-- scale (every future job that calls a different external API adds
+-- another env var) and isn't editable from the admin UI without a
 -- redeploy. `parameters` gives every job row its own free-form JSONB bag,
 -- same JSONB-via-@JdbcTypeCode(SqlTypes.JSON) precedent
 -- `scheduled_job_runs.summary` already established (V22) — no new
