@@ -10,7 +10,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,13 +56,31 @@ class ExchangeRateLookupServiceTest {
                 .thenReturn(new CurrencyConversionService.ConversionResult(
                         BigDecimal.ONE, new BigDecimal("400.00"), new BigDecimal("400.00"), LocalDate.of(2026, 9, 5)));
 
-        CurrentExchangeRateDto result = service().current("usd", "ves");
+        CurrentExchangeRateDto result = service().current("usd", "ves", null);
 
         assertThat(result.available()).isTrue();
         assertThat(result.baseCurrencyCode()).isEqualTo("USD");
         assertThat(result.quoteCurrencyCode()).isEqualTo("VES");
         assertThat(result.rate()).isEqualByComparingTo("400.00");
         assertThat(result.rateDate()).isEqualTo(LocalDate.of(2026, 9, 5));
+    }
+
+    @Test
+    void currentWithAnAsOfDateConvertsTheDateToStartOfDayCaracas() {
+        Currency usd = currency("USD");
+        Currency ves = currency("VES");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        Instant expectedAsOf = LocalDate.of(2026, 8, 20).atStartOfDay(ZoneId.of("America/Caracas")).toInstant();
+        when(currencyConversionService.convert(eq(BigDecimal.ONE), eq(usd), eq(ves), eq(expectedAsOf)))
+                .thenReturn(new CurrencyConversionService.ConversionResult(
+                        BigDecimal.ONE, new BigDecimal("380.00"), new BigDecimal("380.00"), LocalDate.of(2026, 8, 20)));
+
+        CurrentExchangeRateDto result = service().current("USD", "VES", LocalDate.of(2026, 8, 20));
+
+        assertThat(result.available()).isTrue();
+        assertThat(result.rate()).isEqualByComparingTo("380.00");
+        assertThat(result.rateDate()).isEqualTo(LocalDate.of(2026, 8, 20));
     }
 
     @Test
@@ -72,13 +92,13 @@ class ExchangeRateLookupServiceTest {
         when(currencyConversionService.convert(any(), any(), any(), any()))
                 .thenThrow(new NoExchangeRateAvailableException("exchange_rate.not_available:USD->VES"));
 
-        assertThat(service().current("USD", "VES")).isEqualTo(CurrentExchangeRateDto.UNAVAILABLE);
+        assertThat(service().current("USD", "VES", null)).isEqualTo(CurrentExchangeRateDto.UNAVAILABLE);
     }
 
     @Test
     void currentDegradesToUnavailable_whenACurrencyCodeIsUnknown() {
         when(currencyRepository.findByCode("XXX")).thenReturn(Optional.empty());
 
-        assertThat(service().current("XXX", "VES")).isEqualTo(CurrentExchangeRateDto.UNAVAILABLE);
+        assertThat(service().current("XXX", "VES", null)).isEqualTo(CurrentExchangeRateDto.UNAVAILABLE);
     }
 }
