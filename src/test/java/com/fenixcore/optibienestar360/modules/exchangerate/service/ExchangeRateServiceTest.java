@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.exchangerate.service;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateCreateRequest;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateDto;
 import com.fenixcore.optibienestar360.modules.exchangerate.dto.ExchangeRateUpdateRequest;
 import com.fenixcore.optibienestar360.modules.exchangerate.entity.ExchangeRate;
@@ -64,6 +65,45 @@ class ExchangeRateServiceTest {
         r.setFetchedAt(Instant.parse("2026-08-29T12:00:00Z"));
         r.setActive(true);
         return r;
+    }
+
+    @Test
+    void createDefaultsValidFromToNowWhenOmitted() {
+        Currency usd = new Currency();
+        usd.setId(1L);
+        usd.setCode("USD");
+        Currency ves = new Currency();
+        ves.setId(2L);
+        ves.setCode("VES");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(repository.save(any(ExchangeRate.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Instant before = Instant.now();
+        ExchangeRateDto result = service().create(
+                new ExchangeRateCreateRequest("USD", "VES", new BigDecimal("805.42"), LocalDate.of(2026, 9, 7), null));
+        Instant after = Instant.now();
+
+        assertThat(result.validFrom()).isBetween(before, after);
+    }
+
+    @Test
+    void createUsesAnExplicitValidFromWhenProvided() {
+        Currency usd = new Currency();
+        usd.setId(1L);
+        usd.setCode("USD");
+        Currency ves = new Currency();
+        ves.setId(2L);
+        ves.setCode("VES");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(repository.save(any(ExchangeRate.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Instant explicitValidFrom = Instant.parse("2026-09-08T12:00:00Z");
+        ExchangeRateDto result = service().create(new ExchangeRateCreateRequest(
+                "USD", "VES", new BigDecimal("805.42"), LocalDate.of(2026, 9, 7), explicitValidFrom));
+
+        assertThat(result.validFrom()).isEqualTo(explicitValidFrom);
     }
 
     @Test

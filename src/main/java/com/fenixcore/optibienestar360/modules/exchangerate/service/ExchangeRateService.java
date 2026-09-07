@@ -90,10 +90,11 @@ public class ExchangeRateService {
         rate.setQuoteCurrency(quote);
         rate.setRate(req.rate());
         rate.setOperationDate(req.operationDate());
-        // Manual entry is immediately usable — the BCV vigency-date calendar
-        // (publish day -> next business day 8 AM) is FetchExchangeRatesJob's
-        // job to compute (Tarea 2.13, out of scope here).
-        rate.setValidFrom(Instant.now());
+        // Manual entry defaults to immediately usable when validFrom is
+        // omitted; an admin can still explicitly backdate/schedule it
+        // (see ExchangeRateCreateRequest javadoc for why this differs from
+        // operationDate).
+        rate.setValidFrom(req.validFrom() != null ? req.validFrom() : Instant.now());
         rate.setSource(ExchangeRate.Source.MANUAL);
         rate.setFetchedAt(Instant.now());
         rate.setStatus("ACTIVE");
