@@ -27,6 +27,20 @@ import java.time.LocalDate;
  * proxy, so a self-invoked method would silently run in the caller's
  * transaction (or none) instead of its own — same reasoning as
  * {@code DataChangeAuditWriter}.</p>
+ *
+ * <p><b>Why an existence check, not a caught exception:</b> once Hibernate's
+ * flush hits the unique-index violation, it marks the current persistence
+ * context/transaction unusable at the JPA level — catching the resulting
+ * {@link DataIntegrityViolationException} in Java code here does NOT undo
+ * that, so the {@code @Transactional} proxy still fails the (already-toast)
+ * transaction's commit with an {@code UnexpectedRollbackException} once this
+ * method returns normally. Checking existence first means the routine
+ * "already ingested today" case never touches the constraint at all. The
+ * exception is still possible on a genuine race (two concurrent runs for the
+ * same pair/day) — that one is left to propagate out of this method so the
+ * proxy rolls back the way Spring actually expects, and
+ * {@code ExchangeRateIngestionService} catches it there, outside any
+ * transaction.</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -40,6 +54,12 @@ public class ExchangeRateWriter {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public WriteOutcome insert(Currency base, Currency quote, BigDecimal rate,
                                 LocalDate operationDate, Instant validFrom) {
+        if (exchangeRateRepository.existsByBaseCurrencyAndQuoteCurrencyAndOperationDate(base, quote, operationDate)) {
+            log.info("Rate for {}->{} on {} already ingested today — skipping duplicate",
+                    base.getCode(), quote.getCode(), operationDate);
+            return WriteOutcome.ALREADY_HAD_TODAY;
+        }
+
         ExchangeRate exchangeRate = new ExchangeRate();
         exchangeRate.setBaseCurrency(base);
         exchangeRate.setQuoteCurrency(quote);
@@ -50,13 +70,11 @@ public class ExchangeRateWriter {
         exchangeRate.setFetchedAt(Instant.now());
         exchangeRate.setStatus("ACTIVE");
 
-        try {
-            exchangeRateRepository.saveAndFlush(exchangeRate);
-            return WriteOutcome.INSERTED;
-        } catch (DataIntegrityViolationException ex) {
-            log.info("Rate for {}->{} on {} already ingested today — skipping duplicate",
-                    base.getCode(), quote.getCode(), operationDate);
-            return WriteOutcome.ALREADY_HAD_TODAY;
-        }
+        // Deliberately NOT caught here — see class javadoc. A genuine race
+        // (another run inserted the same pair/day between the check above
+        // and this flush) propagates out so the transaction rolls back the
+        // normal way; ExchangeRateIngestionService.ingestOne catches it.
+        exchangeRateRepository.saveAndFlush(exchangeRate);
+        return WriteOutcome.INSERTED;
     }
 }

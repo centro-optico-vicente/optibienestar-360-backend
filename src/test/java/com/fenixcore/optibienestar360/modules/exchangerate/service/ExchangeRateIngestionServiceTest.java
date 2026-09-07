@@ -130,6 +130,39 @@ class ExchangeRateIngestionServiceTest {
         assertThat(summary.toSummaryMap()).containsEntry("failed", 0).containsEntry("alreadyHadToday", 2);
     }
 
+    /**
+     * Regression test: a genuine race (another run inserted the same
+     * pair/day between {@code ExchangeRateWriter}'s existence check and its
+     * flush) surfaces as {@code writer.insert} throwing — outside any
+     * transaction of this service's own, so it must be caught and treated
+     * as ALREADY_HAD_TODAY, never left to bubble up as a 500 (this is
+     * exactly the bug the "actualizar ahora" quick action hit in
+     * production: catching it *inside* the same @Transactional method as
+     * the failed flush still left Spring trying to commit an
+     * already-rollback-only transaction).
+     */
+    @Test
+    void aRaceLostToAnotherRunIsTreatedAsAlreadyHadTodayNotAFailure() {
+        Currency ves = currency(1L, "VES");
+        Currency usd = currency(2L, "USD");
+        Currency eur = currency(3L, "EUR");
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCode("EUR")).thenReturn(Optional.of(eur));
+        when(countryRepository.findByIsoCode("VE")).thenReturn(Optional.of(venezuela()));
+        stubConfiguredJob();
+
+        when(apiClient.fetchRate(any(), eq(BASE_URL))).thenReturn(Optional.of(response("X", "800.00", "2026-09-04T16:00:00-04:00")));
+        when(businessDayCalculator.nextBusinessDayAt(any(), any(), any(), any())).thenReturn(Instant.parse("2026-09-07T12:00:00Z"));
+        when(writer.insert(any(), any(), any(), any(), any()))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+
+        IngestionSummary summary = service().fetchAndStoreLatest();
+
+        assertThat(summary.currencies()).allMatch(r -> r.status() == IngestionSummary.Status.ALREADY_HAD_TODAY);
+        assertThat(summary.toSummaryMap()).containsEntry("failed", 0).containsEntry("alreadyHadToday", 2);
+    }
+
     @Test
     void oneCurrencyFetchFailureDoesNotPreventTheOtherFromSucceeding() {
         Currency ves = currency(1L, "VES");

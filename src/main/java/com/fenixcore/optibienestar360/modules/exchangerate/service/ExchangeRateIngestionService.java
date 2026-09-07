@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.exchangerate.client.RateResponse;
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.DateTimeException;
@@ -157,8 +158,19 @@ public class ExchangeRateIngestionService {
 
         Instant validFrom = businessDayCalculator.nextBusinessDayAt(operationDate.get(), vigencyCountry, VIGENCY_TIME, CARACAS);
 
-        ExchangeRateWriter.WriteOutcome outcome = writer.insert(
-                base.get(), quote, rateResponse.rate(), operationDate.get(), validFrom);
+        ExchangeRateWriter.WriteOutcome outcome;
+        try {
+            outcome = writer.insert(base.get(), quote, rateResponse.rate(), operationDate.get(), validFrom);
+        } catch (DataIntegrityViolationException raceLostToAnotherRun) {
+            // ExchangeRateWriter already checks existence before inserting —
+            // this only fires on a genuine race (another run for the same
+            // pair/day committed between that check and this flush). Caught
+            // here, outside any transaction of our own, so there is nothing
+            // for Spring to mark rollback-only over.
+            log.info("Rate for {}->{} on {} was ingested by a concurrent run — treating as already-had-today",
+                    baseCode, quote.getCode(), operationDate.get());
+            outcome = ExchangeRateWriter.WriteOutcome.ALREADY_HAD_TODAY;
+        }
 
         return outcome == ExchangeRateWriter.WriteOutcome.INSERTED
                 ? new IngestionSummary.CurrencyResult(baseCode, IngestionSummary.Status.FETCHED, null)
