@@ -15,6 +15,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -49,7 +50,7 @@ class ExchangeRateLookupServiceTest {
         Currency ves = currency("VES");
         when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
         when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
-        when(currencyConversionService.convert(BigDecimal.ONE, usd, ves, any()))
+        when(currencyConversionService.convert(eq(BigDecimal.ONE), eq(usd), eq(ves), any()))
                 .thenReturn(new CurrencyConversionService.ConversionResult(
                         BigDecimal.ONE, new BigDecimal("400.00"), new BigDecimal("400.00"), LocalDate.of(2026, 9, 5)));
 
