@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,4 +28,12 @@ public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long
             Currency baseCurrency, Currency quoteCurrency, Instant at);
 
     Page<ExchangeRate> findByBaseCurrencyAndQuoteCurrency(Currency baseCurrency, Currency quoteCurrency, Pageable pageable);
+
+    /**
+     * Backs {@code ExchangeRateWriter}'s duplicate check — a plain existence
+     * query never touches the V85 unique index's constraint-violation path,
+     * unlike attempting the insert itself.
+     */
+    boolean existsByBaseCurrencyAndQuoteCurrencyAndOperationDate(
+            Currency baseCurrency, Currency quoteCurrency, LocalDate operationDate);
 }
