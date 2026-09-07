@@ -10,11 +10,13 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRankRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,7 @@ class PromotersServiceReferralCodeTest {
     @Mock private UserRepository userRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
+    @Mock private PromoterRankRepository promoterRankRepository;
     @Mock private PromoterMapper mapper;
     @Mock private CommissionRepository commissionRepository;
     @Mock private PromoterBonusAwardRepository promoterBonusAwardRepository;
@@ -60,9 +63,16 @@ class PromotersServiceReferralCodeTest {
 
     @BeforeEach
     void setup() {
-        service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository, mapper,
+        service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository,
+                promoterRankRepository, mapper,
                 commissionRepository, promoterBonusAwardRepository, leaderboardPrizeAwardRepository,
                 memberPromoterAssignmentRepository, promoterMemberContactRepository, defaultSortResolver);
+        PromoterRank baseRank = new PromoterRank();
+        baseRank.setUuid(UUID.randomUUID());
+        baseRank.setCode("PROMOTOR");
+        baseRank.setName("Promotor");
+        baseRank.setHierarchyLevel(1);
+        lenient().when(promoterRankRepository.findByCode("PROMOTOR")).thenReturn(Optional.of(baseRank));
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);

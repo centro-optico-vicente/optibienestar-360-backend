@@ -60,6 +60,28 @@ public class Promoter extends BaseEntity {
     @JoinColumn(name = "promoter_type_id")
     private PromoterType promoterType;
 
+    // ─── Hierarchy (V101) ───────────────────────────────────────────────────
+
+    /**
+     * The "cargo" — independent of {@link #promoterType}. NOT NULL at the DB
+     * level (every promoter is backfilled to PROMOTOR); mapped nullable here
+     * only because a brand-new transient instance may not have it set yet.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rank_id")
+    private PromoterRank rank;
+
+    /**
+     * Live pointer to this promoter's current supervisor; {@code null} means
+     * top of the chain. History of changes lives in {@link
+     * PromoterSupervisorAssignment}, never inferred from this column alone —
+     * a commission cut must resolve the supervisor <i>vigente at that cut</i>,
+     * not today's.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supervisor_id")
+    private Promoter supervisor;
+
     // ─── Display ───────────────────────────────────────────────────────────
 
     @Column(name = "display_name", length = 120, nullable = false)
