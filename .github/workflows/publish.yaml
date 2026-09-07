@@ -151,63 +151,63 @@ jobs:
           no-cache: true
 
 
-  push-debian-image-dhr:
-    name: Build and push Docker Debian image
-    needs:
-      - check-secrets-dhr
-    if: needs.check-secrets-dhr.outputs.is_have_secrets == 'true'
-    runs-on: ubuntu-latest
+  # push-debian-image-dhr:
+  #   name: Build and push Docker Debian image
+  #   needs:
+  #     - check-secrets-dhr
+  #   if: needs.check-secrets-dhr.outputs.is_have_secrets == 'true'
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v6
+  #   steps:
+  #     - name: Check out the repo
+  #       uses: actions/checkout@v6
 
-      - name: Push to docker repository
-        run: echo "Pushing to Docker repository ${{ env.DOCKER_HUB_REPOSITORY }}"
+  #     - name: Push to docker repository
+  #       run: echo "Pushing to Docker repository ${{ env.DOCKER_HUB_REPOSITORY }}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v4
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.DOCKER_HUB_REGISTRY }}
-          username: ${{ vars.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+  #     - name: Login to Docker Hub
+  #       uses: docker/login-action@v4
+  #       with:
+  #         registry: ${{ env.DOCKER_HUB_REGISTRY }}
+  #         username: ${{ vars.DOCKER_HUB_USERNAME }}
+  #         password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Docker metadata (Debian)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKER_HUB_REPOSITORY }}
-          flavor: |
-            latest=false
-          tags: |
-            # Read the version from github.event.release.tag_name — see the
-            # same block in the Alpine job above for why every extractor
-            # that reads from github.ref (type=ref, type=semver) returns
-            # empty on release: published triggers.
-            type=raw,value=${{ github.event.release.tag_name }}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+  #     - name: Docker metadata (Debian)
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.DOCKER_HUB_REPOSITORY }}
+  #         flavor: |
+  #           latest=false
+  #         tags: |
+  #           # Read the version from github.event.release.tag_name — see the
+  #           # same block in the Alpine job above for why every extractor
+  #           # that reads from github.ref (type=ref, type=semver) returns
+  #           # empty on release: published triggers.
+  #           type=raw,value=${{ github.event.release.tag_name }}
+  #           type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
-      - name: Build and Push Docker Debian image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./docker/debian.Dockerfile
-          # Compile from source inside the build. Without this, the build defaults
-          # to the last stage (from-prebuilt), which expects a JAR fed via
-          # build-contexts (used by ci.yaml) and ships an empty image on release.
-          target: runtime
-          platforms: linux/amd64
-          push: true
-          build-args: |
-            DEPLOY_VERSION=${{ github.event.release.tag_name }}
-            BUILD_VERSION=${{ github.event.release.tag_name }}
-            BUILD_DATE=${{ github.event.release.published_at }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Releases must always compile from the checked-out source. A shared GHA
-          # layer cache once shipped a stale JAR (old code under a new tag), so we
-          # build from scratch here — releases are infrequent and correctness wins.
-          no-cache: true
+  #     - name: Build and Push Docker Debian image
+  #       uses: docker/build-push-action@v7
+  #       with:
+  #         context: .
+  #         file: ./docker/debian.Dockerfile
+  #         # Compile from source inside the build. Without this, the build defaults
+  #         # to the last stage (from-prebuilt), which expects a JAR fed via
+  #         # build-contexts (used by ci.yaml) and ships an empty image on release.
+  #         target: runtime
+  #         platforms: linux/amd64
+  #         push: true
+  #         build-args: |
+  #           DEPLOY_VERSION=${{ github.event.release.tag_name }}
+  #           BUILD_VERSION=${{ github.event.release.tag_name }}
+  #           BUILD_DATE=${{ github.event.release.published_at }}
+  #         tags: ${{ steps.meta.outputs.tags }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+  #         # Releases must always compile from the checked-out source. A shared GHA
+  #         # layer cache once shipped a stale JAR (old code under a new tag), so we
+  #         # build from scratch here — releases are infrequent and correctness wins.
+  #         no-cache: true
