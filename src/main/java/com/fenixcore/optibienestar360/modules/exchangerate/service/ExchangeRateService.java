@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.exchangerate.service;
 
+import com.fenixcore.optibienestar360.core.audit.AuditAction;
+import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
@@ -78,6 +80,7 @@ public class ExchangeRateService {
     }
 
     @Transactional
+    @Auditable(entity = "exchange_rate", action = AuditAction.CREATE)
     public ExchangeRateDto create(ExchangeRateCreateRequest req) {
         Currency base = resolveCurrency(req.baseCurrencyCode());
         Currency quote = resolveCurrency(req.quoteCurrencyCode());
@@ -108,6 +111,7 @@ public class ExchangeRateService {
      * historical fact (see class javadoc).
      */
     @Transactional
+    @Auditable(entity = "exchange_rate", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public ExchangeRateDto update(UUID uuid, ExchangeRateUpdateRequest req) {
         ExchangeRate rate = requireManual(find(uuid));
         if (req.rate() != null) {
@@ -124,6 +128,7 @@ public class ExchangeRateService {
 
     /** Soft-delete a {@code MANUAL} row — same as the rest of the catalog pattern. */
     @Transactional
+    @Auditable(entity = "exchange_rate", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
         ExchangeRate rate = requireManual(find(uuid));
         rate.setActive(false);
