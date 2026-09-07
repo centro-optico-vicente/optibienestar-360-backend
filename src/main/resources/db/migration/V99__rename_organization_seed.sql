@@ -10,7 +10,7 @@ SET search_path TO app, public;
 
 UPDATE organizations
 SET name       = 'OptiBienestar 360',
-    legal_name = 'Centro Óptico Vicente / Grupo Médico 11:11'
+    legal_name = 'Centro Óptico Vicente'
 WHERE name = 'Centro Óptico Vicente';
 
 DO $$

@@ -53,7 +53,7 @@ class OrganizationServiceTest {
         Organization o = new Organization();
         o.setUuid(UUID.randomUUID());
         o.setName("OptiBienestar 360");
-        o.setLegalName("Centro Óptico Vicente / Grupo Médico 11:11");
+        o.setLegalName("Centro Óptico Vicente");
         o.setTaxIdentifier("J-12345678-9");
         o.setOfficialCurrency(official);
         o.setReferenceCurrency(reference);
