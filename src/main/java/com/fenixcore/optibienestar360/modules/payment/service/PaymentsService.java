@@ -388,7 +388,7 @@ public class PaymentsService {
         try {
             var result = currencyConversionService.convert(
                     payment.getAmount(), payment.getCurrency(), membershipCurrency,
-                    payment.getPaymentDate().atStartOfDay(java.time.ZoneId.of("America/Caracas")).toInstant());
+                    payment.getPaymentDate().atStartOfDay(com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE).toInstant());
             payment.setExchangeRateUsed(result.rate());
             payment.setExchangeRateDate(result.rateDate());
         } catch (com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException noRate) {

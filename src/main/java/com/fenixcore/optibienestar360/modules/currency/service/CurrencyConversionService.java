@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.currency.service;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.exchangerate.entity.ExchangeRate;
@@ -12,7 +13,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 
 /**
  * The single conversion authority for ADR 0015 §7 — every "show me this
@@ -67,7 +67,7 @@ public class CurrencyConversionService {
     // expected, caller-handled data, never a reason to poison the transaction.
     @Transactional(readOnly = true, noRollbackFor = NoExchangeRateAvailableException.class)
     public ConversionResult convert(BigDecimal amount, Currency from, Currency to, Instant asOf) {
-        LocalDate asOfDate = asOf.atZone(ZoneId.of("America/Caracas")).toLocalDate();
+        LocalDate asOfDate = asOf.atZone(AppTimeZone.ZONE).toLocalDate();
 
         if (sameCurrency(from, to)) {
             return new ConversionResult(amount, amount, BigDecimal.ONE, asOfDate);
