@@ -8,12 +8,16 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentExchangeRatePreviewDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
@@ -48,7 +52,7 @@ class PaymentsServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private UserRepository userRepository;
     @Mock private CurrencyRepository currencyRepository;
-    @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
+    @Mock private CurrencyConversionService currencyConversionService;
     @Mock private PaymentMapper mapper;
     @Mock private ObjectProvider<StorageService> storageProvider;
     @Mock private EmailService emailService;
@@ -159,6 +163,61 @@ class PaymentsServiceTest {
         sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
 
         assertThat(member.getConfirmedAt()).isNull();
+    }
+
+    @Test
+    void previewExchangeRate_convertsToTheMembershipCurrency() {
+        UUID membershipUuid = UUID.randomUUID();
+        Currency usd = currency("USD");
+        Currency ves = currency("VES");
+        Membership membership = new Membership();
+        membership.setCurrency(usd);
+        when(membershipRepository.findByUuid(membershipUuid)).thenReturn(Optional.of(membership));
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(currencyConversionService.convert(new BigDecimal("100.00"), ves, usd, any()))
+                .thenReturn(new CurrencyConversionService.ConversionResult(
+                        new BigDecimal("100.00"), new BigDecimal("0.25"),
+                        new BigDecimal("0.0025"), java.time.LocalDate.of(2026, 9, 5)));
+
+        PaymentExchangeRatePreviewDto result = sut().previewExchangeRate(membershipUuid, new BigDecimal("100.00"), "ves");
+
+        assertThat(result.available()).isTrue();
+        assertThat(result.convertedAmount()).isEqualByComparingTo("0.25");
+        assertThat(result.convertedCurrencyCode()).isEqualTo("USD");
+        assertThat(result.rateDate()).isEqualTo(java.time.LocalDate.of(2026, 9, 5));
+    }
+
+    @Test
+    void previewExchangeRate_degradesToUnavailable_whenNoRateExists() {
+        UUID membershipUuid = UUID.randomUUID();
+        Currency usd = currency("USD");
+        Currency ves = currency("VES");
+        Membership membership = new Membership();
+        membership.setCurrency(usd);
+        when(membershipRepository.findByUuid(membershipUuid)).thenReturn(Optional.of(membership));
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(currencyConversionService.convert(any(), any(), any(), any()))
+                .thenThrow(new NoExchangeRateAvailableException("exchange_rate.not_available:VES->USD"));
+
+        PaymentExchangeRatePreviewDto result = sut().previewExchangeRate(membershipUuid, new BigDecimal("100.00"), "VES");
+
+        assertThat(result).isEqualTo(PaymentExchangeRatePreviewDto.UNAVAILABLE);
+    }
+
+    @Test
+    void previewExchangeRate_degradesToUnavailable_whenMembershipNotFound() {
+        UUID membershipUuid = UUID.randomUUID();
+        when(membershipRepository.findByUuid(membershipUuid)).thenReturn(Optional.empty());
+
+        PaymentExchangeRatePreviewDto result = sut().previewExchangeRate(membershipUuid, new BigDecimal("100.00"), "VES");
+
+        assertThat(result).isEqualTo(PaymentExchangeRatePreviewDto.UNAVAILABLE);
+    }
+
+    private static Currency currency(String code) {
+        Currency c = new Currency();
+        c.setCode(code);
+        return c;
     }
 
     private static Payment pending(BigDecimal amount) {

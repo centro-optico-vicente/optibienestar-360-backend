@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentExchangeRatePreviewDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Duration;
 import java.util.UUID;
@@ -80,6 +82,23 @@ public class AdminPaymentController {
     @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
     public ResponseEntity<PaymentDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(paymentsService.get(uuid));
+    }
+
+    /**
+     * Live conversion preview for the registration form — what
+     * {@code amount}/{@code currency} would convert to in
+     * {@code membershipUuid}'s own currency right now (ADR 0015 §7 Caso B).
+     * Gated by {@code PAYMENT_CREATE} (not an {@code EXCHANGE_RATE_*}
+     * permission) — whoever can register a payment can see the rate that
+     * would apply to it; this never exposes the full rate history/CRUD.
+     */
+    @GetMapping("/exchange-rate-preview")
+    @PreAuthorize("hasAuthority('PAYMENT_CREATE')")
+    public ResponseEntity<PaymentExchangeRatePreviewDto> previewExchangeRate(
+            @RequestParam UUID membershipUuid,
+            @RequestParam BigDecimal amount,
+            @RequestParam String currency) {
+        return ResponseEntity.ok(paymentsService.previewExchangeRate(membershipUuid, amount, currency));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

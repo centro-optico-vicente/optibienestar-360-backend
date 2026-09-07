@@ -16,7 +16,10 @@ import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -25,6 +28,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentExchangeRatePreviewDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -46,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -109,7 +114,7 @@ public class PaymentsService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final CurrencyRepository currencyRepository;
-    private final com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
+    private final CurrencyConversionService currencyConversionService;
     private final PaymentMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
     private final ObjectProvider<StorageService> storageProvider;
@@ -391,9 +396,36 @@ public class PaymentsService {
                     payment.getPaymentDate().atStartOfDay(java.time.ZoneId.of("America/Caracas")).toInstant());
             payment.setExchangeRateUsed(result.rate());
             payment.setExchangeRateDate(result.rateDate());
-        } catch (com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException noRate) {
+        } catch (NoExchangeRateAvailableException noRate) {
             log.info("No exchange rate available to snapshot for payment {} ({} -> {}); leaving null",
                     payment.getUuid(), payment.getCurrency().getCode(), membershipCurrency.getCode());
+        }
+    }
+
+    /**
+     * Live preview for the registration form (ADR 0015 §7 Caso B) — what the
+     * {@code amount}/{@code currencyCode} entered so far would convert to in
+     * {@code membershipUuid}'s own currency, at the rate vigente right now.
+     * Never persisted; purely informational, so a missing rate or a bad
+     * currency code both degrade to {@link PaymentExchangeRatePreviewDto#UNAVAILABLE}
+     * rather than failing the request — the admin can still register the
+     * payment without a preview, same "degrade, never block" rule as
+     * {@link #snapshotExchangeRate}.
+     */
+    @Transactional(readOnly = true)
+    public PaymentExchangeRatePreviewDto previewExchangeRate(UUID membershipUuid, BigDecimal amount, String currencyCode) {
+        Membership membership = membershipRepository.findByUuid(membershipUuid).orElse(null);
+        Currency membershipCurrency = membership != null ? membership.getCurrency() : null;
+        Currency paymentCurrency = currencyRepository.findByCode(currencyCode.toUpperCase(Locale.ROOT)).orElse(null);
+        if (membershipCurrency == null || paymentCurrency == null) {
+            return PaymentExchangeRatePreviewDto.UNAVAILABLE;
+        }
+        try {
+            var result = currencyConversionService.convert(amount, paymentCurrency, membershipCurrency, Instant.now());
+            return new PaymentExchangeRatePreviewDto(true, result.convertedAmount(), membershipCurrency.getCode(),
+                    result.rate(), result.rateDate());
+        } catch (NoExchangeRateAvailableException noRate) {
+            return PaymentExchangeRatePreviewDto.UNAVAILABLE;
         }
     }
 
