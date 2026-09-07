@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.scheduling.service.runners;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse;
 import com.fenixcore.optibienestar360.modules.promoter.service.BonusEvaluationService;
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
@@ -69,9 +70,9 @@ public class BonusEvaluationJobRunner implements ScheduledJobRunner {
                     } catch (RuntimeException ex) {
                         log.warn("Invalid timezone '{}' on {} job row — falling back to America/Caracas",
                                 job.getTimezone(), CODE);
-                        return ZoneId.of("America/Caracas");
+                        return AppTimeZone.ZONE;
                     }
                 })
-                .orElse(ZoneId.of("America/Caracas"));
+                .orElse(AppTimeZone.ZONE);
     }
 }
