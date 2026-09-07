@@ -14,7 +14,7 @@ SET search_path TO app, public;
 
 INSERT INTO permission_domains (code, name, icon, description, display_order)
 VALUES ('ORGANIZATION', 'Organización', 'i-lucide-building-2',
-        'Datos de la organización/empresa (ADR 0015)', 121)
+        'Datos de la organización/empresa', 121)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO permissions (name, domain_id, description)
