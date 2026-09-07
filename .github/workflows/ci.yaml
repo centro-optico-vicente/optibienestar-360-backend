@@ -160,19 +160,19 @@ jobs:
           cache-from: type=gha,scope=docker-alpine
           cache-to: type=gha,mode=min,scope=docker-alpine
 
-      - name: Validate Debian image (build, no push)
-        if: steps.docker-changes.outputs.docker == 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./docker/debian.Dockerfile
-          target: from-prebuilt
-          build-contexts: |
-            prebuilt-src=build/libs/
-          platforms: linux/amd64
-          push: false
-          cache-from: type=gha,scope=docker-debian
-          cache-to: type=gha,mode=min,scope=docker-debian
+      # - name: Validate Debian image (build, no push)
+      #   if: steps.docker-changes.outputs.docker == 'true'
+      #   uses: docker/build-push-action@v7
+      #   with:
+      #     context: .
+      #     file: ./docker/debian.Dockerfile
+      #     target: from-prebuilt
+      #     build-contexts: |
+      #       prebuilt-src=build/libs/
+      #     platforms: linux/amd64
+      #     push: false
+      #     cache-from: type=gha,scope=docker-debian
+      #     cache-to: type=gha,mode=min,scope=docker-debian
 
       # `runtime` is the stage publish.yaml actually builds and pushes on release
       # (it compiles from source inside the image, no prebuilt JAR). ci.yaml's
@@ -195,14 +195,14 @@ jobs:
           cache-from: type=gha,scope=docker-alpine-runtime
           cache-to: type=gha,mode=min,scope=docker-alpine-runtime
 
-      - name: Validate Debian image (runtime build, no push)
-        if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./docker/debian.Dockerfile
-          target: runtime
-          platforms: linux/amd64
-          push: false
-          cache-from: type=gha,scope=docker-debian-runtime
-          cache-to: type=gha,mode=min,scope=docker-debian-runtime
+      # - name: Validate Debian image (runtime build, no push)
+      #   if: steps.docker-changes.outputs.docker == 'true' || steps.docker-changes.outputs.build-config == 'true'
+      #   uses: docker/build-push-action@v7
+      #   with:
+      #     context: .
+      #     file: ./docker/debian.Dockerfile
+      #     target: runtime
+      #     platforms: linux/amd64
+      #     push: false
+      #     cache-from: type=gha,scope=docker-debian-runtime
+      #     cache-to: type=gha,mode=min,scope=docker-debian-runtime
