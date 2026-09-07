@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.exchangerate.service;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Country;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CountryRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -51,7 +52,7 @@ public class ExchangeRateIngestionService {
     private static final String QUOTE_CURRENCY_CODE = "VES";
 
     /** BCV vigency policy (ADR 0015 §2/§3) — not a generic calendar default. */
-    private static final ZoneId CARACAS = ZoneId.of("America/Caracas");
+    private static final ZoneId CARACAS = AppTimeZone.ZONE;
     private static final LocalTime VIGENCY_TIME = LocalTime.of(8, 0);
     private static final String VIGENCY_COUNTRY_ISO_CODE = "VE";
 
@@ -178,12 +179,12 @@ public class ExchangeRateIngestionService {
             return Optional.empty();
         }
         try {
-            return Optional.of(OffsetDateTime.parse(timestamp).atZoneSameInstant(ZoneId.of("America/Caracas")).toLocalDate());
+            return Optional.of(OffsetDateTime.parse(timestamp).atZoneSameInstant(CARACAS).toLocalDate());
         } catch (DateTimeException ignored) {
             // covers DateTimeParseException too (it's a DateTimeException subclass) — fall through to Instant, then LocalDate
         }
         try {
-            return Optional.of(Instant.parse(timestamp).atZone(ZoneId.of("America/Caracas")).toLocalDate());
+            return Optional.of(Instant.parse(timestamp).atZone(CARACAS).toLocalDate());
         } catch (DateTimeException ignored) {
             // fall through to LocalDate
         }

@@ -15,7 +15,7 @@ import lombok.Setter;
 
 /**
  * The organization/company master (V86, ADR 0015 §4). Single row today
- * (Centro Óptico Vicente / Grupo Médico 11:11), shaped to survive an
+ * (OptiBienestar 360 / Centro Óptico Vicente — V99), shaped to survive an
  * eventual multi-tenant future without rework.
  *
  * <p>{@link #officialCurrency} is the country's legal tender (VES) —

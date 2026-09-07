@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.scheduling.service.runners;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
@@ -151,10 +152,10 @@ public class MembershipStatusJobRunner implements ScheduledJobRunner {
                     } catch (RuntimeException ex) {
                         log.warn("Invalid timezone '{}' on {} job row — falling back to America/Caracas",
                                 job.getTimezone(), CODE);
-                        return ZoneId.of("America/Caracas");
+                        return AppTimeZone.ZONE;
                     }
                 })
-                .orElse(ZoneId.of("America/Caracas"));
+                .orElse(AppTimeZone.ZONE);
     }
 
     private void fireNotification(Membership membership, LifecycleStatus target) {

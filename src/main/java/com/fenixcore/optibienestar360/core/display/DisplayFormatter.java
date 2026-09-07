@@ -1,15 +1,14 @@
 package com.fenixcore.optibienestar360.core.display;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
-import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Currency;
 import java.util.Locale;
@@ -30,8 +29,7 @@ import java.util.regex.Pattern;
  * {@link NumberFormat} keyed by {@link Locale}, enums/booleans from message
  * keys, and the date patterns from {@code display.format.datetime} /
  * {@code display.format.date} (parsed once, then cached). The display zone is
- * the {@code TZ} environment variable, falling back to {@code America/Caracas}
- * (ADR 0010) when {@code TZ} is unset or invalid.</p>
+ * {@link AppTimeZone#ZONE} (ADR 0010).</p>
  *
  * <p>Output matches {@code AuditDisplayResolver} for the {@code es}/{@code en}
  * bundles shipped today; that resolver keeps its own resolution registries
@@ -45,12 +43,6 @@ import java.util.regex.Pattern;
 @Slf4j
 @Component
 public class DisplayFormatter {
-
-	/** Fallback zone when {@code TZ} is unset or invalid — ADR 0010. */
-	private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Caracas");
-
-	/** Resolved once: {@code TZ} env var if valid, else {@link #DEFAULT_ZONE}. */
-	private static final ZoneId DISPLAY_ZONE = resolveDisplayZone();
 
 	private static final String KEY_DATETIME_PATTERN = "display.format.datetime";
 	private static final String KEY_DATE_PATTERN = "display.format.date";
@@ -88,7 +80,7 @@ public class DisplayFormatter {
 		if (value == null) {
 			return null;
 		}
-		return value.atZone(DISPLAY_ZONE)
+		return value.atZone(AppTimeZone.ZONE)
 				.format(formatter(KEY_DATETIME_PATTERN, DEFAULT_DATETIME_PATTERN, locale));
 	}
 
@@ -277,23 +269,6 @@ public class DisplayFormatter {
 	private DateTimeFormatter formatter(String key, String defaultPattern, Locale locale) {
 		String pattern = messageSource.getMessage(key, null, defaultPattern, locale);
 		return formatterCache.computeIfAbsent(pattern, DateTimeFormatter::ofPattern);
-	}
-
-	/**
-	 * Display zone from the {@code TZ} environment variable (e.g.
-	 * {@code America/Bogota}); {@link #DEFAULT_ZONE} when {@code TZ} is unset,
-	 * blank, or not a valid zone id.
-	 */
-	private static ZoneId resolveDisplayZone() {
-		String tz = System.getenv("TZ");
-		if (tz != null && !tz.isBlank()) {
-			try {
-				return ZoneId.of(tz.trim());
-			} catch (DateTimeException invalid) {
-				log.warn("Invalid TZ env value '{}', falling back to {}", tz, DEFAULT_ZONE);
-			}
-		}
-		return DEFAULT_ZONE;
 	}
 
 }
