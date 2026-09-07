@@ -52,8 +52,8 @@ class OrganizationServiceTest {
     private static Organization organization(Currency official, Currency reference) {
         Organization o = new Organization();
         o.setUuid(UUID.randomUUID());
-        o.setName("Centro Óptico Vicente");
-        o.setLegalName("Centro Óptico Vicente C.A.");
+        o.setName("OptiBienestar 360");
+        o.setLegalName("Centro Óptico Vicente / Grupo Médico 11:11");
         o.setTaxIdentifier("J-12345678-9");
         o.setOfficialCurrency(official);
         o.setReferenceCurrency(reference);
@@ -68,7 +68,7 @@ class OrganizationServiceTest {
 
         OrganizationDto result = service().getMine();
 
-        assertThat(result.name()).isEqualTo("Centro Óptico Vicente");
+        assertThat(result.name()).isEqualTo("OptiBienestar 360");
         assertThat(result.officialCurrency().code()).isEqualTo("VES");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD");
     }
@@ -103,7 +103,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Centro Óptico Vicente", null, null, null, eurUuid, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, eurUuid, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -119,7 +119,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("Centro Óptico Vicente", null, null, null, bogus, null)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, bogus, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
