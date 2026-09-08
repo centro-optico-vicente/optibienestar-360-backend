@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +16,12 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
         JpaSpecificationExecutor<Promoter> {
 
     Optional<Promoter> findByUuid(UUID uuid);
+
+    /** Current (as-of-now) direct subordinates via the live pointer — the fast path for {@code PromoterHierarchyService}. */
+    List<Promoter> findBySupervisorId(Long supervisorId);
+
+    /** Roots of the hierarchy tree — promoters with no supervisor (top of their own chain). */
+    List<Promoter> findBySupervisorIsNull();
 
     /** Natural-key lookup — services that need "the INSTITUCION promoter" resolve by code. */
     Optional<Promoter> findByReferralCode(String referralCode);

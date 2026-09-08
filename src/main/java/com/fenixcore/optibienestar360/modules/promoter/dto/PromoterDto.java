@@ -16,7 +16,11 @@ import java.util.UUID;
  * {@code @Display} scalars keep their raw value and gain a localized
  * {@code <field>_Display} sibling. {@code user}/{@code person} carry the
  * identity links (both {@code null} on the {@code INSTITUCION} system row);
- * {@code promoterType} is nullable on legacy rows.</p>
+ * {@code promoterType} is nullable on legacy rows. {@code rank} (V101, the
+ * "cargo" — independent of {@code promoterType}) and {@code supervisor}
+ * (the live pointer, {@code null} = top of the chain) are read-only here;
+ * changing them goes through the dedicated hierarchy endpoints ({@code
+ * POST /v1/admin/promoters/{uuid}/assign-supervisor}).</p>
  */
 public record PromoterDto(
         UUID uuid,
@@ -28,6 +32,8 @@ public record PromoterDto(
         @Display DisplayRef user,
         @Display DisplayRef person,
         @Display DisplayRef promoterType,
+        @Display DisplayRef rank,
+        @Display DisplayRef supervisor,
 
         String email,
         String phone,

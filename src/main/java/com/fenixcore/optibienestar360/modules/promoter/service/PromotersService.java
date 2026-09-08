@@ -24,7 +24,9 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter.PromoterStatus;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRankRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
@@ -81,10 +83,14 @@ public class PromotersService {
     /** Retry cap when an auto-generated candidate collides — a safety net, not a budget. */
     private static final int GENERATION_RETRIES = 10;
 
+    /** Base rank every new promoter starts at — same one V101 backfilled onto pre-existing rows. */
+    private static final String BASE_RANK_CODE = "PROMOTOR";
+
     private final PromoterRepository repository;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final PromoterRankRepository promoterRankRepository;
     private final PromoterMapper mapper;
     private final CommissionRepository commissionRepository;
     private final PromoterBonusAwardRepository promoterBonusAwardRepository;
@@ -151,6 +157,7 @@ public class PromotersService {
         promoter.setEmail(req.email());
         promoter.setPhone(req.phone());
         promoter.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        promoter.setRank(resolveBaseRank());
         promoter.setStatus(PromoterStatus.ACTIVE.name());
 
         return mapper.toDto(repository.save(promoter));
@@ -239,6 +246,17 @@ public class PromotersService {
         if (uuid == null) return null;
         return promoterTypeRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
+    }
+
+    /**
+     * Every promoter created via this endpoint starts at the base rank
+     * (V101) — rank changes go through {@code
+     * PromoterHierarchyService.assignSupervisor}'s validation path via a
+     * dedicated promotion flow, never a bare field on this create request.
+     */
+    private PromoterRank resolveBaseRank() {
+        return promoterRankRepository.findByCode(BASE_RANK_CODE)
+                .orElseThrow(() -> new IllegalStateException("promoter_rank.base_rank_missing"));
     }
 
     private static void ensureNotSystemRow(Promoter promoter) {
