@@ -17,4 +17,11 @@ public interface PromoterRankRepository extends JpaRepository<PromoterRank, Long
     List<PromoterRank> findAllByActiveTrueOrderByHierarchyLevel();
 
     boolean existsByHierarchyLevel(int hierarchyLevel);
+
+    /**
+     * Used by {@code PromoterHierarchyService.changeRank} to tell whether a
+     * target rank is the top of the chain — if no active rank has a higher
+     * {@code hierarchyLevel}, a promoter moved to it needs no supervisor.
+     */
+    boolean existsByHierarchyLevelGreaterThanAndActiveTrue(int hierarchyLevel);
 }

@@ -42,4 +42,25 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
      */
     @Query("SELECT p FROM Promoter p WHERE p.active = true AND p.user.uuid = :userUuid")
     Optional<Promoter> findActiveByUserUuid(@Param("userUuid") UUID userUuid);
+
+    /**
+     * Candidate supervisors for a promoter targeting a given rank — every
+     * active promoter whose own rank is strictly above {@code
+     * hierarchyLevel}, powering {@code GET
+     * /v1/admin/promoters/eligible-supervisors}. The caller is responsible
+     * for treating an empty result as "this is the top rank, no supervisor
+     * applies" vs. "no eligible candidate exists yet" — both render the same
+     * way here (empty list) but mean different things to the UI.
+     */
+    @Query("""
+            SELECT p FROM Promoter p
+            WHERE p.active = true
+              AND p.rank IS NOT NULL
+              AND p.rank.hierarchyLevel > :hierarchyLevel
+              AND (:q IS NULL OR :q = '' OR
+                   lower(p.displayName) LIKE lower(concat('%', :q, '%')) OR
+                   lower(p.referralCode) LIKE lower(concat('%', :q, '%')))
+            ORDER BY p.displayName
+            """)
+    List<Promoter> findEligibleSupervisors(@Param("hierarchyLevel") int hierarchyLevel, @Param("q") String q);
 }

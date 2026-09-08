@@ -5,6 +5,8 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAss
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterSupervisorAssignment;
+import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRankRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterSupervisorAssignmentRepository;
 import org.junit.jupiter.api.Test;
@@ -20,7 +22,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -34,12 +39,15 @@ import static org.mockito.Mockito.when;
 class PromoterHierarchyServiceTest {
 
     @Mock private PromoterRepository promoterRepository;
+    @Mock private PromoterRankRepository promoterRankRepository;
     @Mock private PromoterSupervisorAssignmentRepository assignmentRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PromoterMapper promoterMapper;
 
     /** Built per-call — {@code @Mock} fields are injected after construction (see CurrencyServiceTest). */
     private PromoterHierarchyService service() {
-        return new PromoterHierarchyService(promoterRepository, assignmentRepository, userRepository);
+        return new PromoterHierarchyService(promoterRepository, promoterRankRepository, assignmentRepository,
+                userRepository, promoterMapper);
     }
 
     private static PromoterRank rank(String code, int level, Integer maxSubordinates) {
@@ -283,5 +291,128 @@ class PromoterHierarchyServiceTest {
                 service().buildTree(Instant.now());
 
         assertThat(tree).isEmpty();
+    }
+
+    @Test
+    void changeRankPromotesAndAssignsNewSupervisor() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        Promoter ase = promoter(1L, "Ana", promotorRank);
+        Promoter coord = promoter(3L, "Coord", coordRank);
+
+        when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
+        when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
+        when(promoterRankRepository.findByUuid(supervisorRank.getUuid())).thenReturn(Optional.of(supervisorRank));
+        stubNoExistingLinks();
+        when(assignmentRepository.save(any(PromoterSupervisorAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service().changeRank(ase.getUuid(), supervisorRank.getUuid(), coord.getUuid(), "Ascenso por desempeño", null);
+
+        assertThat(ase.getRank()).isSameAs(supervisorRank);
+        assertThat(ase.getSupervisor()).isSameAs(coord);
+        verify(assignmentRepository).save(any(PromoterSupervisorAssignment.class));
+    }
+
+    @Test
+    void changeRankToTopRankAllowsNullSupervisor() {
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        Promoter coord = promoter(3L, "Coord", coordRank);
+
+        when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
+        when(promoterRankRepository.findByUuid(coordRank.getUuid())).thenReturn(Optional.of(coordRank));
+        when(promoterRankRepository.existsByHierarchyLevelGreaterThanAndActiveTrue(3)).thenReturn(false);
+        stubNoExistingLinks();
+
+        service().changeRank(coord.getUuid(), coordRank.getUuid(), null, "Ya es el rango más alto", null);
+
+        assertThat(coord.getRank()).isSameAs(coordRank);
+        assertThat(coord.getSupervisor()).isNull();
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRankRejectsMissingSupervisorWhenNotTopRank() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        Promoter ase = promoter(1L, "Ana", promotorRank);
+
+        when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
+        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRankRepository.existsByHierarchyLevelGreaterThanAndActiveTrue(1)).thenReturn(true);
+
+        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), promotorRank.getUuid(), null, "x", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supervisor_required");
+    }
+
+    @Test
+    void changeRankRejectsWhenDemotionWouldOutrankACurrentSubordinate() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        Promoter ase = promoter(2L, "Sup", supervisorRank); // currently a Supervisor
+        Promoter subordinate = promoter(1L, "Ana", promotorRank);
+        Promoter coord = promoter(3L, "Coord", coordRank);
+
+        when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
+        when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
+        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+
+        // ase's current team: "subordinate" reports to ase.
+        lenient().when(promoterRepository.findBySupervisorId(2L)).thenReturn(List.of(subordinate));
+        lenient().when(promoterRepository.findBySupervisorId(1L)).thenReturn(List.of());
+        lenient().when(promoterRepository.findBySupervisorId(3L)).thenReturn(List.of());
+        lenient().when(assignmentRepository.findDistinctPromoterIdByToSupervisorId(any())).thenReturn(List.of());
+        lenient().when(assignmentRepository.findDistinctPromoterIdByFromSupervisorId(any())).thenReturn(List.of());
+        lenient().when(promoterRepository.findById(1L)).thenReturn(Optional.of(subordinate));
+        PromoterSupervisorAssignment vigente = new PromoterSupervisorAssignment();
+        vigente.setPromoter(subordinate);
+        vigente.setToSupervisor(ase);
+        lenient().when(assignmentRepository.findFirstByPromoterIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(any(), any()))
+                .thenReturn(Optional.empty());
+        lenient().when(assignmentRepository.findFirstByPromoterIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(
+                        org.mockito.ArgumentMatchers.eq(1L), any()))
+                .thenReturn(Optional.of(vigente));
+
+        // Demoting ase (Supervisor) down to Promotor — same rank as its own subordinate — must be rejected,
+        // even though the proposed new supervisor (a Coordinador) is otherwise perfectly valid.
+        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), promotorRank.getUuid(), coord.getUuid(), "x", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("subordinate_rank_conflict");
+    }
+
+    @Test
+    void changeRankKeepingSameSupervisorDoesNotWriteAssignmentRow() {
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        Promoter sup = promoter(2L, "Sup", supervisorRank);
+        Promoter coord = promoter(3L, "Coord", coordRank);
+        sup.setSupervisor(coord);
+
+        when(promoterRepository.findByUuid(sup.getUuid())).thenReturn(Optional.of(sup));
+        when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
+        when(promoterRankRepository.findByUuid(supervisorRank.getUuid())).thenReturn(Optional.of(supervisorRank));
+        stubNoExistingLinks();
+
+        service().changeRank(sup.getUuid(), supervisorRank.getUuid(), coord.getUuid(), "Confirmar rango", null);
+
+        assertThat(sup.getSupervisor()).isSameAs(coord);
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void eligibleSupervisorOptionsListsPromotersAboveTargetRank() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        Promoter sup = promoter(2L, "Sup", supervisorRank);
+
+        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRepository.findEligibleSupervisors(1, null)).thenReturn(List.of(sup));
+
+        List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
+                service().eligibleSupervisorOptions(promotorRank.getUuid(), null, 50);
+
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).uuid()).isEqualTo(sup.getUuid());
     }
 }
