@@ -5,9 +5,12 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutReque
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingResponse;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionVoidRequest;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionPayoutService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatingService;
+import com.fenixcore.optibienestar360.modules.promoter.service.CommissionRetroactiveTopUpService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +49,7 @@ public class AdminCommissionController {
     private final CommissionsService commissionsService;
     private final CommissionPayoutService commissionPayoutService;
     private final CommissionReRatingService commissionReRatingService;
+    private final CommissionRetroactiveTopUpService commissionRetroactiveTopUpService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
@@ -100,5 +104,22 @@ public class AdminCommissionController {
     public ResponseEntity<CommissionReRatingResponse> reRate(
             @Valid @RequestBody CommissionReRatingRequest request) {
         return ResponseEntity.ok(commissionReRatingService.execute(request));
+    }
+
+    /**
+     * Settlement close (V105, hub plan §3): for every beneficiary with at
+     * least one PAID direct-inscription commission or hierarchy override in
+     * the period, tops up the gap between what the period's final
+     * highest-qualifying band would have paid and what was already
+     * disbursed across the partial cuts. Run after {@code /re-rate} (and its
+     * hierarchy-override sibling) — those bump PENDING rows in place; this
+     * covers what's already PAID and off-limits to them. Reuses {@code
+     * COMMISSION_RE_RATE} (same actor/action, generic ledger).
+     */
+    @PostMapping("/retroactive-topups")
+    @PreAuthorize("hasAuthority('COMMISSION_RE_RATE')")
+    public ResponseEntity<CommissionRetroactiveTopUpResponse> retroactiveTopUps(
+            @Valid @RequestBody CommissionRetroactiveTopUpRequest request) {
+        return ResponseEntity.ok(commissionRetroactiveTopUpService.execute(request));
     }
 }

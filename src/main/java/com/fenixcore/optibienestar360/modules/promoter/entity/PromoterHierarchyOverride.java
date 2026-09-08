@@ -88,6 +88,13 @@ public class PromoterHierarchyOverride extends BaseEntity {
     @Column(name = "earned_at", nullable = false)
     private Instant earnedAt = Instant.now();
 
+    /** Set by {@code CommissionPayoutService} (V106) when this override is paid as part of a period-close batch. */
+    @Column(name = "payout_reference", length = 120)
+    private String payoutReference;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
     @Column(name = "voided_at")
     private Instant voidedAt;
 
