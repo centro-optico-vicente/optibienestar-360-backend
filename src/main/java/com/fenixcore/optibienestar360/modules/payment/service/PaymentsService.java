@@ -117,6 +117,7 @@ public class PaymentsService {
     private final MessageSource messageSource;
     private final ValidatorCacheService validatorCacheService;
     private final CommissionService commissionService;
+    private final com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService hierarchyOverrideService;
     private final CorporateBillingResolver corporateBillingResolver;
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final FileValidationService fileValidationService;
@@ -318,7 +319,10 @@ public class PaymentsService {
      */
     private void attributeCommission(Payment payment) {
         try {
-            commissionService.calculateAndPersistFor(payment);
+            // Best-effort, same try/catch as the direct commission itself — a
+            // hierarchy-override failure must never roll back the payment
+            // approval (hub plan §2, HierarchyOverrideService.cascadeFrom).
+            commissionService.calculateAndPersistFor(payment).ifPresent(hierarchyOverrideService::cascadeFrom);
         } catch (RuntimeException ex) {
             log.error("Failed to attribute commission for payment {}", payment.getUuid(), ex);
         }

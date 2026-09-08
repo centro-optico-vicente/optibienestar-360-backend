@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -112,6 +113,22 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
     long countNewSubscribersForPromoter(@Param("promoterId") Long promoterId,
                                         @Param("start") LocalDate start,
                                         @Param("end") LocalDate end);
+
+    /**
+     * Hierarchy-override engine (V102): same as {@link
+     * #countNewSubscribersForPromoter} but summed across an entire team
+     * subtree ({@code PromoterHierarchyService.resolveTeamMemberIds}) —
+     * drives INSCRIPTION {@code hierarchy_override_tiers} qualification.
+     */
+    @Query("""
+            SELECT COUNT(m) FROM Member m
+            WHERE m.active = true
+              AND m.promoter.id IN :promoterIds
+              AND m.enrolledAt BETWEEN :start AND :end
+            """)
+    long countNewSubscribersForPromoters(@Param("promoterIds") Collection<Long> promoterIds,
+                                         @Param("start") LocalDate start,
+                                         @Param("end") LocalDate end);
 
     /**
      * Bonus-engine metric: active subscribers per promoter — members whose
