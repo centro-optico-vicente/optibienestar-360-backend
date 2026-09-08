@@ -141,7 +141,7 @@ class HierarchyOverrideReRatingServiceTest {
 
         when(overrideRepository.findPendingForPeriod(request(false).periodStart(), request(false).periodEnd()))
                 .thenReturn(List.of(o));
-        when(hierarchyService.resolveTeamMemberIds(sup.getId(), any())).thenReturn(Set.of(1L));
+        when(hierarchyService.resolveTeamMemberIds(org.mockito.ArgumentMatchers.eq(sup.getId()), any())).thenReturn(Set.of(1L));
         when(memberRepository.countNewSubscribersForPromoters(Set.of(1L),
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30))).thenReturn(150L);
         // Highest-threshold-first, as the repository's own ordering guarantees.

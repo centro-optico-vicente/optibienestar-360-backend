@@ -23,6 +23,8 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,8 +81,31 @@ public class HierarchyOverrideReRatingService {
         List<PromoterHierarchyOverride> pending =
                 overrideRepository.findPendingForPeriod(request.periodStart(), request.periodEnd());
 
-        BigDecimal resyncDelta = resyncBasisAmounts(pending, dryRun);
-        List<BeneficiaryReRatingOutcome> outcomes = reRateBands(pending, request, dryRun);
+        // Resolved (possibly resynced) basis/amount per override id — read by
+        // reRateBands instead of the entity's own fields directly, so a
+        // dry-run preview sees phase 1's effect even though nothing was
+        // actually mutated yet. Populated for every row up front so phase 2
+        // always has an entry to read.
+        Map<Long, BigDecimal> resolvedBasis = new HashMap<>();
+        Map<Long, BigDecimal> resolvedAmount = new HashMap<>();
+        Map<Long, HierarchyOverrideTier> resolvedTier = new HashMap<>();
+        for (PromoterHierarchyOverride override : pending) {
+            resolvedBasis.put(override.getId(), override.getBasisAmount());
+            resolvedAmount.put(override.getId(), override.getAmount());
+            resolvedTier.put(override.getId(), override.getTier());
+        }
+
+        BigDecimal resyncDelta = resyncBasisAmounts(pending, resolvedBasis, resolvedAmount);
+        List<BeneficiaryReRatingOutcome> outcomes = reRateBands(pending, resolvedBasis, resolvedAmount, resolvedTier, request);
+
+        if (!dryRun) {
+            for (PromoterHierarchyOverride override : pending) {
+                Long id = override.getId();
+                override.setBasisAmount(resolvedBasis.get(id));
+                override.setAmount(resolvedAmount.get(id));
+                override.setTier(resolvedTier.get(id));
+            }
+        }
 
         int overridesUpdated = outcomes.stream().mapToInt(BeneficiaryReRatingOutcome::overridesChanged).sum();
         BigDecimal totalDelta = resyncDelta.add(outcomes.stream()
@@ -95,32 +120,41 @@ public class HierarchyOverrideReRatingService {
     }
 
     /**
-     * Fixed-point loop: an override's basis is stale when it no longer
-     * matches its source's <i>current</i> amount. Relies on the persistence
-     * context's identity map — when {@code o.getSourceOverride()} refers to
-     * another row already mutated earlier in this same pass, the in-memory
-     * reference already reflects the new amount, so a dependent chain of any
-     * depth converges within {@link #MAX_RESYNC_PASSES}.
+     * Fixed-point loop over in-memory maps only (never mutates the entities
+     * directly — {@link #execute} applies the final values afterward, only
+     * when {@code !dryRun}) — so a dry-run preview computes the exact same
+     * numbers a real run would, and each override contributes to {@code
+     * totalDelta} exactly once regardless of how many passes converge it.
+     * {@code resolvedAmount.get(sourceOverride.getId())} — not the entity's
+     * own possibly-stale {@code getAmount()} — is what lets a dependent
+     * level-3+ row see a level-2 row's resync from earlier in this same run.
      */
-    private BigDecimal resyncBasisAmounts(List<PromoterHierarchyOverride> pending, boolean dryRun) {
+    private BigDecimal resyncBasisAmounts(List<PromoterHierarchyOverride> pending,
+                                          Map<Long, BigDecimal> resolvedBasis, Map<Long, BigDecimal> resolvedAmount) {
         BigDecimal totalDelta = BigDecimal.ZERO;
+        Set<Long> resynced = new HashSet<>();
         boolean changed = true;
         int pass = 0;
         while (changed && pass++ < MAX_RESYNC_PASSES) {
             changed = false;
             for (PromoterHierarchyOverride override : pending) {
+                Long id = override.getId();
+                if (resynced.contains(id)) {
+                    continue; // each override resyncs at most once per run
+                }
                 BigDecimal currentSourceAmount = override.getSourceCommission() != null
                         ? override.getSourceCommission().getAmount()
-                        : override.getSourceOverride() != null ? override.getSourceOverride().getAmount() : null;
-                if (currentSourceAmount == null || currentSourceAmount.compareTo(override.getBasisAmount()) == 0) {
-                    continue;
+                        : override.getSourceOverride() != null
+                                ? resolvedAmount.getOrDefault(override.getSourceOverride().getId(), override.getSourceOverride().getAmount())
+                                : null;
+                if (currentSourceAmount == null || currentSourceAmount.compareTo(resolvedBasis.get(id)) == 0) {
+                    continue; // not stale (yet) — a dependency may resync later this pass or a future one
                 }
                 BigDecimal newAmount = recompute(override.getTier(), currentSourceAmount);
-                totalDelta = totalDelta.add(newAmount.subtract(override.getAmount()));
-                if (!dryRun) {
-                    override.setBasisAmount(currentSourceAmount);
-                    override.setAmount(newAmount);
-                }
+                totalDelta = totalDelta.add(newAmount.subtract(resolvedAmount.get(id)));
+                resolvedBasis.put(id, currentSourceAmount);
+                resolvedAmount.put(id, newAmount);
+                resynced.add(id);
                 changed = true;
             }
         }
@@ -136,7 +170,10 @@ public class HierarchyOverrideReRatingService {
      * {@code CommissionReRatingService.execute}'s grouping/selection shape.
      */
     private List<BeneficiaryReRatingOutcome> reRateBands(List<PromoterHierarchyOverride> pending,
-                                                          HierarchyOverrideReRatingRequest request, boolean dryRun) {
+                                                          Map<Long, BigDecimal> resolvedBasis,
+                                                          Map<Long, BigDecimal> resolvedAmount,
+                                                          Map<Long, HierarchyOverrideTier> resolvedTier,
+                                                          HierarchyOverrideReRatingRequest request) {
         LocalDate periodStart = request.periodStart();
         LocalDate periodEnd = request.periodEnd();
         Instant asOf = periodEnd.atStartOfDay(AppTimeZone.ZONE).toInstant();
@@ -169,16 +206,17 @@ public class HierarchyOverrideReRatingService {
             BigDecimal groupDelta = BigDecimal.ZERO;
             int groupChanged = 0;
             for (PromoterHierarchyOverride override : rows) {
-                BigDecimal newAmount = recompute(target, override.getBasisAmount());
-                if (target.getId().equals(override.getTier().getId()) && newAmount.compareTo(override.getAmount()) == 0) {
+                Long id = override.getId();
+                BigDecimal basis = resolvedBasis.get(id);
+                BigDecimal currentAmount = resolvedAmount.get(id);
+                BigDecimal newAmount = recompute(target, basis);
+                if (target.getId().equals(resolvedTier.get(id).getId()) && newAmount.compareTo(currentAmount) == 0) {
                     continue; // already at the target band with a current basis — no-op, re-runs stay idempotent
                 }
-                groupDelta = groupDelta.add(newAmount.subtract(override.getAmount()));
+                groupDelta = groupDelta.add(newAmount.subtract(currentAmount));
                 groupChanged++;
-                if (!dryRun) {
-                    override.setTier(target);
-                    override.setAmount(newAmount);
-                }
+                resolvedAmount.put(id, newAmount);
+                resolvedTier.put(id, target);
             }
 
             outcomes.add(new BeneficiaryReRatingOutcome(
