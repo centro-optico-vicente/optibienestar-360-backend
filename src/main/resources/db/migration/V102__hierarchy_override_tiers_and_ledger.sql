@@ -44,6 +44,7 @@ CREATE TABLE hierarchy_override_tiers
     period_strategy             VARCHAR(20)  NOT NULL DEFAULT 'MONTHLY',
 
     is_active                   BOOLEAN      NOT NULL DEFAULT TRUE,
+    status                      VARCHAR(50),
     created_at                  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at                  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by                  UUID,
