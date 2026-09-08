@@ -73,19 +73,24 @@ public class AdminPromoterHierarchyController {
     /**
      * Feeds the second step of the "change rank" flow: the admin picks the
      * target rank first, then this lists who is actually eligible to
-     * supervise a promoter at that rank (every active promoter whose own
-     * rank is strictly above it) — never the raw rank catalog, so the UI
-     * can't offer a supervisor the backend would reject anyway. Empty when
-     * {@code rankUuid} is the top rank (no supervisor applies) or when
-     * nobody currently holds a higher rank yet.
+     * supervise a promoter at that rank — never the raw rank catalog, so the
+     * UI can't offer a supervisor the backend would reject anyway. Empty
+     * when {@code rankUuid} is the top rank (no supervisor applies) or when
+     * nobody currently holds a qualifying rank yet.
+     *
+     * @param allSuperiors {@code false} (default) scopes the listing to just
+     *                     the immediate next rank above {@code rankUuid}
+     *                     (the common case); {@code true} widens it to every
+     *                     rank above, not just the immediate one.
      */
     @GetMapping("/eligible-supervisors")
     @PreAuthorize("hasAuthority('PROMOTER_CHANGE_RANK')")
     public ResponseEntity<List<OptionDto>> eligibleSupervisors(
             @RequestParam UUID rankUuid,
+            @RequestParam(required = false, defaultValue = "false") boolean allSuperiors,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit) {
-        return ResponseEntity.ok(hierarchyService.eligibleSupervisorOptions(rankUuid, q, limit));
+        return ResponseEntity.ok(hierarchyService.eligibleSupervisorOptions(rankUuid, allSuperiors, q, limit));
     }
 
     /**

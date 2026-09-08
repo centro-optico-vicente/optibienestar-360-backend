@@ -24,4 +24,13 @@ public interface PromoterRankRepository extends JpaRepository<PromoterRank, Long
      * {@code hierarchyLevel}, a promoter moved to it needs no supervisor.
      */
     boolean existsByHierarchyLevelGreaterThanAndActiveTrue(int hierarchyLevel);
+
+    /**
+     * The immediate superior rank of {@code hierarchyLevel} — the active
+     * rank with the smallest {@code hierarchyLevel} that is still greater
+     * than it. Empty means {@code hierarchyLevel} is already the top of the
+     * chain. Powers {@code PromoterHierarchyService.eligibleSupervisorOptions}'s
+     * default "only the immediate next rank up" scope.
+     */
+    Optional<PromoterRank> findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(int hierarchyLevel);
 }

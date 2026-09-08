@@ -59,13 +59,20 @@ public class AdminPromoterRankController {
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 
+    /**
+     * @param excludeUuid optional — the change-rank flow's "pick the new
+     *                     rank" step passes the promoter's current rank here
+     *                     so it doesn't appear as an option (changing to the
+     *                     same rank isn't a change).
+     */
     @GetMapping("/options")
     @PreAuthorize(VIEW)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
-            @RequestParam(required = false) List<UUID> currentValues) {
-        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) UUID excludeUuid) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues, excludeUuid));
     }
 
     @GetMapping("/{uuid}")

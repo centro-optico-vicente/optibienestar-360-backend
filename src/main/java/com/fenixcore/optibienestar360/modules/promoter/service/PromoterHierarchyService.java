@@ -243,19 +243,38 @@ public class PromoterHierarchyService {
     }
 
     /**
-     * Candidates for {@code newSupervisorUuid} in {@link #changeRank} — every
-     * active promoter whose own rank is strictly above {@code targetRankUuid}.
-     * An empty result has two different meanings the client must tell apart
-     * itself (both render the same way here): {@code targetRankUuid} is the
-     * top rank (no supervisor applies, hide/disable the field), or it isn't
-     * but nobody currently holds a higher rank yet (no supervisor available
-     * — block submission until one exists).
+     * Candidates for {@code newSupervisorUuid} in {@link #changeRank}. By
+     * default ({@code allSuperiors = false}) scoped to just the <b>immediate</b>
+     * next rank above {@code targetRankUuid} (e.g. targeting PROMOTOR lists
+     * only active SUPERVISOR promoters, not COORDINADOR ones too) — the
+     * common case, since {@code changeRank} itself still accepts any
+     * strictly-higher rank if the admin insists on skipping a level.
+     * {@code allSuperiors = true} widens the listing to every rank above,
+     * not just the immediate one.
+     *
+     * <p>An empty result has two different meanings the client must tell
+     * apart itself (both render the same way here): {@code targetRankUuid}
+     * is the top rank (no supervisor applies, hide/disable the field), or it
+     * isn't but nobody currently holds a qualifying higher rank yet (no
+     * supervisor available — block submission until one exists).</p>
      */
-    public List<OptionDto> eligibleSupervisorOptions(UUID targetRankUuid, String q, int limit) {
+    public List<OptionDto> eligibleSupervisorOptions(UUID targetRankUuid, boolean allSuperiors, String q, int limit) {
         PromoterRank targetRank = promoterRankRepository.findByUuid(targetRankUuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter_rank.not_found"));
+
+        Integer maxLevel = null;
+        if (!allSuperiors) {
+            PromoterRank immediateSuperior = promoterRankRepository
+                    .findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(targetRank.getHierarchyLevel())
+                    .orElse(null);
+            if (immediateSuperior == null) {
+                return List.of(); // top rank — no supervisor possible regardless of allSuperiors
+            }
+            maxLevel = immediateSuperior.getHierarchyLevel();
+        }
+
         int cappedLimit = Math.max(1, Math.min(limit, 200));
-        return promoterRepository.findEligibleSupervisors(targetRank.getHierarchyLevel(), q).stream()
+        return promoterRepository.findEligibleSupervisors(targetRank.getHierarchyLevel(), maxLevel, q).stream()
                 .limit(cappedLimit)
                 .map(p -> new OptionDto(p.getUuid(), p.getReferralCode(),
                         p.getDisplayName() + " — " + p.getRank().getCode(), p.isActive()))

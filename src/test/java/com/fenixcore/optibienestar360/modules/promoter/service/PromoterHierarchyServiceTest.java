@@ -401,18 +401,53 @@ class PromoterHierarchyServiceTest {
     }
 
     @Test
-    void eligibleSupervisorOptionsListsPromotersAboveTargetRank() {
+    void eligibleSupervisorOptionsDefaultsToImmediateSuperiorRankOnly() {
         PromoterRank promotorRank = rank("PROMOTOR", 1, null);
         PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
         Promoter sup = promoter(2L, "Sup", supervisorRank);
 
         when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
-        when(promoterRepository.findEligibleSupervisors(1, null)).thenReturn(List.of(sup));
+        when(promoterRankRepository.findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(1))
+                .thenReturn(Optional.of(supervisorRank));
+        when(promoterRepository.findEligibleSupervisors(1, 2, null)).thenReturn(List.of(sup));
 
         List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
-                service().eligibleSupervisorOptions(promotorRank.getUuid(), null, 50);
+                service().eligibleSupervisorOptions(promotorRank.getUuid(), false, null, 50);
 
         assertThat(options).hasSize(1);
         assertThat(options.get(0).uuid()).isEqualTo(sup.getUuid());
+    }
+
+    @Test
+    void eligibleSupervisorOptionsWithAllSuperiorsWidensToEveryRankAbove() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        Promoter sup = promoter(2L, "Sup", supervisorRank);
+        Promoter coord = promoter(3L, "Coord", coordRank);
+
+        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRepository.findEligibleSupervisors(1, null, null)).thenReturn(List.of(sup, coord));
+
+        List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
+                service().eligibleSupervisorOptions(promotorRank.getUuid(), true, null, 50);
+
+        assertThat(options).hasSize(2);
+        verify(promoterRankRepository, never())
+                .findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void eligibleSupervisorOptionsReturnsEmptyForTopRank() {
+        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+
+        when(promoterRankRepository.findByUuid(coordRank.getUuid())).thenReturn(Optional.of(coordRank));
+        when(promoterRankRepository.findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(3))
+                .thenReturn(Optional.empty());
+
+        List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
+                service().eligibleSupervisorOptions(coordRank.getUuid(), false, null, 50);
+
+        assertThat(options).isEmpty();
     }
 }
