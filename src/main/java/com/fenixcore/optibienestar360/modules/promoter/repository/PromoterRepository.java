@@ -20,6 +20,9 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
     /** Current (as-of-now) direct subordinates via the live pointer — the fast path for {@code PromoterHierarchyService}. */
     List<Promoter> findBySupervisorId(Long supervisorId);
 
+    /** Roots of the hierarchy tree — promoters with no supervisor (top of their own chain). */
+    List<Promoter> findBySupervisorIsNull();
+
     /** Natural-key lookup — services that need "the INSTITUCION promoter" resolve by code. */
     Optional<Promoter> findByReferralCode(String referralCode);
 

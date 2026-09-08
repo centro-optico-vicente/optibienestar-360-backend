@@ -213,4 +213,75 @@ class PromoterHierarchyServiceTest {
 
         assertThat(result).isSameAs(supervisor);
     }
+
+    @Test
+    void buildTreeNestsFromEachSupervisorlessRootDownToLeaves() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        PromoterRank supervisorRank = rank("SUPERVISOR", 2, 10);
+        PromoterRank coordRank = rank("COORDINADOR", 3, 5);
+
+        Promoter coord = promoter(3L, "Coord", coordRank);
+        Promoter sup = promoter(2L, "Sup", supervisorRank);
+        Promoter ase = promoter(1L, "Ase", promotorRank);
+        sup.setSupervisor(coord);
+        ase.setSupervisor(sup);
+
+        when(promoterRepository.findBySupervisorIsNull()).thenReturn(List.of(coord));
+        lenient().when(promoterRepository.findBySupervisorId(3L)).thenReturn(List.of(sup));
+        lenient().when(promoterRepository.findBySupervisorId(2L)).thenReturn(List.of(ase));
+        lenient().when(promoterRepository.findBySupervisorId(1L)).thenReturn(List.of());
+        lenient().when(assignmentRepository.findDistinctPromoterIdByToSupervisorId(any())).thenReturn(List.of());
+        lenient().when(assignmentRepository.findDistinctPromoterIdByFromSupervisorId(any())).thenReturn(List.of());
+        lenient().when(promoterRepository.findById(2L)).thenReturn(Optional.of(sup));
+        lenient().when(promoterRepository.findById(1L)).thenReturn(Optional.of(ase));
+
+        PromoterSupervisorAssignment supVigente = new PromoterSupervisorAssignment();
+        supVigente.setPromoter(sup);
+        supVigente.setToSupervisor(coord);
+        PromoterSupervisorAssignment aseVigente = new PromoterSupervisorAssignment();
+        aseVigente.setPromoter(ase);
+        aseVigente.setToSupervisor(sup);
+        lenient().when(assignmentRepository.findFirstByPromoterIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(any(), any()))
+                .thenReturn(Optional.empty());
+        lenient().when(assignmentRepository.findFirstByPromoterIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(org.mockito.ArgumentMatchers.eq(2L), any()))
+                .thenReturn(Optional.of(supVigente));
+        lenient().when(assignmentRepository.findFirstByPromoterIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(org.mockito.ArgumentMatchers.eq(1L), any()))
+                .thenReturn(Optional.of(aseVigente));
+
+        List<com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto> tree =
+                service().buildTree(Instant.now());
+
+        assertThat(tree).hasSize(1);
+        var coordNode = tree.get(0);
+        assertThat(coordNode.uuid()).isEqualTo(coord.getUuid());
+        assertThat(coordNode.rankCode()).isEqualTo("COORDINADOR");
+        assertThat(coordNode.supervisorUuid()).isNull();
+        assertThat(coordNode.children()).hasSize(1);
+
+        var supNode = coordNode.children().get(0);
+        assertThat(supNode.uuid()).isEqualTo(sup.getUuid());
+        assertThat(supNode.supervisorUuid()).isEqualTo(coord.getUuid());
+        assertThat(supNode.children()).hasSize(1);
+
+        var aseNode = supNode.children().get(0);
+        assertThat(aseNode.uuid()).isEqualTo(ase.getUuid());
+        assertThat(aseNode.supervisorUuid()).isEqualTo(sup.getUuid());
+        assertThat(aseNode.children()).isEmpty();
+    }
+
+    @Test
+    void buildTreeExcludesInactiveAndSystemRoots() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
+        Promoter institucion = promoter(9L, "INSTITUCION", promotorRank);
+        institucion.setSystem(true);
+        Promoter inactiveRoot = promoter(8L, "Inactivo", promotorRank);
+        inactiveRoot.setActive(false);
+
+        when(promoterRepository.findBySupervisorIsNull()).thenReturn(List.of(institucion, inactiveRoot));
+
+        List<com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto> tree =
+                service().buildTree(Instant.now());
+
+        assertThat(tree).isEmpty();
+    }
 }

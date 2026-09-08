@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAssignmentDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterSupervisorAssignment;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -118,6 +120,51 @@ public class PromoterHierarchyService {
         }
         visited.remove(promoterId);
         return visited;
+    }
+
+    /**
+     * The full hierarchy as a tree, rooted at every promoter with no
+     * supervisor (top of their own chain) as of {@code asOf} — powers {@code
+     * GET /v1/admin/promoters/hierarchy-tree} for a Nuxt org-chart view.
+     * Excludes the seeded {@code INSTITUCION} system row and inactive
+     * promoters (a deactivated promoter's still-active subordinates are kept
+     * — they're real, just orphaned under a disabled node — so nothing
+     * silently disappears from the tree).
+     *
+     * <p>Cycle-safe the same way {@link #resolveTeamMemberIds} is: a shared
+     * {@code visited} set across the whole traversal means a data bug (a
+     * cycle that slipped past {@link #assignSupervisor}'s own check) simply
+     * truncates that branch rather than recursing forever.</p>
+     */
+    public List<PromoterHierarchyNodeDto> buildTree(Instant asOf) {
+        List<Promoter> roots = promoterRepository.findBySupervisorIsNull().stream()
+                .filter(Promoter::isActive)
+                .filter(p -> !p.isSystem())
+                .sorted(Comparator.comparing(Promoter::getDisplayName))
+                .toList();
+        Set<Long> visited = new HashSet<>();
+        return roots.stream().map(root -> toNode(root, asOf, visited)).toList();
+    }
+
+    private PromoterHierarchyNodeDto toNode(Promoter promoter, Instant asOf, Set<Long> visited) {
+        List<PromoterHierarchyNodeDto> children = visited.add(promoter.getId())
+                ? resolveDirectSubordinatesAt(promoter.getId(), asOf).stream()
+                        .filter(Promoter::isActive)
+                        .sorted(Comparator.comparing(Promoter::getDisplayName))
+                        .map(child -> toNode(child, asOf, visited))
+                        .toList()
+                : List.of(); // cycle guard — already visited, stop this branch here
+
+        var rank = promoter.getRank();
+        var supervisor = promoter.getSupervisor();
+        return new PromoterHierarchyNodeDto(
+                promoter.getUuid(),
+                promoter.getDisplayName(),
+                promoter.getReferralCode(),
+                rank != null ? rank.getCode() : null,
+                rank != null ? rank.getName() : null,
+                supervisor != null ? supervisor.getUuid() : null,
+                children);
     }
 
     /** Reassignment history of a promoter's supervisor, newest first. */

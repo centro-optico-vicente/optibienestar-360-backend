@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
 import com.fenixcore.optibienestar360.modules.promoter.dto.AssignSupervisorRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAssignmentDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterHierarchyService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,6 +34,20 @@ import java.util.UUID;
 public class AdminPromoterHierarchyController {
 
     private final PromoterHierarchyService hierarchyService;
+
+    /**
+     * The full org chart, nested — feeds a Nuxt tree/org-chart view directly
+     * (see {@link PromoterHierarchyNodeDto} on how the client edits it: move
+     * / detach both go through {@code assign-supervisor} below, not a
+     * separate endpoint). Gated by the existing {@code PROMOTER_VIEW_ALL}
+     * (read-only) — no new permission needed for a view built entirely from
+     * data that permission already exposes.
+     */
+    @GetMapping("/hierarchy-tree")
+    @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
+    public ResponseEntity<List<PromoterHierarchyNodeDto>> hierarchyTree() {
+        return ResponseEntity.ok(hierarchyService.buildTree(Instant.now()));
+    }
 
     @PostMapping("/{promoterUuid}/assign-supervisor")
     @PreAuthorize("hasAuthority('PROMOTER_ASSIGN_SUPERVISOR')")
