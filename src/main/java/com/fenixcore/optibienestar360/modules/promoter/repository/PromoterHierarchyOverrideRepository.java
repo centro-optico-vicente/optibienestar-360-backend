@@ -44,4 +44,21 @@ public interface PromoterHierarchyOverrideRepository extends JpaRepository<Promo
     List<PromoterHierarchyOverride> findPendingForPeriod(
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd);
+
+    /**
+     * Powers {@code CommissionRetroactiveTopUpService} (V105, PR4) — every
+     * PAID override whose period falls inside the settlement range. Mirrors
+     * {@link #findPendingForPeriod}.
+     */
+    @Query("""
+            SELECT o FROM PromoterHierarchyOverride o
+            WHERE o.active = true
+              AND o.status = 'PAID'
+              AND o.periodStart >= :periodStart
+              AND o.periodEnd   <= :periodEnd
+            ORDER BY o.promoter.id, o.earnedAt
+            """)
+    List<PromoterHierarchyOverride> findPaidForPeriod(
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd);
 }

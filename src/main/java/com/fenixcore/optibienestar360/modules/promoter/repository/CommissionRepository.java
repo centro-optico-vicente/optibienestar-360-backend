@@ -119,4 +119,24 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
             @org.springframework.data.repository.query.Param("appliesTo") Commission.AppliesTo appliesTo,
             @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
+
+    /**
+     * Powers {@code CommissionRetroactiveTopUpService} (V105, PR4) — every
+     * PAID commission whose period falls inside the settlement range. These
+     * are the rows a partial-cut payout already locked in at whatever band
+     * was qualifying at the time; the top-up service computes the gap
+     * between what they paid and the final highest band, never mutating
+     * them directly (mirrors {@link #findPendingForPeriod}'s shape).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status = 'PAID'
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            ORDER BY c.promoter.id, c.earnedAt
+            """)
+    List<Commission> findPaidForPeriod(
+            @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
 }

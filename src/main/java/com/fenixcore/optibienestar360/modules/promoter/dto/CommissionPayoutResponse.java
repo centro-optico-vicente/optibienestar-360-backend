@@ -25,6 +25,7 @@ public record CommissionPayoutResponse(
         @Display(Display.Kind.BOOLEAN) boolean dryRun,
 
         int totalPromoters,
+        /** Every settled line across all promoters — commissions + hierarchy overrides + retroactive top-ups (V105/PR4). */
         int totalCommissions,
         @Display(Display.Kind.MONEY) BigDecimal totalAmount,
         String currency,
@@ -37,6 +38,7 @@ public record CommissionPayoutResponse(
             UUID promoterUuid,
             String promoterCode,
             String promoterDisplayName,
+            /** Count of every settled line this batch — direct commissions + hierarchy overrides + retroactive top-ups combined (V105/PR4), not just commissions despite the name. */
             int commissionCount,
             @Display(Display.Kind.MONEY) BigDecimal totalAmount,
             String currency,
