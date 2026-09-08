@@ -137,7 +137,8 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 
 -- ─── 5. Audit config (fail-safe if missing, but onboard properly) ──────────
-INSERT INTO audit_entity_config (entity_key, display_name, table_name) VALUES
+-- Table renamed audit_entity_config → entity_config by V80.
+INSERT INTO entity_config (entity_key, display_name, table_name) VALUES
     ('promoter_rank',       'Cargos jerárquicos de promotor',    'promoter_ranks'),
     ('promoter_supervisor', 'Asignación de supervisor',          'promoter_supervisor_assignments')
 ON CONFLICT (entity_key) DO NOTHING;
