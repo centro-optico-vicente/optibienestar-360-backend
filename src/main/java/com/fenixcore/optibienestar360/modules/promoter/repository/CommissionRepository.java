@@ -139,4 +139,31 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
     List<Commission> findPaidForPeriod(
             @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
+
+    /**
+     * Powers {@code CommissionApprovalService.approveRows}/{@code
+     * rejectRows} (V107, PR5) — resolves the exact rows the request targets
+     * regardless of status, so the service itself decides whether each one
+     * is eligible (only {@code PENDING} is) instead of the query silently
+     * filtering some out.
+     */
+    List<Commission> findByUuidIn(Collection<UUID> uuids);
+
+    /**
+     * Powers {@code GET /v1/admin/commissions/approval-queue} (V107, PR5) —
+     * every commission in the period regardless of status, so the 2-level
+     * approval table can show the period's full "todo" (including
+     * already-APPROVED/PAID rows, read-only) alongside the still-PENDING
+     * ones awaiting a decision.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            ORDER BY c.promoter.id, c.earnedAt
+            """)
+    List<Commission> findAllForPeriod(
+            @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
 }

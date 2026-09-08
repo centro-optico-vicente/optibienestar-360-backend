@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -148,6 +149,24 @@ public class Commission extends BaseEntity {
     @Column(name = "admin_notes", columnDefinition = "text")
     private String adminNotes;
 
+    // ─── Commercial approval (V107, hub plan §4) ───────────────────────────
+
+    /**
+     * Who reviewed this commission — set for both {@code APPROVED} and
+     * {@code REJECTED} (the outcome differs, but "who/when reviewed it"
+     * doesn't need two separate column pairs).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_user_id")
+    private User approvedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    /** Required only when {@link #getStatus()} is {@code REJECTED} (V107 CHECK). */
+    @Column(name = "rejection_reason", columnDefinition = "text")
+    private String rejectionReason;
+
     // ─── Inner enums (V26 CHECK constraint values) ─────────────────────────
 
     public enum AppliesTo {
@@ -158,8 +177,15 @@ public class Commission extends BaseEntity {
         DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL
     }
 
-    /** Workflow values pinned by the V26 CHECK on {@link BaseEntity#getStatus()}. */
+    /**
+     * Workflow values pinned by the V26/V107 CHECK on {@link
+     * BaseEntity#getStatus()}. {@code APPROVED}/{@code REJECTED} (V107) sit
+     * between {@code PENDING} (freshly calculated, a simulation) and {@code
+     * PAID} — only a direct commission carries this state; hierarchy
+     * overrides and retroactive top-ups inherit it by cascade (see {@code
+     * CommissionApprovalService}), never approved independently.
+     */
     public enum CommissionStatus {
-        PENDING, PAID, VOIDED, DISPUTED
+        PENDING, APPROVED, REJECTED, PAID, VOIDED, DISPUTED
     }
 }
