@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.modules.promoter.dto.ApproveCommissionsRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalActionResponse;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalGroupDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
@@ -8,18 +11,23 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingRes
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionVoidRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.RejectCommissionsRequest;
+import com.fenixcore.optibienestar360.modules.promoter.service.CommissionApprovalService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionPayoutService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatingService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionRetroactiveTopUpService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +36,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -50,6 +60,7 @@ public class AdminCommissionController {
     private final CommissionPayoutService commissionPayoutService;
     private final CommissionReRatingService commissionReRatingService;
     private final CommissionRetroactiveTopUpService commissionRetroactiveTopUpService;
+    private final CommissionApprovalService commissionApprovalService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
@@ -121,5 +132,49 @@ public class AdminCommissionController {
     public ResponseEntity<CommissionRetroactiveTopUpResponse> retroactiveTopUps(
             @Valid @RequestBody CommissionRetroactiveTopUpRequest request) {
         return ResponseEntity.ok(commissionRetroactiveTopUpService.execute(request));
+    }
+
+    /**
+     * Feeds the 2-level expandable approval table (V107, hub plan §4): one
+     * node per promoter with the period's total-to-commission, each
+     * carrying every individual commission of that period regardless of
+     * status — {@code PENDING} rows are the ones actually actionable via
+     * {@link #approve}/{@link #reject}; anything else comes back {@code
+     * locked} so the UI shows the period's real total without letting the
+     * gerente comercial touch already-settled rows.
+     */
+    @GetMapping("/approval-queue")
+    @PreAuthorize("hasAuthority('COMMISSION_APPROVE')")
+    public ResponseEntity<List<CommissionApprovalGroupDto>> approvalQueue(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd) {
+        return ResponseEntity.ok(commissionApprovalService.approvalQueue(periodStart, periodEnd));
+    }
+
+    /**
+     * Approves the given PENDING commission rows (row-level granularity —
+     * never bulk-by-promoter). Every id must currently be PENDING; the
+     * whole request is rejected (400) otherwise.
+     */
+    @PostMapping("/approve")
+    @PreAuthorize("hasAuthority('COMMISSION_APPROVE')")
+    public ResponseEntity<CommissionApprovalActionResponse> approve(
+            @Valid @RequestBody ApproveCommissionsRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(commissionApprovalService.approveRows(request.commissionUuids(), actor.getUuid()));
+    }
+
+    /**
+     * Rejects the given PENDING commission rows and cascades the void to
+     * every hierarchy override that depends on each one, directly or
+     * through a chain of overrides — see {@code CommissionApprovalService}.
+     */
+    @PostMapping("/reject")
+    @PreAuthorize("hasAuthority('COMMISSION_APPROVE')")
+    public ResponseEntity<CommissionApprovalActionResponse> reject(
+            @Valid @RequestBody RejectCommissionsRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(commissionApprovalService.rejectRows(
+                request.commissionUuids(), actor.getUuid(), request.reason()));
     }
 }
