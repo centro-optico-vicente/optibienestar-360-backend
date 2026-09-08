@@ -2,15 +2,21 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAssignmentDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterSupervisorAssignment;
+import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRankRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterSupervisorAssignmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +47,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class PromoterHierarchyService {
 
     /**
@@ -52,8 +59,10 @@ public class PromoterHierarchyService {
     private static final int MAX_TEAM_TRAVERSAL = 5_000;
 
     private final PromoterRepository promoterRepository;
+    private final PromoterRankRepository promoterRankRepository;
     private final PromoterSupervisorAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final PromoterMapper promoterMapper;
 
     /**
      * The supervisor vigente for {@code promoterId} as of {@code asOf} — the
@@ -231,6 +240,136 @@ public class PromoterHierarchyService {
         PromoterSupervisorAssignment saved = assignmentRepository.save(record);
 
         return toDto(saved);
+    }
+
+    /**
+     * Candidates for {@code newSupervisorUuid} in {@link #changeRank}. By
+     * default ({@code allSuperiors = false}) scoped to just the <b>immediate</b>
+     * next rank above {@code targetRankUuid} (e.g. targeting PROMOTOR lists
+     * only active SUPERVISOR promoters, not COORDINADOR ones too) — the
+     * common case, since {@code changeRank} itself still accepts any
+     * strictly-higher rank if the admin insists on skipping a level.
+     * {@code allSuperiors = true} widens the listing to every rank above,
+     * not just the immediate one.
+     *
+     * <p>An empty result has two different meanings the client must tell
+     * apart itself (both render the same way here): {@code targetRankUuid}
+     * is the top rank (no supervisor applies, hide/disable the field), or it
+     * isn't but nobody currently holds a qualifying higher rank yet (no
+     * supervisor available — block submission until one exists).</p>
+     */
+    public List<OptionDto> eligibleSupervisorOptions(UUID targetRankUuid, boolean allSuperiors, String q, int limit) {
+        PromoterRank targetRank = promoterRankRepository.findByUuid(targetRankUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_rank.not_found"));
+
+        Integer maxLevel = null;
+        if (!allSuperiors) {
+            PromoterRank immediateSuperior = promoterRankRepository
+                    .findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(targetRank.getHierarchyLevel())
+                    .orElse(null);
+            if (immediateSuperior == null) {
+                return List.of(); // top rank — no supervisor possible regardless of allSuperiors
+            }
+            maxLevel = immediateSuperior.getHierarchyLevel();
+        }
+
+        int cappedLimit = Math.max(1, Math.min(limit, 200));
+        return promoterRepository.findEligibleSupervisors(targetRank.getHierarchyLevel(), maxLevel, q).stream()
+                .limit(cappedLimit)
+                .map(p -> new OptionDto(p.getUuid(), p.getReferralCode(),
+                        p.getDisplayName() + " — " + p.getRank().getCode(), p.isActive()))
+                .toList();
+    }
+
+    /**
+     * Ascends or demotes {@code promoter} to {@code newRankUuid}, changing
+     * their supervisor in the same action so the promoter is never left in
+     * an invalid state (rank without a strictly-higher supervisor, unless
+     * {@code newRankUuid} is the top rank). Validates, beyond {@link
+     * #assignSupervisor}'s own rules (self-supervision, cycle, capacity —
+     * checked here against the <b>new</b> rank, not the promoter's current
+     * one):
+     * <ul>
+     *   <li>{@code newSupervisorUuid} is required unless {@code newRankUuid}
+     *       has no active rank above it (top of the chain);</li>
+     *   <li>every one of the promoter's <b>current</b> direct subordinates
+     *       must still have a rank strictly below {@code newRankUuid} — a
+     *       demotion that would leave a subordinate at or above their own
+     *       new rank is rejected; the admin must reassign those subordinates
+     *       first.</li>
+     * </ul>
+     * A {@link PromoterSupervisorAssignment} history row is written only
+     * when the resolved supervisor actually changes — keeping the same boss
+     * across a rank change (e.g. demoting a Coordinador back to Supervisor
+     * under the same Coordinador above them) is valid and silent on that
+     * side.
+     */
+    @Transactional
+    @Auditable(entity = "promoter", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PromoterDto changeRank(UUID promoterUuid, UUID newRankUuid, UUID newSupervisorUuid,
+                                  String reason, UUID actorUserUuid) {
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        PromoterRank newRank = promoterRankRepository.findByUuid(newRankUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter_rank.not_found"));
+        Promoter newSupervisor = newSupervisorUuid == null ? null
+                : promoterRepository.findByUuid(newSupervisorUuid)
+                        .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+
+        if (newSupervisor == null) {
+            if (promoterRankRepository.existsByHierarchyLevelGreaterThanAndActiveTrue(newRank.getHierarchyLevel())) {
+                throw new IllegalArgumentException("promoter_hierarchy.rank_change.supervisor_required");
+            }
+        } else {
+            if (newSupervisor.getId().equals(promoter.getId())) {
+                throw new IllegalArgumentException("promoter_hierarchy.self_supervision");
+            }
+            if (newSupervisor.getRank() == null
+                    || newSupervisor.getRank().getHierarchyLevel() <= newRank.getHierarchyLevel()) {
+                throw new IllegalArgumentException("promoter_hierarchy.supervisor_rank_not_higher");
+            }
+            if (resolveTeamMemberIds(promoter.getId(), Instant.now()).contains(newSupervisor.getId())) {
+                throw new IllegalArgumentException("promoter_hierarchy.cycle_detected");
+            }
+            Integer cap = newSupervisor.getRank().getMaxSubordinates();
+            if (cap != null) {
+                Promoter currentSupervisor = promoter.getSupervisor();
+                boolean alreadyCounted = currentSupervisor != null && currentSupervisor.getId().equals(newSupervisor.getId());
+                long current = resolveDirectSubordinatesAt(newSupervisor.getId(), Instant.now()).size();
+                if (!alreadyCounted && current >= cap) {
+                    throw new IllegalArgumentException("promoter_hierarchy.max_subordinates_exceeded");
+                }
+            }
+        }
+
+        for (Promoter subordinate : resolveDirectSubordinatesAt(promoter.getId(), Instant.now())) {
+            if (subordinate.getRank() == null || subordinate.getRank().getHierarchyLevel() >= newRank.getHierarchyLevel()) {
+                throw new IllegalArgumentException("promoter_hierarchy.rank_change.subordinate_rank_conflict");
+            }
+        }
+
+        promoter.setRank(newRank);
+
+        Promoter fromSupervisor = promoter.getSupervisor();
+        Long fromSupervisorId = fromSupervisor != null ? fromSupervisor.getId() : null;
+        Long newSupervisorId = newSupervisor != null ? newSupervisor.getId() : null;
+        if (!Objects.equals(fromSupervisorId, newSupervisorId)) {
+            User actor = actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null);
+            promoter.setSupervisor(newSupervisor);
+            PromoterSupervisorAssignment record = new PromoterSupervisorAssignment();
+            record.setPromoter(promoter);
+            record.setFromSupervisor(fromSupervisor);
+            record.setToSupervisor(newSupervisor);
+            record.setActor(actor);
+            record.setReason(reason);
+            assignmentRepository.save(record);
+        }
+
+        log.info("Promoter rank changed: promoter={} newRank={} newSupervisor={}",
+                promoter.getReferralCode(), newRank.getCode(),
+                newSupervisor != null ? newSupervisor.getReferralCode() : "(none)");
+
+        return promoterMapper.toDto(promoter);
     }
 
     private void validateRankAbove(Promoter subordinate, Promoter candidateSupervisor) {

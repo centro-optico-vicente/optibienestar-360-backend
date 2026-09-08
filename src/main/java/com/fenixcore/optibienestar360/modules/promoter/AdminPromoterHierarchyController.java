@@ -1,6 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.AssignSupervisorRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.ChangeRankRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterHierarchyNodeDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAssignmentDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterHierarchyService;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -64,5 +68,46 @@ public class AdminPromoterHierarchyController {
     public ResponseEntity<List<PromoterSupervisorAssignmentDto>> supervisorHistory(
             @PathVariable UUID promoterUuid) {
         return ResponseEntity.ok(hierarchyService.history(promoterUuid));
+    }
+
+    /**
+     * Feeds the second step of the "change rank" flow: the admin picks the
+     * target rank first, then this lists who is actually eligible to
+     * supervise a promoter at that rank — never the raw rank catalog, so the
+     * UI can't offer a supervisor the backend would reject anyway. Empty
+     * when {@code rankUuid} is the top rank (no supervisor applies) or when
+     * nobody currently holds a qualifying rank yet.
+     *
+     * @param allSuperiors {@code false} (default) scopes the listing to just
+     *                     the immediate next rank above {@code rankUuid}
+     *                     (the common case); {@code true} widens it to every
+     *                     rank above, not just the immediate one.
+     */
+    @GetMapping("/eligible-supervisors")
+    @PreAuthorize("hasAuthority('PROMOTER_CHANGE_RANK')")
+    public ResponseEntity<List<OptionDto>> eligibleSupervisors(
+            @RequestParam UUID rankUuid,
+            @RequestParam(required = false, defaultValue = "false") boolean allSuperiors,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit) {
+        return ResponseEntity.ok(hierarchyService.eligibleSupervisorOptions(rankUuid, allSuperiors, q, limit));
+    }
+
+    /**
+     * Ascends or demotes {@code promoterUuid} to {@code newRankUuid},
+     * reassigning their supervisor in the same call (V104, hub plan §1
+     * follow-up — resolves pregunta 8 by construction: a promoter is never
+     * left with an invalid supervisor for their new rank, since the client
+     * must supply one already validated against {@link #eligibleSupervisors}
+     * unless the new rank is the top of the chain).
+     */
+    @PostMapping("/{promoterUuid}/change-rank")
+    @PreAuthorize("hasAuthority('PROMOTER_CHANGE_RANK')")
+    public ResponseEntity<PromoterDto> changeRank(
+            @PathVariable UUID promoterUuid,
+            @Valid @RequestBody ChangeRankRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(hierarchyService.changeRank(
+                promoterUuid, request.newRankUuid(), request.newSupervisorUuid(), request.reason(), actor.getUuid()));
     }
 }

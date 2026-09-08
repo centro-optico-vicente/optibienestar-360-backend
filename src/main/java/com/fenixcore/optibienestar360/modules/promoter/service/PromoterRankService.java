@@ -81,9 +81,18 @@ public class PromoterRankService {
         return defaultSortResolver.effectiveSort("promoter_rank", pageable);
     }
 
-    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+    /**
+     * @param excludeUuid optional — filters out this rank (e.g. the
+     *                     promoter's current one) from the "pick the new
+     *                     rank" step of the change-rank flow, since
+     *                     changing to the same rank isn't a change.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, UUID excludeUuid) {
         Specification<PromoterRank> spec = ((Specification<PromoterRank>) (root, query, cb) -> cb.isTrue(root.get("active")))
                 .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (excludeUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.notEqual(root.get("uuid"), excludeUuid));
+        }
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
                 PromoterRank::getUuid, PromoterRank::getCode, PromoterRankService::labelOf, PromoterRank::isActive);
     }

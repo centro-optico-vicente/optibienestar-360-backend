@@ -42,4 +42,31 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
      */
     @Query("SELECT p FROM Promoter p WHERE p.active = true AND p.user.uuid = :userUuid")
     Optional<Promoter> findActiveByUserUuid(@Param("userUuid") UUID userUuid);
+
+    /**
+     * Candidate supervisors for a promoter targeting a given rank — every
+     * active promoter whose own rank is strictly above {@code minLevel}
+     * (exclusive) and, when {@code maxLevel} is given, at or below it too —
+     * powering {@code GET /v1/admin/promoters/eligible-supervisors}.
+     * {@code maxLevel = minLevel of the immediate next rank} scopes the
+     * result to just that rank ("immediate superiors" — the default);
+     * {@code maxLevel = null} widens it to every rank above ("all
+     * superiors"). The caller is responsible for treating an empty result as
+     * "this is the top rank, no supervisor applies" vs. "no eligible
+     * candidate exists yet" — both render the same way here (empty list) but
+     * mean different things to the UI.
+     */
+    @Query("""
+            SELECT p FROM Promoter p
+            WHERE p.active = true
+              AND p.rank IS NOT NULL
+              AND p.rank.hierarchyLevel > :minLevel
+              AND (:maxLevel IS NULL OR p.rank.hierarchyLevel <= :maxLevel)
+              AND (:q IS NULL OR :q = '' OR
+                   lower(p.displayName) LIKE lower(concat('%', :q, '%')) OR
+                   lower(p.referralCode) LIKE lower(concat('%', :q, '%')))
+            ORDER BY p.rank.hierarchyLevel, p.displayName
+            """)
+    List<Promoter> findEligibleSupervisors(@Param("minLevel") int minLevel, @Param("maxLevel") Integer maxLevel,
+                                           @Param("q") String q);
 }
