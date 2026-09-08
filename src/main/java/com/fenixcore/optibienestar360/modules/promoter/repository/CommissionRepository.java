@@ -62,10 +62,21 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
     long countByCollectionTierId(Long collectionTierId);
 
     /**
-     * Powers the period payout — every PENDING commission whose period
-     * falls inside the requested range. Joins the partial composite
-     * index {@code idx_commissions_promoter_status_period} via the
-     * predicate {@code status='PENDING'} plus the period bounds.
+     * Every PENDING commission whose period falls inside the requested
+     * range — powers {@code CommissionReRatingService} (month-close
+     * re-rating, PR3), which deliberately still targets PENDING: re-rating
+     * bumps a row's amount to the period's final band <i>before</i> gerencia
+     * comercial reviews it, so what gets approved is already the correct
+     * final figure (re-rating an already-{@code APPROVED} row would
+     * silently change a number someone already signed off on — out of
+     * scope; that needs a re-approval flow, not a silent rewrite). Joins the
+     * partial composite index {@code idx_commissions_promoter_status_period}
+     * via the predicate {@code status='PENDING'} plus the period bounds.
+     *
+     * <p><b>Not used by the payout</b> (V107, PR6) — {@code
+     * CommissionPayoutService} requires {@link #findApprovedForPeriod}
+     * instead, since administración must only ever disburse what comercial
+     * already approved.</p>
      */
     @org.springframework.data.jpa.repository.Query("""
             SELECT c FROM Commission c
@@ -76,6 +87,26 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
             ORDER BY c.promoter.id, c.earnedAt
             """)
     List<Commission> findPendingForPeriod(
+            @org.springframework.data.repository.query.Param("periodStart") java.time.LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   java.time.LocalDate periodEnd);
+
+    /**
+     * Powers the period payout (V107, PR6) — every APPROVED commission
+     * whose period falls inside the requested range. Administración can
+     * only ever disburse what gerencia comercial already reviewed and
+     * approved; a still-{@code PENDING} (unreviewed) or {@code REJECTED}
+     * row is never picked up here, regardless of how long it's been
+     * sitting. Same index shape as {@link #findPendingForPeriod}.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status = 'APPROVED'
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            ORDER BY c.promoter.id, c.earnedAt
+            """)
+    List<Commission> findApprovedForPeriod(
             @org.springframework.data.repository.query.Param("periodStart") java.time.LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   java.time.LocalDate periodEnd);
 
