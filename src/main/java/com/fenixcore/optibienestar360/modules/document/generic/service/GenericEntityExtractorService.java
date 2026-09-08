@@ -963,13 +963,24 @@ public class GenericEntityExtractorService {
         }
     }
 
+    /**
+     * Name-based, not type-based — a bare key like {@code "rank"} is excluded
+     * for every entity, not just {@link
+     * com.fenixcore.optibienestar360.modules.promoter.entity.Promoter#getRank()}
+     * (V101). Currently safe: {@code LeaderboardPrize}/{@code
+     * LeaderboardPrizeAward} also have an unrelated primitive {@code int rank}
+     * (leaderboard position), but nothing in {@code main} wires either of
+     * those entities through {@link #extractTableModel}/{@link
+     * #extractModel} today — if that changes, this key collision will need a
+     * type-aware exclusion instead of a name-based one.
+     */
     private boolean isComplexRelation(String key) {
         if (key == null || key.isBlank()) return false;
         String lower = key.toLowerCase().replace("_", "");
         return Set.of(
                 "user", "person", "promotertype", "allytype", "city", "state", "country",
                 "member", "membership", "plan", "ally", "corporatecontract", "servicecategory",
-                "rule", "promoter", "agreement"
+                "rule", "promoter", "agreement", "rank", "supervisor"
         ).contains(lower);
     }
 
