@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -94,6 +95,28 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
             """)
     BigDecimal sumForPromoterInPeriod(
             @org.springframework.data.repository.query.Param("promoterId") Long promoterId,
+            @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
+            @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
+
+    /**
+     * Hierarchy-override engine (V102): count of commissions of a given {@link
+     * Commission.AppliesTo} earned across an entire team subtree within a
+     * period — the caller passes {@code MONTHLY} for the team-volume metric
+     * COLLECTION {@code hierarchy_override_tiers} qualify against. Documented
+     * as a TBD to confirm with the business (hub plan §2) — this is the
+     * initial proposal ("conteo de comisiones MONTHLY del subárbol").
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COUNT(c) FROM Commission c
+            WHERE c.active = true
+              AND c.promoter.id IN :promoterIds
+              AND c.appliesTo = :appliesTo
+              AND c.periodStart >= :periodStart
+              AND c.periodEnd   <= :periodEnd
+            """)
+    long countByPromotersAppliesToInPeriod(
+            @org.springframework.data.repository.query.Param("promoterIds") Collection<Long> promoterIds,
+            @org.springframework.data.repository.query.Param("appliesTo") Commission.AppliesTo appliesTo,
             @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
 }

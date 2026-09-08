@@ -19,6 +19,7 @@ import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStat
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
+import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,6 +56,7 @@ class PaymentsServiceTest {
     @Mock private MessageSource messageSource;
     @Mock private ValidatorCacheService validatorCacheService;
     @Mock private CommissionService commissionService;
+    @Mock private HierarchyOverrideService hierarchyOverrideService;
     @Mock private CorporateBillingResolver corporateBillingResolver;
     @Mock private PresignedUrlPolicy presignedUrlPolicy;
     @Mock private FileValidationService fileValidationService;
@@ -63,7 +65,8 @@ class PaymentsServiceTest {
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, membershipRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
-                validatorCacheService, commissionService, corporateBillingResolver, presignedUrlPolicy, fileValidationService);
+                validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
+                presignedUrlPolicy, fileValidationService);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();
