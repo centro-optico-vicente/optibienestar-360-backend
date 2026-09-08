@@ -184,4 +184,26 @@ class HierarchyOverrideServiceTest {
 
         verify(overrideRepository, never()).save(any());
     }
+
+    @Test
+    void skipsEntirelyWhenEarnerPromoterTypeDoesNotGenerateOverrides() {
+        PromoterRank promotorRank = rank("PROMOTOR", 1);
+        Promoter ase = promoter(1L, "ase", promotorRank);
+        com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType independiente =
+                new com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType();
+        independiente.setCode("INDEPENDIENTE");
+        independiente.setGeneratesHierarchyOverride(false);
+        ase.setPromoterType(independiente);
+
+        Commission commission = new Commission();
+        commission.setPromoter(ase);
+        commission.setAmount(new BigDecimal("100.00"));
+        commission.setAppliesTo(Commission.AppliesTo.INSCRIPTION);
+        commission.setEarnedAt(Instant.now());
+
+        service().cascadeFrom(commission);
+
+        verify(overrideRepository, never()).save(any());
+        verify(hierarchyService, never()).resolveSupervisorAt(any(), any());
+    }
 }

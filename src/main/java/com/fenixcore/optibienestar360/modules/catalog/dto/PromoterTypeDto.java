@@ -9,5 +9,6 @@ public record PromoterTypeDto(
         String code,
         String name,
         String description,
+        @Display(Display.Kind.BOOLEAN) boolean generatesHierarchyOverride,
         @Display(Display.Kind.BOOLEAN) boolean active
 ) {}

@@ -63,9 +63,30 @@ public class HierarchyOverrideService {
         if (commission == null) {
             return;
         }
+        Promoter earner = commission.getPromoter();
+        if (!generatesHierarchyOverride(earner)) {
+            log.debug("Hierarchy override cascade skipped: promoter {} type does not generate overrides",
+                    earner.getReferralCode());
+            return;
+        }
         OverrideCategory category = toCategory(commission.getAppliesTo());
-        cascadeOnce(commission.getPromoter(), commission.getAmount(), category,
+        cascadeOnce(earner, commission.getAmount(), category,
                 commission, null, commission.getCurrency(), commission.getEarnedAt());
+    }
+
+    /**
+     * V103 — checked once, at the entry point, against the promoter who
+     * actually made the sale (never re-checked per level in {@link
+     * #cascadeOnce}): the still-unconfirmed business question (hub notes
+     * pregunta 7) is "does an Independiente's own sale generate an override
+     * for others", not "can an Independiente-classified Supervisor/Coordinador
+     * receive one from a subordinate's sale" — those are different
+     * questions, and only the first has a flag today. {@code null}
+     * promoterType (legacy/unclassified rows) defaults to generating
+     * overrides — same as the flag's own column default.
+     */
+    private static boolean generatesHierarchyOverride(Promoter earner) {
+        return earner.getPromoterType() == null || earner.getPromoterType().isGeneratesHierarchyOverride();
     }
 
     private void cascadeOnce(Promoter earner, BigDecimal basisAmount, OverrideCategory category,
