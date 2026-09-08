@@ -143,7 +143,8 @@ CREATE INDEX idx_promoter_hierarchy_overrides_source_override
 
 
 -- ─── 3. Audit config ────────────────────────────────────────────────────────
-INSERT INTO audit_entity_config (entity_key, display_name, table_name) VALUES
+-- Table renamed audit_entity_config → entity_config by V80.
+INSERT INTO entity_config (entity_key, display_name, table_name) VALUES
     ('hierarchy_override_tier',   'Bandas de override jerárquico',   'hierarchy_override_tiers'),
     ('promoter_hierarchy_override', 'Overrides jerárquicos de promotor', 'promoter_hierarchy_overrides')
 ON CONFLICT (entity_key) DO NOTHING;
