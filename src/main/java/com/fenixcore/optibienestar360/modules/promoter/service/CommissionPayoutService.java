@@ -35,13 +35,45 @@ import java.util.Optional;
 
 /**
  * Period-close service for the promoter earnings ledger. Given a date
- * range + payout reference, marks every PENDING row PAID across the three
+ * range + payout reference, marks every payable row PAID across the three
  * sources a settlement close can touch (hub plan
- * ".ai/plans/2026-09-07-hierarchical-commissions-plan.md" §3, PR4):
+ * ".ai/plans/2026-09-07-hierarchical-commissions-plan.md" §3-4, PR4/PR6):
  * direct {@link Commission}s, {@link PromoterHierarchyOverride}s, and
  * {@link CommissionRetroactiveTopUp}s — groups by promoter, emits a
  * per-promoter CSV breakdown (one row per line, tagged with its {@code
  * concept}), and emails each promoter the summary + CSV.
+ *
+ * <p><b>Commercial approval gate (V107, PR6)</b>: administración can only
+ * ever disburse what gerencia comercial already approved. Concretely:</p>
+ * <ul>
+ *   <li>{@link Commission}s must be {@code APPROVED} — a still-{@code
+ *       PENDING} (unreviewed) or {@code REJECTED} row is never picked up,
+ *       via {@link CommissionRepository#findApprovedForPeriod}.</li>
+ *   <li>{@link PromoterHierarchyOverride}s have no approval state of their
+ *       own (only the direct commission does — the rest inherit); a
+ *       PENDING override is only payable once the {@link Commission} that
+ *       ultimately funds it (walking {@code source_override_id} up to the
+ *       root {@code source_commission_id}, since a level-3+ override is
+ *       funded by the override below it, never directly by a commission —
+ *       see {@link #isRootCommissionApproved}) is itself {@code APPROVED}.
+ *       A rejected root already had its whole dependent chain {@code
+ *       VOIDED} by {@code CommissionApprovalService}, so this filter is
+ *       really "still-{@code PENDING}-at-the-root" exclusion in practice.</li>
+ *   <li>{@link CommissionRetroactiveTopUp}s need no separate gate: {@code
+ *       CommissionRetroactiveTopUpService} only ever computes them from
+ *       already-{@code PAID} commissions/overrides — and, by this very
+ *       gate, nothing can reach {@code PAID} without having been {@code
+ *       APPROVED} first. The approval requirement is satisfied
+ *       transitively, by construction.</li>
+ * </ul>
+ *
+ * <p>Re-rating ({@code CommissionReRatingService}/{@code
+ * HierarchyOverrideReRatingService}, PR3) deliberately still targets {@code
+ * PENDING} rows, not {@code APPROVED} ones — it must run <i>before</i> the
+ * commercial review, so what comercial approves is already the period's
+ * correct final amount. Re-rating an already-approved row would silently
+ * change a number someone signed off on; that would need an explicit
+ * re-approval flow, out of scope here.</p>
  *
  * <p>Distinct from {@link CommissionService} (singular, calc engine wired
  * into {@code PaymentsService.approve}) and {@link CommissionsService}
@@ -84,17 +116,19 @@ public class CommissionPayoutService {
     public CommissionPayoutResponse execute(CommissionPayoutRequest request) {
         validatePeriod(request);
 
-        List<Commission> pendingCommissions = commissionRepository.findPendingForPeriod(
+        List<Commission> approvedCommissions = commissionRepository.findApprovedForPeriod(
                 request.periodStart(), request.periodEnd());
-        List<PromoterHierarchyOverride> pendingOverrides = overrideRepository.findPendingForPeriod(
-                request.periodStart(), request.periodEnd());
+        List<PromoterHierarchyOverride> payableOverrides = overrideRepository.findPendingForPeriod(
+                request.periodStart(), request.periodEnd()).stream()
+                .filter(this::isRootCommissionApproved)
+                .toList();
         List<CommissionRetroactiveTopUp> pendingTopUps = topUpRepository.findPendingForPeriod(
                 request.periodStart(), request.periodEnd());
 
         boolean isDryRun = Boolean.TRUE.equals(request.dryRun());
         Instant executedAt = Instant.now();
 
-        Map<Promoter, PromoterBatch> byPromoter = groupByPromoter(pendingCommissions, pendingOverrides, pendingTopUps);
+        Map<Promoter, PromoterBatch> byPromoter = groupByPromoter(approvedCommissions, payableOverrides, pendingTopUps);
 
         List<PromoterPayoutSummary> summaries = new ArrayList<>(byPromoter.size());
         BigDecimal grandTotal = BigDecimal.ZERO;
@@ -171,6 +205,27 @@ public class CommissionPayoutService {
             if (!overrides.isEmpty()) return overrides.get(0).getCurrency();
             return topUps.get(0).getCurrency();
         }
+    }
+
+    /**
+     * Walks {@code sourceOverride} up to the root {@code sourceCommission}
+     * (the cascade never skips a level, so a level-3+ override is always
+     * funded by the override immediately below it, never directly by a
+     * commission) and returns whether that root is {@code APPROVED}. A
+     * level-2 override's own {@code sourceCommission} is already the root —
+     * the loop below terminates on the first row that has one.
+     */
+    private boolean isRootCommissionApproved(PromoterHierarchyOverride override) {
+        PromoterHierarchyOverride current = override;
+        while (current.getSourceCommission() == null) {
+            if (current.getSourceOverride() == null) {
+                // Should be unreachable (V102 CHECK enforces XOR) — treat as unpayable rather than throw.
+                log.warn("Hierarchy override {} has neither source_commission nor source_override", current.getUuid());
+                return false;
+            }
+            current = current.getSourceOverride();
+        }
+        return CommissionStatus.APPROVED.name().equals(current.getSourceCommission().getStatus());
     }
 
     private static void validatePeriod(CommissionPayoutRequest req) {
