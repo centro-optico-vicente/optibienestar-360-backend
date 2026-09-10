@@ -138,11 +138,11 @@ class LoginAuditIT {
 					"127.0.0.1", "JUnit", "localhost");
 
 			Page<LoginAuditLogDto> matching = loginAuditQueryService.list(
-					PageRequest.of(0, 20), email, null, LoginAuditResult.FAILED_LOCKED, null, null, null);
+					PageRequest.of(0, 20), null, email, null, LoginAuditResult.FAILED_LOCKED, null, null, null);
 			assertTrue(matching.getContent().stream().anyMatch(dto -> email.equals(dto.attemptedEmail())));
 
 			Page<LoginAuditLogDto> mismatched = loginAuditQueryService.list(
-					PageRequest.of(0, 20), email, null, LoginAuditResult.SUCCESS, null, null, null);
+					PageRequest.of(0, 20), null, email, null, LoginAuditResult.SUCCESS, null, null, null);
 			assertTrue(mismatched.getContent().stream().noneMatch(dto -> email.equals(dto.attemptedEmail())));
 		} finally {
 			cleanUp(email);
