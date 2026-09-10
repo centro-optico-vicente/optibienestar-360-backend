@@ -39,13 +39,16 @@ public class AdminLoginAuditController {
 	@Operation(summary = "Lista la bitácora de intentos de acceso y sesiones, con filtros por usuario, resultado y fecha")
 	public ResponseEntity<AppliedSortPage<LoginAuditLogDto>> list(
 			@PageableDefault(size = 20) Pageable pageable,
+			// Deep-link target for the data-changes/reports "ver sesión" action — the
+			// row's own uuid, not a user filter. A one-row page when it matches.
+			@RequestParam(required = false) UUID uuid,
 			@RequestParam(required = false) String email,
 			@RequestParam(required = false) UUID userUuid,
 			@RequestParam(required = false) LoginAuditResult result,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
 			@RequestParam(required = false) String filter) {
-		Page<LoginAuditLogDto> page = loginAuditQueryService.list(pageable, email, userUuid, result, from, to, filter);
+		Page<LoginAuditLogDto> page = loginAuditQueryService.list(pageable, uuid, email, userUuid, result, from, to, filter);
 		return ResponseEntity.ok(new AppliedSortPage<>(page, loginAuditQueryService.effectiveSort(pageable)));
 	}
 

@@ -49,7 +49,7 @@ public class LoginAuditQueryService {
     private final DefaultSortResolver defaultSortResolver;
 
     @Transactional(readOnly = true)
-    public Page<LoginAuditLogDto> list(Pageable pageable, String email, UUID userUuid, LoginAuditResult result,
+    public Page<LoginAuditLogDto> list(Pageable pageable, UUID uuid, String email, UUID userUuid, LoginAuditResult result,
                                         Instant from, Instant to, String filter) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
@@ -57,6 +57,9 @@ public class LoginAuditQueryService {
 
         Specification<LoginAuditLog> spec = (root, query, cb) -> cb.conjunction();
 
+        if (uuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("uuid"), uuid));
+        }
         if (email != null && !email.isBlank()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("attemptedEmail"), email));
         }

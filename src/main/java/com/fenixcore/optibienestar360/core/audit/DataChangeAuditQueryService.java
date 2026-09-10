@@ -3,7 +3,9 @@ package com.fenixcore.optibienestar360.core.audit;
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogDto;
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogPageDto;
 import com.fenixcore.optibienestar360.core.audit.entity.DataChangeAuditLog;
+import com.fenixcore.optibienestar360.core.audit.entity.LoginAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.DataChangeAuditLogRepository;
+import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
@@ -42,6 +44,7 @@ public class DataChangeAuditQueryService {
 
     private final DataChangeAuditLogRepository dataChangeAuditLogRepository;
     private final UserRepository userRepository;
+    private final LoginAuditLogRepository loginAuditLogRepository;
     private final AuditDisplayResolver auditDisplayResolver;
 
     @Transactional(readOnly = true)
@@ -110,6 +113,9 @@ public class DataChangeAuditQueryService {
         UUID actorUuid = log.getActorId() != null
                 ? userRepository.findById(log.getActorId()).map(User::getUuid).orElse(null)
                 : null;
+        UUID sessionUuid = log.getLoginAuditLogId() != null
+                ? loginAuditLogRepository.findById(log.getLoginAuditLogId()).map(LoginAuditLog::getUuid).orElse(null)
+                : null;
 
         return new DataChangeAuditLogDto(
                 log.getUuid(),
@@ -122,6 +128,7 @@ public class DataChangeAuditQueryService {
                 auditDisplayResolver.withFieldDisplays(log.getAfterJson(), LocaleContextHolder.getLocale()),
                 actorUuid,
                 auditDisplayResolver.resolveActorName(log.getActorId()).orElse(null),
+                sessionUuid,
                 log.getRequestMethod(),
                 log.getRequestPath(),
                 log.getOccurredAt()
