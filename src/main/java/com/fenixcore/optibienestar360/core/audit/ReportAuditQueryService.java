@@ -4,7 +4,9 @@ import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.common.storage.AttachedFile;
 import com.fenixcore.optibienestar360.common.storage.AttachedFileRepository;
 import com.fenixcore.optibienestar360.core.audit.dto.ReportAuditLogDto;
+import com.fenixcore.optibienestar360.core.audit.entity.LoginAuditLog;
 import com.fenixcore.optibienestar360.core.audit.entity.ReportAuditLog;
+import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
 import com.fenixcore.optibienestar360.core.audit.repository.ReportAuditLogRepository;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -43,6 +45,7 @@ public class ReportAuditQueryService {
     private final ReportAuditLogRepository reportAuditLogRepository;
     private final AttachedFileRepository attachedFileRepository;
     private final UserRepository userRepository;
+    private final LoginAuditLogRepository loginAuditLogRepository;
     private final AuditDisplayResolver auditDisplayResolver;
     private final ObjectProvider<StorageService> storageProvider;
 
@@ -109,6 +112,9 @@ public class ReportAuditQueryService {
         UUID fileUuid = log.getAttachedFileId() != null
                 ? attachedFileRepository.findById(log.getAttachedFileId()).map(AttachedFile::getUuid).orElse(null)
                 : null;
+        UUID sessionUuid = log.getLoginAuditLogId() != null
+                ? loginAuditLogRepository.findById(log.getLoginAuditLogId()).map(LoginAuditLog::getUuid).orElse(null)
+                : null;
 
         return new ReportAuditLogDto(
                 log.getUuid(),
@@ -123,6 +129,7 @@ public class ReportAuditQueryService {
                 log.getParametersJson(),
                 actorUuid,
                 auditDisplayResolver.resolveActorName(log.getActorId()).orElse(null),
+                sessionUuid,
                 fileUuid,
                 log.getFileName(),
                 log.getSizeBytes(),

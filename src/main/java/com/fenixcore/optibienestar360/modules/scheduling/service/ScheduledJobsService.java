@@ -32,6 +32,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,9 @@ public class ScheduledJobsService {
             "lastRunAt", "lastRunStatus", "nextRunAt",
             "createdAt", "updatedAt", "active", "status"
     );
+
+    /** Cap for {@link #listAllRuns} — same 200 cap documented in 06-rest-api.md for other audit lists. */
+    private static final int MAX_RUN_PAGE_SIZE = 200;
 
     private static final String[] SEARCHABLE_FIELDS = {"code", "displayName", "description"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -245,9 +249,44 @@ public class ScheduledJobsService {
                 .map(runMapper::toDto);
     }
 
-    /** The sort {@link #listRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    /** The sort {@link #listRuns}/{@link #listAllRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSortRuns(Pageable pageable) {
         return defaultSortResolver.effectiveSort("scheduled_job_run", pageable);
+    }
+
+    /**
+     * Cross-job run history — backs the "Ejecuciones programadas" audit screen
+     * (Seguridad menu), mirroring {@code AdminLoginAuditController}/
+     * {@code AdminDataChangeAuditController}: {@link #listRuns} stays scoped to
+     * one job's detail page, this is the unscoped equivalent with the same
+     * filters shape (entity/date range) the other audit lists use.
+     */
+    public Page<ScheduledJobRunDto> listAllRuns(Pageable pageable, UUID jobUuid, ScheduledJobRun.Outcome outcome,
+                                                 ScheduledJobRun.TriggerSource triggeredBy, Instant from, Instant to) {
+        if (pageable.isPaged() && pageable.getPageSize() > MAX_RUN_PAGE_SIZE) {
+            throw new IllegalArgumentException("audit.page.size.exceeded");
+        }
+
+        Specification<ScheduledJobRun> spec = (root, query, cb) -> cb.conjunction();
+        if (jobUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("scheduledJob").get("uuid"), jobUuid));
+        }
+        if (outcome != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("outcome"), outcome.name()));
+        }
+        if (triggeredBy != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("triggeredBy"), triggeredBy.name()));
+        }
+        if (from != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("startedAt"), from));
+        }
+        if (to != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("startedAt"), to));
+        }
+
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("scheduled_job_run", pageable);
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, RUN_SORTABLE_FIELDS, "scheduled_job_run");
+        return runRepository.findAll(spec, resolvedPageable).map(runMapper::toDto);
     }
 
     // ─── Internals ─────────────────────────────────────────────────────────

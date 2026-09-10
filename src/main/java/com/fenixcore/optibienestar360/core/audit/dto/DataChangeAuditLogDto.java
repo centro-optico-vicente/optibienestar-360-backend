@@ -10,7 +10,11 @@ import java.util.UUID;
  * Read model for one {@code data_change_audit_log} row (GET /v1/admin/audit/data-changes).
  * Internal BIGINT ids ({@code entityId}, {@code actorId}, {@code loginAuditLogId},
  * {@code restoredFromId}) never cross the API boundary (ADR 0006) — {@code actorUuid}
- * is resolved from {@code actorId} at read time; the rest stay server-side.
+ * is resolved from {@code actorId} and {@code sessionUuid} from {@code loginAuditLogId}
+ * at read time; the rest stay server-side. {@code sessionUuid} is {@code null} when the
+ * change was system-generated (no login session, e.g. a scheduled job) — the frontend
+ * only renders the "ver sesión" link when it's present, filtering
+ * {@code GET /v1/admin/audit/logins} by it.
  *
  * <p>{@code entityDisplay}, {@code actor_Display} and {@code action_Display} exist so the
  * frontend doesn't have to show a wall of uuids/timestamps: they're the
@@ -33,6 +37,7 @@ public record DataChangeAuditLogDto(
         Map<String, Object> afterJson,
         UUID actorUuid,
         String actor_Display,
+        UUID sessionUuid,
         String requestMethod,
         String requestPath,
         Instant occurredAt

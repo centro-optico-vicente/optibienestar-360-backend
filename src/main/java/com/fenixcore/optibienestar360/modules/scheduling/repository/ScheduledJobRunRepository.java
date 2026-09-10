@@ -5,13 +5,14 @@ import com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJobRun.
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
 
 @Transactional(readOnly = true)
-public interface ScheduledJobRunRepository extends JpaRepository<ScheduledJobRun, Long> {
+public interface ScheduledJobRunRepository extends JpaRepository<ScheduledJobRun, Long>, JpaSpecificationExecutor<ScheduledJobRun> {
 
     Optional<ScheduledJobRun> findByUuid(UUID uuid);
 
