@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.scheduling.dto;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -29,6 +30,8 @@ public record ScheduledJobUpdateRequest(
         Boolean enabled,
         Boolean allowConcurrent,
         @Min(0) Integer maxSyncSeconds,
+        @Min(0) @Max(10) Integer maxRetryAttempts,
+        @Min(0) @Max(3600) Integer retryDelaySeconds,
 
         // Per-job config (V94) — null means "leave as-is", matching PATCH
         // semantics of every other field here; pass {} explicitly to clear it.

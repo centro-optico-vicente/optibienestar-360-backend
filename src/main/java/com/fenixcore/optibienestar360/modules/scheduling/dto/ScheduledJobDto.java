@@ -27,10 +27,18 @@ public record ScheduledJobDto(
         // Execution policy
         @Display(Display.Kind.BOOLEAN) boolean allowConcurrent,
         int maxSyncSeconds,
+        int maxRetryAttempts,
+        int retryDelaySeconds,
         @Display(Display.Kind.BOOLEAN) boolean lockHeld,
 
         // Per-job config (V94) — e.g. {"baseUrl": "..."} for FETCH_EXCHANGE_RATES
         Map<String, Object> parameters,
+
+        // Executor registry lookup (V110) — not persisted, resolved live against
+        // JobExecutionService's runnersByCode so the admin UI can show which
+        // ScheduledJobRunner bean (if any) actually executes this code.
+        String runnerClass,
+        @Display(Display.Kind.BOOLEAN) boolean runnerRegistered,
 
         // Last-run snapshot
         @Display(Display.Kind.DATETIME) Instant lastRunAt,

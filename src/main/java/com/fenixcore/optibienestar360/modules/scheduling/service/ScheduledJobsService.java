@@ -64,7 +64,8 @@ public class ScheduledJobsService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "code", "displayName", "cronExpression", "timezone",
-            "enabled", "allowConcurrent", "maxSyncSeconds", "lockHeld",
+            "enabled", "allowConcurrent", "maxSyncSeconds",
+            "maxRetryAttempts", "retryDelaySeconds", "lockHeld",
             "lastRunAt", "lastRunStatus", "nextRunAt",
             "createdAt", "updatedAt", "active", "status"
     );
@@ -84,11 +85,13 @@ public class ScheduledJobsService {
     private final ScheduledJobRunMapper runMapper;
     private final ObjectProvider<DynamicScheduledJobsRegistry> registryProvider;
     private final DefaultSortResolver defaultSortResolver;
+    private final JobExecutionService executionService;
 
     // ─── Job read ──────────────────────────────────────────────────────────
 
     public ScheduledJobDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        ScheduledJob job = findManaged(uuid);
+        return withRunnerInfo(mapper.toDto(job), job);
     }
 
     public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
@@ -104,7 +107,26 @@ public class ScheduledJobsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return jobRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return jobRepository.findAll(spec, resolvedPageable).map(job -> withRunnerInfo(mapper.toDto(job), job));
+    }
+
+    /**
+     * Fills in the two executor-registry fields the mapper leaves unset —
+     * they're resolved live against {@link JobExecutionService}'s in-memory
+     * runner index, not persisted columns. Records have no "with" mutation,
+     * so this rebuilds the DTO copying every field.
+     */
+    private ScheduledJobDto withRunnerInfo(ScheduledJobDto dto, ScheduledJob job) {
+        String runnerClass = executionService.runnerClassName(job.getCode()).orElse(null);
+        return new ScheduledJobDto(
+                dto.uuid(), dto.code(), dto.displayName(), dto.description(),
+                dto.cronExpression(), dto.timezone(), dto.enabled(),
+                dto.allowConcurrent(), dto.maxSyncSeconds(), dto.maxRetryAttempts(), dto.retryDelaySeconds(),
+                dto.lockHeld(), dto.parameters(),
+                runnerClass, runnerClass != null,
+                dto.lastRunAt(), dto.lastRunStatus(), dto.nextRunAt(),
+                dto.active(), dto.status(), dto.createdAt(), dto.updatedAt()
+        );
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
@@ -132,11 +154,13 @@ public class ScheduledJobsService {
         if (req.enabled() != null)          job.setEnabled(req.enabled());
         if (req.allowConcurrent() != null)  job.setAllowConcurrent(req.allowConcurrent());
         if (req.maxSyncSeconds() != null)   job.setMaxSyncSeconds(req.maxSyncSeconds());
+        if (req.maxRetryAttempts() != null) job.setMaxRetryAttempts(req.maxRetryAttempts());
+        if (req.retryDelaySeconds() != null) job.setRetryDelaySeconds(req.retryDelaySeconds());
         if (req.parameters() != null)       job.setParameters(req.parameters());
 
         ScheduledJob saved = jobRepository.save(job);
         scheduleAfterCommit(saved.getUuid(), Action.REGISTER);
-        return mapper.toDto(saved);
+        return withRunnerInfo(mapper.toDto(saved), saved);
     }
 
     // ─── Job update ────────────────────────────────────────────────────────
@@ -166,6 +190,8 @@ public class ScheduledJobsService {
         }
         if (req.allowConcurrent() != null) job.setAllowConcurrent(req.allowConcurrent());
         if (req.maxSyncSeconds() != null)  job.setMaxSyncSeconds(req.maxSyncSeconds());
+        if (req.maxRetryAttempts() != null) job.setMaxRetryAttempts(req.maxRetryAttempts());
+        if (req.retryDelaySeconds() != null) job.setRetryDelaySeconds(req.retryDelaySeconds());
         if (req.parameters() != null)      job.setParameters(req.parameters());
         if (req.active() != null) {
             job.setActive(req.active());
@@ -179,7 +205,7 @@ public class ScheduledJobsService {
             Action action = (job.isEnabled() && job.isActive()) ? Action.RESCHEDULE : Action.UNREGISTER;
             scheduleAfterCommit(job.getUuid(), action);
         }
-        return mapper.toDto(job);  // managed → dirty-check flushes on commit
+        return withRunnerInfo(mapper.toDto(job), job);  // managed → dirty-check flushes on commit
     }
 
     // ─── Job soft-delete ───────────────────────────────────────────────────

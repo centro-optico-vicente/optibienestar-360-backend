@@ -74,6 +74,10 @@ public class ScheduledJobRun extends BaseAuditEntity {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    /** How many attempts (1 = first try succeeded/failed with no retry) it took to reach {@link #outcome}. */
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 1;
+
     /** Terminal states the V22 CHECK pins {@link #outcome} to (plus {@code RUNNING}). */
     public enum Outcome {
         RUNNING, SUCCESS, FAILED, TIMEOUT, SKIPPED_CONCURRENT, CANCELED

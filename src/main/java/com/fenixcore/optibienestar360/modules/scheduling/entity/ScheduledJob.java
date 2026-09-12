@@ -76,6 +76,18 @@ public class ScheduledJob extends BaseEntity {
     private boolean lockHeld = false;
 
     /**
+     * Extra tries after the first failure before giving up (0 = no retry,
+     * matches the pre-V110 behavior). Applied by {@code JobExecutionService}
+     * around every {@code ScheduledJobRunner.run()} call, scheduled or manual.
+     */
+    @Column(name = "max_retry_attempts", nullable = false)
+    private int maxRetryAttempts = 0;
+
+    /** Fixed wait between retry attempts. Ignored when {@link #maxRetryAttempts} is 0. */
+    @Column(name = "retry_delay_seconds", nullable = false)
+    private int retryDelaySeconds = 0;
+
+    /**
      * Free-form per-job configuration (V94) — e.g. {@code FETCH_EXCHANGE_RATES}
      * carries {@code {"baseUrl": "https://rates-api.jeaninformatico.com"}}.
      * Lets a runner needing external config (a URL, a batch size, ...) read it

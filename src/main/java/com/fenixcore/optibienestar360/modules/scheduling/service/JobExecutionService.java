@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -76,6 +77,17 @@ public class JobExecutionService {
         log.info("Scheduled job runners indexed: {}", runnersByCode.keySet());
     }
 
+    /**
+     * Fully-qualified class name of the {@code ScheduledJobRunner} bean
+     * registered for {@code code}, if any. Backs the read-only "executor"
+     * panel in the admin edit modal so a job code with no matching runner
+     * (a job that will never actually run) is visible instead of silent.
+     */
+    public Optional<String> runnerClassName(String code) {
+        ScheduledJobRunner runner = runnersByCode.get(code);
+        return Optional.ofNullable(runner).map(r -> r.getClass().getName());
+    }
+
     // ─── Manual trigger (hybrid sync/async) ────────────────────────────────
 
     public ManualRunResult runNow(UUID jobUuid, UUID actorUserUuid) {
@@ -96,14 +108,14 @@ public class JobExecutionService {
         Long runId = run.getId();
         UUID runUuid = run.getUuid();
 
-        CompletableFuture<JobRunResult> future = CompletableFuture
-                .supplyAsync(() -> safeRun(runner), schedulerExecutor)
-                .whenComplete((result, throwable) -> {
-                    JobRunResult finalResult = throwable != null
-                            ? JobRunResult.failure("Runner threw: " + throwable.getMessage())
-                            : result;
+        CompletableFuture<AttemptedResult> future = CompletableFuture
+                .supplyAsync(() -> runWithRetries(runner, job), schedulerExecutor)
+                .whenComplete((attempted, throwable) -> {
+                    AttemptedResult finalAttempt = throwable != null
+                            ? new AttemptedResult(JobRunResult.failure("Runner threw: " + throwable.getMessage()), 1)
+                            : attempted;
                     try {
-                        txTemplate.executeWithoutResult(status -> finalizeRun(runId, finalResult));
+                        txTemplate.executeWithoutResult(status -> finalizeRun(runId, finalAttempt));
                     } catch (RuntimeException ex) {
                         log.error("Failed to finalize run {} for job {}", runUuid, job.getCode(), ex);
                     }
@@ -115,7 +127,7 @@ public class JobExecutionService {
         }
 
         try {
-            JobRunResult result = future.get(waitSeconds, TimeUnit.SECONDS);
+            JobRunResult result = future.get(waitSeconds, TimeUnit.SECONDS).result();
             return ManualRunResult.synced(runUuid, result);
         } catch (TimeoutException timeout) {
             // Future keeps running; whenComplete will finalize the row.
@@ -180,16 +192,16 @@ public class JobExecutionService {
                 startRun(job, source, null));
         Long runId = run.getId();
 
-        JobRunResult result;
+        AttemptedResult attempted;
         try {
-            result = safeRun(runner);
+            attempted = runWithRetries(runner, job);
         } catch (Throwable t) {
-            result = JobRunResult.failure("Runner threw: " + t.getMessage());
+            attempted = new AttemptedResult(JobRunResult.failure("Runner threw: " + t.getMessage()), 1);
         }
-        JobRunResult finalResult = result;
+        AttemptedResult finalAttempt = attempted;
 
         try {
-            txTemplate.executeWithoutResult(status -> finalizeRun(runId, finalResult));
+            txTemplate.executeWithoutResult(status -> finalizeRun(runId, finalAttempt));
         } catch (RuntimeException ex) {
             log.error("Failed to finalize {} run {} for job {}", source, run.getUuid(), job.getCode(), ex);
         }
@@ -207,6 +219,40 @@ public class JobExecutionService {
         }
     }
 
+    /**
+     * Runs the job with fixed-backoff retries per {@code job}'s
+     * {@code maxRetryAttempts}/{@code retryDelaySeconds}. Attempt 1 is
+     * always tried; on failure it waits {@code retryDelaySeconds} and tries
+     * again, up to {@code 1 + maxRetryAttempts} total attempts. Runs on the
+     * {@code schedulerExecutor} thread pool (both call sites), never on the
+     * HTTP request thread, so the blocking sleep is safe.
+     */
+    private AttemptedResult runWithRetries(ScheduledJobRunner runner, ScheduledJob job) {
+        int maxAttempts = 1 + Math.max(0, job.getMaxRetryAttempts());
+        int delaySeconds = Math.max(0, job.getRetryDelaySeconds());
+
+        JobRunResult result = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            result = safeRun(runner);
+            if (result.success() || attempt == maxAttempts) {
+                return new AttemptedResult(result, attempt);
+            }
+            log.warn("Job {} failed on attempt {}/{}, retrying in {}s",
+                    job.getCode(), attempt, maxAttempts, delaySeconds);
+            if (delaySeconds > 0) {
+                try {
+                    Thread.sleep(delaySeconds * 1000L);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return new AttemptedResult(result, attempt);
+                }
+            }
+        }
+        return new AttemptedResult(result, maxAttempts);
+    }
+
+    private record AttemptedResult(JobRunResult result, int attempts) {}
+
     private ScheduledJobRun startRun(ScheduledJob job, TriggerSource source, UUID actorUuid) {
         ScheduledJobRun run = new ScheduledJobRun();
         run.setScheduledJob(job);
@@ -222,13 +268,15 @@ public class JobExecutionService {
         return run;
     }
 
-    private void finalizeRun(Long runId, JobRunResult result) {
+    private void finalizeRun(Long runId, AttemptedResult attempted) {
+        JobRunResult result = attempted.result();
         ScheduledJobRun run = runRepository.findById(runId).orElseThrow();
         run.setFinishedAt(Instant.now());
         run.setDurationMs(run.getFinishedAt().toEpochMilli() - run.getStartedAt().toEpochMilli());
         run.setOutcome((result.success() ? Outcome.SUCCESS : Outcome.FAILED).name());
         run.setSummary(result.summary());
         run.setErrorMessage(result.errorMessage());
+        run.setAttemptCount(attempted.attempts());
 
         ScheduledJob job = run.getScheduledJob();
         jobRepository.findById(job.getId()).ifPresent(managed -> {
