@@ -30,6 +30,7 @@ public record ScheduledJobRunDto(
 
         Map<String, Object> summary,
         String errorMessage,
+        int attemptCount,
 
         @Display(Display.Kind.DATETIME) Instant createdAt
 ) {}
