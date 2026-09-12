@@ -11,11 +11,14 @@ SET search_path TO app, public;
 -- run actually took.
 -- ────────────────────────────────────────────────────────────────────────────
 
+-- INT (not SMALLINT) on max_retry_attempts/attempt_count — the entity fields
+-- are Java `int`, which Hibernate schema validation expects to map to
+-- INTEGER; SMALLINT (int2) fails "wrong column type encountered" at startup.
 ALTER TABLE scheduled_jobs
-    ADD COLUMN max_retry_attempts SMALLINT NOT NULL DEFAULT 0
+    ADD COLUMN max_retry_attempts INT NOT NULL DEFAULT 0
         CHECK (max_retry_attempts >= 0 AND max_retry_attempts <= 10),
     ADD COLUMN retry_delay_seconds INT NOT NULL DEFAULT 0
         CHECK (retry_delay_seconds >= 0 AND retry_delay_seconds <= 3600);
 
 ALTER TABLE scheduled_job_runs
-    ADD COLUMN attempt_count SMALLINT NOT NULL DEFAULT 1;
+    ADD COLUMN attempt_count INT NOT NULL DEFAULT 1;
