@@ -27,6 +27,12 @@
     <parameter name="P_REPORT_FOOTER" class="java.lang.String">
         <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
     </parameter>
+    <parameter name="P_TARGET_CURRENCY" class="java.lang.String">
+        <defaultValueExpression><![CDATA["USD"]]></defaultValueExpression>
+    </parameter>
+    <parameter name="P_CONVERSION_DATE" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
 
     <!-- Query -->
     <queryString>
@@ -38,6 +44,8 @@
             CASE 
                 WHEN c.status = 'PAID' THEN 'Pagada'
                 WHEN c.status = 'PENDING' THEN 'Pendiente'
+                WHEN c.status = 'APPROVED' THEN 'Aprobada'
+                WHEN c.status = 'REJECTED' THEN 'Rechazada'
                 WHEN c.status = 'VOIDED' THEN 'Anulada'
                 WHEN c.status = 'DISPUTED' THEN 'En disputa'
                 ELSE c.status 
@@ -54,6 +62,10 @@
             c.earned_at,
             c.amount AS amount,
             cur.code AS currency,
+            COALESCE(conv.target_currency_code, UPPER(COALESCE(NULLIF(TRIM($P{P_TARGET_CURRENCY}::varchar), ''), 'USD'))) AS target_currency_code,
+            COALESCE(conv.target_currency_symbol, '$') AS target_currency_symbol,
+            conv.converted_amount AS converted_amount,
+            conv.exchange_rate AS exchange_rate,
             c.calculation_basis,
             c.commission_pct,
             c.flat_amount,
@@ -87,6 +99,59 @@
         JOIN app.payments p ON c.payment_id = p.payments_id
         LEFT JOIN app.memberships ms ON p.membership_id = ms.memberships_id
         LEFT JOIN app.plans pl ON ms.plan_id = pl.plans_id
+        LEFT JOIN LATERAL (
+            SELECT
+                tc.currencies_id AS target_currency_id,
+                tc.code AS target_currency_code,
+                tc.symbol AS target_currency_symbol,
+                CASE
+                    WHEN c.currency_id = tc.currencies_id THEN 1.0
+                    WHEN direct.rate IS NOT NULL THEN direct.rate
+                    WHEN inv.rate IS NOT NULL AND inv.rate > 0 THEN ROUND(1.0 / inv.rate, 8)
+                    ELSE NULL
+                END AS exchange_rate,
+                CASE
+                    WHEN c.currency_id = tc.currencies_id THEN c.amount
+                    WHEN direct.rate IS NOT NULL THEN ROUND(c.amount * direct.rate, tc.decimal_places)
+                    WHEN inv.rate IS NOT NULL AND inv.rate > 0 THEN ROUND(c.amount / inv.rate, tc.decimal_places)
+                    ELSE NULL
+                END AS converted_amount
+            FROM app.currencies tc
+            LEFT JOIN LATERAL (
+                SELECT er.rate
+                FROM app.exchange_rates er
+                WHERE er.base_currency_id = c.currency_id
+                  AND er.quote_currency_id = tc.currencies_id
+                  AND er.valid_from <= (
+                      CASE 
+                          WHEN c.paid_at IS NOT NULL 
+                              THEN (c.paid_at::date + TIME '23:59:59') AT TIME ZONE 'America/Caracas'
+                          ELSE (COALESCE(NULLIF($P{P_CONVERSION_DATE}::varchar, '')::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas'
+                      END
+                  )
+                  AND er.is_active = true
+                ORDER BY er.valid_from DESC
+                LIMIT 1
+            ) direct ON true
+            LEFT JOIN LATERAL (
+                SELECT er.rate
+                FROM app.exchange_rates er
+                WHERE er.base_currency_id = tc.currencies_id
+                  AND er.quote_currency_id = c.currency_id
+                  AND er.valid_from <= (
+                      CASE 
+                          WHEN c.paid_at IS NOT NULL 
+                              THEN (c.paid_at::date + TIME '23:59:59') AT TIME ZONE 'America/Caracas'
+                          ELSE (COALESCE(NULLIF($P{P_CONVERSION_DATE}::varchar, '')::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas'
+                      END
+                  )
+                  AND er.is_active = true
+                ORDER BY er.valid_from DESC
+                LIMIT 1
+            ) inv ON true
+            WHERE tc.code = UPPER(COALESCE(NULLIF(TRIM($P{P_TARGET_CURRENCY}::varchar), ''), 'USD'))
+            LIMIT 1
+        ) conv ON true
         WHERE c.is_active = true
           AND ($P{P_START_DATE}::date IS NULL OR c.period_end >= $P{P_START_DATE}::date)
           AND ($P{P_END_DATE}::date IS NULL OR c.period_start <= $P{P_END_DATE}::date)
@@ -112,6 +177,10 @@
     <field name="earned_at" class="java.sql.Timestamp"/>
     <field name="amount" class="java.math.BigDecimal"/>
     <field name="currency" class="java.lang.String"/>
+    <field name="converted_amount" class="java.math.BigDecimal"/>
+    <field name="target_currency_code" class="java.lang.String"/>
+    <field name="target_currency_symbol" class="java.lang.String"/>
+    <field name="exchange_rate" class="java.math.BigDecimal"/>
     <field name="calculation_basis" class="java.math.BigDecimal"/>
     <field name="commission_pct" class="java.math.BigDecimal"/>
     <field name="flat_amount" class="java.math.BigDecimal"/>
@@ -138,11 +207,17 @@
     <variable name="V_PROMOTER_TOTAL" class="java.math.BigDecimal" resetType="Group" resetGroup="PromoterGroup" calculation="Sum">
         <variableExpression><![CDATA[$F{amount}]]></variableExpression>
     </variable>
+    <variable name="V_PROMOTER_CONVERTED_TOTAL" class="java.math.BigDecimal" resetType="Group" resetGroup="PromoterGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{converted_amount}]]></variableExpression>
+    </variable>
     <variable name="V_PROMOTER_COUNT" class="java.lang.Integer" resetType="Group" resetGroup="PromoterGroup" calculation="Count">
         <variableExpression><![CDATA[$F{commissions_id}]]></variableExpression>
     </variable>
     <variable name="V_GRAND_TOTAL" class="java.math.BigDecimal" calculation="Sum">
         <variableExpression><![CDATA[$F{amount}]]></variableExpression>
+    </variable>
+    <variable name="V_GRAND_CONVERTED_TOTAL" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{converted_amount}]]></variableExpression>
     </variable>
     <variable name="V_GRAND_COUNT" class="java.lang.Integer" calculation="Count">
         <variableExpression><![CDATA[$F{commissions_id}]]></variableExpression>
@@ -182,52 +257,58 @@
 
                 <!-- Column Headers for Details -->
                 <staticText>
-                    <reportElement mode="Opaque" x="0" y="28" width="60" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="0" y="28" width="50" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
                     <text><![CDATA[Periodo]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="60" y="28" width="125" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="50" y="28" width="110" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
                     <text><![CDATA[Afiliado / Cédula]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="185" y="28" width="80" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="160" y="28" width="75" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
                     <text><![CDATA[Concepto / Plan]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="265" y="28" width="55" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="235" y="28" width="45" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
                     <text><![CDATA[Base ($)]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="320" y="28" width="50" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="280" y="28" width="40" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
-                    <text><![CDATA[Tasa / Fijo]]></text>
+                    <text><![CDATA[Tasa/Fijo]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="370" y="28" width="55" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="320" y="28" width="55" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
-                    <text><![CDATA[Comisión]]></text>
+                    <text><![CDATA[Com. Orig.]]></text>
                 </staticText>
+                <textField>
+                    <reportElement mode="Opaque" x="375" y="28" width="65" height="15" backcolor="#E2E8F0"/>
+                    <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph rightIndent="4"/></textElement>
+                    <textFieldExpression><![CDATA["Conv. (" + ($P{P_TARGET_CURRENCY} != null ? $P{P_TARGET_CURRENCY} : "USD") + ")"]]></textFieldExpression>
+                </textField>
                 <staticText>
-                    <reportElement mode="Opaque" x="425" y="28" width="50" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="440" y="28" width="45" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
                     <text><![CDATA[Estado]]></text>
                 </staticText>
                 <staticText>
-                    <reportElement mode="Opaque" x="475" y="28" width="80" height="15" backcolor="#E2E8F0"/>
+                    <reportElement mode="Opaque" x="485" y="28" width="70" height="15" backcolor="#E2E8F0"/>
                     <box><pen lineWidth="0.25" lineColor="#CBD5E1"/></box>
                     <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
-                    <text><![CDATA[Ref. Liquidación]]></text>
+                    <text><![CDATA[Ref. Liq.]]></text>
                 </staticText>
             </band>
         </groupHeader>
@@ -237,16 +318,24 @@
                     <reportElement mode="Opaque" x="0" y="1" width="555" height="16" backcolor="#F8FAFC" forecolor="#E2E8F0"/>
                 </rectangle>
                 <textField>
-                    <reportElement x="6" y="2" width="250" height="14"/>
+                    <reportElement x="6" y="2" width="230" height="14"/>
                     <textElement verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
                     <textFieldExpression><![CDATA["Subtotal " + $F{promoter_name} + " (" + $V{V_PROMOTER_COUNT} + " comisiones):"]]></textFieldExpression>
                 </textField>
-                <textField pattern="$ #,##0.00">
-                    <reportElement x="350" y="2" width="75" height="14"/>
+                <textField pattern="#,##0.00">
+                    <reportElement x="240" y="2" width="135" height="14"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle">
+                        <font size="7" isBold="false"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA["Orig: " + new java.text.DecimalFormat("#,##0.00").format($V{V_PROMOTER_TOTAL})]]></textFieldExpression>
+                </textField>
+                <textField isBlankWhenNull="true">
+                    <reportElement x="375" y="2" width="95" height="14"/>
                     <textElement textAlignment="Right" verticalAlignment="Middle">
                         <font size="8" isBold="true"/>
+                        <paragraph rightIndent="4"/>
                     </textElement>
-                    <textFieldExpression><![CDATA[$V{V_PROMOTER_TOTAL}]]></textFieldExpression>
+                    <textFieldExpression><![CDATA[$V{V_PROMOTER_CONVERTED_TOTAL} != null ? (($P{P_TARGET_CURRENCY} != null ? $P{P_TARGET_CURRENCY} : "USD") + " " + new java.text.DecimalFormat("#,##0.00").format($V{V_PROMOTER_CONVERTED_TOTAL})) : "-"]]></textFieldExpression>
                 </textField>
             </band>
         </groupFooter>
@@ -284,7 +373,7 @@
                 <textElement verticalAlignment="Middle">
                     <font size="8" isItalic="true" isBold="false"/>
                 </textElement>
-                <textFieldExpression><![CDATA["Filtros aplicados: [Periodo: " + ($P{P_START_DATE} != null ? $P{P_START_DATE} : "Inicio") + " al " + ($P{P_END_DATE} != null ? $P{P_END_DATE} : "Hoy") + "] | [Estado: " + ($P{P_STATUS} != null && !$P{P_STATUS}.isEmpty() ? $P{P_STATUS} : "TODOS") + "] | [Concepto: " + ($P{P_APPLIES_TO} != null && !$P{P_APPLIES_TO}.isEmpty() ? $P{P_APPLIES_TO} : "TODOS") + "]"]]></textFieldExpression>
+                <textFieldExpression><![CDATA["Filtros: [Periodo: " + ($P{P_START_DATE} != null ? $P{P_START_DATE} : "Inicio") + " al " + ($P{P_END_DATE} != null ? $P{P_END_DATE} : "Hoy") + "] | [Moneda: " + ($P{P_TARGET_CURRENCY} != null ? $P{P_TARGET_CURRENCY} : "USD") + "] | [F. Conv: " + ($P{P_CONVERSION_DATE} != null && !$P{P_CONVERSION_DATE}.isEmpty() ? $P{P_CONVERSION_DATE} : "Hoy") + "] | [Estado: " + ($P{P_STATUS} != null && !$P{P_STATUS}.isEmpty() ? $P{P_STATUS} : "TODOS") + "]"]]></textFieldExpression>
             </textField>
         </band>
     </title>
@@ -293,46 +382,55 @@
     <detail>
         <band height="16">
             <textField pattern="dd/MM/yyyy">
-                <reportElement x="0" y="0" width="60" height="15"/>
+                <reportElement x="0" y="0" width="50" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{period_start}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="60" y="0" width="125" height="15"/>
+                <reportElement x="50" y="0" width="110" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
                 <textFieldExpression><![CDATA[$F{member_name} + " (" + $F{member_document} + ")"]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="185" y="0" width="80" height="15"/>
+                <reportElement x="160" y="0" width="75" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement verticalAlignment="Middle"><font size="7"/><paragraph leftIndent="4"/></textElement>
                 <textFieldExpression><![CDATA[$F{applies_to_label} + " - " + $F{plan_name}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.00">
-                <reportElement x="265" y="0" width="55" height="15"/>
+                <reportElement x="235" y="0" width="45" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle"><font size="7"/><paragraph rightIndent="4"/></textElement>
                 <textFieldExpression><![CDATA[$F{calculation_basis}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="320" y="0" width="50" height="15"/>
+                <reportElement x="280" y="0" width="40" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{commission_pct} != null ? ($F{commission_pct} + "%") : ("$" + $F{flat_amount})]]></textFieldExpression>
             </textField>
-            <textField pattern="$ #,##0.00">
-                <reportElement x="370" y="0" width="55" height="15"/>
+            <textField>
+                <reportElement x="320" y="0" width="55" height="15"/>
+                <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font size="7"/>
+                    <paragraph rightIndent="4"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{currency} + " " + new java.text.DecimalFormat("#,##0.00").format($F{amount})]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00" isBlankWhenNull="true">
+                <reportElement x="375" y="0" width="65" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle">
                     <font size="7" isBold="true"/>
                     <paragraph rightIndent="4"/>
                 </textElement>
-                <textFieldExpression><![CDATA[$F{amount}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{converted_amount}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="425" y="0" width="50" height="15"/>
+                <reportElement x="440" y="0" width="45" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="7" isBold="true"/>
@@ -340,7 +438,7 @@
                 <textFieldExpression><![CDATA[$F{status_label}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="475" y="0" width="80" height="15"/>
+                <reportElement x="485" y="0" width="70" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="6"/></textElement>
                 <textFieldExpression><![CDATA[$F{payout_reference}]]></textFieldExpression>
@@ -376,19 +474,19 @@
                 <reportElement mode="Opaque" x="0" y="8" width="555" height="26" backcolor="#0F172A" forecolor="#0F172A"/>
             </rectangle>
             <textField>
-                <reportElement x="12" y="14" width="300" height="16" forecolor="#FFFFFF"/>
+                <reportElement x="12" y="14" width="280" height="16" forecolor="#FFFFFF"/>
                 <textElement verticalAlignment="Middle">
                     <font size="9" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA["TOTAL GENERAL (" + $V{V_GRAND_COUNT} + " Comisiones Registradas):"]]></textFieldExpression>
             </textField>
-            <textField pattern="$ #,##0.00">
-                <reportElement x="350" y="14" width="195" height="16" forecolor="#38BDF8"/>
+            <textField isBlankWhenNull="true">
+                <reportElement x="295" y="14" width="250" height="16" forecolor="#38BDF8"/>
                 <textElement textAlignment="Right" verticalAlignment="Middle">
                     <font size="11" isBold="true"/>
                     <paragraph rightIndent="8"/>
                 </textElement>
-                <textFieldExpression><![CDATA[$V{V_GRAND_TOTAL}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$V{V_GRAND_CONVERTED_TOTAL} != null ? (($P{P_TARGET_CURRENCY} != null ? $P{P_TARGET_CURRENCY} : "USD") + " " + new java.text.DecimalFormat("#,##0.00").format($V{V_GRAND_CONVERTED_TOTAL})) : "-"]]></textFieldExpression>
             </textField>
         </band>
     </summary>

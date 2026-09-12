@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -252,4 +253,36 @@ class GenericDocumentControllerJasperTest {
         assertDoesNotThrow(() -> controller.generateJasperReport("pagos", "PDF", null, null, null, null, null, null, null, null, null));
         assertDoesNotThrow(() -> controller.generateJasperReport("pagos-comisiones", "PDF", null, null, null, null, null, null, null, null, null));
     }
+
+    @Test
+    @DisplayName("Should pass targetCurrency and conversionDate parameters for comisiones, pagos-comisiones and pagos")
+    void testPassTargetCurrencyAndConversionDate() {
+        byte[] fakePdf = "%PDF-1.4 fake".getBytes();
+        org.mockito.ArgumentCaptor<Map<String, Object>> paramsCaptor = org.mockito.ArgumentCaptor.forClass(Map.class);
+        when(jasperReportService.generateReportWithConnection(anyString(), paramsCaptor.capture(), any(), eq(JasperFormat.PDF)))
+                .thenReturn(fakePdf);
+
+        controller.generateJasperReport(
+                "comisiones", "PDF", null, null, null, null, null, null, null, null, null, "VES", "2026-09-01"
+        );
+
+        Map<String, Object> capturedParams = paramsCaptor.getValue();
+        assertEquals("VES", capturedParams.get("P_TARGET_CURRENCY"));
+        assertEquals("2026-09-01", capturedParams.get("P_CONVERSION_DATE"));
+
+        controller.generateJasperReport(
+                "pagos-comisiones", "PDF", null, null, null, null, null, null, null, null, null, "EUR", null
+        );
+
+        Map<String, Object> capturedParamsPayouts = paramsCaptor.getValue();
+        assertEquals("EUR", capturedParamsPayouts.get("P_TARGET_CURRENCY"));
+
+        controller.generateJasperReport(
+                "pagos", "PDF", null, null, null, null, null, null, null, null, null, "VES", null
+        );
+
+        Map<String, Object> capturedParamsPayments = paramsCaptor.getValue();
+        assertEquals("VES", capturedParamsPayments.get("P_TARGET_CURRENCY"));
+    }
 }
+

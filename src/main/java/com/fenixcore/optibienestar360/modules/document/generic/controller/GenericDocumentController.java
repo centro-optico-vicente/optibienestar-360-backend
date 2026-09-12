@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.sql.Connection;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javax.sql.DataSource;
@@ -204,7 +205,9 @@ public class GenericDocumentController {
             @RequestParam(required = false) String paymentMethod,
             @RequestParam(required = false) String plan,
             @RequestParam(required = false) String payoutReference,
-            @RequestParam(required = false) String companyName
+            @RequestParam(required = false) String companyName,
+            @RequestParam(required = false) String targetCurrency,
+            @RequestParam(required = false) String conversionDate
     ) {
         String normalizedReport = reportName.trim().toLowerCase();
         String templatePath;
@@ -257,6 +260,13 @@ public class GenericDocumentController {
             }
         }
 
+        String resolvedTargetCurrency = (targetCurrency != null && !targetCurrency.isBlank())
+                ? targetCurrency.trim().toUpperCase()
+                : "USD";
+        String resolvedConversionDate = (conversionDate != null && !conversionDate.isBlank())
+                ? conversionDate.trim()
+                : LocalDate.now().toString();
+
         Map<String, Object> parameters = new java.util.HashMap<>();
         parameters.put("P_START_DATE", (startDate != null && !startDate.isBlank()) ? startDate.trim() : null);
         parameters.put("P_END_DATE", (endDate != null && !endDate.isBlank()) ? endDate.trim() : null);
@@ -273,16 +283,20 @@ public class GenericDocumentController {
             parameters.put("P_PROMOTER_ID", promoterId);
             parameters.put("P_STATUS", (status != null && !status.isBlank()) ? status.trim() : null);
             parameters.put("P_APPLIES_TO", (appliesTo != null && !appliesTo.isBlank()) ? appliesTo.trim() : null);
+            parameters.put("P_TARGET_CURRENCY", resolvedTargetCurrency);
+            parameters.put("P_CONVERSION_DATE", resolvedConversionDate);
         } else if ("commission_payout".equals(entityKey)) {
             checkReportAuthority(java.util.List.of("COMMISSION_REPORT_GENERATE", "COMMISSION_VIEW_ALL", "COMMISSION_VIEW_OWN", "COMMISSION_PAYOUT"));
             parameters.put("P_PROMOTER_ID", promoterId);
             parameters.put("P_PAYOUT_REFERENCE", (payoutReference != null && !payoutReference.isBlank()) ? payoutReference.trim() : null);
+            parameters.put("P_TARGET_CURRENCY", resolvedTargetCurrency);
         } else {
             checkReportAuthority(java.util.List.of("PAYMENT_REPORT_GENERATE", "PAYMENT_VIEW_ALL", "PAYMENT_VIEW_OWN"));
             parameters.put("P_STATUS", (status != null && !status.isBlank()) ? status.trim() : null);
             parameters.put("P_PAYMENT_METHOD", (paymentMethod != null && !paymentMethod.isBlank()) ? paymentMethod.trim() : null);
             parameters.put("P_PLAN_ID", planId);
             parameters.put("P_PROMOTER_ID", promoterId);
+            parameters.put("P_TARGET_CURRENCY", resolvedTargetCurrency);
         }
 
         byte[] reportBytes;
@@ -311,6 +325,25 @@ public class GenericDocumentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType(selectedFormat.getContentType()))
                 .body(reportBytes);
+    }
+
+    public ResponseEntity<byte[]> generateJasperReport(
+            String reportName,
+            String format,
+            String startDate,
+            String endDate,
+            String promoter,
+            String status,
+            String appliesTo,
+            String paymentMethod,
+            String plan,
+            String payoutReference,
+            String companyName
+    ) {
+        return generateJasperReport(
+                reportName, format, startDate, endDate, promoter, status, appliesTo,
+                paymentMethod, plan, payoutReference, companyName, null, null
+        );
     }
 
     private String toAuditEntityKey(String entityOrTable) {
