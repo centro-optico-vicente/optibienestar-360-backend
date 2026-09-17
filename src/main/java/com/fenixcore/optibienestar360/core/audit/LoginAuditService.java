@@ -70,6 +70,14 @@ public class LoginAuditService {
     public Optional<UUID> startSession(Long userId, String email, List<String> roles, String locale,
                                         String ipAddress, String userAgent, String hostname,
                                         int refreshExpirationDays) {
+        return startSession(userId, email, roles, locale, ipAddress, userAgent, hostname, refreshExpirationDays, null);
+    }
+
+    /** @param activeRoleId roles.roles_id of the session's active role — null when not resolvable (e.g. login_audit disabled path). */
+    @Transactional
+    public Optional<UUID> startSession(Long userId, String email, List<String> roles, String locale,
+                                        String ipAddress, String userAgent, String hostname,
+                                        int refreshExpirationDays, Long activeRoleId) {
         if (!systemConfigService.isLoginAuditEnabled()) {
             return Optional.empty();
         }
@@ -80,6 +88,7 @@ public class LoginAuditService {
             entry.setAttemptedEmail(email);
             entry.setResult(LoginAuditResult.SUCCESS);
             entry.setRoles(roles);
+            entry.setActiveRoleId(activeRoleId);
             entry.setLocale(locale);
             entry.setIpAddress(ipAddress);
             entry.setUserAgent(userAgent);

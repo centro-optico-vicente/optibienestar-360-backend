@@ -3,10 +3,14 @@ package com.fenixcore.optibienestar360.modules.auth;
 import com.fenixcore.optibienestar360.modules.auth.dto.AccessTokenResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.ChangePasswordRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LocalePreferenceRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
+import com.fenixcore.optibienestar360.modules.auth.dto.MyRoleDto;
+import com.fenixcore.optibienestar360.modules.auth.dto.SwitchActiveRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.service.AuthService;
 import com.fenixcore.optibienestar360.modules.auth.service.UserService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +20,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/v1/me")
@@ -28,6 +34,29 @@ public class MeController {
     @GetMapping
     public ResponseEntity<UserDto> me(@AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.ok(userService.getMe(principal.getUuid()));
+    }
+
+    /** Roles the caller may pick as their active session role — powers the role-switch selector. */
+    @GetMapping("/roles")
+    public ResponseEntity<List<MyRoleDto>> myRoles(@AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(userService.getMyEffectiveRoles(principal.getUuid()));
+    }
+
+    /**
+     * Switches the caller's active role: closes the current session and opens
+     * a new one (fresh access + refresh tokens) scoped to {@code roleUuid},
+     * exactly like {@code AuthService.switchActiveRole} — no password
+     * re-entry, since the caller is already authenticated.
+     */
+    @PostMapping("/active-role")
+    public ResponseEntity<LoginResponse> switchActiveRole(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @Valid @RequestBody SwitchActiveRoleRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(
+                authService.switchActiveRole(principal.getUuid(), request.roleUuid(), principal.getJti(),
+                        principal.getSessionId(), request.refreshToken(), httpRequest)
+        );
     }
 
     @PostMapping("/change-password")

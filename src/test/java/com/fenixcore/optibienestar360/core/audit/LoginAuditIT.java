@@ -102,6 +102,36 @@ class LoginAuditIT {
 	}
 
 	@Test
+	void roleSwitchClosesOldSessionAndOpensANewOneWithTheActiveRole() {
+		String email = "test-marker-" + System.nanoTime() + "@example.test";
+		try {
+			// activeRoleId left null here (real roles_id values aren't known to this
+			// test) — the point of this test is the close/reopen lifecycle and the
+			// "role_switch" reason, not the FK-linked active_role_id column, which
+			// is exercised end-to-end by AuthServiceRoleSwitchTest instead.
+			Optional<UUID> oldSessionId = loginAuditService.startSession(
+					null, email, List.of("ADMINISTRADOR", "OPERADOR"), "es", "127.0.0.1", "JUnit", "localhost", 30);
+			assertTrue(oldSessionId.isPresent());
+
+			loginAuditService.closeSession(oldSessionId.get(), "role_switch");
+			LoginAuditLog closed = loginAuditLogRepository.findByUuid(oldSessionId.get()).orElseThrow();
+			assertEquals(LoginSessionStatus.LOGGED_OUT, closed.getSessionStatus());
+			assertEquals("role_switch", closed.getLogoutReason());
+			assertFalse(loginAuditService.isSessionValid(oldSessionId.get()));
+
+			Optional<UUID> newSessionId = loginAuditService.startSession(
+					null, email, List.of("ADMINISTRADOR", "OPERADOR"), "es", "127.0.0.1", "JUnit", "localhost", 30);
+			assertTrue(newSessionId.isPresent());
+			assertTrue(loginAuditService.isSessionValid(newSessionId.get()));
+
+			LoginAuditLog opened = loginAuditLogRepository.findByUuid(newSessionId.get()).orElseThrow();
+			assertEquals(LoginSessionStatus.ACTIVE, opened.getSessionStatus());
+		} finally {
+			cleanUp(email);
+		}
+	}
+
+	@Test
 	void isSessionValidRejectsUnknownSidButAllowsNoSidAtAll() {
 		// An unknown sid IS a legitimate rejection (bogus/tampered token) — only
 		// unresolvable errors (DB/cache down) fail open, not a plain missing row.

@@ -67,4 +67,9 @@ public class UserRole {
     @LastModifiedBy
     @Column(name = "updated_by")
     private UUID updatedBy;
+
+    /** {@code true} when this assignment is active and not expired — the single definition shared by {@code PermissionResolver} and {@code UserService}. */
+    public boolean isEffective() {
+        return active && (expiresAt == null || expiresAt.isAfter(Instant.now()));
+    }
 }

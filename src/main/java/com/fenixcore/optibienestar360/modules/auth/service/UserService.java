@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.MyRoleDto;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -89,6 +90,34 @@ public class UserService {
         return userMapper.toDto(user);
     }
 
+    /**
+     * Roles selectable as the caller's active session role — the union,
+     * deduplicated by role id, of {@code user.defaultRole} (a direct FK that
+     * may in principle point at a role with no {@code user_roles} row, though
+     * {@link #setDefaultRole} never leaves it in that state going forward) and
+     * the user's effective (active, non-expired) {@code user_roles} rows.
+     */
+    public List<MyRoleDto> getMyEffectiveRoles(UUID userUuid) {
+        User user = userRepository.findWithRolesByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+
+        Role defaultRole = user.getDefaultRole();
+        Long defaultRoleId = defaultRole != null ? defaultRole.getId() : null;
+
+        Map<Long, Role> byRoleId = new LinkedHashMap<>();
+        if (defaultRole != null) {
+            byRoleId.put(defaultRole.getId(), defaultRole);
+        }
+        user.getUserRoles().stream()
+                .filter(UserRole::isEffective)
+                .forEach(ur -> byRoleId.putIfAbsent(ur.getRole().getId(), ur.getRole()));
+
+        return byRoleId.values().stream()
+                .map(role -> new MyRoleDto(role.getUuid(), role.getName(), role.getDescription(),
+                        role.getId().equals(defaultRoleId)))
+                .toList();
+    }
+
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
     public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid) {
@@ -171,6 +200,10 @@ public class UserService {
         userRepository.save(user);
 
         assignRoles(user, request.roleIds());
+        if (request.defaultRoleUuid() != null) {
+            setDefaultRole(user, request.defaultRoleUuid(), actorUuid, isSystemActor(actorUuid));
+            userRepository.save(user);
+        }
         return userMapper.toDto(userRepository.findWithRolesByUuid(user.getUuid()).orElseThrow());
     }
 
@@ -186,12 +219,14 @@ public class UserService {
      *       non-SYSTEM admin cannot escalate anyone (incl. self) to SYSTEM.</li>
      *   <li><b>Self-edit restrictions</b> — when {@code actorUuid == uuid}:
      *       the actor cannot deactivate themselves, change their own status
-     *       to anything other than ACTIVE, or alter their own roles. The
-     *       roles block is intentionally coarse (any change → reject) rather
-     *       than computing "would I keep ROLE_PERMISSION_EDIT after this",
-     *       so the guard cannot be defeated by a wrong-but-plausible role
-     *       set. Self-edits to profile fields (fullName, phone, locale,
-     *       documentType, documentNumber) are still allowed.</li>
+     *       to anything other than ACTIVE, or alter their own roles (incl.
+     *       {@code defaultRoleUuid}, which can silently grant a new role via
+     *       auto-assignment). The roles block is intentionally coarse (any
+     *       change → reject) rather than computing "would I keep
+     *       ROLE_PERMISSION_EDIT after this", so the guard cannot be defeated
+     *       by a wrong-but-plausible role set. Self-edits to profile fields
+     *       (fullName, phone, locale, documentType, documentNumber) are still
+     *       allowed.</li>
      * </ul>
      */
     @Transactional
@@ -217,6 +252,13 @@ public class UserService {
                 throw new IllegalArgumentException("user.self.cannot_change_own_status");
             }
             if (request.roleIds() != null && !request.roleIds().isEmpty()) {
+                throw new IllegalArgumentException("user.self.cannot_change_own_roles");
+            }
+            // defaultRoleUuid can auto-assign a role the actor doesn't yet hold
+            // (setDefaultRole → ensureUserRoleAssigned) — blocked on self-edit
+            // for the same reason as roleIds, so a user can never grant
+            // themselves a new role via this field.
+            if (request.defaultRoleUuid() != null) {
                 throw new IllegalArgumentException("user.self.cannot_change_own_roles");
             }
         }
@@ -246,6 +288,10 @@ public class UserService {
         boolean rolesChanged = request.roleIds() != null && !request.roleIds().isEmpty();
         if (rolesChanged) {
             syncRoles(user, request.roleIds());
+        }
+
+        if (request.defaultRoleUuid() != null) {
+            setDefaultRole(user, request.defaultRoleUuid(), actorUuid, actorIsSystem);
         }
 
         userRepository.save(user);
@@ -390,6 +436,42 @@ public class UserService {
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Sets {@code user.defaultRole}, auto-assigning/reactivating the
+     * corresponding {@code user_roles} row first so the default is never left
+     * orphaned (pointing at a role the user doesn't actually hold). Same
+     * SYSTEM-role guard as {@link #createUser}/{@link #updateUser}: only a
+     * SYSTEM actor may set SYSTEM as anyone's default role.
+     */
+    private void setDefaultRole(User user, UUID roleUuid, UUID actorUuid, boolean actorIsSystem) {
+        Role role = roleRepository.findByUuid(roleUuid)
+                .orElseThrow(() -> new NoSuchElementException("role.not_found"));
+        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !actorIsSystem) {
+            throw new AccessDeniedException("user.system.role_not_assignable");
+        }
+        ensureUserRoleAssigned(user, role, actorUuid);
+        user.setDefaultRole(role);
+    }
+
+    /** Reactivates the existing {@code (user, role)} pivot row, or inserts one, so the pair is always an effective assignment. */
+    private void ensureUserRoleAssigned(User user, Role role, UUID actorUuid) {
+        UserRole ur = userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId()).orElse(null);
+        if (ur == null) {
+            ur = new UserRole();
+            ur.setUser(user);
+            ur.setRole(role);
+            ur.setAssignedBy(actorUuid);
+            userRoleRepository.save(ur);
+            return;
+        }
+        if (!ur.isEffective()) {
+            ur.setActive(true);
+            ur.setExpiresAt(null);
+            ur.setAssignedBy(actorUuid);
+            userRoleRepository.save(ur);
+        }
+    }
 
     private void assignRoles(User user, List<UUID> roleIds) {
         List<UserRole> newRoles = new ArrayList<>();

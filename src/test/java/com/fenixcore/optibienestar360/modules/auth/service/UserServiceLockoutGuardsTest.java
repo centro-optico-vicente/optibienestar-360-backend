@@ -240,7 +240,7 @@ class UserServiceLockoutGuardsTest {
 
         AdminCreateUserRequest request = new AdminCreateUserRequest(
                 "new@example.com", "First", null, "Last", null, "password1",
-                "V", "12345678", null, null, null, List.of(SYSTEM_ROLE_UUID));
+                "V", "12345678", null, null, null, List.of(SYSTEM_ROLE_UUID), null);
 
         assertThatThrownBy(() -> userService.createUser(request, otherActorUuid))
                 .isInstanceOf(AccessDeniedException.class)
@@ -296,7 +296,7 @@ class UserServiceLockoutGuardsTest {
                 firstName, null, null, null,
                 null, null, null, null,
                 null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     private AdminUpdateUserRequest updateWithActive(boolean active) {
@@ -304,7 +304,7 @@ class UserServiceLockoutGuardsTest {
                 null, null, null, null,
                 null, null, null, null,
                 null, null,
-                null, /* active */ active, null);
+                null, /* active */ active, null, null);
     }
 
     private AdminUpdateUserRequest updateWithStatus(String status) {
@@ -312,7 +312,7 @@ class UserServiceLockoutGuardsTest {
                 null, null, null, null,
                 null, null, null, null,
                 null, null,
-                /* status */ status, null, null);
+                /* status */ status, null, null, null);
     }
 
     private AdminUpdateUserRequest updateWithRoleIds(List<UUID> roleIds) {
@@ -320,7 +320,7 @@ class UserServiceLockoutGuardsTest {
                 null, null, null, null,
                 null, null, null, null,
                 null, null,
-                null, null, /* roleIds */ roleIds);
+                null, null, /* roleIds */ roleIds, null);
     }
 
     private AdminUpdateUserRequest updateProfileFields(String firstName, String phone) {
@@ -328,6 +328,6 @@ class UserServiceLockoutGuardsTest {
                 firstName, null, null, null,
                 null, null, null, null,
                 phone, null,
-                null, null, null);
+                null, null, null, null);
     }
 }
