@@ -67,6 +67,23 @@ public class HierarchyOverrideTier extends BaseEntity {
     @Column(name = "period_strategy", length = 20, nullable = false)
     private Commission.PeriodStrategy periodStrategy = Commission.PeriodStrategy.MONTHLY;
 
+    /**
+     * How often a partial cut of this band is disbursed (V112, hub plan §3)
+     * — same independent axis as {@link CommissionTier#getPayoutPeriodStrategy()}.
+     * Consumed by {@code HierarchyOverridePeriodicSettlementService}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payout_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy payoutPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+
+    /**
+     * The containing window whose close triggers the retroactive top-up to
+     * the final highest-qualifying band (V112, hub plan §3).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy settlementPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+
     /** The two override categories — apertura (INSCRIPTION) and cobranza (COLLECTION). */
     public enum OverrideCategory {
         INSCRIPTION, COLLECTION

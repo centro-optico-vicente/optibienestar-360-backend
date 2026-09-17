@@ -71,6 +71,29 @@ public class CommissionTier extends BaseEntity {
     @Column(name = "period_strategy", length = 20, nullable = false)
     private PeriodStrategy periodStrategy = PeriodStrategy.MONTHLY;
 
+    /**
+     * How often a partial cut of this rule is disbursed (V112, hub plan §3) —
+     * independent from {@link #periodStrategy}, which only sizes the volume
+     * window {@link #thresholdCount} is measured against. Consumed by {@code
+     * CommissionPeriodicSettlementService} together with {@link
+     * #settlementPeriodStrategy} via {@code PeriodCutCalculator}. Default
+     * {@code MONTHLY} (same as {@link #settlementPeriodStrategy}) yields a
+     * single cut equal to the whole settlement window — today's behavior.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payout_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy payoutPeriodStrategy = PeriodStrategy.MONTHLY;
+
+    /**
+     * The containing window whose close triggers the retroactive top-up to
+     * the final highest-qualifying band (V112, hub plan §3) — the
+     * {@code settlementStart}/{@code settlementEnd} bounds passed to {@code
+     * PeriodCutCalculator.cuts}/{@code cutContaining}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy settlementPeriodStrategy = PeriodStrategy.MONTHLY;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "applies_to", length = 20, nullable = false)
     private AppliesTo appliesTo = AppliesTo.BOTH;

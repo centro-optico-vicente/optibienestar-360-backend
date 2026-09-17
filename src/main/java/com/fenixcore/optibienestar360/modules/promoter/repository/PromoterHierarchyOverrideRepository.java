@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.repository;
 
+import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterHierarchyOverride;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -61,4 +62,30 @@ public interface PromoterHierarchyOverrideRepository extends JpaRepository<Promo
     List<PromoterHierarchyOverride> findPaidForPeriod(
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd);
+
+    /**
+     * Powers {@code HierarchyOverridePeriodicSettlementService} (V112, hub
+     * plan §3) — every PENDING override of a single beneficiary/category
+     * whose period falls inside a single <b>cut</b> (the caller passes the
+     * {@code PeriodCutCalculator} cut bounds, not the whole settlement
+     * window). Still {@code PENDING} at this point — like {@code
+     * CommissionPayoutService}, the caller must additionally confirm the
+     * root commission is {@code APPROVED} before disbursing (overrides carry
+     * no approval state of their own).
+     */
+    @Query("""
+            SELECT o FROM PromoterHierarchyOverride o
+            WHERE o.active = true
+              AND o.status = 'PENDING'
+              AND o.promoter.id = :promoterId
+              AND o.category = :category
+              AND o.periodStart >= :cutStart
+              AND o.periodEnd   <= :cutEnd
+            ORDER BY o.earnedAt
+            """)
+    List<PromoterHierarchyOverride> findPendingForPromoterCategoryInPeriod(
+            @Param("promoterId") Long promoterId,
+            @Param("category") OverrideCategory category,
+            @Param("cutStart") LocalDate cutStart,
+            @Param("cutEnd") LocalDate cutEnd);
 }
