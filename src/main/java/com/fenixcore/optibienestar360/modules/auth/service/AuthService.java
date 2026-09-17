@@ -13,8 +13,10 @@ import com.fenixcore.optibienestar360.modules.auth.dto.LogoutRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RecoverPasswordRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RefreshRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.ResetPasswordRequest;
+import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.SecurityPolicy;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserPasswordHistory;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserSessionLog;
 import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
@@ -115,7 +117,13 @@ public class AuthService {
 
         resetFailedAttempts(user);
 
-        List<String> permissions = collectPermissions(user);
+        // The active role for a fresh login is the user's default role when it
+        // is itself an effective assignment, otherwise the oldest effective one
+        // (PermissionResolver.resolveDefaultActiveRole) — permissions are scoped
+        // to THIS role only, not the union of every role the user holds.
+        UserRole activeUserRole = permissionResolver.resolveDefaultActiveRole(user);
+        Role activeRole = activeUserRole.getRole();
+        List<String> permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRole.getUuid());
         String subject = user.getUuid().toString();
         String userLocale = user.getPerson().getLocale();
         String effectiveLocale = resolveEffectiveLocale(userLocale);
@@ -127,9 +135,10 @@ public class AuthService {
         // tokens simply carry no sid (JwtAuthenticationFilter treats that as "no
         // session check to perform", never a rejection).
         Optional<UUID> sessionId = loginAuditService.startSession(user.getId(), user.getEmail(), roleNames,
-                effectiveLocale, ip, userAgent, hostname, refreshExpirationDays);
+                effectiveLocale, ip, userAgent, hostname, refreshExpirationDays, activeRole.getId());
 
-        String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale, sessionId.orElse(null));
+        String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale, sessionId.orElse(null),
+                activeRole.getUuid(), activeRole.getName());
         String refreshToken = jwtService.generateRefreshToken(subject, sessionId.orElse(null));
 
         String accessJti  = jwtService.extractJti(accessToken);
@@ -178,8 +187,29 @@ public class AuthService {
         // login_audit_log session row, it doesn't start a new one.
         UUID sessionId = jwtService.extractSessionId(token);
 
-        List<String> permissions = collectPermissions(user);
-        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale(), sessionId);
+        // A silent refresh cannot change the active role — carry it forward
+        // from the incoming token (absent on tokens minted before this claim
+        // existed, in which case the reissued token stays roleless too). If
+        // that role stopped being effective in the meantime (e.g. an admin
+        // revoked it), fall back to the user's current default role rather
+        // than failing the refresh outright.
+        UUID activeRoleUuid = jwtService.extractActiveRoleUuid(token);
+        String activeRoleName = jwtService.extractActiveRoleName(token);
+        List<String> permissions;
+        if (activeRoleUuid != null) {
+            try {
+                permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
+            } catch (IllegalArgumentException stale) {
+                UserRole fallback = permissionResolver.resolveDefaultActiveRole(user);
+                activeRoleUuid = fallback.getRole().getUuid();
+                activeRoleName = fallback.getRole().getName();
+                permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
+            }
+        } else {
+            permissions = collectPermissions(user);
+        }
+        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale(),
+                sessionId, activeRoleUuid, activeRoleName);
         String newRefreshToken = jwtService.generateRefreshToken(subject, sessionId);
 
         String newAccessJti    = jwtService.extractJti(newAccessToken);
@@ -225,6 +255,84 @@ public class AuthService {
             session.setLogoutReason("user_logout");
             sessionLogRepository.save(session);
         });
+    }
+
+    // ─── Active-role switch ───────────────────────────────────────────────────
+
+    /**
+     * Switches the caller's active role for the current session: closes the
+     * current {@code login_audit_log}/{@code user_sessions_log} session
+     * (reason {@code "role_switch"}, same shape as {@code logout()}) and opens
+     * a brand-new one scoped to {@code targetRoleUuid}, rotating both access
+     * and refresh tokens — equivalent to a fresh login, minus the password,
+     * since the caller is already authenticated.
+     *
+     * @throws IllegalArgumentException if {@code targetRoleUuid} isn't an
+     *         effective (active, non-expired) role assignment of this user.
+     */
+    @Transactional
+    public LoginResponse switchActiveRole(UUID userUuid, UUID targetRoleUuid, String currentJti, UUID currentSessionId,
+                                           String currentRefreshToken, HttpServletRequest httpRequest) {
+        User user = userRepository.findWithRolesByUuid(userUuid)
+                .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
+
+        // Validates targetRoleUuid is an effective assignment before touching the old session.
+        List<String> permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, targetRoleUuid);
+        Role targetRole = user.getUserRoles().stream()
+                .map(UserRole::getRole)
+                .filter(r -> targetRoleUuid.equals(r.getUuid()))
+                .findFirst()
+                .orElseThrow();
+
+        String subject = user.getUuid().toString();
+        String userLocale = user.getPerson().getLocale();
+        String ip = resolveClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String hostname = httpRequest.getRemoteHost();
+        List<String> allRoleNames = user.getUserRoles().stream().map(ur -> ur.getRole().getName()).toList();
+
+        // 1) Close the old session — same steps as logout(), reason "role_switch".
+        if (currentJti != null) {
+            blacklistService.blacklistAccessToken(currentJti, (long) accessExpirationMinutes * 60);
+        }
+        loginAuditService.closeSession(currentSessionId, "role_switch");
+        if (currentRefreshToken != null) {
+            try {
+                blacklistService.revokeRefreshToken(jwtService.extractJti(currentRefreshToken), subject);
+            } catch (Exception e) {
+                log.debug("Could not revoke refresh token during role switch: {}", e.getMessage());
+            }
+        }
+        if (currentJti != null) {
+            sessionLogRepository.findByJtiAndLogoutAtIsNull(currentJti).ifPresent(session -> {
+                session.setLogoutAt(Instant.now());
+                session.setLogoutReason("role_switch");
+                sessionLogRepository.save(session);
+            });
+        }
+
+        // 2) Open a brand-new session for the target role — same shape as login().
+        Optional<UUID> newSessionId = loginAuditService.startSession(user.getId(), user.getEmail(), allRoleNames,
+                userLocale, ip, userAgent, hostname, refreshExpirationDays, targetRole.getId());
+
+        String newAccessToken  = jwtService.generateAccessToken(subject, permissions, userLocale,
+                newSessionId.orElse(null), targetRole.getUuid(), targetRole.getName());
+        String newRefreshToken = jwtService.generateRefreshToken(subject, newSessionId.orElse(null));
+
+        String newAccessJti = jwtService.extractJti(newAccessToken);
+        newSessionId.ifPresent(sid -> loginAuditService.attachJti(sid, newAccessJti));
+
+        long refreshTtlSeconds = (long) refreshExpirationDays * 24 * 60 * 60;
+        blacklistService.storeRefreshToken(jwtService.extractJti(newRefreshToken), subject, refreshTtlSeconds);
+
+        logSession(user, newAccessJti, httpRequest, userLocale);
+
+        return LoginResponse.of(
+                newAccessToken,
+                newRefreshToken,
+                (long) accessExpirationMinutes * 60,
+                userMapper.toDto(user)
+        );
     }
 
     // ─── Password Recovery ────────────────────────────────────────────────────

@@ -32,5 +32,6 @@ public record AdminCreateUserRequest(
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}") String taxDocumentType,
         @Size(max = 20) String taxDocumentNumber,
         @Size(max = 30) String phone,
-        @NotEmpty List<UUID> roleIds
+        @NotEmpty List<UUID> roleIds,
+        UUID defaultRoleUuid
 ) {}

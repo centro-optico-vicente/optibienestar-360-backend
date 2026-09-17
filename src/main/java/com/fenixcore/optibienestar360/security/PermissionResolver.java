@@ -7,8 +7,10 @@ import com.fenixcore.optibienestar360.modules.auth.repository.PermissionReposito
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
 
 /**
  * Single source of truth for the permission names a user effectively holds —
@@ -46,7 +48,7 @@ public class PermissionResolver {
             ;
         }
         return user.getUserRoles().stream()
-            .filter(this::isEffective)
+            .filter(UserRole::isEffective)
             .flatMap(ur -> ur.getRole().getPermissions().stream())
             .map(Permission::getName)
             .distinct()
@@ -54,17 +56,72 @@ public class PermissionResolver {
         ;
     }
 
-    private boolean hasSystemRole(User user) {
-        return user.getUserRoles().stream()
-            .filter(this::isEffective)
-            .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()))
+    /**
+     * @return the permissions granted by the single active role {@code roleUuid}
+     *         — used once a session has an "active role" (login, switch-role),
+     *         as opposed to {@link #resolvePermissionNames} which still unions
+     *         every effective role (kept for {@code UserDetailsServiceImpl}).
+     *         SYSTEM as the active role still yields the full catalog.
+     * @throws IllegalArgumentException if {@code roleUuid} isn't an effective
+     *         (active, non-expired) assignment of this user.
+     */
+    public List<String> resolvePermissionNamesForActiveRole(User user, UUID roleUuid) {
+        UserRole match = user.getUserRoles().stream()
+            .filter(UserRole::isEffective)
+            .filter(ur -> roleUuid.equals(ur.getRole().getUuid()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("role.not_assigned_or_expired"))
+        ;
+
+        if (SYSTEM_ROLE_NAME.equals(match.getRole().getName())) {
+            return permissionRepository.findAll().stream()
+                .map(Permission::getName)
+                .distinct()
+                .toList()
+            ;
+        }
+        return match.getRole().getPermissions().stream()
+            .map(Permission::getName)
+            .distinct()
+            .toList()
         ;
     }
 
-    /** Active assignment that has not expired. */
-    private boolean isEffective(UserRole ur) {
-        return ur.isActive()
-            && (ur.getExpiresAt() == null || ur.getExpiresAt().isAfter(Instant.now()))
+    /**
+     * @return the {@link UserRole} to use as the session's active role:
+     *         {@code user.getDefaultRole()} when it is itself an effective
+     *         assignment, otherwise the effective assignment held longest
+     *         (oldest {@code createdAt}, tie-broken by role id) — a
+     *         deterministic "original role" fallback for users with no
+     *         default set, or whose default is no longer effective.
+     * @throws NoSuchElementException if the user has no effective role at all.
+     */
+    public UserRole resolveDefaultActiveRole(User user) {
+        List<UserRole> effective = user.getUserRoles().stream().filter(UserRole::isEffective).toList();
+        if (effective.isEmpty()) {
+            throw new NoSuchElementException("user.no_effective_roles");
+        }
+
+        var defaultRole = user.getDefaultRole();
+        if (defaultRole != null) {
+            for (UserRole ur : effective) {
+                if (ur.getRole().getId().equals(defaultRole.getId())) {
+                    return ur;
+                }
+            }
+        }
+
+        return effective.stream()
+            .min(Comparator.comparing(UserRole::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(ur -> ur.getRole().getId()))
+            .orElseThrow()
+        ;
+    }
+
+    private boolean hasSystemRole(User user) {
+        return user.getUserRoles().stream()
+            .filter(UserRole::isEffective)
+            .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()))
         ;
     }
 }

@@ -40,7 +40,18 @@ public class JwtService {
 
     /** @param sessionId the {@code sid} claim (login_audit_log.uuid) — null when no session row was created. */
     public String generateAccessToken(String subject, List<String> permissions, String locale, UUID sessionId) {
-        return buildToken(subject, permissions, accessExpirationMs, "access", locale, sessionId);
+        return buildToken(subject, permissions, accessExpirationMs, "access", locale, sessionId, null, null);
+    }
+
+    /**
+     * @param roleUuid the session's active role {@code role_uuid} claim (roles.uuid).
+     * @param roleName the active role's name, e.g. {@code "OPERADOR"} — carried
+     *                  alongside {@code role_uuid} so the frontend can read it
+     *                  straight off the decoded token, same as {@code permissions}.
+     */
+    public String generateAccessToken(String subject, List<String> permissions, String locale, UUID sessionId,
+                                       UUID roleUuid, String roleName) {
+        return buildToken(subject, permissions, accessExpirationMs, "access", locale, sessionId, roleUuid, roleName);
     }
 
     public String generateRefreshToken(String subject) {
@@ -48,7 +59,7 @@ public class JwtService {
     }
 
     public String generateRefreshToken(String subject, UUID sessionId) {
-        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null, sessionId);
+        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null, sessionId, null, null);
     }
 
     public Claims extractAllClaims(String token) {
@@ -78,6 +89,18 @@ public class JwtService {
     public UUID extractSessionId(String token) {
         Object sid = extractAllClaims(token).get("sid");
         return (sid instanceof String s) ? UUID.fromString(s) : null;
+    }
+
+    /** The active role's {@code role_uuid} claim — null for tokens issued before this claim existed. */
+    public UUID extractActiveRoleUuid(String token) {
+        Object roleUuid = extractAllClaims(token).get("role_uuid");
+        return (roleUuid instanceof String s) ? UUID.fromString(s) : null;
+    }
+
+    /** The active role's {@code role_name} claim — null for tokens issued before this claim existed. */
+    public String extractActiveRoleName(String token) {
+        Object roleName = extractAllClaims(token).get("role_name");
+        return (roleName instanceof String s) ? s : null;
     }
 
     public boolean isValid(String token) {
@@ -116,7 +139,8 @@ public class JwtService {
         return Math.max(0L, remaining / 1_000);
     }
 
-    private String buildToken(String subject, List<String> roles, long ttlMs, String type, String locale, UUID sessionId) {
+    private String buildToken(String subject, List<String> roles, long ttlMs, String type, String locale, UUID sessionId,
+                               UUID roleUuid, String roleName) {
         Date now = new Date();
         var builder = Jwts.builder()
                 .id(UUID.randomUUID().toString())
@@ -131,6 +155,12 @@ public class JwtService {
         }
         if (sessionId != null) {
             builder.claim("sid", sessionId.toString());
+        }
+        if (roleUuid != null) {
+            builder.claim("role_uuid", roleUuid.toString());
+        }
+        if (roleName != null && !roleName.isBlank()) {
+            builder.claim("role_name", roleName);
         }
         return builder.signWith(secretKey).compact();
     }

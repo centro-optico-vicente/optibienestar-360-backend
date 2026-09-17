@@ -29,5 +29,6 @@ public record AdminUpdateUserRequest(
         @Pattern(regexp = "^(ACTIVE|SUSPENDED|LOCKED)$",
                  message = "{validation.user_status.allowed_values}") String status,
         Boolean active,
-        List<UUID> roleIds
+        List<UUID> roleIds,
+        UUID defaultRoleUuid
 ) {}

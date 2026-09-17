@@ -57,6 +57,10 @@ public class LoginAuditLog {
     @Column(columnDefinition = "jsonb")
     private List<String> roles;
 
+    /** The session's active role at issuance (roles.roles_id) — distinct from {@link #roles}, which snapshots ALL roles assigned at login time. Null for rows predating this column. */
+    @Column(name = "active_role_id")
+    private Long activeRoleId;
+
     @Column(length = 10)
     private String locale;
 

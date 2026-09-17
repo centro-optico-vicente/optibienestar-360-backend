@@ -17,8 +17,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -85,6 +89,94 @@ class PermissionResolverTest {
         verifyNoInteractions(permissionRepository);
     }
 
+    // ─── resolvePermissionNamesForActiveRole ───────────────────────────────
+
+    @Test
+    void activeRole_system_getsFullCatalogRegardlessOfOwnPermissions() {
+        Role system = role("SYSTEM", perm("USER_VIEW_ALL"));
+        User u = userWith(system);
+        when(permissionRepository.findAll()).thenReturn(List.of(
+                perm("USER_VIEW_ALL"), perm("PAYMENT_APPROVE")));
+
+        List<String> names = resolver.resolvePermissionNamesForActiveRole(u, system.getUuid());
+
+        assertThat(names).containsExactlyInAnyOrder("USER_VIEW_ALL", "PAYMENT_APPROVE");
+    }
+
+    @Test
+    void activeRole_normalRole_yieldsOnlyThatRolesPermissions_notTheUnion() {
+        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
+        Role operador = role("OPERADOR", perm("PAYMENT_APPROVE"));
+        User u = new User();
+        u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, null), assignment(operador, true, null))));
+
+        List<String> names = resolver.resolvePermissionNamesForActiveRole(u, admin.getUuid());
+
+        assertThat(names).containsExactly("USER_VIEW_ALL");
+        verifyNoInteractions(permissionRepository);
+    }
+
+    @Test
+    void activeRole_notAnEffectiveAssignment_throws() {
+        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
+        User u = userWith(admin);
+
+        assertThatThrownBy(() -> resolver.resolvePermissionNamesForActiveRole(u, UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void activeRole_expiredAssignment_throws() {
+        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
+        User u = new User();
+        u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, Instant.now().minus(1, ChronoUnit.DAYS)))));
+
+        assertThatThrownBy(() -> resolver.resolvePermissionNamesForActiveRole(u, admin.getUuid()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ─── resolveDefaultActiveRole ──────────────────────────────────────────
+
+    @Test
+    void defaultActiveRole_usesUsersDefaultRole_whenItIsEffective() {
+        Role admin = role("ADMINISTRADOR");
+        Role operador = role("OPERADOR");
+        User u = new User();
+        u.setDefaultRole(operador);
+        u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, null), assignment(operador, true, null))));
+
+        UserRole active = resolver.resolveDefaultActiveRole(u);
+
+        assertThat(active.getRole()).isEqualTo(operador);
+    }
+
+    @Test
+    void defaultActiveRole_fallsBackToOldestEffectiveAssignment_whenDefaultIsNotEffective() {
+        Role admin = role("ADMINISTRADOR");
+        Role operador = role("OPERADOR");
+        User u = new User();
+        u.setDefaultRole(operador); // assigned but inactive below → not effective
+
+        UserRole adminAssignment = assignment(admin, true, null);
+        adminAssignment.setCreatedAt(Instant.now().minus(2, ChronoUnit.DAYS));
+        UserRole operadorAssignment = assignment(operador, false, null);
+
+        u.setUserRoles(new ArrayList<>(List.of(operadorAssignment, adminAssignment)));
+
+        UserRole active = resolver.resolveDefaultActiveRole(u);
+
+        assertThat(active.getRole()).isEqualTo(admin);
+    }
+
+    @Test
+    void defaultActiveRole_noEffectiveRoles_throws() {
+        User u = new User();
+        u.setUserRoles(new ArrayList<>());
+
+        assertThatThrownBy(() -> resolver.resolveDefaultActiveRole(u))
+                .isInstanceOf(NoSuchElementException.class);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private Permission perm(String name) {
@@ -93,8 +185,12 @@ class PermissionResolverTest {
         return p;
     }
 
+    private static final AtomicLong ROLE_ID_SEQ = new AtomicLong(1);
+
     private Role role(String name, Permission... perms) {
         Role r = new Role();
+        r.setId(ROLE_ID_SEQ.getAndIncrement());
+        r.setUuid(UUID.randomUUID());
         r.setName(name);
         r.setPermissions(new HashSet<>(Arrays.asList(perms)));
         return r;
@@ -105,6 +201,7 @@ class PermissionResolverTest {
         ur.setRole(role);
         ur.setActive(active);
         ur.setExpiresAt(expiresAt);
+        ur.setCreatedAt(Instant.now());
         return ur;
     }
 
