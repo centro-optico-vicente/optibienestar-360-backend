@@ -172,6 +172,31 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
             @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
 
     /**
+     * Powers {@code CommissionPeriodicSettlementService} (V112, hub plan §3)
+     * — every APPROVED commission of a single promoter, scoped to one
+     * {@link Commission.AppliesTo}, whose period falls inside a single
+     * <b>cut</b> (not the whole settlement window — the caller passes the
+     * {@code PeriodCutCalculator} cut bounds). Mirrors {@link
+     * #findApprovedForPeriod} but promoter-scoped, since a partial-cut
+     * settlement re-prices one promoter's cut at a time.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status = 'APPROVED'
+              AND c.promoter.id = :promoterId
+              AND c.appliesTo = :appliesTo
+              AND c.periodStart >= :cutStart
+              AND c.periodEnd   <= :cutEnd
+            ORDER BY c.earnedAt
+            """)
+    List<Commission> findApprovedForPromoterAppliesToInPeriod(
+            @org.springframework.data.repository.query.Param("promoterId") Long promoterId,
+            @org.springframework.data.repository.query.Param("appliesTo") Commission.AppliesTo appliesTo,
+            @org.springframework.data.repository.query.Param("cutStart") LocalDate cutStart,
+            @org.springframework.data.repository.query.Param("cutEnd")   LocalDate cutEnd);
+
+    /**
      * Powers {@code CommissionApprovalService.approveRows}/{@code
      * rejectRows} (V107, PR5) — resolves the exact rows the request targets
      * regardless of status, so the service itself decides whether each one
