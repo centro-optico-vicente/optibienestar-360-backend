@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterRankCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterRankDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterRankReorderRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterRankUpdateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterRankService;
 import jakarta.validation.Valid;
@@ -45,6 +46,7 @@ public class AdminPromoterRankController {
     private static final String CREATE = "hasAuthority('PROMOTER_RANK_CREATE')";
     private static final String UPDATE = "hasAuthority('PROMOTER_RANK_UPDATE')";
     private static final String DELETE = "hasAuthority('PROMOTER_RANK_DELETE')";
+    private static final String REORDER = "hasAuthority('PROMOTER_RANK_REORDER')";
 
     private final PromoterRankService service;
 
@@ -102,5 +104,18 @@ public class AdminPromoterRankController {
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         service.delete(uuid);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Moves {@code uuid} to the position immediately after {@code
+     * req.afterRankUuid()} (or the beginning, if {@code null}) in the
+     * hierarchy (V111). Returns the full, freshly-ordered list of active
+     * ranks so the frontend can redraw without a follow-up {@code list} call.
+     */
+    @PutMapping("/{uuid}/reorder")
+    @PreAuthorize(REORDER)
+    public ResponseEntity<List<PromoterRankDto>> reorder(@PathVariable UUID uuid,
+                                                          @Valid @RequestBody PromoterRankReorderRequest req) {
+        return ResponseEntity.ok(service.reorder(uuid, req));
     }
 }

@@ -11,5 +11,7 @@ public record PromoterRankDto(
         int hierarchyLevel,
         Integer maxSubordinates,
         String description,
+        /** Immediate superior rank's uuid (V111) — {@code null} means top of the chain. */
+        UUID parentRankUuid,
         @Display(Display.Kind.BOOLEAN) boolean active
 ) {}

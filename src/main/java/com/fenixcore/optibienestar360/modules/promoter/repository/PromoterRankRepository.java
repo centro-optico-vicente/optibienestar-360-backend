@@ -33,4 +33,11 @@ public interface PromoterRankRepository extends JpaRepository<PromoterRank, Long
      * default "only the immediate next rank up" scope.
      */
     Optional<PromoterRank> findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(int hierarchyLevel);
+
+    /**
+     * Direct children of {@code parent} (V111) — used by {@code
+     * PromoterRankService.reorder} to re-validate the parent/child invariant
+     * of every rank that has the just-moved rank as its {@code parentRank}.
+     */
+    List<PromoterRank> findAllByParentRankAndActiveTrue(PromoterRank parent);
 }
