@@ -74,7 +74,8 @@ public class PromotersService {
             SortFieldValidator.sortableFieldsOf(Promoter.class, Map.of(
                     "user_Display", "user.email",
                     "person_Display", "person.fullName",
-                    "promoterType_Display", "promoterType.name"
+                    "promoterType_Display", "promoterType.name",
+                    "rank_Display", "rank.name"
             ));
 
     /** Length of an auto-generated promoter code — short per PDF #4 ("ej. 6 chars"). */

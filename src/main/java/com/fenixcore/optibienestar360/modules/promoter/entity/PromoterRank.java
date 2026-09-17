@@ -4,6 +4,9 @@ import com.fenixcore.optibienestar360.core.entity.BaseAuditEntity;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,4 +43,15 @@ public class PromoterRank extends BaseAuditEntity {
 
     @Column(length = 200)
     private String description;
+
+    /**
+     * The immediate superior rank (V111) — the "boss" of this rank, mirroring
+     * {@code promoters.supervisor_id}'s semantics. {@code null} means this
+     * rank is the top of the chain. {@code hierarchyLevel} remains the sole
+     * comparison key for "is X above Y" checks; this reference is what makes
+     * the chain editable/reorderable without recomputing it from levels.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_rank_id")
+    private PromoterRank parentRank;
 }
