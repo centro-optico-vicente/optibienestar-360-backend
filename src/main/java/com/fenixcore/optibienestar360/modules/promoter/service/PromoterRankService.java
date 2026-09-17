@@ -190,16 +190,24 @@ public class PromoterRankService {
         int index = afterRank == null ? -1 : ordered.indexOf(afterRank);
         PromoterRank nextRank = (index + 1 < ordered.size()) ? ordered.get(index + 1) : null;
 
-        int newLevel = midpoint(
+        OptionalInt firstAttempt = midpoint(
                 afterRank == null ? null : afterRank.getHierarchyLevel(),
-                nextRank == null ? null : nextRank.getHierarchyLevel())
-                .orElseGet(() -> {
-                    renumberActiveRanksInGapsOfTen();
-                    return midpoint(
-                            afterRank == null ? null : afterRank.getHierarchyLevel(),
-                            nextRank == null ? null : nextRank.getHierarchyLevel())
-                            .orElseThrow(() -> new IllegalStateException("promoter_rank.reorder.no_room_after_renumber"));
-                });
+                nextRank == null ? null : nextRank.getHierarchyLevel());
+
+        int newLevel;
+        if (firstAttempt.isPresent()) {
+            newLevel = firstAttempt.getAsInt();
+        } else {
+            renumberActiveRanksInGapsOfTen();
+            Integer afterLevel = afterRank == null ? null : repository.findById(afterRank.getId())
+                    .orElseThrow(() -> new NoSuchElementException("promoter_rank.not_found"))
+                    .getHierarchyLevel();
+            Integer nextLevel = nextRank == null ? null : repository.findById(nextRank.getId())
+                    .orElseThrow(() -> new NoSuchElementException("promoter_rank.not_found"))
+                    .getHierarchyLevel();
+            newLevel = midpoint(afterLevel, nextLevel)
+                    .orElseThrow(() -> new IllegalStateException("promoter_rank.reorder.no_room_after_renumber"));
+        }
 
         if (target.getParentRank() != null && target.getParentRank().getHierarchyLevel() <= newLevel) {
             throw new IllegalArgumentException("promoter_rank.reorder.parent_conflict");
