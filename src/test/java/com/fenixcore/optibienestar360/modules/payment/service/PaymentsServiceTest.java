@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
@@ -53,6 +54,7 @@ class PaymentsServiceTest {
     @Mock private PaymentMethodRepository paymentMethodRepository;
     @Mock private PromoterRepository promoterRepository;
     @Mock private MembershipRepository membershipRepository;
+    @Mock private MemberRepository memberRepository;
     @Mock private UserRepository userRepository;
     @Mock private CurrencyRepository currencyRepository;
     @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
@@ -70,7 +72,7 @@ class PaymentsServiceTest {
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
-                promoterRepository, membershipRepository, userRepository, currencyRepository,
+                promoterRepository, membershipRepository, memberRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
                 validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
                 presignedUrlPolicy, fileValidationService);
