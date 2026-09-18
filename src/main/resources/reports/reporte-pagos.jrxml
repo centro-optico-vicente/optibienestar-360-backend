@@ -42,18 +42,18 @@
             p.uuid AS payment_uuid,
             p.payment_date,
             p.received_at,
-            p.payment_method,
-            CASE 
-                WHEN p.payment_method = 'CASH' THEN 'Efectivo'
-                WHEN p.payment_method = 'PAGO_MOVIL' THEN 'Pago Móvil'
-                WHEN p.payment_method = 'ZELLE' THEN 'Zelle'
-                WHEN p.payment_method = 'BANK_TRANSFER' THEN 'Transferencia Bancaria'
-                WHEN p.payment_method = 'INTERNATIONAL_TRANSFER' THEN 'Transferencia Internacional'
-                WHEN p.payment_method = 'CRYPTO' THEN 'Cripto'
-                WHEN p.payment_method = 'OTHER' THEN 'Otro'
-                ELSE p.payment_method 
+            pm.code AS payment_method,
+            CASE
+                WHEN pm.code = 'CASH' THEN 'Efectivo'
+                WHEN pm.code = 'PAGO_MOVIL' THEN 'Pago Móvil'
+                WHEN pm.code = 'ZELLE' THEN 'Zelle'
+                WHEN pm.code = 'BANK_TRANSFER' THEN 'Transferencia Bancaria'
+                WHEN pm.code = 'INTERNATIONAL_TRANSFER' THEN 'Transferencia Internacional'
+                WHEN pm.code = 'CRYPTO' THEN 'Cripto'
+                WHEN pm.code = 'OTHER' THEN 'Otro'
+                ELSE pm.code
             END AS payment_method_label,
-            COALESCE(p.reference_number, 'S/R') AS reference_number,
+            COALESCE(pline.reference_number, 'S/R') AS reference_number,
             p.status AS payment_status,
             CASE 
                 WHEN p.status = 'APPROVED' THEN 'Aprobado'
@@ -94,6 +94,8 @@
             COALESCE(pr.display_name, 'Directo / Sin Promotor') AS promoter_name,
             COALESCE(pr.referral_code, '-') AS promoter_referral_code
         FROM app.payments p
+        LEFT JOIN app.payment_lines pline ON pline.payment_id = p.payments_id
+        LEFT JOIN app.payment_methods pm ON pm.payment_methods_id = pline.payment_type_id
         JOIN app.currencies cur ON p.currency_id = cur.currencies_id
         JOIN app.memberships ms ON p.membership_id = ms.memberships_id
         JOIN app.plans pl ON ms.plan_id = pl.plans_id
@@ -159,11 +161,11 @@
           AND ($P{P_START_DATE}::date IS NULL OR p.payment_date >= $P{P_START_DATE}::date)
           AND ($P{P_END_DATE}::date IS NULL OR p.payment_date <= $P{P_END_DATE}::date)
           AND ($P{P_STATUS}::varchar IS NULL OR $P{P_STATUS} = '' OR p.status = $P{P_STATUS}::varchar)
-          AND ($P{P_PAYMENT_METHOD}::varchar IS NULL OR $P{P_PAYMENT_METHOD} = '' OR p.payment_method = $P{P_PAYMENT_METHOD}::varchar)
+          AND ($P{P_PAYMENT_METHOD}::varchar IS NULL OR $P{P_PAYMENT_METHOD} = '' OR pm.code = $P{P_PAYMENT_METHOD}::varchar)
           AND ($P{P_PLAN_ID}::bigint IS NULL OR pl.plans_id = $P{P_PLAN_ID}::bigint)
           AND ($P{P_PROMOTER_ID}::bigint IS NULL OR pr.promoters_id = $P{P_PROMOTER_ID}::bigint)
-        ORDER BY 
-            p.payment_method ASC,
+        ORDER BY
+            pm.code ASC,
             p.payment_date DESC,
             p.payments_id DESC
         ]]>

@@ -78,9 +78,21 @@ public final class DisplayRefs {
 		return DisplayRef.of(membership.getUuid(), null, plan != null ? plan.name() : null);
 	}
 
-	/** A payment is labelled by its reference number — the same value the admin sees on the record itself. */
+	/**
+	 * A payment is labelled by its reference number — the same value the
+	 * admin sees on the record itself. Since V117 that value lives on
+	 * {@code payment_lines}, not the header — reads the (today, always
+	 * single) first line, {@code null}-safe when it hasn't been persisted.
+	 */
 	public static DisplayRef ref(Payment payment) {
-		return payment == null ? null : DisplayRef.of(payment.getUuid(), payment.getReferenceNumber(), null);
+		if (payment == null) {
+			return null;
+		}
+		String referenceNumber = payment.getLines().stream()
+				.findFirst()
+				.map(com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine::getReferenceNumber)
+				.orElse(null);
+		return DisplayRef.of(payment.getUuid(), referenceNumber, null);
 	}
 
 	/** Reflective fallback — works for catalogs, plan, ally, promoter, contract, tiers… */

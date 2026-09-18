@@ -85,8 +85,8 @@
             (m_p.document_type || '-' || m_p.document_number) AS member_document,
             p.payments_id,
             p.payment_date,
-            p.payment_method,
-            p.reference_number AS payment_reference,
+            pm.code AS payment_method,
+            pline.reference_number AS payment_reference,
             p.amount AS payment_amount,
             pl.name AS plan_name
         FROM app.commissions c
@@ -97,6 +97,8 @@
         JOIN app.members m ON c.member_id = m.members_id
         JOIN app.persons m_p ON m.person_id = m_p.persons_id
         JOIN app.payments p ON c.payment_id = p.payments_id
+        LEFT JOIN app.payment_lines pline ON pline.payment_id = p.payments_id
+        LEFT JOIN app.payment_methods pm ON pm.payment_methods_id = pline.payment_type_id
         LEFT JOIN app.memberships ms ON p.membership_id = ms.memberships_id
         LEFT JOIN app.plans pl ON ms.plan_id = pl.plans_id
         LEFT JOIN LATERAL (

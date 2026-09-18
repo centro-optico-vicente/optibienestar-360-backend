@@ -1,8 +1,12 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -37,6 +41,8 @@ public class BeneficiaryInscriptionBiller {
 
     private final PaymentRepository paymentRepository;
     private final CurrencyRepository currencyRepository;
+    private final PaymentCategoryRepository paymentCategoryRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
 
     /**
      * Registers a PENDING extra-beneficiary inscription payment against the
@@ -48,13 +54,33 @@ public class BeneficiaryInscriptionBiller {
         payment.setMembership(membership);
         payment.setAmount(fee);
         // plan pricing is USD (ADR 0008)
-        payment.setCurrency(currencyRepository.findByCode("USD")
-                .orElseThrow(() -> new NoSuchElementException("currency.not_found")));
-        payment.setPaymentMethod(Payment.PaymentMethod.OTHER);
+        Currency usd = currencyRepository.findByCode("USD")
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+        payment.setCurrency(usd);
         payment.setPaymentDate(LocalDate.now());
         payment.setInscription(true);   // V23 CHECK: inscription rows carry no applied_period
         payment.setStatus(Payment.PaymentStatus.PENDING.name());
         payment.setAdminNotes("Inscripción de afiliado adicional (excede beneficiarios incluidos del plan)");
+
+        // Header (V117): always a collection (IN); reason is always
+        // INSCRIPTION_FEE for this flow.
+        payment.setDirection("IN");
+        payment.setPaymentType(paymentCategoryRepository.findByCode("INSCRIPTION_FEE")
+                .orElseThrow(() -> new NoSuchElementException("payment_category.not_found")));
+        payment.setPerson(membership.getMember().getPerson());
+        payment.setPromoter(membership.getMember().getPromoter());
+
+        PaymentLine line = new PaymentLine();
+        line.setPayment(payment);
+        // Placeholder method — the admin records the real method / proof and
+        // approves it through the standard payment review flow (see class doc).
+        line.setPaymentType(paymentMethodRepository.findByCode("OTHER")
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        line.setAmount(fee);
+        line.setCurrency(usd);
+        line.setStatus(Payment.PaymentStatus.PENDING.name());
+        payment.getLines().add(line);
+
         return paymentRepository.save(payment).getId();
     }
 
