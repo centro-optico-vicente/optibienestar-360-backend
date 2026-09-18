@@ -17,6 +17,8 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
@@ -46,6 +48,8 @@ import static org.mockito.Mockito.when;
 class PaymentsServiceTest {
 
     @Mock private PaymentRepository paymentRepository;
+    @Mock private PaymentCategoryRepository paymentCategoryRepository;
+    @Mock private PaymentMethodRepository paymentMethodRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private UserRepository userRepository;
     @Mock private CurrencyRepository currencyRepository;
@@ -63,7 +67,8 @@ class PaymentsServiceTest {
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private PaymentsService sut() {
-        return new PaymentsService(paymentRepository, membershipRepository, userRepository, currencyRepository,
+        return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
+                membershipRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
                 validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
                 presignedUrlPolicy, fileValidationService);

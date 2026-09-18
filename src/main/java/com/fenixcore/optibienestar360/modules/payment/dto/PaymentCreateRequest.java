@@ -1,8 +1,8 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
-import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentMethod;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PastOrPresent;
@@ -44,7 +44,8 @@ public record PaymentCreateRequest(
         @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}")
         String currency,   // default 'USD' server-side when null
 
-        @NotNull PaymentMethod paymentMethod,
+        /** {@code payment_methods.code} (V115) — e.g. "BANK_TRANSFER", "CASH", "ZELLE". Resolved against the catalog at the service layer. */
+        @NotBlank String paymentMethod,
 
         @Size(max = 80) String referenceNumber,
 

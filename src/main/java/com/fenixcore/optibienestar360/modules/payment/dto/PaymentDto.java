@@ -2,7 +2,6 @@ package com.fenixcore.optibienestar360.modules.payment.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
-import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -49,8 +48,8 @@ public record PaymentDto(
         BigDecimal exchangeRateUsed,
         @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
 
-        // Method
-        @Display(Display.Kind.ENUM) PaymentMethod paymentMethod,
+        // Method — sourced from the (today, single) payment_lines row; V115 catalog code
+        @Display(Display.Kind.ENUM) String paymentMethod,
         String referenceNumber,
 
         // Dates

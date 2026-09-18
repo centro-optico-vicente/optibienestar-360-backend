@@ -5,14 +5,16 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.corporate.entity.CorporateContract;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,12 +23,21 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Manual payment record (V23). Captures the registration + review chain of
- * a payment made outside the platform (bank transfer, Zelle, cash, etc.).
- * Money never flows through the platform — admins review the proof of
- * payment uploaded by the affiliate and either approve or reject the row.
+ * Manual payment record (V23, header/lines shape since V117). Captures the
+ * registration + review chain of a payment made outside the platform (bank
+ * transfer, Zelle, cash, etc.). Money never flows through the platform —
+ * admins review the proof of payment uploaded by the affiliate and either
+ * approve or reject the row.
+ *
+ * <p>Since V117 this is a HEADER: the actual method/amount/reference lives
+ * on {@link #lines} ({@link PaymentLine}, one today, but the schema supports
+ * splitting a payment across several methods). {@link #direction} is always
+ * {@code IN} for this collection flow — {@code OUT} (commission payouts) is
+ * written by {@code CommissionPayoutService}, not here.</p>
  *
  * <p>Lifecycle (V23 CHECK constraint pins {@code status} to these three):</p>
  * <pre>
@@ -67,6 +78,35 @@ import java.time.LocalDate;
 @Table(name = "payments")
 @AttributeOverride(name = "id", column = @Column(name = "payments_id", nullable = false, updatable = false))
 public class Payment extends BaseEntity {
+
+    // ─── Header (V117, hub plan ".ai/plans/2026-09-17-payments-unification-plan.md") ──
+
+    /** {@code IN} (cobro) or {@code OUT} (pago de comisión) — CHECK-enforced at the DB. */
+    @Column(length = 10, nullable = false)
+    private String direction;
+
+    /** REASON — FK {@link PaymentCategory}. Not {@link PaymentLine#getPaymentType()} (the line-level METHOD). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "payment_type_id", nullable = false)
+    private PaymentCategory paymentType;
+
+    /** Direct FK to the counterpart person — the affiliate when {@code direction=IN}. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "person_id", nullable = false)
+    private Person person;
+
+    /**
+     * Direct, denormalized FK to the related promoter — for {@code IN}, the
+     * network owner of the paying affiliate; nullable (direct/no-promoter
+     * affiliates). Lets "cobros de mi red" filter by {@code promoter_id}
+     * without a multi-hop join.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promoter_id")
+    private Promoter promoter;
+
+    @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PaymentLine> lines = new ArrayList<>();
 
     // ─── Subject ───────────────────────────────────────────────────────────
 
@@ -116,15 +156,6 @@ public class Payment extends BaseEntity {
 
     @Column(name = "exchange_rate_date")
     private LocalDate exchangeRateDate;
-
-    // ─── Method + reference ────────────────────────────────────────────────
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", length = 30, nullable = false)
-    private PaymentMethod paymentMethod;
-
-    @Column(name = "reference_number", length = 80)
-    private String referenceNumber;
 
     // ─── Dates ─────────────────────────────────────────────────────────────
 
@@ -209,22 +240,6 @@ public class Payment extends BaseEntity {
     private Instant discountedAt;
 
     // ─── Inner enums (V23 CHECK constraint values) ─────────────────────────
-
-    /**
-     * The 7 payment methods seeded in the V23 CHECK constraint. Covers the
-     * VE market: bank transfer (local), cash at counter, Zelle (USD),
-     * Pago Móvil, crypto (USDT / Binance), international transfer
-     * (SWIFT / Wise), or other.
-     */
-    public enum PaymentMethod {
-        BANK_TRANSFER,
-        CASH,
-        ZELLE,
-        PAGO_MOVIL,
-        CRYPTO,
-        INTERNATIONAL_TRANSFER,
-        OTHER
-    }
 
     /**
      * Workflow status values that may land in {@link BaseEntity#getStatus()}.

@@ -2,9 +2,15 @@ package com.fenixcore.optibienestar360.modules.payment.service;
 
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -31,17 +37,24 @@ class BeneficiaryInscriptionBillerTest {
 
     @Mock private PaymentRepository paymentRepository;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private PaymentCategoryRepository paymentCategoryRepository;
+    @Mock private PaymentMethodRepository paymentMethodRepository;
     @InjectMocks private BeneficiaryInscriptionBiller biller;
 
     @Test
     void chargeExtraInscription_createsPendingInscriptionPayment() {
+        Member member = new Member();
+        member.setPerson(new Person());
         Membership membership = new Membership();
+        membership.setMember(member);
         when(paymentRepository.save(any())).thenAnswer(inv -> {
             Payment p = inv.getArgument(0);
             p.setId(55L);
             return p;
         });
         when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd()));
+        when(paymentCategoryRepository.findByCode("INSCRIPTION_FEE")).thenReturn(Optional.of(inscriptionFee()));
+        when(paymentMethodRepository.findByCode("OTHER")).thenReturn(Optional.of(otherMethod()));
 
         Long id = biller.chargeExtraInscription(membership, new BigDecimal("5.00"));
 
@@ -52,7 +65,10 @@ class BeneficiaryInscriptionBillerTest {
         assertThat(saved.getMembership()).isSameAs(membership);
         assertThat(saved.getAmount()).isEqualByComparingTo("5.00");
         assertThat(saved.getCurrency().getCode()).isEqualTo("USD");
-        assertThat(saved.getPaymentMethod()).isEqualTo(Payment.PaymentMethod.OTHER);
+        assertThat(saved.getDirection()).isEqualTo("IN");
+        assertThat(saved.getPaymentType().getCode()).isEqualTo("INSCRIPTION_FEE");
+        assertThat(saved.getLines()).hasSize(1);
+        assertThat(saved.getLines().getFirst().getPaymentType().getCode()).isEqualTo("OTHER");
         assertThat(saved.isInscription()).isTrue();
         assertThat(saved.getAppliedPeriod()).isNull();   // V23 CHECK: inscription rows carry no period
         assertThat(saved.getStatus()).isEqualTo(Payment.PaymentStatus.PENDING.name());
@@ -81,5 +97,20 @@ class BeneficiaryInscriptionBillerTest {
         c.setSymbol("US$");
         c.setDecimalPlaces((short) 2);
         return c;
+    }
+
+    private static PaymentCategory inscriptionFee() {
+        PaymentCategory c = new PaymentCategory();
+        c.setCode("INSCRIPTION_FEE");
+        c.setName("Cuota de inscripción");
+        c.setDirection("IN");
+        return c;
+    }
+
+    private static PaymentMethod otherMethod() {
+        PaymentMethod m = new PaymentMethod();
+        m.setCode("OTHER");
+        m.setName("Otro");
+        return m;
     }
 }

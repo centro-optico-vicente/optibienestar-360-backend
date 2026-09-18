@@ -4,12 +4,14 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Optional;
 
 @Mapper(componentModel = "spring", uses = DisplayRefs.class)
 public interface PaymentMapper {
@@ -26,11 +28,31 @@ public interface PaymentMapper {
     @Mapping(target = "reviewedBy",            source = "reviewedBy")
     @Mapping(target = "discountedByUserUuid", source = "discountedBy.uuid")
     @Mapping(target = "supportFileAvailable", source = "supportFileUrl", qualifiedByName = "isPresent")
+    @Mapping(target = "paymentMethod",         expression = "java(paymentMethodCode(payment))")
+    @Mapping(target = "referenceNumber",       expression = "java(referenceNumber(payment))")
     PaymentDto toDto(Payment payment);
 
     @Named("isPresent")
     static boolean isPresent(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * V117 moved method/reference down to {@code payment_lines} — reads the
+     * (today, always single) first line. {@code null}-safe for a payment
+     * whose line hasn't been persisted yet (shouldn't happen post-register,
+     * but mapping must never throw).
+     */
+    private static Optional<PaymentLine> firstLine(Payment payment) {
+        return payment.getLines().stream().findFirst();
+    }
+
+    default String paymentMethodCode(Payment payment) {
+        return firstLine(payment).map(l -> l.getPaymentType().getCode()).orElse(null);
+    }
+
+    default String referenceNumber(Payment payment) {
+        return firstLine(payment).map(PaymentLine::getReferenceNumber).orElse(null);
     }
 
     /**

@@ -29,7 +29,11 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
@@ -86,15 +90,22 @@ public class PaymentsService {
     private static final String OWNER_TABLE = "payments";
     private static final FileVisibility VISIBILITY = FileVisibility.CONFIDENTIAL;
 
+    /**
+     * {@code paymentMethod} dropped since V117 — it now lives on
+     * {@code payment_lines}, a collection, not a direct RSQL-filterable
+     * property of {@code Payment} anymore. Re-add once a dedicated
+     * cross-line filter is designed (hub plan "Movimientos" screen).
+     */
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "paymentMethod", "currency.code",
+            "status", "currency.code",
             "amount", "inscription",
             "paymentDate", "receivedAt", "appliedPeriod", "reviewedAt",
             "createdAt", "updatedAt", "active"
     );
 
+    /** {@code referenceNumber} dropped since V117 — now on {@code payment_lines}, see {@link #ALLOWED_FILTER_FIELDS}. */
     private static final String[] SEARCHABLE_FIELDS = {
-            "referenceNumber", "adminNotes", "supportFileName"
+            "adminNotes", "supportFileName"
     };
 
     /** {@code plan_Display} → plan's catalog name (ADR 0014 default; only FK Payment's list DTO surfaces as a display column). */
@@ -106,6 +117,8 @@ public class PaymentsService {
             ));
 
     private final PaymentRepository paymentRepository;
+    private final PaymentCategoryRepository paymentCategoryRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final CurrencyRepository currencyRepository;
@@ -191,11 +204,9 @@ public class PaymentsService {
         }
 
         payment.setAmount(request.amount());
-        String currencyCode = request.currency() != null ? request.currency() : "USD";
-        payment.setCurrency(currencyRepository.findByCode(currencyCode)
-                .orElseThrow(() -> new NoSuchElementException("currency.not_found")));
-        payment.setPaymentMethod(request.paymentMethod());
-        payment.setReferenceNumber(request.referenceNumber());
+        var currency = currencyRepository.findByCode(request.currency() != null ? request.currency() : "USD")
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+        payment.setCurrency(currency);
         payment.setPaymentDate(request.paymentDate());
 
         boolean inscription = Boolean.TRUE.equals(request.inscription());
@@ -205,6 +216,13 @@ public class PaymentsService {
         payment.setAdminNotes(request.adminNotes());
         payment.setStatus(PaymentStatus.PENDING.name());
 
+        // Header (V117): this flow only ever produces a collection (IN),
+        // never a commission payout (OUT — CommissionPayoutService).
+        payment.setDirection("IN");
+        payment.setPaymentType(resolvePaymentCategory(inscription));
+        payment.setPerson(membership.getMember().getPerson());
+        payment.setPromoter(membership.getMember().getPromoter());
+
         // Corporate billing (V38): if the member belongs to an INSTITUTION_BULK
         // contract, bill the payment to the contract (and default the payer to
         // the contract's contact user when none was supplied). No-op for
@@ -213,9 +231,26 @@ public class PaymentsService {
 
         attachSupportFile(payment, supportFile);
 
+        PaymentLine line = new PaymentLine();
+        line.setPayment(payment);
+        line.setPaymentType(paymentMethodRepository.findByCode(request.paymentMethod())
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        line.setAmount(payment.getAmount());
+        line.setCurrency(currency);
+        line.setReferenceNumber(request.referenceNumber());
+        line.setStatus(PaymentStatus.PENDING.name());
+        payment.getLines().add(line);
+
         Payment saved = paymentRepository.save(payment);
         dispatchNotification(saved, "payment-received", "email.payment.received.subject");
         return mapper.toDto(saved);
+    }
+
+    /** {@code inscription} → {@code INSCRIPTION_FEE}, else {@code MEMBERSHIP_FEE} (V115 seed, same split V117's backfill used). */
+    private PaymentCategory resolvePaymentCategory(boolean inscription) {
+        String code = inscription ? "INSCRIPTION_FEE" : "MEMBERSHIP_FEE";
+        return paymentCategoryRepository.findByCode(code)
+                .orElseThrow(() -> new NoSuchElementException("payment_category.not_found"));
     }
 
     // ─── Support file (presigned download URL) ─────────────────────────────
@@ -407,14 +442,27 @@ public class PaymentsService {
         }
     }
 
+    /**
+     * Header review, mirrored onto every line (V117 §"Diseño de tablas": a
+     * line can in principle be reviewed independently, but this flow always
+     * has exactly one line today, so keeping both in lockstep here is the
+     * simplest consistent behavior until a real multi-line review UI exists).
+     */
     private void applyReview(Payment payment, PaymentStatus targetStatus,
                              UUID actorUserUuid, String reason) {
         User reviewer = userRepository.findByUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Instant now = Instant.now();
         payment.setStatus(targetStatus.name());
         payment.setReviewedBy(reviewer);
-        payment.setReviewedAt(Instant.now());
+        payment.setReviewedAt(now);
         payment.setReviewReason(reason);
+        for (PaymentLine line : payment.getLines()) {
+            line.setStatus(targetStatus.name());
+            line.setReviewedBy(reviewer);
+            line.setReviewedAt(now);
+            line.setReviewReason(reason);
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
@@ -506,8 +554,10 @@ public class PaymentsService {
         vars.put("planName", payment.getMembership().getPlan().getName());
         vars.put("amount", payment.getAmount());
         vars.put("currency", payment.getCurrency().getCode());
-        vars.put("paymentMethod", payment.getPaymentMethod().name());
-        vars.put("referenceNumber", payment.getReferenceNumber());
+        // V117: method/reference moved to payment_lines — first (today, only) line.
+        PaymentLine firstLine = payment.getLines().stream().findFirst().orElse(null);
+        vars.put("paymentMethod", firstLine != null ? firstLine.getPaymentType().getCode() : null);
+        vars.put("referenceNumber", firstLine != null ? firstLine.getReferenceNumber() : null);
         vars.put("paymentDate", payment.getPaymentDate());
         vars.put("inscription", payment.isInscription());
         vars.put("appliedPeriod", payment.getAppliedPeriod());
