@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Period-close service for the promoter earnings ledger. Given a date
@@ -346,15 +348,15 @@ public class CommissionPayoutService {
      * One {@code direction=OUT} {@link Payment} header (+ its single {@link
      * PaymentLine}) for one (promoter, concept) pair, or {@code null} when
      * {@code items} is empty (nothing to pay for that concept this run) or
-     * the promoter has no {@link Person} to bill to (the {@code INSTITUCION}
+     * the promoter has no {@code Person} to bill to (the {@code INSTITUCION}
      * system promoter — see class Javadoc). Status is {@code APPROVED}
      * immediately: the underlying commissions already passed the commercial
      * approval gate (class Javadoc "Commercial approval gate"), so the
      * payout record itself needs no separate PENDING review step.
      */
     private <T> Payment createPayoutPayment(Promoter promoter, String categoryCode, List<T> items,
-                                            java.util.function.Function<T, BigDecimal> amountOf,
-                                            java.util.function.Function<T, Currency> currencyOf,
+                                            Function<T, BigDecimal> amountOf,
+                                            Function<T, Currency> currencyOf,
                                             String payoutReference, Instant at, User actor) {
         if (items.isEmpty() || promoter.getPerson() == null) {
             return null;
@@ -375,7 +377,7 @@ public class CommissionPayoutService {
         payment.setPromoter(promoter);
         payment.setAmount(total);
         payment.setCurrency(currency);
-        payment.setPaymentDate(LocalDate.ofInstant(at, com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE));
+        payment.setPaymentDate(LocalDate.ofInstant(at, AppTimeZone.ZONE));
         payment.setStatus(Payment.PaymentStatus.APPROVED.name());
         payment.setReviewedBy(actor);
         payment.setReviewedAt(at);

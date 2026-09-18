@@ -13,6 +13,7 @@ public interface CommissionMapper {
 
     @Mapping(target = "promoter",     source = "promoter")
     @Mapping(target = "payment",      source = "payment")
+    @Mapping(target = "payoutPayment", source = "payoutPayment")
     @Mapping(target = "member",       source = "member")
     @Mapping(target = "currency_Code", source = "currency.code")
     @Mapping(target = "currency", source = "currency")

@@ -100,8 +100,9 @@ public class AdminCommissionController {
     @PostMapping("/payout")
     @PreAuthorize("hasAuthority('COMMISSION_PAYOUT')")
     public ResponseEntity<CommissionPayoutResponse> payout(
-            @Valid @RequestBody CommissionPayoutRequest request) {
-        return ResponseEntity.ok(commissionPayoutService.execute(request));
+            @Valid @RequestBody CommissionPayoutRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(commissionPayoutService.execute(request, actor.getUuid()));
     }
 
     /**
