@@ -65,14 +65,22 @@ public class AdminPaymentController {
      * {@code supportFileName}. The composite V23 index
      * {@code (status, received_at DESC) WHERE is_active} covers the
      * canonical "PENDING + newest first" use case.
+     *
+     * <p>{@code ?direction=} is separate from {@code ?filter=} — {@code IN}/
+     * {@code OUT} constrains to one direction, {@code ALL} shows both (the
+     * "Movimientos" screen), omitted defaults to {@code IN} (this screen's
+     * historical "Pagos"/"Cobros generales" behavior). See {@code
+     * PaymentsService.list} Javadoc for why this isn't just another RSQL
+     * filter clause.</p>
      */
     @GetMapping
     @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<PaymentDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        Page<PaymentDto> page = paymentsService.list(pageable, filter, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String direction) {
+        Page<PaymentDto> page = paymentsService.list(pageable, filter, q, direction);
         return ResponseEntity.ok(new AppliedSortPage<>(page, paymentsService.effectiveSort(pageable)));
     }
 

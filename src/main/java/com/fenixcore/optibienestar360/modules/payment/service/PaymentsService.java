@@ -98,8 +98,9 @@ public class PaymentsService {
      * property of {@code Payment} anymore. Re-add once a dedicated
      * cross-line filter is designed (hub plan "Movimientos" screen).
      */
+    /** {@code direction} is its own first-class {@code list} param, not routed through this RSQL filter — see {@link #list}'s Javadoc. */
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "currency.code", "direction",
+            "status", "currency.code",
             "amount", "inscription",
             "paymentDate", "receivedAt", "appliedPeriod", "reviewedAt",
             "createdAt", "updatedAt", "active"
@@ -177,19 +178,33 @@ public class PaymentsService {
         return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
     }
 
-    public Page<PaymentDto> list(Pageable pageable, String filter, String q) {
+    /**
+     * @param direction {@code "IN"}/{@code "OUT"} to constrain to one
+     *                  direction, {@code "ALL"} for both (the "Movimientos"
+     *                  screen), or {@code null}/blank to default to {@code
+     *                  IN} — the historical behavior of this screen ("Cobros"
+     *                  in Afiliaciones/Finanzas) from before payments also
+     *                  held commission payouts (V117). A first-class param
+     *                  rather than folding it into the free-text RSQL {@code
+     *                  filter}: {@code RsqlFieldValidator}'s field-extractor
+     *                  regex only understands {@code ==}/{@code !=}/{@code
+     *                  <}/{@code >}, not the {@code =in=} FIQL operator a
+     *                  multi-value direction filter would need — trying to
+     *                  route "both directions" through the generic filter
+     *                  string 422's ({@code Campo de filtro no permitido}, it
+     *                  misparses the operator's own {@code in} token as an
+     *                  unknown field).
+     */
+    public Page<PaymentDto> list(Pageable pageable, String filter, String q, String direction) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "payment", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
         Specification<Payment> spec = activeOnly();
-        // V117: payments now also holds commission payouts (direction=OUT,
-        // written only by CommissionPayoutService, never through this screen's
-        // own create endpoint). This surface (today's "Pagos"/future "Cobros
-        // generales") keeps showing collections only, same as before the
-        // header/lines unification, unless the caller explicitly filters on
-        // direction itself (the future "Movimientos" screen will).
-        if (filter == null || !filter.contains("direction")) {
+        if (direction == null || direction.isBlank()) {
             spec = spec.and(directionIs("IN"));
+        }
+        else if (!"ALL".equals(direction)) {
+            spec = spec.and(directionIs(direction));
         }
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
