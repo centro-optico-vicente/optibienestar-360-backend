@@ -110,8 +110,9 @@ public class Payment extends BaseEntity {
 
     // ─── Subject ───────────────────────────────────────────────────────────
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "membership_id", nullable = false)
+    /** NOT NULL for {@code direction=IN}, always {@code null} for {@code OUT} (V120 CHECK). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "membership_id")
     private Membership membership;
 
     /**

@@ -21,10 +21,20 @@ import java.time.LocalDate;
  * <p>{@code dryRun} = {@code true} runs the calculation and returns the
  * per-promoter summary without committing any DB writes or emails —
  * lets admin verify totals before pulling the trigger.</p>
+ *
+ * <p>{@code paymentMethod} (V117, hub plan payments-unification) is the
+ * {@code payment_methods.code} (V115) recorded on the real payout
+ * {@code payment_lines} row {@code CommissionPayoutService} now creates —
+ * e.g. {@code "BANK_TRANSFER"}, {@code "ZELLE"}. Optional; defaults to
+ * {@code "OTHER"} when omitted, same placeholder semantics
+ * {@code BeneficiaryInscriptionBiller} already uses for a charge whose real
+ * method isn't known yet — the admin can edit the line afterward like any
+ * other payment.</p>
  */
 public record CommissionPayoutRequest(
         @NotNull LocalDate periodStart,
         @NotNull LocalDate periodEnd,
         @NotBlank @Size(max = 120) String payoutReference,
-        Boolean dryRun
+        Boolean dryRun,
+        @Size(max = 40) String paymentMethod
 ) {}

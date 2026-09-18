@@ -62,7 +62,13 @@ public record CommissionDto(
         @Display(Display.Kind.DATE) LocalDate periodEnd,
         @Display(Display.Kind.DATETIME) Instant earnedAt,
 
-        // Payout tracking
+        // Payout tracking — `payoutPayment` is the real OUT Payment that
+        // disbursed this row (V118/CommissionPayoutService, hub plan
+        // payments-unification); null for histórico PAID rows from before
+        // that FK existed, or when the row is still un-paid. Distinct from
+        // `payment` above, which is the IN payment that TRIGGERED this
+        // commission, not the one that paid it out.
+        @Display DisplayRef payoutPayment,
         String payoutReference,
         @Display(Display.Kind.DATETIME) Instant paidAt,
         @Display(Display.Kind.DATETIME) Instant voidedAt,
@@ -87,7 +93,7 @@ public record CommissionDto(
                 exchangeRateAtEarned, earnedRateDate, exchangeRateAtPaid, paidRateDate, fxVarianceAmountConverted,
                 calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
                 appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
-                payoutReference, paidAt, voidedAt, voidReason, adminNotes,
+                payoutPayment, payoutReference, paidAt, voidedAt, voidReason, adminNotes,
                 active, status, createdAt, updatedAt);
     }
 }

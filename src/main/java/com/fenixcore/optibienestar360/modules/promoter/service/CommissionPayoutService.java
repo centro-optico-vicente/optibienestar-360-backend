@@ -1,8 +1,17 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse.PromoterPayoutSummary;
@@ -32,7 +41,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Period-close service for the promoter earnings ledger. Given a date
@@ -95,6 +107,30 @@ import java.util.Optional;
  * and surfaced in the response (the rows stay PAID; admin can re-send
  * manually). Same best-effort policy as {@code PaymentsService} email
  * dispatch.</p>
+ *
+ * <p><b>Real payout {@link Payment} rows (V117-V120, hub plan
+ * payments-unification)</b>: each promoter's batch is split by concept —
+ * {@code COMMISSION_REGULAR} (direct commissions), {@code
+ * HIERARCHY_OVERRIDE}, {@code RETROACTIVE_TOPUP} — because {@code
+ * payments.payment_type_id} is a single {@link PaymentCategory} per header,
+ * and a batch can legitimately mix concepts for the same promoter. Up to 3
+ * {@code direction=OUT} {@link Payment} headers are created per promoter per
+ * run, each with one {@link PaymentLine} using {@link
+ * CommissionPayoutRequest#paymentMethod()} (defaults to {@code OTHER} when
+ * omitted — same placeholder role the pre-V117 free-text {@code
+ * payoutReference} played; the admin can edit the line's method/reference
+ * later like any other payment). The rows themselves link back via the new
+ * {@code payoutPayment} FK (V118); {@code payoutReference} (free text) is
+ * kept unchanged alongside it — still the human-readable batch id, now
+ * redundant with (not replaced by) the real FK.</p>
+ *
+ * <p><b>The {@code INSTITUCION} system promoter has no {@link
+ * Promoter#getPerson()}</b> ({@code promoters.person_id} nullable, V25) —
+ * {@code payments.person_id} is {@code NOT NULL}, so no payout {@link
+ * Payment} can be created for it. Its rows still get marked {@code PAID}
+ * via {@code payoutReference} exactly as before; {@code payoutPayment} stays
+ * {@code null} for them. This is the one case where the real-FK linkage is
+ * structurally impossible, not just unimplemented.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -104,18 +140,25 @@ public class CommissionPayoutService {
     private static final String TEMPLATE = "commission-payout";
     private static final String SUBJECT_KEY = "email.commission.payout.subject";
 
+    /** No method is chosen at payout time today — see class Javadoc. */
+    private static final String DEFAULT_PAYOUT_METHOD_CODE = "OTHER";
+
     private static final DateTimeFormatter CSV_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final CommissionRepository commissionRepository;
     private final PromoterHierarchyOverrideRepository overrideRepository;
     private final CommissionRetroactiveTopUpRepository topUpRepository;
+    private final PaymentRepository paymentRepository;
+    private final PaymentCategoryRepository paymentCategoryRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
     private final MessageSource messageSource;
     private final CommissionAuditRecorder auditRecorder;
     private final ConversionEnricher conversionEnricher;
 
     @Transactional
-    public CommissionPayoutResponse execute(CommissionPayoutRequest request) {
+    public CommissionPayoutResponse execute(CommissionPayoutRequest request, UUID actorUserUuid) {
         validatePeriod(request);
 
         List<Commission> approvedCommissions = commissionRepository.findApprovedForPeriod(
@@ -129,6 +172,10 @@ public class CommissionPayoutService {
 
         boolean isDryRun = Boolean.TRUE.equals(request.dryRun());
         Instant executedAt = Instant.now();
+        // Only needed to stamp the payout Payment headers' reviewedBy — a dry
+        // run creates no rows, so resolving it there would be pure waste.
+        User actor = isDryRun ? null : userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
         Map<Promoter, PromoterBatch> byPromoter = groupByPromoter(approvedCommissions, payableOverrides, pendingTopUps);
 
@@ -149,7 +196,9 @@ public class CommissionPayoutService {
             String emailFailure = null;
 
             if (!isDryRun) {
-                markPaid(batch, request.payoutReference(), executedAt);
+                String methodCode = request.paymentMethod() != null && !request.paymentMethod().isBlank()
+                        ? request.paymentMethod() : DEFAULT_PAYOUT_METHOD_CODE;
+                markPaid(promoter, batch, request.payoutReference(), executedAt, actor, methodCode);
                 EmailDispatchResult mail = sendPromoterEmail(promoter, request, promoterTotal,
                         currency, lineCount, csv);
                 emailDispatched = mail.dispatched;
@@ -258,13 +307,27 @@ public class CommissionPayoutService {
      * still reads per-commission, same as any other update. Overrides/
      * top-ups don't have a dedicated audit recorder yet — same documented
      * gap {@code HierarchyOverrideReRatingService} already carries.
+     *
+     * <p>Also creates the real payout {@link Payment} row(s) — one per
+     * non-empty concept in this promoter's batch (see class Javadoc) — and
+     * links every commission/override/top-up back to it via {@code
+     * payoutPayment}. {@code payoutReference} (free text) is still set on
+     * every row unconditionally, same as before this refactor.</p>
      */
-    private void markPaid(PromoterBatch batch, String payoutReference, Instant at) {
+    private void markPaid(Promoter promoter, PromoterBatch batch, String payoutReference, Instant at, User actor, String methodCode) {
+        Payment commissionsPayment = createPayoutPayment(promoter, "COMMISSION_REGULAR",
+                batch.commissions(), Commission::getAmount, Commission::getCurrency, payoutReference, at, actor, methodCode);
+        Payment overridesPayment = createPayoutPayment(promoter, "HIERARCHY_OVERRIDE",
+                batch.overrides(), PromoterHierarchyOverride::getAmount, PromoterHierarchyOverride::getCurrency, payoutReference, at, actor, methodCode);
+        Payment topUpsPayment = createPayoutPayment(promoter, "RETROACTIVE_TOPUP",
+                batch.topUps(), CommissionRetroactiveTopUp::getRetroAmount, CommissionRetroactiveTopUp::getCurrency, payoutReference, at, actor, methodCode);
+
         for (Commission c : batch.commissions()) {
             Map<String, Object> before = auditRecorder.snapshot(c);
             c.setStatus(CommissionStatus.PAID.name());
             c.setPaidAt(at);
             c.setPayoutReference(payoutReference);
+            c.setPayoutPayment(commissionsPayment);
             ConversionEnricher.RateSnapshot paidRate = conversionEnricher.officialRateAt(c.getCurrency(), at);
             c.setExchangeRateAtPaid(paidRate.rate());
             c.setPaidRateDate(paidRate.date());
@@ -274,12 +337,67 @@ public class CommissionPayoutService {
             o.setStatus(OverrideStatus.PAID.name());
             o.setPaidAt(at);
             o.setPayoutReference(payoutReference);
+            o.setPayoutPayment(overridesPayment);
         }
         for (CommissionRetroactiveTopUp t : batch.topUps()) {
             t.setStatus(TopUpStatus.PAID.name());
             t.setPaidAt(at);
             t.setPayoutReference(payoutReference);
+            t.setPayoutPayment(topUpsPayment);
         }
+    }
+
+    /**
+     * One {@code direction=OUT} {@link Payment} header (+ its single {@link
+     * PaymentLine}) for one (promoter, concept) pair, or {@code null} when
+     * {@code items} is empty (nothing to pay for that concept this run) or
+     * the promoter has no {@code Person} to bill to (the {@code INSTITUCION}
+     * system promoter — see class Javadoc). Status is {@code APPROVED}
+     * immediately: the underlying commissions already passed the commercial
+     * approval gate (class Javadoc "Commercial approval gate"), so the
+     * payout record itself needs no separate PENDING review step.
+     */
+    private <T> Payment createPayoutPayment(Promoter promoter, String categoryCode, List<T> items,
+                                            Function<T, BigDecimal> amountOf,
+                                            Function<T, Currency> currencyOf,
+                                            String payoutReference, Instant at, User actor, String methodCode) {
+        if (items.isEmpty() || promoter.getPerson() == null) {
+            return null;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (T item : items) {
+            total = total.add(amountOf.apply(item));
+        }
+        Currency currency = currencyOf.apply(items.get(0));
+
+        PaymentCategory category = paymentCategoryRepository.findByCode(categoryCode)
+                .orElseThrow(() -> new NoSuchElementException("payment_category.not_found: " + categoryCode));
+
+        Payment payment = new Payment();
+        payment.setDirection("OUT");
+        payment.setPaymentType(category);
+        payment.setPerson(promoter.getPerson());
+        payment.setPromoter(promoter);
+        payment.setAmount(total);
+        payment.setCurrency(currency);
+        payment.setPaymentDate(LocalDate.ofInstant(at, AppTimeZone.ZONE));
+        payment.setStatus(Payment.PaymentStatus.APPROVED.name());
+        payment.setReviewedBy(actor);
+        payment.setReviewedAt(at);
+
+        PaymentLine line = new PaymentLine();
+        line.setPayment(payment);
+        line.setPaymentType(paymentMethodRepository.findByCode(methodCode)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found: " + methodCode)));
+        line.setAmount(total);
+        line.setCurrency(currency);
+        line.setReferenceNumber(payoutReference);
+        line.setStatus(Payment.PaymentStatus.APPROVED.name());
+        line.setReviewedBy(actor);
+        line.setReviewedAt(at);
+        payment.getLines().add(line);
+
+        return paymentRepository.save(payment);
     }
 
     /**
