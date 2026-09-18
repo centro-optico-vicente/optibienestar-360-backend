@@ -26,8 +26,19 @@ import java.util.UUID;
 public record PaymentDto(
         UUID uuid,
 
+        // Header (V117, hub plan payments-unification) — `direction` distinguishes
+        // a collection (IN, this record's original shape) from a commission payout
+        // (OUT, written by CommissionPayoutService, never through this DTO's own
+        // create endpoint). `paymentType` is the REASON (payment_categories) — not
+        // to be confused with `paymentMethod` below (the line-level HOW).
+        String direction,
+        @Display DisplayRef paymentType,
+        @Display DisplayRef person,
+        @Display DisplayRef promoter,
+
         // Subject (flat refs — member/membership resolve to a readable
-        // _Display via DisplayRefs, never a bare UUID; see ADR 0014)
+        // _Display via DisplayRefs, never a bare UUID; see ADR 0014). Null for
+        // `direction=OUT` — a commission payout has no membership (V120).
         @Display DisplayRef membership,
         @Display DisplayRef member,
         @Display DisplayRef plan,

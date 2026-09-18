@@ -115,9 +115,10 @@ import java.util.function.Function;
  * payments.payment_type_id} is a single {@link PaymentCategory} per header,
  * and a batch can legitimately mix concepts for the same promoter. Up to 3
  * {@code direction=OUT} {@link Payment} headers are created per promoter per
- * run, each with one {@link PaymentLine} (method defaults to {@code OTHER} —
- * no method is chosen at payout time today, same as the pre-V117 free-text
- * {@code payoutReference}; the admin can edit the line's method/reference
+ * run, each with one {@link PaymentLine} using {@link
+ * CommissionPayoutRequest#paymentMethod()} (defaults to {@code OTHER} when
+ * omitted — same placeholder role the pre-V117 free-text {@code
+ * payoutReference} played; the admin can edit the line's method/reference
  * later like any other payment). The rows themselves link back via the new
  * {@code payoutPayment} FK (V118); {@code payoutReference} (free text) is
  * kept unchanged alongside it — still the human-readable batch id, now
@@ -195,7 +196,9 @@ public class CommissionPayoutService {
             String emailFailure = null;
 
             if (!isDryRun) {
-                markPaid(promoter, batch, request.payoutReference(), executedAt, actor);
+                String methodCode = request.paymentMethod() != null && !request.paymentMethod().isBlank()
+                        ? request.paymentMethod() : DEFAULT_PAYOUT_METHOD_CODE;
+                markPaid(promoter, batch, request.payoutReference(), executedAt, actor, methodCode);
                 EmailDispatchResult mail = sendPromoterEmail(promoter, request, promoterTotal,
                         currency, lineCount, csv);
                 emailDispatched = mail.dispatched;
@@ -311,13 +314,13 @@ public class CommissionPayoutService {
      * payoutPayment}. {@code payoutReference} (free text) is still set on
      * every row unconditionally, same as before this refactor.</p>
      */
-    private void markPaid(Promoter promoter, PromoterBatch batch, String payoutReference, Instant at, User actor) {
+    private void markPaid(Promoter promoter, PromoterBatch batch, String payoutReference, Instant at, User actor, String methodCode) {
         Payment commissionsPayment = createPayoutPayment(promoter, "COMMISSION_REGULAR",
-                batch.commissions(), Commission::getAmount, Commission::getCurrency, payoutReference, at, actor);
+                batch.commissions(), Commission::getAmount, Commission::getCurrency, payoutReference, at, actor, methodCode);
         Payment overridesPayment = createPayoutPayment(promoter, "HIERARCHY_OVERRIDE",
-                batch.overrides(), PromoterHierarchyOverride::getAmount, PromoterHierarchyOverride::getCurrency, payoutReference, at, actor);
+                batch.overrides(), PromoterHierarchyOverride::getAmount, PromoterHierarchyOverride::getCurrency, payoutReference, at, actor, methodCode);
         Payment topUpsPayment = createPayoutPayment(promoter, "RETROACTIVE_TOPUP",
-                batch.topUps(), CommissionRetroactiveTopUp::getRetroAmount, CommissionRetroactiveTopUp::getCurrency, payoutReference, at, actor);
+                batch.topUps(), CommissionRetroactiveTopUp::getRetroAmount, CommissionRetroactiveTopUp::getCurrency, payoutReference, at, actor, methodCode);
 
         for (Commission c : batch.commissions()) {
             Map<String, Object> before = auditRecorder.snapshot(c);
@@ -357,7 +360,7 @@ public class CommissionPayoutService {
     private <T> Payment createPayoutPayment(Promoter promoter, String categoryCode, List<T> items,
                                             Function<T, BigDecimal> amountOf,
                                             Function<T, Currency> currencyOf,
-                                            String payoutReference, Instant at, User actor) {
+                                            String payoutReference, Instant at, User actor, String methodCode) {
         if (items.isEmpty() || promoter.getPerson() == null) {
             return null;
         }
@@ -384,8 +387,8 @@ public class CommissionPayoutService {
 
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
-        line.setPaymentType(paymentMethodRepository.findByCode(DEFAULT_PAYOUT_METHOD_CODE)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found: " + DEFAULT_PAYOUT_METHOD_CODE)));
+        line.setPaymentType(paymentMethodRepository.findByCode(methodCode)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found: " + methodCode)));
         line.setAmount(total);
         line.setCurrency(currency);
         line.setReferenceNumber(payoutReference);

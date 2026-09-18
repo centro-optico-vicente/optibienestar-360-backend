@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -16,6 +17,10 @@ import java.util.Optional;
 @Mapper(componentModel = "spring", uses = DisplayRefs.class)
 public interface PaymentMapper {
 
+    @Mapping(target = "direction",                source = "direction")
+    @Mapping(target = "paymentType",              source = "paymentType")
+    @Mapping(target = "person",                   source = "person")
+    @Mapping(target = "promoter",                 source = "promoter")
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
@@ -53,6 +58,12 @@ public interface PaymentMapper {
 
     default String referenceNumber(Payment payment) {
         return firstLine(payment).map(PaymentLine::getReferenceNumber).orElse(null);
+    }
+
+    /** {@code promoter_Code} carries the referral code (Promoter has no generic {@code getCode()}) — same as {@code CommissionMapper}. */
+    default DisplayRef promoterRef(Promoter promoter) {
+        return promoter == null ? null
+                : DisplayRef.of(promoter.getUuid(), promoter.getReferralCode(), promoter.getDisplayName());
     }
 
     /**

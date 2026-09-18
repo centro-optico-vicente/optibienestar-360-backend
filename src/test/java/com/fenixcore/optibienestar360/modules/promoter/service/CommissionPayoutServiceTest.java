@@ -107,7 +107,7 @@ class CommissionPayoutServiceTest {
     }
 
     private static CommissionPayoutRequest request() {
-        return new CommissionPayoutRequest(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), "BATCH-1", false);
+        return new CommissionPayoutRequest(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), "BATCH-1", false, null);
     }
 
     @Test
@@ -244,7 +244,7 @@ class CommissionPayoutServiceTest {
         lenient().when(topUpRepository.findPendingForPeriod(any(), any())).thenReturn(List.of());
 
         CommissionPayoutRequest dryRunRequest = new CommissionPayoutRequest(
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), "BATCH-1", true);
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), "BATCH-1", true, null);
         service().execute(dryRunRequest, ACTOR_UUID);
 
         assertThat(approved.getStatus()).isEqualTo(CommissionStatus.APPROVED.name()); // untouched

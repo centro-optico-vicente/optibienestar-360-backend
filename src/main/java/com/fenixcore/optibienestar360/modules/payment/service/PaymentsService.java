@@ -97,7 +97,7 @@ public class PaymentsService {
      * cross-line filter is designed (hub plan "Movimientos" screen).
      */
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "status", "currency.code",
+            "status", "currency.code", "direction",
             "amount", "inscription",
             "paymentDate", "receivedAt", "appliedPeriod", "reviewedAt",
             "createdAt", "updatedAt", "active"
@@ -157,6 +157,15 @@ public class PaymentsService {
                 "payment", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
         Specification<Payment> spec = activeOnly();
+        // V117: payments now also holds commission payouts (direction=OUT,
+        // written only by CommissionPayoutService, never through this screen's
+        // own create endpoint). This surface (today's "Pagos"/future "Cobros
+        // generales") keeps showing collections only, same as before the
+        // header/lines unification, unless the caller explicitly filters on
+        // direction itself (the future "Movimientos" screen will).
+        if (filter == null || !filter.contains("direction")) {
+            spec = spec.and(directionIs("IN"));
+        }
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS,
                     "payment.filter.field_not_allowed");
@@ -166,6 +175,10 @@ public class PaymentsService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    private static Specification<Payment> directionIs(String direction) {
+        return (root, query, cb) -> cb.equal(root.get("direction"), direction);
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
