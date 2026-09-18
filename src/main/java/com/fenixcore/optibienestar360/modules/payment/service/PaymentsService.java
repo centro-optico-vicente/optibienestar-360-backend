@@ -35,6 +35,8 @@ import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -120,6 +122,7 @@ public class PaymentsService {
     private final PaymentRepository paymentRepository;
     private final PaymentCategoryRepository paymentCategoryRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final PromoterRepository promoterRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final CurrencyRepository currencyRepository;
@@ -154,13 +157,35 @@ public class PaymentsService {
     }
 
     /**
+     * Powers {@code GET /v1/promoter/me/payments} — the two promoter
+     * self-service surfaces (hub plan payments-unification, "Mis portales"):
+     * {@code direction=IN} = "Cobros de mis afiliados" (collections from the
+     * affiliates in the promoter's downline, filtered by the denormalized
+     * {@code payments.promoter_id}, V117); {@code direction=OUT} = "Mis pagos
+     * de comisiones" (commission payouts disbursed to the promoter,
+     * CommissionPayoutService). No RSQL filter on this surface, same
+     * reasoning as {@link #listForUser} — the promoter's view is a curated
+     * subset (their own network's rows), not a query builder.
+     */
+    public Page<PaymentDto> listForPromoter(UUID actorUserUuid, String direction, Pageable pageable) {
+        Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("payment", pageable);
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
+        Specification<Payment> spec = activeOnly()
+                .and(directionIs(direction))
+                .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), promoter.getId()));
+        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /**
      * @param direction {@code "IN"}/{@code "OUT"} to constrain to one
      *                  direction, {@code "ALL"} for both (the "Movimientos"
      *                  screen), or {@code null}/blank to default to {@code
-     *                  IN} — the historical behavior of this screen ("Pagos"/
-     *                  "Cobros generales") from before payments also held
-     *                  commission payouts (V117). A first-class param rather
-     *                  than folding it into the free-text RSQL {@code
+     *                  IN} — the historical behavior of this screen ("Cobros"
+     *                  in Afiliaciones/Finanzas) from before payments also
+     *                  held commission payouts (V117). A first-class param
+     *                  rather than folding it into the free-text RSQL {@code
      *                  filter}: {@code RsqlFieldValidator}'s field-extractor
      *                  regex only understands {@code ==}/{@code !=}/{@code
      *                  <}/{@code >}, not the {@code =in=} FIQL operator a
