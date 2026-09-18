@@ -27,16 +27,29 @@ public record CommissionDto(
         @Display DisplayRef payment,
         @Display DisplayRef member,
 
-        // Money + snapshot (ADR 0015 §6 Caso B — commissions have no payout
-        // currency-snapshot column yet, so amountConverted/etc are always a
-        // live conversion to the organization's official currency, computed
-        // by the service via ConversionEnricher; null when unavailable)
+        // Money + snapshot. `amountConverted`/etc read the persisted paid-time
+        // snapshot once the commission is PAID (frozen, never recomputed);
+        // for a still-PENDING/APPROVED row they fall back to a live
+        // conversion to the organization's official currency, computed by
+        // the service via ConversionEnricher (ADR 0015 §6 Caso B) — null when
+        // no rate is available either way.
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal amount,
         String currency_Code,
+        @Display DisplayRef currency,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
         String convertedCurrency_Code,
         BigDecimal exchangeRateUsed,
         @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
+
+        // FX snapshot pair — the rate vigente at devengo vs. at payout, so the
+        // currency variance the company absorbs between the two moments is
+        // visible (null until each respective event happens)
+        BigDecimal exchangeRateAtEarned,
+        @Display(Display.Kind.DATE) LocalDate earnedRateDate,
+        BigDecimal exchangeRateAtPaid,
+        @Display(Display.Kind.DATE) LocalDate paidRateDate,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal fxVarianceAmountConverted,
+
         @Display(Display.Kind.MONEY) BigDecimal calculationBasis,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
@@ -62,11 +75,16 @@ public record CommissionDto(
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {
-    /** Rebuilds this record with the live conversion fields populated — see {@code ConversionEnricher}. */
+    /**
+     * Rebuilds this record with the conversion fields populated — either the
+     * persisted paid-time snapshot or a live conversion, plus the FX variance
+     * between devengo and payout rates; see {@code CommissionsService.enrich}.
+     */
     public CommissionDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
-            BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
-        return new CommissionDto(uuid, promoter, payment, member, amount, currency_Code,
+            BigDecimal exchangeRateUsed, LocalDate exchangeRateDate, BigDecimal fxVarianceAmountConverted) {
+        return new CommissionDto(uuid, promoter, payment, member, amount, currency_Code, currency,
                 amountConverted, convertedCurrencyCode, exchangeRateUsed, exchangeRateDate,
+                exchangeRateAtEarned, earnedRateDate, exchangeRateAtPaid, paidRateDate, fxVarianceAmountConverted,
                 calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
                 appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
                 payoutReference, paidAt, voidedAt, voidReason, adminNotes,

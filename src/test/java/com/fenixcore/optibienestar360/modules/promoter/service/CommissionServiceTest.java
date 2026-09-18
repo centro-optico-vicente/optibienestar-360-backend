@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.Applies
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -36,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +56,7 @@ class CommissionServiceTest {
     @Mock private PromoterRepository promoterRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private CommissionAuditRecorder auditRecorder;
+    @Mock private ConversionEnricher conversionEnricher;
 
     @InjectMocks private CommissionService service;
 
@@ -64,6 +67,7 @@ class CommissionServiceTest {
     void setUp() {
         humanPromoter = promoter("PROMO123", false);
         institucion = promoter("INSTITUCION", true);
+        lenient().when(conversionEnricher.officialRateAt(any(), any())).thenReturn(ConversionEnricher.RateSnapshot.none());
     }
 
     // ─── Base tiers reproduce the v1 rates ────────────────────────────────────

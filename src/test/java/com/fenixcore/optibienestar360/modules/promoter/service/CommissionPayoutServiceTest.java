@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -46,10 +47,12 @@ class CommissionPayoutServiceTest {
     @Mock private EmailService emailService;
     @Mock private MessageSource messageSource;
     @Mock private CommissionAuditRecorder auditRecorder;
+    @Mock private ConversionEnricher conversionEnricher;
 
     private CommissionPayoutService service() {
+        lenient().when(conversionEnricher.officialRateAt(any(), any())).thenReturn(ConversionEnricher.RateSnapshot.none());
         return new CommissionPayoutService(commissionRepository, overrideRepository, topUpRepository,
-                emailService, messageSource, auditRecorder);
+                emailService, messageSource, auditRecorder, conversionEnricher);
     }
 
     private static Currency usd() {

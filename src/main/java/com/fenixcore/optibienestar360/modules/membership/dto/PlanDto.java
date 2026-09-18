@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public record PlanDto(
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal inscriptionFee,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal monthlyFee,
         String currency_Code,
+        @Display DisplayRef currency,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
         String convertedCurrency_Code,
         BigDecimal exchangeRateUsed,
@@ -55,7 +57,7 @@ public record PlanDto(
     public PlanDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
             BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
         return new PlanDto(uuid, code, name, description, type,
-                inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
+                inscriptionFee, monthlyFee, currency_Code, currency, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate,
                 includedBeneficiaries, maxBeneficiaries, extraBeneficiaryInscriptionFee,
                 gracePeriodDays, published, publishedAt,

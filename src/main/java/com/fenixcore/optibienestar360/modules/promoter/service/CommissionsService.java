@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -80,10 +82,34 @@ public class CommissionsService {
         return enrich(mapper.toDto(commission), commission);
     }
 
-    /** Live-converts {@code amount} to the org's official currency (ADR 0015 §6 Caso B — no snapshot column on Commission yet). */
+    /**
+     * Once the commission has been paid, freezes {@code amountConverted} to
+     * the persisted paid-time snapshot ({@code exchangeRateAtPaid}) — never
+     * recomputed against today's rate — and, when both snapshots are
+     * present, exposes the FX variance the company absorbed between devengo
+     * and payout. A still-PENDING/APPROVED row falls back to a live
+     * conversion (ADR 0015 §6 Caso B).
+     */
     private CommissionDto enrich(CommissionDto dto, Commission commission) {
+        if (commission.getExchangeRateAtPaid() != null) {
+            int scale = commission.getCurrency() != null && commission.getCurrency().getDecimalPlaces() != null
+                    ? commission.getCurrency().getDecimalPlaces().intValue() : 2;
+            String officialCode = conversionEnricher.officialCurrencyCode();
+            BigDecimal amountAtPaid = commission.getAmount()
+                    .multiply(commission.getExchangeRateAtPaid())
+                    .setScale(scale, RoundingMode.HALF_UP);
+            BigDecimal fxVariance = null;
+            if (commission.getExchangeRateAtEarned() != null) {
+                BigDecimal amountAtEarned = commission.getAmount()
+                        .multiply(commission.getExchangeRateAtEarned())
+                        .setScale(scale, RoundingMode.HALF_UP);
+                fxVariance = amountAtPaid.subtract(amountAtEarned);
+            }
+            return dto.withConversion(amountAtPaid, officialCode, commission.getExchangeRateAtPaid(),
+                    commission.getPaidRateDate(), fxVariance);
+        }
         var conv = conversionEnricher.toOfficial(commission.getAmount(), commission.getCurrency());
-        return dto.withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
+        return dto.withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate(), null);
     }
 
     /** Monthly commission history for one promoter, most recent period first —
