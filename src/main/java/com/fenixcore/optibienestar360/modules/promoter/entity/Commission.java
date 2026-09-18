@@ -147,6 +147,19 @@ public class Commission extends BaseEntity {
 
     // ─── Payout tracking ───────────────────────────────────────────────────
 
+    /**
+     * The OUT {@link Payment} that disbursed this commission (V118, hub plan
+     * payments-unification). Named {@code payoutPayment}, not {@code payment}
+     * — that name is already taken above by the IN payment that TRIGGERED
+     * this commission (a different payment, different direction). Nullable
+     * until {@code CommissionPayoutService} pays this row; {@code null} for
+     * histórico {@code PAID} rows from before this column existed (backfill
+     * pending, hub plan §"Histórico ya PAID").
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payout_payment_id")
+    private Payment payoutPayment;
+
     @Column(name = "payout_reference", length = 120)
     private String payoutReference;
 

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -89,6 +90,11 @@ public class PromoterHierarchyOverride extends BaseEntity {
     private Instant earnedAt = Instant.now();
 
     /** Set by {@code CommissionPayoutService} (V106) when this override is paid as part of a period-close batch. */
+    /** The OUT {@link Payment} that disbursed this override (V118, hub plan payments-unification). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payout_payment_id")
+    private Payment payoutPayment;
+
     @Column(name = "payout_reference", length = 120)
     private String payoutReference;
 
