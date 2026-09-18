@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -119,6 +120,18 @@ public class AdminPaymentController {
             @Valid @RequestBody PaymentRejectRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.reject(uuid, request, actor.getUuid()));
+    }
+
+    /**
+     * Deletes a still-PENDING payment registered by mistake. The backend
+     * rejects (422) deleting a payment that is already APPROVED/REJECTED —
+     * those are the audited review outcomes.
+     */
+    @DeleteMapping("/{uuid}")
+    @PreAuthorize("hasAuthority('PAYMENT_DELETE')")
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
+        paymentsService.remove(uuid);
+        return ResponseEntity.noContent().build();
     }
 
     /**

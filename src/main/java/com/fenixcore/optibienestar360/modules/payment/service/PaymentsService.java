@@ -18,9 +18,12 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.MyPaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
@@ -124,6 +127,7 @@ public class PaymentsService {
     private final PaymentMethodRepository paymentMethodRepository;
     private final PromoterRepository promoterRepository;
     private final MembershipRepository membershipRepository;
+    private final MemberRepository memberRepository;
     private final UserRepository userRepository;
     private final CurrencyRepository currencyRepository;
     private final com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
@@ -246,27 +250,81 @@ public class PaymentsService {
     public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
+        User payer = request.payerUserUuid() != null
+                ? userRepository.findByUuid(request.payerUserUuid())
+                        .orElseThrow(() -> new NoSuchElementException("user.not_found"))
+                : null;
+        return registerInternal(membership, payer, request.amount(), request.currency(),
+                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+    }
 
+    /**
+     * {@code POST /v1/me/payments} — an affiliate registering their own
+     * payment. The membership is resolved from the caller (their current
+     * active one, mirroring {@code member.membership already_active}'s
+     * "one active membership" invariant), never from client input.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto registerOwn(UUID actorUserUuid, MyPaymentCreateRequest request, MultipartFile supportFile) {
+        Member member = memberRepository.findByUserUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("member.not_found"));
+        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
+                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
+        return registerInternal(membership, null, request.amount(), request.currency(),
+                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+    }
+
+    /**
+     * {@code POST /v1/promoter/me/payments} — a promoter registering a
+     * collection on behalf of an affiliate in their own downline. Reuses
+     * the {@code ownedMember}-style ownership check {@code
+     * PromoterCollectionService} already applies for reminders/payment
+     * promises: a member outside the caller's portfolio surfaces the same
+     * 404 as a member that doesn't exist, so a promoter can't probe
+     * affiliates outside their book.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto registerForDownline(UUID actorUserUuid, DownlinePaymentCreateRequest request, MultipartFile supportFile) {
+        Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        Member member = memberRepository.findByUuid(request.memberUuid())
+                .orElseThrow(() -> new NoSuchElementException("member.not_found"));
+        if (member.getPromoter() == null || !member.getPromoter().getId().equals(promoter.getId())) {
+            throw new NoSuchElementException("promoter.member.not_in_portfolio");
+        }
+        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
+                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
+        return registerInternal(membership, null, request.amount(), request.currency(),
+                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+    }
+
+    /** Shared build+save logic behind {@link #register}, {@link #registerOwn} and {@link #registerForDownline}. */
+    private PaymentDto registerInternal(Membership membership, User payer, BigDecimal amount, String currencyCode,
+                                        String paymentMethodCode, String referenceNumber, LocalDate paymentDate,
+                                        Boolean inscriptionFlag, LocalDate appliedPeriod, String adminNotes,
+                                        MultipartFile supportFile) {
         Payment payment = new Payment();
         payment.setMembership(membership);
-
-        if (request.payerUserUuid() != null) {
-            User payer = userRepository.findByUuid(request.payerUserUuid())
-                    .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        if (payer != null) {
             payment.setPayerUser(payer);
         }
 
-        payment.setAmount(request.amount());
-        var currency = currencyRepository.findByCode(request.currency() != null ? request.currency() : "USD")
+        payment.setAmount(amount);
+        var currency = currencyRepository.findByCode(currencyCode != null ? currencyCode : "USD")
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
         payment.setCurrency(currency);
-        payment.setPaymentDate(request.paymentDate());
+        payment.setPaymentDate(paymentDate);
 
-        boolean inscription = Boolean.TRUE.equals(request.inscription());
+        boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
         payment.setInscription(inscription);
-        payment.setAppliedPeriod(resolveAppliedPeriod(inscription, request.appliedPeriod()));
+        payment.setAppliedPeriod(resolveAppliedPeriod(inscription, appliedPeriod));
 
-        payment.setAdminNotes(request.adminNotes());
+        payment.setAdminNotes(adminNotes);
         payment.setStatus(PaymentStatus.PENDING.name());
 
         // Header (V117): this flow only ever produces a collection (IN),
@@ -286,17 +344,97 @@ public class PaymentsService {
 
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
-        line.setPaymentType(paymentMethodRepository.findByCode(request.paymentMethod())
+        line.setPaymentType(paymentMethodRepository.findByCode(paymentMethodCode)
                 .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
         line.setAmount(payment.getAmount());
         line.setCurrency(currency);
-        line.setReferenceNumber(request.referenceNumber());
+        line.setReferenceNumber(referenceNumber);
         line.setStatus(PaymentStatus.PENDING.name());
         payment.getLines().add(line);
 
         Payment saved = paymentRepository.save(payment);
         dispatchNotification(saved, "payment-received", "email.payment.received.subject");
         return mapper.toDto(saved);
+    }
+
+    // ─── Delete (PENDING only — a mistaken registration, not yet reviewed) ──
+
+    /** Admin: any PENDING payment. {@code PAYMENT_DELETE}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.DELETE, uuidArgIndex = 0)
+    public void remove(UUID uuid) {
+        Payment payment = findManaged(uuid);
+        ensureDeletable(payment);
+        payment.setActive(false);
+    }
+
+    /** Affiliate: only their own PENDING payment. {@code PAYMENT_DELETE_OWN}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.DELETE, uuidArgIndex = 1)
+    public void removeOwn(UUID actorUserUuid, UUID uuid) {
+        Payment payment = findManaged(uuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureDeletable(payment);
+        payment.setActive(false);
+    }
+
+    /** Promoter: only a PENDING collection from their own downline. {@code PAYMENT_DELETE_DOWNLINE}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.DELETE, uuidArgIndex = 1)
+    public void removeForDownline(UUID actorUserUuid, UUID uuid) {
+        Payment payment = findManaged(uuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureDeletable(payment);
+        payment.setActive(false);
+    }
+
+    private static void ensureDeletable(Payment payment) {
+        if (!PaymentStatus.PENDING.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.delete.not_pending");
+        }
+    }
+
+    private boolean ownedByUser(Payment payment, UUID actorUserUuid) {
+        Person person = personFor(payment);
+        if (person == null) return false;
+        return userRepository.findByUuid(actorUserUuid)
+                .map(u -> u.getPerson() != null && u.getPerson().getId().equals(person.getId()))
+                .orElse(false);
+    }
+
+    private boolean ownedByPromoterDownline(Payment payment, UUID actorUserUuid) {
+        if (!"IN".equals(payment.getDirection()) || payment.getPromoter() == null) return false;
+        return promoterRepository.findActiveByUserUuid(actorUserUuid)
+                .map(promoter -> payment.getPromoter().getId().equals(promoter.getId()))
+                .orElse(false);
+    }
+
+    // ─── Review workflow (promoter downline) ────────────────────────────────
+
+    /** Promoter: approves a PENDING collection from their own downline. {@code PAYMENT_APPROVE_DOWNLINE}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto approveForDownline(UUID actorUserUuid, UUID uuid, PaymentApproveRequest request) {
+        Payment payment = findManaged(uuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        return approve(uuid, request, actorUserUuid);
+    }
+
+    /** Promoter: rejects a PENDING collection from their own downline. {@code PAYMENT_REJECT_DOWNLINE}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto rejectForDownline(UUID actorUserUuid, UUID uuid, PaymentRejectRequest request) {
+        Payment payment = findManaged(uuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        return reject(uuid, request, actorUserUuid);
     }
 
     /** {@code inscription} → {@code INSCRIPTION_FEE}, else {@code MEMBERSHIP_FEE} (V115 seed, same split V117's backfill used). */
