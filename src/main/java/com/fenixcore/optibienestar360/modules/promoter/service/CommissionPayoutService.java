@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse.PromoterPayoutSummary;
@@ -111,6 +112,7 @@ public class CommissionPayoutService {
     private final EmailService emailService;
     private final MessageSource messageSource;
     private final CommissionAuditRecorder auditRecorder;
+    private final ConversionEnricher conversionEnricher;
 
     @Transactional
     public CommissionPayoutResponse execute(CommissionPayoutRequest request) {
@@ -263,6 +265,9 @@ public class CommissionPayoutService {
             c.setStatus(CommissionStatus.PAID.name());
             c.setPaidAt(at);
             c.setPayoutReference(payoutReference);
+            ConversionEnricher.RateSnapshot paidRate = conversionEnricher.officialRateAt(c.getCurrency(), at);
+            c.setExchangeRateAtPaid(paidRate.rate());
+            c.setPaidRateDate(paidRate.date());
             auditRecorder.recordUpdate(c.getUuid(), before, auditRecorder.snapshot(c));
         }
         for (PromoterHierarchyOverride o : batch.overrides()) {

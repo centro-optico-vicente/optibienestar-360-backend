@@ -132,6 +132,19 @@ public class Commission extends BaseEntity {
     @Column(name = "earned_at", nullable = false)
     private Instant earnedAt = Instant.now();
 
+    /**
+     * Rate to the organization's official currency vigente at {@link #earnedAt}
+     * (calculation/closing time). Persisted so a later payout at a different
+     * rate can expose the FX gap the company absorbs — see
+     * {@link #exchangeRateAtPaid}. Populated by {@code CommissionService} at
+     * creation time; {@code null} only when no rate was vigente for that pair.
+     */
+    @Column(name = "exchange_rate_at_earned", precision = 18, scale = 8)
+    private BigDecimal exchangeRateAtEarned;
+
+    @Column(name = "earned_rate_date")
+    private LocalDate earnedRateDate;
+
     // ─── Payout tracking ───────────────────────────────────────────────────
 
     @Column(name = "payout_reference", length = 120)
@@ -139,6 +152,20 @@ public class Commission extends BaseEntity {
 
     @Column(name = "paid_at")
     private Instant paidAt;
+
+    /**
+     * Rate to the organization's official currency vigente at {@link #paidAt}
+     * (period-close settlement). Compared against {@link #exchangeRateAtEarned}
+     * to surface the currency-difference the company absorbs when a monthly
+     * commission is devengada on one date and disbursed on another with the
+     * rate having moved in between. Set by {@code CommissionPayoutService}
+     * when the row transitions to {@code PAID}; {@code null} until then.
+     */
+    @Column(name = "exchange_rate_at_paid", precision = 18, scale = 8)
+    private BigDecimal exchangeRateAtPaid;
+
+    @Column(name = "paid_rate_date")
+    private LocalDate paidRateDate;
 
     @Column(name = "voided_at")
     private Instant voidedAt;

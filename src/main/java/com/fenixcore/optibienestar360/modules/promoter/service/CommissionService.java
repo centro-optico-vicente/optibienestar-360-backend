@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -83,6 +84,7 @@ public class CommissionService {
     private final PromoterRepository promoterRepository;
     private final MemberRepository memberRepository;
     private final CommissionAuditRecorder auditRecorder;
+    private final ConversionEnricher conversionEnricher;
 
     /**
      * Computes + persists a commission row for the given approved payment.
@@ -149,6 +151,11 @@ public class CommissionService {
         commission.setAppliesTo(appliesTo);
         commission.setEarnedAt(payment.getReviewedAt() != null ? payment.getReviewedAt() : Instant.now());
         commission.setStatus(CommissionStatus.PENDING.name());
+
+        ConversionEnricher.RateSnapshot earnedRate =
+                conversionEnricher.officialRateAt(commission.getCurrency(), commission.getEarnedAt());
+        commission.setExchangeRateAtEarned(earnedRate.rate());
+        commission.setEarnedRateDate(earnedRate.date());
 
         Commission saved = commissionRepository.save(commission);
         log.info("Commission persisted: payment={} promoter={} amount={} {} tier={}",

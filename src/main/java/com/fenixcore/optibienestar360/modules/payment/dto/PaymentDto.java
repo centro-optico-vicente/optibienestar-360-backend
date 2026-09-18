@@ -42,8 +42,10 @@ public record PaymentDto(
         // different currency than it was registered in — never recomputed)
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal amount,
         String currency_Code,
+        @Display DisplayRef currency,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency_Code") BigDecimal amountConverted,
         String convertedCurrency_Code,
+        @Display DisplayRef convertedCurrency,
         BigDecimal exchangeRateUsed,
         @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
 

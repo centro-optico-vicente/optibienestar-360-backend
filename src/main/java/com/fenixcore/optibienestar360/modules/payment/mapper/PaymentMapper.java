@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment.mapper;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -17,8 +18,10 @@ public interface PaymentMapper {
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
     @Mapping(target = "currency_Code",           source = "currency.code")
+    @Mapping(target = "currency",                source = "currency")
     @Mapping(target = "amountConverted",        expression = "java(convertedAmount(payment))")
     @Mapping(target = "convertedCurrency_Code",  expression = "java(convertedCurrencyCode(payment))")
+    @Mapping(target = "convertedCurrency",       expression = "java(convertedCurrencyRef(payment))")
     @Mapping(target = "payerUserUuid",        source = "payerUser.uuid")
     @Mapping(target = "reviewedBy",            source = "reviewedBy")
     @Mapping(target = "discountedByUserUuid", source = "discountedBy.uuid")
@@ -51,5 +54,12 @@ public interface PaymentMapper {
         }
         return payment.getMembership() != null && payment.getMembership().getCurrency() != null
                 ? payment.getMembership().getCurrency().getCode() : null;
+    }
+
+    default DisplayRef convertedCurrencyRef(Payment payment) {
+        if (payment.getExchangeRateUsed() == null || payment.getMembership() == null) {
+            return null;
+        }
+        return DisplayRefs.ref(payment.getMembership().getCurrency());
     }
 }

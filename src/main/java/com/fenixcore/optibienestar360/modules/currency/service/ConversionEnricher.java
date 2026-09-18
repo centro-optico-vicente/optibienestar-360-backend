@@ -56,9 +56,38 @@ public class ConversionEnricher {
         return organizationRepository.findSingleton().getOfficialCurrency().getCode();
     }
 
+    /**
+     * Rate + date only (no amount) — for a caller that needs to persist a
+     * one-time snapshot of "what was the rate to the official currency at
+     * this instant", e.g. {@code Commission.exchangeRateAtEarned}/
+     * {@code exchangeRateAtPaid}. Degrades to {@link RateSnapshot#none()}
+     * same as {@link #toOfficial}.
+     */
+    public RateSnapshot officialRateAt(Currency from, Instant asOf) {
+        if (from == null || asOf == null) {
+            return RateSnapshot.none();
+        }
+        Currency official = organizationRepository.findSingleton().getOfficialCurrency();
+        if (official.getId().equals(from.getId())) {
+            return RateSnapshot.none();
+        }
+        try {
+            CurrencyConversionService.ConversionResult r = conversionService.convert(BigDecimal.ONE, from, official, asOf);
+            return new RateSnapshot(r.rate(), r.rateDate());
+        } catch (NoExchangeRateAvailableException noRate) {
+            return RateSnapshot.none();
+        }
+    }
+
     public static Conversion none() {
         return new Conversion(null, null, null, null);
     }
 
     public record Conversion(BigDecimal amountConverted, String currencyCode, BigDecimal rate, LocalDate rateDate) {}
+
+    public record RateSnapshot(BigDecimal rate, LocalDate date) {
+        public static RateSnapshot none() {
+            return new RateSnapshot(null, null);
+        }
+    }
 }
