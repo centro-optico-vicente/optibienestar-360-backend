@@ -20,6 +20,7 @@ import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
@@ -50,6 +51,7 @@ class PaymentsServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private PaymentCategoryRepository paymentCategoryRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
+    @Mock private PromoterRepository promoterRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private UserRepository userRepository;
     @Mock private CurrencyRepository currencyRepository;
@@ -68,7 +70,7 @@ class PaymentsServiceTest {
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
-                membershipRepository, userRepository, currencyRepository,
+                promoterRepository, membershipRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
                 validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
                 presignedUrlPolicy, fileValidationService);
