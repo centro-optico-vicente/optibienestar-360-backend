@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.document.generic.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecordModel;
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import org.springframework.context.MessageSource;
@@ -173,6 +174,42 @@ public class GenericEntityExtractorService {
         SPANISH_FIELD_LABELS.put("personrif", "RIF / Documento");
         SPANISH_FIELD_LABELS.put("username", "Usuario");
         SPANISH_FIELD_LABELS.put("description", "Descripción");
+        SPANISH_FIELD_LABELS.put("direction", "Dirección de Flujo");
+        SPANISH_FIELD_LABELS.put("paymenttype", "Categoría de Pago");
+        SPANISH_FIELD_LABELS.put("paymentcategory", "Categoría de Pago");
+        SPANISH_FIELD_LABELS.put("paymentcategorycode", "Código de Categoría");
+        SPANISH_FIELD_LABELS.put("paymentcategoryname", "Categoría de Pago");
+        SPANISH_FIELD_LABELS.put("conceptlabel", "Concepto / Detalle");
+        SPANISH_FIELD_LABELS.put("membership", "Membresía");
+        SPANISH_FIELD_LABELS.put("amountconverted", "Monto Convertido");
+        SPANISH_FIELD_LABELS.put("convertedcurrency", "Moneda de Conversión");
+        SPANISH_FIELD_LABELS.put("convertedcurrencycode", "Código de Moneda de Conversión");
+        SPANISH_FIELD_LABELS.put("currencycode", "Moneda");
+        SPANISH_FIELD_LABELS.put("exchangerateused", "Tasa de Cambio Aplicada");
+        SPANISH_FIELD_LABELS.put("exchangeratedate", "Fecha de Tasa de Cambio");
+        SPANISH_FIELD_LABELS.put("discountamount", "Monto de Descuento");
+        SPANISH_FIELD_LABELS.put("discountreason", "Motivo del Descuento");
+        SPANISH_FIELD_LABELS.put("discountedby", "Descontado Por");
+        SPANISH_FIELD_LABELS.put("discountedat", "Fecha de Descuento");
+        SPANISH_FIELD_LABELS.put("reviewedby", "Revisado Por");
+        SPANISH_FIELD_LABELS.put("supportfilecontenttype", "Tipo de Archivo");
+        SPANISH_FIELD_LABELS.put("supportfilesizebytes", "Tamaño del Archivo");
+        SPANISH_FIELD_LABELS.put("payeruseruuid", "Usuario Pagador");
+        SPANISH_FIELD_LABELS.put("payer", "Usuario Pagador");
+        SPANISH_FIELD_LABELS.put("payeruser", "Usuario Pagador");
+        SPANISH_FIELD_LABELS.put("bank", "Banco");
+        SPANISH_FIELD_LABELS.put("bankcode", "Código de Banco");
+        SPANISH_FIELD_LABELS.put("bankname", "Banco");
+        SPANISH_FIELD_LABELS.put("shortname", "Nombre Corto");
+        SPANISH_FIELD_LABELS.put("lines", "Líneas de Pago");
+        SPANISH_FIELD_LABELS.put("paymentlines", "Líneas de Pago");
+        SPANISH_FIELD_LABELS.put("payoutpayment", "Pago de Liquidación");
+        SPANISH_FIELD_LABELS.put("payoutpaymentid", "ID de Liquidación");
+        SPANISH_FIELD_LABELS.put("exchangerateatearned", "Tasa de Cambio (Ganada)");
+        SPANISH_FIELD_LABELS.put("exchangerateatpaid", "Tasa de Cambio (Pagada)");
+        SPANISH_FIELD_LABELS.put("origincurrency", "Moneda Origen");
+        SPANISH_FIELD_LABELS.put("origincode", "Código Origen");
+        SPANISH_FIELD_LABELS.put("targetcurrency", "Moneda Destino");
     }
 
     // Fallback dictionary of common Enum and Status values in Spanish
@@ -229,6 +266,8 @@ public class GenericEntityExtractorService {
         SPANISH_ENUM_LABELS.put("CALENDAR_YEAR", "Año Calendario");
         SPANISH_ENUM_LABELS.put("ALL_TIME", "Histórico General");
         SPANISH_ENUM_LABELS.put("LOCKED", "Bloqueado");
+        SPANISH_ENUM_LABELS.put("IN", "Cobro (Entrada)");
+        SPANISH_ENUM_LABELS.put("OUT", "Pago (Salida)");
     }
 
     public GenericEntityExtractorService(ObjectMapper objectMapper, MessageSource messageSource) {
@@ -326,6 +365,9 @@ public class GenericEntityExtractorService {
         }
 
         // 4. Financial data, fees, and operational dates
+        if (lower.equals("direction") || lower.equals("paymentdirection") || lower.equals("flowdirection")) {
+            return 98;
+        }
         if (lower.equals("amount") || lower.equals("monto") || lower.equals("montocuota") || lower.equals("priceusd") || lower.equals("precio")) {
             return 100;
         }
@@ -401,6 +443,11 @@ public class GenericEntityExtractorService {
             sortedKeys.sort(Comparator.comparingInt(this::getFieldPriority));
 
             for (String key : sortedKeys) {
+                // If a _Display sibling exists for this field, skip the raw scalar property
+                // so we don't display both raw and formatted values (e.g. amount vs amount_Display)
+                if (map.containsKey(key + "_Display") || map.containsKey(key + "_display")) {
+                    continue;
+                }
                 Object value = map.get(key);
                 if (value != null && !isIgnoredField(key)) {
                     if (value instanceof Collection<?> collection) {
@@ -491,17 +538,27 @@ public class GenericEntityExtractorService {
     public String resolveFieldLabel(String key, Locale locale) {
         if (key == null || key.isBlank()) return "";
 
+        String cleanKey = key.trim();
+        if (cleanKey.endsWith("_Display") || cleanKey.endsWith("_display")) {
+            cleanKey = cleanKey.substring(0, cleanKey.length() - 8);
+        } else if (cleanKey.endsWith("Display") && cleanKey.length() > 7 && Character.isLowerCase(cleanKey.charAt(cleanKey.length() - 8))) {
+            cleanKey = cleanKey.substring(0, cleanKey.length() - 7);
+        }
+        if (cleanKey.endsWith("_Uuid") || cleanKey.endsWith("_uuid")) {
+            cleanKey = cleanKey.substring(0, cleanKey.length() - 5);
+        }
+
         Locale targetLocale = (locale != null) ? locale : venezuelaLocale;
 
         // 1. Dynamic i18n lookup via Spring MessageSource
         if (messageSource != null) {
-            String snake = toSnakeCase(key);
+            String snake = toSnakeCase(cleanKey);
             for (String msgKey : List.of(
-                    "report.field." + key,
-                    "field." + key,
+                    "report.field." + cleanKey,
+                    "field." + cleanKey,
                     "report.field." + snake,
                     "field." + snake,
-                    key,
+                    cleanKey,
                     snake
             )) {
                 try {
@@ -512,29 +569,29 @@ public class GenericEntityExtractorService {
         }
 
         // 2. Specific nested/catalog property label helpers
-        if (key.equalsIgnoreCase("allyType.name")) return "Tipo de Aliado";
-        if (key.equalsIgnoreCase("promoterType.name")) return "Tipo de Promotor";
-        if (key.equalsIgnoreCase("city.name")) return "Ciudad";
-        if (key.equalsIgnoreCase("state.name")) return "Estado / Región";
-        if (key.equalsIgnoreCase("country.name")) return "País";
-        if (key.endsWith(".fullName")) return "Nombre Completo";
-        if (key.endsWith(".document")) return "Cédula / Documento";
-        if (key.endsWith(".documentNumber")) return "Número de Cédula";
-        if (key.endsWith(".phone")) return "Teléfono";
-        if (key.endsWith(".email")) return "Correo Electrónico";
-        if (key.endsWith(".name")) {
-            String prefix = key.substring(0, key.indexOf("."));
+        if (cleanKey.equalsIgnoreCase("allyType.name")) return "Tipo de Aliado";
+        if (cleanKey.equalsIgnoreCase("promoterType.name")) return "Tipo de Promotor";
+        if (cleanKey.equalsIgnoreCase("city.name")) return "Ciudad";
+        if (cleanKey.equalsIgnoreCase("state.name")) return "Estado / Región";
+        if (cleanKey.equalsIgnoreCase("country.name")) return "País";
+        if (cleanKey.endsWith(".fullName")) return "Nombre Completo";
+        if (cleanKey.endsWith(".document")) return "Cédula / Documento";
+        if (cleanKey.endsWith(".documentNumber")) return "Número de Cédula";
+        if (cleanKey.endsWith(".phone")) return "Teléfono";
+        if (cleanKey.endsWith(".email")) return "Correo Electrónico";
+        if (cleanKey.endsWith(".name")) {
+            String prefix = cleanKey.substring(0, cleanKey.indexOf("."));
             String lowerPrefix = prefix.toLowerCase().replace("_", "");
             if (SPANISH_FIELD_LABELS.containsKey(lowerPrefix)) {
                 return SPANISH_FIELD_LABELS.get(lowerPrefix);
             }
             return formatCamelCaseToTitle(prefix);
         }
-        if (key.equals("taxDocument")) return "RIF / Documento";
-        if (key.equals("document")) return "Cédula / Documento";
+        if (cleanKey.equals("taxDocument")) return "RIF / Documento";
+        if (cleanKey.equals("document")) return "Cédula / Documento";
 
         // 3. Fallback lookup in normalized dictionary
-        String lookupKey = key.trim();
+        String lookupKey = cleanKey.trim();
         if (SPANISH_FIELD_LABELS.containsKey(lookupKey)) {
             return SPANISH_FIELD_LABELS.get(lookupKey);
         }
@@ -543,7 +600,7 @@ public class GenericEntityExtractorService {
             return SPANISH_FIELD_LABELS.get(lowerKey);
         }
 
-        return formatCamelCaseToTitle(key);
+        return formatCamelCaseToTitle(cleanKey);
     }
 
     private String toSnakeCase(String str) {
@@ -741,6 +798,20 @@ public class GenericEntityExtractorService {
 
     private String extractDisplayStringFromObject(Object val) {
         if (val == null) return null;
+
+        if (val instanceof DisplayRef ref) {
+            if (ref.name() != null && !ref.name().isBlank()) {
+                if (ref.code() != null && !ref.code().isBlank() && !ref.name().equalsIgnoreCase(ref.code())) {
+                    return ref.name() + " (" + ref.code() + ")";
+                }
+                return ref.name();
+            }
+            if (ref.code() != null && !ref.code().isBlank()) {
+                return ref.code();
+            }
+            return "";
+        }
+
         Class<?> clazz = val.getClass();
 
         // 1. Standard name or label getter methods

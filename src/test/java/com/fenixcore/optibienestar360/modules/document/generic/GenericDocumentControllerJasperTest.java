@@ -284,5 +284,83 @@ class GenericDocumentControllerJasperTest {
         Map<String, Object> capturedParamsPayments = paramsCaptor.getValue();
         assertEquals("VES", capturedParamsPayments.get("P_TARGET_CURRENCY"));
     }
+
+    @Test
+    @DisplayName("Should generate general payment movements report in PDF and record audit")
+    void testGenerateMovimientosJasperReportPdf() {
+        byte[] fakePdf = "%PDF-1.4 movimientos fake".getBytes();
+        org.mockito.ArgumentCaptor<Map<String, Object>> paramsCaptor = org.mockito.ArgumentCaptor.forClass(Map.class);
+        when(jasperReportService.generateReportWithConnection(
+                eq("reports/reporte-movimientos-pagos.jrxml"),
+                paramsCaptor.capture(),
+                eq(mockConnection),
+                eq(JasperFormat.PDF)
+        )).thenReturn(fakePdf);
+
+        ResponseEntity<byte[]> response = controller.generateJasperReport(
+                "movimientos",
+                "PDF",
+                "2026-09-01",
+                "2026-09-30",
+                null,
+                "APPROVED",
+                null,
+                "BANK_TRANSFER",
+                null,
+                null,
+                "OptiBienestar Corp",
+                "USD",
+                "2026-09-15",
+                "OUT"
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(fakePdf, response.getBody());
+        assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("reporte-movimientos-pagos_"));
+        assertEquals("application/pdf", response.getHeaders().getContentType().toString());
+
+        Map<String, Object> capturedParams = paramsCaptor.getValue();
+        assertEquals("OUT", capturedParams.get("P_DIRECTION"));
+        assertEquals("USD", capturedParams.get("P_TARGET_CURRENCY"));
+        assertEquals("APPROVED", capturedParams.get("P_STATUS"));
+        assertEquals("BANK_TRANSFER", capturedParams.get("P_PAYMENT_METHOD"));
+
+        verify(reportAuditService).recordGeneration(
+                eq("JASPER"),
+                eq("payment"),
+                isNull(),
+                isNull(),
+                eq("PDF"),
+                anyMap(),
+                eq(fakePdf),
+                anyString(),
+                eq("application/pdf")
+        );
+    }
+
+    @Test
+    @DisplayName("Should enforce granular permission for movimientos: PAYMENT_REPORT_GENERATE allowed, COMMISSION_REPORT_GENERATE denied")
+    void testMovimientosPermissions() {
+        byte[] fakePdf = "%PDF-1.4 fake".getBytes();
+        when(jasperReportService.generateReportWithConnection(anyString(), anyMap(), any(), eq(JasperFormat.PDF)))
+                .thenReturn(fakePdf);
+
+        // User with PAYMENT_REPORT_GENERATE should be permitted
+        var paymentAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "payment_user", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("PAYMENT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(paymentAuth);
+
+        assertDoesNotThrow(() -> controller.generateJasperReport("movimientos", "PDF", null, null, null, null, null, null, null, null, null, null, null, null));
+
+        // User with only COMMISSION_REPORT_GENERATE should be denied access to movimientos
+        var commissionAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "comm_user", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("COMMISSION_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(commissionAuth);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () ->
+                controller.generateJasperReport("movimientos", "PDF", null, null, null, null, null, null, null, null, null, null, null, null)
+        );
+    }
 }
 

@@ -192,8 +192,8 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/jasper/{reportName}")
-    @PreAuthorize("hasAuthority('REPORT_REPORT_GENERATE') or (#reportName.matches('(?i)comision(es)?|commission(s)?|pagos?-comision(es)?|payouts?|commission-payouts?') and (hasAuthority('COMMISSION_REPORT_GENERATE') or hasAuthority('COMMISSION_VIEW_ALL') or hasAuthority('COMMISSION_VIEW_OWN'))) or (#reportName.matches('(?i)pagos?(-afiliados)?|payments?') and (hasAuthority('PAYMENT_REPORT_GENERATE') or hasAuthority('PAYMENT_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_OWN')))")
-    @Operation(summary = "Genera un reporte Jasper profesional (comisiones, pagos de comisiones o pagos de afiliados) en PDF o XLSX con filtros")
+    @PreAuthorize("hasAuthority('REPORT_REPORT_GENERATE') or (#reportName.matches('(?i)comision(es)?|commission(s)?|pagos?-comision(es)?|payouts?|commission-payouts?') and (hasAuthority('COMMISSION_REPORT_GENERATE') or hasAuthority('COMMISSION_VIEW_ALL') or hasAuthority('COMMISSION_VIEW_OWN'))) or (#reportName.matches('(?i)pagos?(-afiliados)?|payments?|movimientos?(-pagos)?|payment-movements?') and (hasAuthority('PAYMENT_REPORT_GENERATE') or hasAuthority('PAYMENT_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_OWN')))")
+    @Operation(summary = "Genera un reporte Jasper profesional (comisiones, pagos de comisiones, pagos de afiliados o movimientos generales) en PDF o XLSX con filtros")
     public ResponseEntity<byte[]> generateJasperReport(
             @PathVariable String reportName,
             @RequestParam(defaultValue = "PDF") String format,
@@ -207,7 +207,8 @@ public class GenericDocumentController {
             @RequestParam(required = false) String payoutReference,
             @RequestParam(required = false) String companyName,
             @RequestParam(required = false) String targetCurrency,
-            @RequestParam(required = false) String conversionDate
+            @RequestParam(required = false) String conversionDate,
+            @RequestParam(required = false) String direction
     ) {
         String normalizedReport = reportName.trim().toLowerCase();
         String templatePath;
@@ -226,8 +227,12 @@ public class GenericDocumentController {
             templatePath = "reports/reporte-pagos.jrxml";
             baseFilename = "reporte-pagos-afiliados";
             entityKey = "payment";
+        } else if ("movimientos".equals(normalizedReport) || "movimientos-pagos".equals(normalizedReport) || "payment-movements".equals(normalizedReport)) {
+            templatePath = "reports/reporte-movimientos-pagos.jrxml";
+            baseFilename = "reporte-movimientos-pagos";
+            entityKey = "payment_movement";
         } else {
-            throw new IllegalArgumentException("Reporte Jasper desconocido: " + reportName + ". Disponibles: comisiones, pagos-comisiones, pagos.");
+            throw new IllegalArgumentException("Reporte Jasper desconocido: " + reportName + ". Disponibles: comisiones, pagos-comisiones, pagos, movimientos.");
         }
 
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -297,6 +302,7 @@ public class GenericDocumentController {
             parameters.put("P_PLAN_ID", planId);
             parameters.put("P_PROMOTER_ID", promoterId);
             parameters.put("P_TARGET_CURRENCY", resolvedTargetCurrency);
+            parameters.put("P_DIRECTION", (direction != null && !direction.isBlank()) ? direction.trim().toUpperCase() : null);
         }
 
         byte[] reportBytes;
@@ -311,7 +317,7 @@ public class GenericDocumentController {
 
         reportAuditService.recordGeneration(
                 "JASPER",
-                "commission_payout".equals(entityKey) ? "commission" : entityKey,
+                "payment_movement".equals(entityKey) ? "payment" : ("commission_payout".equals(entityKey) ? "commission" : entityKey),
                 null,
                 null,
                 selectedFormat.name(),
@@ -338,11 +344,32 @@ public class GenericDocumentController {
             String paymentMethod,
             String plan,
             String payoutReference,
+            String companyName,
+            String targetCurrency,
+            String conversionDate
+    ) {
+        return generateJasperReport(
+                reportName, format, startDate, endDate, promoter, status, appliesTo,
+                paymentMethod, plan, payoutReference, companyName, targetCurrency, conversionDate, null
+        );
+    }
+
+    public ResponseEntity<byte[]> generateJasperReport(
+            String reportName,
+            String format,
+            String startDate,
+            String endDate,
+            String promoter,
+            String status,
+            String appliesTo,
+            String paymentMethod,
+            String plan,
+            String payoutReference,
             String companyName
     ) {
         return generateJasperReport(
                 reportName, format, startDate, endDate, promoter, status, appliesTo,
-                paymentMethod, plan, payoutReference, companyName, null, null
+                paymentMethod, plan, payoutReference, companyName, null, null, null
         );
     }
 

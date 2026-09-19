@@ -36,7 +36,7 @@ public abstract class BaseEntity {
     private boolean active = true;
 
     @Column(name = "status", length = 50)
-    private String status;
+    private String status = "ACTIVE";
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,9 +55,12 @@ public abstract class BaseEntity {
     private UUID updatedBy;
 
     @PrePersist
-    private void assignUuid() {
+    private void prePersist() {
         if (uuid == null) {
             uuid = UUID.randomUUID();
+        }
+        if (status == null) {
+            status = "ACTIVE";
         }
     }
 }
