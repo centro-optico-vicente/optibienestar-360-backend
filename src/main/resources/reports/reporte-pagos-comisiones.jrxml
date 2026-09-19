@@ -59,7 +59,10 @@
             c.commission_pct,
             c.flat_amount,
             COALESCE(c.tier_name_snapshot, 'Base estándar') AS tier_name,
-            c.payout_reference,
+            COALESCE(payout_lines.reference_number, c.payout_reference, '-') AS payout_reference,
+            COALESCE(payout_p.payment_date, c.paid_at::date) AS payout_date,
+            COALESCE(payout_lines.payout_method_label, 'Transferencia') AS payout_method_label,
+            COALESCE(payout_lines.payout_bank_name, '-') AS payout_bank_name,
             c.paid_at,
             pr.promoters_id,
             pr.display_name AS promoter_name,
@@ -72,7 +75,7 @@
             m_p.full_name AS member_name,
             (m_p.document_type || '-' || m_p.document_number) AS member_document,
             p.payment_date,
-            pline.reference_number AS payment_reference,
+            pline.payment_reference AS payment_reference,
             p.amount AS payment_amount,
             pl.name AS plan_name
         FROM app.commissions c
@@ -83,9 +86,24 @@
         JOIN app.members m ON c.member_id = m.members_id
         JOIN app.persons m_p ON m.person_id = m_p.persons_id
         JOIN app.payments p ON c.payment_id = p.payments_id
-        LEFT JOIN app.payment_lines pline ON pline.payment_id = p.payments_id
+        LEFT JOIN LATERAL (
+            SELECT STRING_AGG(DISTINCT pl.reference_number, ', ') AS payment_reference
+            FROM app.payment_lines pl
+            WHERE pl.payment_id = p.payments_id
+        ) pline ON true
         LEFT JOIN app.memberships ms ON p.membership_id = ms.memberships_id
         LEFT JOIN app.plans pl ON ms.plan_id = pl.plans_id
+        LEFT JOIN app.payments payout_p ON payout_p.payments_id = c.payout_payment_id
+        LEFT JOIN LATERAL (
+            SELECT
+                STRING_AGG(DISTINCT pol.reference_number, ', ') AS reference_number,
+                STRING_AGG(DISTINCT COALESCE(popm.name, popm.code), ', ') AS payout_method_label,
+                STRING_AGG(DISTINCT pob.short_name, ', ') AS payout_bank_name
+            FROM app.payment_lines pol
+            LEFT JOIN app.payment_methods popm ON popm.payment_methods_id = pol.payment_type_id
+            LEFT JOIN app.banks pob ON pob.banks_id = pol.bank_id
+            WHERE pol.payment_id = payout_p.payments_id
+        ) payout_lines ON true
         LEFT JOIN LATERAL (
             SELECT
                 tc.currencies_id AS target_currency_id,
@@ -109,7 +127,7 @@
                 FROM app.exchange_rates er
                 WHERE er.base_currency_id = c.currency_id
                   AND er.quote_currency_id = tc.currencies_id
-                  AND er.valid_from <= ((COALESCE(c.paid_at::date, c.earned_at::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas')
+                  AND er.valid_from <= ((COALESCE(payout_p.payment_date, c.paid_at::date, c.earned_at::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas')
                   AND er.is_active = true
                 ORDER BY er.valid_from DESC
                 LIMIT 1
@@ -119,7 +137,7 @@
                 FROM app.exchange_rates er
                 WHERE er.base_currency_id = tc.currencies_id
                   AND er.quote_currency_id = c.currency_id
-                  AND er.valid_from <= ((COALESCE(c.paid_at::date, c.earned_at::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas')
+                  AND er.valid_from <= ((COALESCE(payout_p.payment_date, c.paid_at::date, c.earned_at::date, CURRENT_DATE) + TIME '23:59:59') AT TIME ZONE 'America/Caracas')
                   AND er.is_active = true
                 ORDER BY er.valid_from DESC
                 LIMIT 1
@@ -128,15 +146,15 @@
             LIMIT 1
         ) conv ON true
         WHERE c.is_active = true
-          AND (c.status = 'PAID' OR c.paid_at IS NOT NULL)
-          AND ($P{P_START_DATE}::date IS NULL OR c.paid_at::date >= $P{P_START_DATE}::date)
-          AND ($P{P_END_DATE}::date IS NULL OR c.paid_at::date <= $P{P_END_DATE}::date)
+          AND (c.status = 'PAID' OR c.paid_at IS NOT NULL OR c.payout_payment_id IS NOT NULL)
+          AND ($P{P_START_DATE}::date IS NULL OR COALESCE(payout_p.payment_date, c.paid_at::date) >= $P{P_START_DATE}::date)
+          AND ($P{P_END_DATE}::date IS NULL OR COALESCE(payout_p.payment_date, c.paid_at::date) <= $P{P_END_DATE}::date)
           AND ($P{P_PROMOTER_ID}::bigint IS NULL OR c.promoter_id = $P{P_PROMOTER_ID}::bigint)
-          AND ($P{P_PAYOUT_REFERENCE}::varchar IS NULL OR $P{P_PAYOUT_REFERENCE} = '' OR c.payout_reference ILIKE '%' || $P{P_PAYOUT_REFERENCE} || '%')
+          AND ($P{P_PAYOUT_REFERENCE}::varchar IS NULL OR $P{P_PAYOUT_REFERENCE} = '' OR c.payout_reference ILIKE '%' || $P{P_PAYOUT_REFERENCE} || '%' OR payout_lines.reference_number ILIKE '%' || $P{P_PAYOUT_REFERENCE} || '%')
         ORDER BY 
             pr.display_name ASC,
-            c.paid_at DESC,
-            c.payout_reference ASC
+            COALESCE(payout_p.payment_date, c.paid_at::date) DESC,
+            payout_reference ASC
         ]]>
     </queryString>
 
@@ -160,6 +178,9 @@
     <field name="flat_amount" class="java.math.BigDecimal"/>
     <field name="tier_name" class="java.lang.String"/>
     <field name="payout_reference" class="java.lang.String"/>
+    <field name="payout_date" class="java.sql.Date"/>
+    <field name="payout_method_label" class="java.lang.String"/>
+    <field name="payout_bank_name" class="java.lang.String"/>
     <field name="paid_at" class="java.sql.Timestamp"/>
     <field name="promoters_id" class="java.lang.Long"/>
     <field name="promoter_name" class="java.lang.String"/>
@@ -357,13 +378,13 @@
                 <reportElement x="0" y="0" width="50" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
-                <textFieldExpression><![CDATA[$F{paid_at}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{payout_date} != null ? $F{payout_date} : ($F{paid_at} != null ? new java.sql.Date($F{paid_at}.getTime()) : null)]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="50" y="0" width="70" height="15"/>
                 <box><bottomPen lineWidth="0.25" lineColor="#E2E8F0"/></box>
                 <textElement textAlignment="Left" verticalAlignment="Middle"><font size="7" isBold="true"/><paragraph leftIndent="4"/></textElement>
-                <textFieldExpression><![CDATA[$F{payout_reference}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{payout_reference} + ("-".equals($F{payout_bank_name}) ? "" : " (" + $F{payout_bank_name} + ")")]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="120" y="0" width="105" height="15"/>
