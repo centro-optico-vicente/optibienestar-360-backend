@@ -43,6 +43,9 @@ public class HierarchyOverrideTier extends BaseEntity {
     @Column(name = "name", length = 80, nullable = false)
     private String name;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rank_id", nullable = false)
     private PromoterRank rank;

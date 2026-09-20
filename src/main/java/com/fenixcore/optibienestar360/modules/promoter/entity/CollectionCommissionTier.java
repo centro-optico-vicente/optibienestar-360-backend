@@ -34,6 +34,9 @@ public class CollectionCommissionTier extends BaseEntity {
     @Column(name = "name", length = 80, nullable = false)
     private String name;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     @Column(name = "max_days", nullable = false)
     private int maxDays;
 

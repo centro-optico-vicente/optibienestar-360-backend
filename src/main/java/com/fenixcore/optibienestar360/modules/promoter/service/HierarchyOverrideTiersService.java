@@ -101,6 +101,7 @@ public class HierarchyOverrideTiersService {
 
         HierarchyOverrideTier tier = new HierarchyOverrideTier();
         tier.setName(req.name());
+        tier.setDescription(req.description());
         tier.setRank(resolveRank(req.rankUuid()));
         tier.setCategory(req.category());
         tier.setThresholdCount(req.thresholdCount() != null ? req.thresholdCount() : 0);
@@ -118,6 +119,7 @@ public class HierarchyOverrideTiersService {
         HierarchyOverrideTier tier = findManaged(uuid);
 
         if (req.name() != null)           tier.setName(req.name());
+        if (req.description() != null)    tier.setDescription(req.description());
         if (req.rankUuid() != null)       tier.setRank(resolveRank(req.rankUuid()));
         if (req.category() != null)       tier.setCategory(req.category());
         if (req.thresholdCount() != null) tier.setThresholdCount(req.thresholdCount());

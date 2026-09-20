@@ -15,6 +15,7 @@ import java.util.UUID;
 public record HierarchyOverrideTierDto(
         UUID uuid,
         String name,
+        String description,
         @Display DisplayRef rank,
         @Display(Display.Kind.ENUM) OverrideCategory category,
         int thresholdCount,
@@ -30,7 +31,7 @@ public record HierarchyOverrideTierDto(
 ) {
     public static HierarchyOverrideTierDto from(HierarchyOverrideTier t) {
         return new HierarchyOverrideTierDto(
-                t.getUuid(), t.getName(), DisplayRefs.ref(t.getRank()), t.getCategory(),
+                t.getUuid(), t.getName(), t.getDescription(), DisplayRefs.ref(t.getRank()), t.getCategory(),
                 t.getThresholdCount(), t.getOverridePct(), t.getFlatAmount(),
                 DisplayRefs.ref(t.getFlatAmountCurrency()),
                 t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,

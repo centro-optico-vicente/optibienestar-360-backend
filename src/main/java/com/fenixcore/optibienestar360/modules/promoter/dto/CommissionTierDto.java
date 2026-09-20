@@ -16,6 +16,7 @@ import java.util.UUID;
 public record CommissionTierDto(
         UUID uuid,
         String name,
+        String description,
         @Display(Display.Kind.ENUM) PlanType planType,
         @Display DisplayRef promoterType,
         int thresholdCount,
@@ -30,7 +31,7 @@ public record CommissionTierDto(
 ) {
     public static CommissionTierDto from(CommissionTier t) {
         return new CommissionTierDto(
-                t.getUuid(), t.getName(), t.getPlanType(),
+                t.getUuid(), t.getName(), t.getDescription(), t.getPlanType(),
                 DisplayRefs.ref(t.getPromoterType()),
                 t.getThresholdCount(),
                 t.getCommissionPct(), t.getFlatAmount(), t.getPeriodStrategy(), t.getAppliesTo(),

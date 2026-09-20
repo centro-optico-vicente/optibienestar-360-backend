@@ -22,6 +22,7 @@ import java.util.UUID;
  */
 public record CommissionTierCreateRequest(
         @NotBlank String name,
+        String description,
         PlanType planType,
         UUID promoterTypeUuid,
         @PositiveOrZero Integer thresholdCount,

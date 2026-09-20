@@ -51,6 +51,9 @@ public class CommissionTier extends BaseEntity {
     @Column(name = "name", length = 80, nullable = false)
     private String name;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     /** Optional plan scope. {@code null} = applies to every plan type. */
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", length = 20)

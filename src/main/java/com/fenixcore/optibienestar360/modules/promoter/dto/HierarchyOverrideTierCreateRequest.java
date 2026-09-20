@@ -21,6 +21,7 @@ import java.util.UUID;
  */
 public record HierarchyOverrideTierCreateRequest(
         @NotBlank String name,
+        String description,
         @NotNull UUID rankUuid,
         @NotNull OverrideCategory category,
         @PositiveOrZero Integer thresholdCount,

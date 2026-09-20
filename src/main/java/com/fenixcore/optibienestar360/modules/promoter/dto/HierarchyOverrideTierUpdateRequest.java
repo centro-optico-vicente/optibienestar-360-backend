@@ -20,6 +20,7 @@ import java.util.UUID;
  */
 public record HierarchyOverrideTierUpdateRequest(
         String name,
+        String description,
         UUID rankUuid,
         OverrideCategory category,
         @PositiveOrZero Integer thresholdCount,

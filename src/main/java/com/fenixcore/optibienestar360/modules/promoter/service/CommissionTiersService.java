@@ -95,6 +95,7 @@ public class CommissionTiersService {
 
         CommissionTier tier = new CommissionTier();
         tier.setName(req.name());
+        tier.setDescription(req.description());
         tier.setPlanType(req.planType());
         tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         tier.setThresholdCount(req.thresholdCount() != null ? req.thresholdCount() : 0);
@@ -112,6 +113,7 @@ public class CommissionTiersService {
         CommissionTier tier = findManaged(uuid);
 
         if (req.name() != null)             tier.setName(req.name());
+        if (req.description() != null)      tier.setDescription(req.description());
         if (req.planType() != null)         tier.setPlanType(req.planType());
         if (req.promoterTypeUuid() != null) tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         if (req.thresholdCount() != null)   tier.setThresholdCount(req.thresholdCount());
