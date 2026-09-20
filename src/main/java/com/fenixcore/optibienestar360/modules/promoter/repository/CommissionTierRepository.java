@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.repository;
 
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
@@ -18,6 +19,9 @@ public interface CommissionTierRepository extends JpaRepository<CommissionTier, 
         JpaSpecificationExecutor<CommissionTier> {
 
     Optional<CommissionTier> findByUuid(UUID uuid);
+
+    /** Every tier anchored to a campaign — cloned on relaunch by {@code CampaignService}. */
+    List<CommissionTier> findByCampaign(Campaign campaign);
 
     /**
      * Active tiers applicable to a payment of {@code planType} and fee type

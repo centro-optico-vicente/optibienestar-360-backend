@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.repository;
 
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,9 @@ public interface HierarchyOverrideTierRepository extends JpaRepository<Hierarchy
         JpaSpecificationExecutor<HierarchyOverrideTier> {
 
     Optional<HierarchyOverrideTier> findByUuid(UUID uuid);
+
+    /** Every band anchored to a campaign — cloned on relaunch by {@code CampaignService}. */
+    List<HierarchyOverrideTier> findByCampaign(Campaign campaign);
 
     /**
      * Candidate bands for a (rank, category) combination, highest threshold
