@@ -1,11 +1,15 @@
 package com.fenixcore.optibienestar360.modules.campaign;
 
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignEffectivenessDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignTransactionLinkDto;
 import com.fenixcore.optibienestar360.modules.campaign.service.CampaignService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -114,6 +118,52 @@ public class AdminCampaignController {
     @PreAuthorize("hasAuthority('CAMPAIGN_EXCEPTION_DELETE')")
     public ResponseEntity<Void> deleteException(@PathVariable UUID uuid, @PathVariable UUID exceptionUuid) {
         campaignService.deleteException(uuid, exceptionUuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{uuid}/exceptions")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<Page<CampaignExceptionDto>> listExceptions(
+            @PathVariable UUID uuid, @PageableDefault(size = 50) Pageable pageable) {
+        return ResponseEntity.ok(campaignService.listExceptions(uuid, pageable));
+    }
+
+    /** Resolved {@code campaign_transaction_links} rows — what actually counted towards the campaign. */
+    @GetMapping("/{uuid}/transactions")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<Page<CampaignTransactionLinkDto>> listTransactions(
+            @PathVariable UUID uuid, @PageableDefault(size = 50) Pageable pageable) {
+        return ResponseEntity.ok(campaignService.listTransactions(uuid, pageable));
+    }
+
+    /**
+     * Audience (only meaningful when {@code scope IN (INCLUDE, EXCLUDE)}) —
+     * gated by {@code CAMPAIGN_UPDATE} since membership is part of editing
+     * the campaign, same as {@code promoterUuids} on {@link CampaignRequest}.
+     */
+    @GetMapping("/{uuid}/audience")
+    @PreAuthorize("hasAuthority('CAMPAIGN_UPDATE')")
+    public ResponseEntity<Page<CampaignAudienceDto>> listAudience(
+            @PathVariable UUID uuid, @PageableDefault(size = 50) Pageable pageable) {
+        return ResponseEntity.ok(campaignService.listAudience(uuid, pageable));
+    }
+
+    @PostMapping("/{uuid}/audience")
+    @PreAuthorize("hasAuthority('CAMPAIGN_UPDATE')")
+    public ResponseEntity<CampaignAudienceDto> addAudienceMember(
+            @PathVariable UUID uuid, @Valid @RequestBody CampaignAudienceRequest request) {
+        CampaignAudienceDto created = campaignService.addAudienceMember(uuid, request.promoterUuid());
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .replacePath("/v1/admin/campaigns/{uuid}/audience/{promoterUuid}")
+                .buildAndExpand(uuid, request.promoterUuid())
+                .toUri();
+        return ResponseEntity.created(location).body(created);
+    }
+
+    @DeleteMapping("/{uuid}/audience/{promoterUuid}")
+    @PreAuthorize("hasAuthority('CAMPAIGN_UPDATE')")
+    public ResponseEntity<Void> removeAudienceMember(@PathVariable UUID uuid, @PathVariable UUID promoterUuid) {
+        campaignService.removeAudienceMember(uuid, promoterUuid);
         return ResponseEntity.noContent().build();
     }
 }

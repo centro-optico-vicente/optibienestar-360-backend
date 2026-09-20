@@ -7,11 +7,16 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignEffectivenessDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignTransactionLinkDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.CampaignPromoter;
 import com.fenixcore.optibienestar360.modules.campaign.entity.CampaignTransactionException;
@@ -36,6 +41,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.HierarchyOverr
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -378,6 +384,103 @@ public class CampaignService {
 
         return new CampaignEffectivenessDto(campaign.getUuid(), campaign.getName(), total, count,
                 campaign.getTargetAmount(), campaign.getTargetCount(), amountPct, countPct);
+    }
+
+    // ─── Exceptions (list) ──────────────────────────────────────────────────
+
+    public Page<CampaignExceptionDto> listExceptions(UUID campaignUuid, Pageable pageable) {
+        Campaign campaign = findManaged(campaignUuid);
+        return exceptionRepository.findByCampaign(campaign, pageable).map(this::toExceptionDto);
+    }
+
+    // ─── Transactions (list) ────────────────────────────────────────────────
+
+    public Page<CampaignTransactionLinkDto> listTransactions(UUID campaignUuid, Pageable pageable) {
+        Campaign campaign = findManaged(campaignUuid);
+        return linkRepository.findByCampaign(campaign, pageable).map(this::toLinkDto);
+    }
+
+    // ─── Audience (CampaignPromoter) ────────────────────────────────────────
+
+    public Page<CampaignAudienceDto> listAudience(UUID campaignUuid, Pageable pageable) {
+        Campaign campaign = findManaged(campaignUuid);
+        return campaignPromoterRepository.findByCampaign(campaign, pageable).map(this::toAudienceDto);
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign_promoter", action = AuditAction.CREATE, uuidArgIndex = 0)
+    public CampaignAudienceDto addAudienceMember(UUID campaignUuid, UUID promoterUuid) {
+        Campaign campaign = findManaged(campaignUuid);
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        if (campaignPromoterRepository.existsByCampaignAndPromoter(campaign, promoter)) {
+            throw new DataIntegrityViolationException("campaign_promoter.already_present");
+        }
+        CampaignPromoter cp = new CampaignPromoter();
+        cp.setCampaign(campaign);
+        cp.setPromoter(promoter);
+        return toAudienceDto(campaignPromoterRepository.save(cp));
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign_promoter", action = AuditAction.DELETE, uuidArgIndex = 0)
+    public void removeAudienceMember(UUID campaignUuid, UUID promoterUuid) {
+        Campaign campaign = findManaged(campaignUuid);
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        CampaignPromoter cp = campaignPromoterRepository.findByCampaignAndPromoter(campaign, promoter)
+                .orElseThrow(() -> new NoSuchElementException("campaign_promoter.not_found"));
+        campaignPromoterRepository.delete(cp);
+    }
+
+    private CampaignExceptionDto toExceptionDto(CampaignTransactionException exception) {
+        return new CampaignExceptionDto(
+                exception.getUuid(), exception.getAction(), exception.getReason(),
+                exception.getCreatedBy(), exception.getCreatedAt(),
+                paymentRef(exception.getPayment()), membershipRef(exception.getMembership()));
+    }
+
+    private CampaignTransactionLinkDto toLinkDto(CampaignTransactionLink link) {
+        Payment payment = link.getPayment();
+        return new CampaignTransactionLinkDto(
+                link.getUuid(), link.getSource(), link.getResolvedAt(),
+                paymentRef(payment), membershipRef(link.getMembership()),
+                payment != null ? payment.getAmount() : null,
+                payment != null && payment.getCurrency() != null ? payment.getCurrency().getCode() : null);
+    }
+
+    private CampaignAudienceDto toAudienceDto(CampaignPromoter cp) {
+        Promoter promoter = cp.getPromoter();
+        return new CampaignAudienceDto(
+                cp.getUuid(), DisplayRefs.ref((Object) promoter),
+                promoter != null ? DisplayRefs.ref((Object) promoter.getPromoterType()) : null,
+                promoter != null ? DisplayRefs.ref((Object) promoter.getRank()) : null);
+    }
+
+    /** Payment target ref — {@code code} is the reference number, {@code name} is "amount currency (date)". */
+    private static DisplayRef paymentRef(Payment payment) {
+        if (payment == null) {
+            return null;
+        }
+        String reference = payment.getLines().stream()
+                .findFirst()
+                .map(com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine::getReferenceNumber)
+                .orElse(null);
+        String currencyCode = payment.getCurrency() != null ? payment.getCurrency().getCode() : "";
+        String label = (payment.getAmount() != null ? payment.getAmount().toPlainString() : "?")
+                + " " + currencyCode
+                + (payment.getPaymentDate() != null ? " (" + payment.getPaymentDate() + ")" : "");
+        return DisplayRef.of(payment.getUuid(), reference, label.trim());
+    }
+
+    /** Membership target ref — labelled by the member's person full name. */
+    private static DisplayRef membershipRef(Membership membership) {
+        if (membership == null) {
+            return null;
+        }
+        String memberName = membership.getMember() != null && membership.getMember().getPerson() != null
+                ? membership.getMember().getPerson().getFullName() : null;
+        return DisplayRef.of(membership.getUuid(), null, memberName);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
