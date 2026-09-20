@@ -5,13 +5,18 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -22,6 +27,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Map;
@@ -29,8 +35,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Admin CRUD for {@link CollectionCommissionTier} (ADR 0013 §3, V44) — the
- * DB-driven collection-commission buckets the engine will read.
+ * Admin CRUD for {@link CollectionCommissionTier} (ADR 0013 §3, V44, V126) —
+ * the DB-driven collection-commission buckets the engine will read. Mirrors
+ * {@code HierarchyOverrideTiersService}'s shape (pct-XOR-flat invariant,
+ * campaign anchor, soft-delete-with-usage-check) plus its own basis-field
+ * invariant (DAYS↔maxDays, AMOUNT↔maxAmount).
  */
 @Service
 @RequiredArgsConstructor
@@ -38,7 +47,7 @@ import java.util.UUID;
 public class CollectionCommissionTiersService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "maxDays", "commissionPct", "active", "status", "createdAt", "updatedAt"
+            "name", "basis", "maxDays", "maxAmount", "commissionPct", "flatAmount", "active", "status", "createdAt", "updatedAt"
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -50,6 +59,8 @@ public class CollectionCommissionTiersService {
 
     private final CollectionCommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final CurrencyRepository currencyRepository;
+    private final CampaignRepository campaignRepository;
     private final CommissionRepository commissionRepository;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -58,7 +69,7 @@ public class CollectionCommissionTiersService {
     }
 
     public Page<CollectionCommissionTierDto> list(Pageable pageable, String filter, String q,
-                                                    UUID promoterTypeUuid, boolean includeInactive) {
+                                                    UUID promoterTypeUuid, UUID campaignUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "collection_commission_tier", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "collection_commission_tier");
@@ -73,6 +84,9 @@ public class CollectionCommissionTiersService {
         if (promoterTypeUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
         }
+        if (campaignUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
+        }
         return repository.findAll(spec, resolvedPageable).map(CollectionCommissionTierDto::from);
     }
 
@@ -83,11 +97,25 @@ public class CollectionCommissionTiersService {
 
     @Transactional
     public CollectionCommissionTierDto create(CollectionCommissionTierCreateRequest req) {
+        requireExactlyOneReward(req.commissionPct(), req.flatAmount());
+        if (req.flatAmount() != null) {
+            requireFlatAmountCurrency(req.flatAmountCurrencyUuid());
+        }
+        requireBasisFieldMatch(req.basis(), req.maxDays(), req.maxAmount());
+
         CollectionCommissionTier tier = new CollectionCommissionTier();
         tier.setName(req.name());
-        tier.setMaxDays(req.maxDays());
+        tier.setDescription(req.description());
+        tier.setBasis(req.basis());
+        tier.setMaxDays(req.basis() == Basis.DAYS ? req.maxDays() : null);
+        tier.setMaxAmount(req.basis() == Basis.AMOUNT ? req.maxAmount() : null);
         tier.setCommissionPct(req.commissionPct());
+        tier.setFlatAmount(req.flatAmount());
+        tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
         tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        tier.setStartsAt(req.startsAt());
+        tier.setEndsAt(req.endsAt());
 
         return CollectionCommissionTierDto.from(repository.save(tier));
     }
@@ -97,10 +125,41 @@ public class CollectionCommissionTiersService {
         CollectionCommissionTier tier = findManaged(uuid);
 
         if (req.name() != null)             tier.setName(req.name());
-        if (req.maxDays() != null)          tier.setMaxDays(req.maxDays());
-        if (req.commissionPct() != null)    tier.setCommissionPct(req.commissionPct());
+        if (req.description() != null)      tier.setDescription(req.description());
         if (req.promoterTypeUuid() != null) tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
         if (req.active() != null)           tier.setActive(req.active());
+        if (req.campaignUuid() != null)     tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        if (req.startsAt() != null)         tier.setStartsAt(req.startsAt());
+        if (req.endsAt() != null)           tier.setEndsAt(req.endsAt());
+
+        // Basis switch: supplying `basis` swaps which bucket field is live; the matching
+        // bucket field must arrive in the same request (a tier is DAYS xor AMOUNT).
+        if (req.basis() != null) {
+            requireBasisFieldMatch(req.basis(), req.maxDays(), req.maxAmount());
+            tier.setBasis(req.basis());
+            tier.setMaxDays(req.basis() == Basis.DAYS ? req.maxDays() : null);
+            tier.setMaxAmount(req.basis() == Basis.AMOUNT ? req.maxAmount() : null);
+        } else {
+            if (req.maxDays() != null)   tier.setMaxDays(req.maxDays());
+            if (req.maxAmount() != null) tier.setMaxAmount(req.maxAmount());
+        }
+
+        // Reward switch: supplying one clears the other (a tier is pct XOR flat).
+        if (req.commissionPct() != null && req.flatAmount() != null) {
+            throw new IllegalArgumentException("collection_commission_tier.pct_xor_flat");
+        }
+        if (req.commissionPct() != null) {
+            tier.setCommissionPct(req.commissionPct());
+            tier.setFlatAmount(null);
+            tier.setFlatAmountCurrency(null);
+        } else if (req.flatAmount() != null) {
+            requireFlatAmountCurrency(req.flatAmountCurrencyUuid());
+            tier.setFlatAmount(req.flatAmount());
+            tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
+            tier.setCommissionPct(null);
+        }
+        requireExactlyOneReward(tier.getCommissionPct(), tier.getFlatAmount());
+        requireBasisFieldMatch(tier.getBasis(), tier.getMaxDays(), tier.getMaxAmount());
 
         return CollectionCommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -141,6 +200,28 @@ public class CollectionCommissionTiersService {
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
+    private static void requireExactlyOneReward(BigDecimal pct, BigDecimal flat) {
+        if ((pct == null) == (flat == null)) {
+            throw new IllegalArgumentException("collection_commission_tier.pct_xor_flat");
+        }
+    }
+
+    private static void requireFlatAmountCurrency(UUID currencyUuid) {
+        if (currencyUuid == null) {
+            throw new IllegalArgumentException("collection_commission_tier.flat_amount.currency_required");
+        }
+    }
+
+    /** {@code DAYS} requires {@code maxDays} (and rejects {@code maxAmount}), and vice versa for {@code AMOUNT}. */
+    private static void requireBasisFieldMatch(Basis basis, Integer maxDays, BigDecimal maxAmount) {
+        if (basis == Basis.DAYS && (maxDays == null || maxAmount != null)) {
+            throw new IllegalArgumentException("collection_commission_tier.basis_field_mismatch");
+        }
+        if (basis == Basis.AMOUNT && (maxAmount == null || maxDays != null)) {
+            throw new IllegalArgumentException("collection_commission_tier.basis_field_mismatch");
+        }
+    }
+
     private CollectionCommissionTier findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("collection_commission_tier.not_found"));
@@ -150,6 +231,18 @@ public class CollectionCommissionTiersService {
         if (uuid == null) return null;
         return promoterTypeRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
+    }
+
+    private Currency resolveCurrency(UUID uuid) {
+        if (uuid == null) return null;
+        return currencyRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+    }
+
+    private Campaign resolveCampaign(UUID uuid) {
+        if (uuid == null) return null;
+        return campaignRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
     }
 
     private static Specification<CollectionCommissionTier> activeOnly() {
