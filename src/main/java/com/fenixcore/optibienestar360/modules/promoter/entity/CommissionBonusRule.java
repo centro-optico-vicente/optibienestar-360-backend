@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
@@ -17,7 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 /**
  * A configurable bonus/award rule (V37, v2 PDF #5 "Premiaciones"). Rewards a
@@ -67,11 +68,24 @@ public class CommissionBonusRule extends BaseEntity {
     @Column(name = "window_strategy", nullable = false, length = 20)
     private WindowStrategy windowStrategy;
 
+    /** Migrated V120 from {@code date} to {@code timestamptz} (existing rows moved to midnight UTC). */
     @Column(name = "campaign_start")
-    private LocalDate campaignStart;
+    private OffsetDateTime campaignStart;
 
     @Column(name = "campaign_end")
-    private LocalDate campaignEnd;
+    private OffsetDateTime campaignEnd;
+
+    /** Formal campaign anchor (V120) — {@code null} = a standing rule not tied to a {@link Campaign}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private Campaign campaign;
+
+    /** Own validity window, usually copied from {@link #campaign} when associated (distinct from the legacy {@link #campaignStart}/{@link #campaignEnd} pair, which drive {@link WindowStrategy#CAMPAIGN} evaluation). */
+    @Column(name = "starts_at")
+    private OffsetDateTime startsAt;
+
+    @Column(name = "ends_at")
+    private OffsetDateTime endsAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "reward_type", nullable = false, length = 20)

@@ -10,12 +10,14 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.App
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /** Output DTO for the admin commission-tier surface. Scalars carry a localized {@code _Display} sibling (ADR 0014). */
 public record CommissionTierDto(
         UUID uuid,
         String name,
+        String description,
         @Display(Display.Kind.ENUM) PlanType planType,
         @Display DisplayRef promoterType,
         int thresholdCount,
@@ -23,6 +25,10 @@ public record CommissionTierDto(
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
         @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
         @Display(Display.Kind.ENUM) AppliesTo appliesTo,
+        /** Optional campaign anchor (V120) — {@code null} = a standing (non-campaign) tier. */
+        @Display DisplayRef campaign,
+        @Display(Display.Kind.DATETIME) OffsetDateTime startsAt,
+        @Display(Display.Kind.DATETIME) OffsetDateTime endsAt,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "commission_tier.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
@@ -30,10 +36,11 @@ public record CommissionTierDto(
 ) {
     public static CommissionTierDto from(CommissionTier t) {
         return new CommissionTierDto(
-                t.getUuid(), t.getName(), t.getPlanType(),
+                t.getUuid(), t.getName(), t.getDescription(), t.getPlanType(),
                 DisplayRefs.ref(t.getPromoterType()),
                 t.getThresholdCount(),
                 t.getCommissionPct(), t.getFlatAmount(), t.getPeriodStrategy(), t.getAppliesTo(),
+                DisplayRefs.ref(t.getCampaign()), t.getStartsAt(), t.getEndsAt(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

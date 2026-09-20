@@ -74,7 +74,7 @@ class AdminCollectionCommissionTierControllerIT {
 
     @Test
     void list_withPermission_is200() throws Exception {
-        when(service.list(any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
+        when(service.list(any(), any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
         mockMvc.perform(get("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
@@ -83,7 +83,7 @@ class AdminCollectionCommissionTierControllerIT {
     void create_withPermission_is201() throws Exception {
         when(service.create(any())).thenReturn(tierDto());
         String json = """
-                {"name":"Hasta 5 días","maxDays":5,"commissionPct":35}
+                {"name":"Hasta 5 días","basis":"DAYS","maxDays":5,"commissionPct":35}
                 """;
         mockMvc.perform(post("/v1/admin/collection-commission-tiers").with(principal("COLLECTION_COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
@@ -111,7 +111,8 @@ class AdminCollectionCommissionTierControllerIT {
     }
 
     private static CollectionCommissionTierDto tierDto() {
-        return new CollectionCommissionTierDto(UUID.randomUUID(), "Hasta 5 días", 5,
-                new BigDecimal("35"), null, true, null, null, null);
+        return new CollectionCommissionTierDto(UUID.randomUUID(), "Hasta 5 días", null,
+                com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis.DAYS, 5, null,
+                new BigDecimal("35"), null, null, null, null, null, null, null, true, null, null, null);
     }
 }

@@ -7,6 +7,8 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
@@ -60,6 +62,7 @@ public class HierarchyOverrideTiersService {
     private final HierarchyOverrideTierRepository repository;
     private final PromoterRankRepository rankRepository;
     private final CurrencyRepository currencyRepository;
+    private final CampaignRepository campaignRepository;
     private final PromoterHierarchyOverrideRepository overrideRepository;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -68,7 +71,7 @@ public class HierarchyOverrideTiersService {
     }
 
     public Page<HierarchyOverrideTierDto> list(Pageable pageable, String filter, String q,
-                                               UUID rankUuid, boolean includeInactive) {
+                                               UUID rankUuid, UUID campaignUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "hierarchy_override_tier", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "hierarchy_override_tier");
@@ -82,6 +85,9 @@ public class HierarchyOverrideTiersService {
         }
         if (rankUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("rank").get("uuid"), rankUuid));
+        }
+        if (campaignUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
         }
         return repository.findAll(spec, resolvedPageable).map(HierarchyOverrideTierDto::from);
     }
@@ -101,6 +107,7 @@ public class HierarchyOverrideTiersService {
 
         HierarchyOverrideTier tier = new HierarchyOverrideTier();
         tier.setName(req.name());
+        tier.setDescription(req.description());
         tier.setRank(resolveRank(req.rankUuid()));
         tier.setCategory(req.category());
         tier.setThresholdCount(req.thresholdCount() != null ? req.thresholdCount() : 0);
@@ -108,6 +115,9 @@ public class HierarchyOverrideTiersService {
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
         tier.setPeriodStrategy(req.periodStrategy());
+        tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        tier.setStartsAt(req.startsAt());
+        tier.setEndsAt(req.endsAt());
 
         return HierarchyOverrideTierDto.from(repository.save(tier));
     }
@@ -118,11 +128,15 @@ public class HierarchyOverrideTiersService {
         HierarchyOverrideTier tier = findManaged(uuid);
 
         if (req.name() != null)           tier.setName(req.name());
+        if (req.description() != null)    tier.setDescription(req.description());
         if (req.rankUuid() != null)       tier.setRank(resolveRank(req.rankUuid()));
         if (req.category() != null)       tier.setCategory(req.category());
         if (req.thresholdCount() != null) tier.setThresholdCount(req.thresholdCount());
         if (req.periodStrategy() != null) tier.setPeriodStrategy(req.periodStrategy());
         if (req.active() != null)         tier.setActive(req.active());
+        if (req.campaignUuid() != null)   tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        if (req.startsAt() != null)       tier.setStartsAt(req.startsAt());
+        if (req.endsAt() != null)         tier.setEndsAt(req.endsAt());
 
         // Reward switch: supplying one clears the other (a tier is pct XOR flat).
         if (req.overridePct() != null && req.flatAmount() != null) {
@@ -195,6 +209,12 @@ public class HierarchyOverrideTiersService {
         if (uuid == null) return null;
         return currencyRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+    }
+
+    private Campaign resolveCampaign(UUID uuid) {
+        if (uuid == null) return null;
+        return campaignRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
     }
 
     private static Specification<HierarchyOverrideTier> activeOnly() {

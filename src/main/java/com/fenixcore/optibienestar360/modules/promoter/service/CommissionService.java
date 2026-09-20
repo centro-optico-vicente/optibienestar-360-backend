@@ -201,25 +201,36 @@ public class CommissionService {
     private Commission priceByCollectionSpeed(Promoter promoter, Payment payment, LocalDate anchor) {
         Membership membership = payment.getMembership();
         int days = collectionDays(membership, payment, anchor);
+        BigDecimal basis = membership.getMonthlyFee();
 
         Long promoterTypeId = promoter.getPromoterType() != null ? promoter.getPromoterType().getId() : null;
         List<CollectionCommissionTier> candidates =
                 collectionTierRepository.findActiveApplicable(days, promoterTypeId);
-        if (candidates.isEmpty()) {
+        if (candidates == null) candidates = List.of();
+        // AMOUNT-basis tiers are keyed on the payment's own monetary basis (monthly fee),
+        // not on how many days late it was — the two bucket sets are evaluated independently
+        // and never mixed within one candidate list (CollectionCommissionTiersService enforces
+        // basis-field consistency per tier at write time).
+        List<CollectionCommissionTier> amountCandidates =
+                collectionTierRepository.findActiveApplicableByAmount(basis, promoterTypeId);
+        if (amountCandidates == null) amountCandidates = List.of();
+        if (candidates.isEmpty() && amountCandidates.isEmpty()) {
             return null;
         }
-        CollectionCommissionTier tier = candidates.get(0);
+        CollectionCommissionTier tier = !candidates.isEmpty() ? candidates.get(0) : amountCandidates.get(0);
 
         PeriodStrategies.Window window = PeriodStrategies.window(Commission.PeriodStrategy.MONTHLY.name(), anchor);
-        BigDecimal basis = membership.getMonthlyFee();
         BigDecimal pct = tier.getCommissionPct();
-        BigDecimal amount = basis.multiply(pct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal flat = tier.getFlatAmount();
+        BigDecimal amount = pct != null
+                ? basis.multiply(pct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP)
+                : flat;
 
         Commission commission = new Commission();
         commission.setAmount(amount);
         commission.setCalculationBasis(basis);
         commission.setCommissionPct(pct);
-        commission.setFlatAmount(null);
+        commission.setFlatAmount(pct == null ? flat : null);
         commission.setTierNameSnapshot(tier.getName());
         commission.setCollectionDays(days);
         commission.setCollectionTierId(tier.getId());

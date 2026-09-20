@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -16,6 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 /**
  * Configurable hierarchy-override band (V102) — same shape/spirit as {@link
@@ -41,6 +43,9 @@ public class HierarchyOverrideTier extends BaseEntity {
     @Column(name = "name", length = 80, nullable = false)
     private String name;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rank_id", nullable = false)
     private PromoterRank rank;
@@ -62,6 +67,17 @@ public class HierarchyOverrideTier extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "flat_amount_currency_id")
     private Currency flatAmountCurrency;
+
+    /** Optional campaign anchor (V120) — {@code null} = a standing band. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private Campaign campaign;
+
+    @Column(name = "starts_at")
+    private OffsetDateTime startsAt;
+
+    @Column(name = "ends_at")
+    private OffsetDateTime endsAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "period_strategy", length = 20, nullable = false)

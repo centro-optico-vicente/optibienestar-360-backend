@@ -86,7 +86,7 @@ class AdminCommissionEngineControllerIT {
 
     @Test
     void tiers_list_withPermission_is200() throws Exception {
-        when(tiersService.list(any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
+        when(tiersService.list(any(), any(), any(), any(), any(), anyBoolean())).thenReturn(new PageImpl<>(List.of()));
         mockMvc.perform(get("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_VIEW_ALL")))
                 .andExpect(status().isOk());
     }
@@ -146,7 +146,8 @@ class AdminCommissionEngineControllerIT {
     }
 
     private static CommissionTierDto tierDto() {
-        return new CommissionTierDto(UUID.randomUUID(), "Gold", PlanType.FAMILIAR, null, 10,
-                new BigDecimal("25"), null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, true, null, null, null);
+        return new CommissionTierDto(UUID.randomUUID(), "Gold", null, PlanType.FAMILIAR, null, 10,
+                new BigDecimal("25"), null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null,
+                true, null, null, null);
     }
 }

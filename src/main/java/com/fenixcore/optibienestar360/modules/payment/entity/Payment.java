@@ -116,6 +116,16 @@ public class Payment extends BaseEntity {
     private Membership membership;
 
     /**
+     * Simple-reporting mirror of the campaign this payment counted towards
+     * (V124) — kept in sync by {@code CampaignService} alongside the
+     * authoritative {@code CampaignTransactionLink} row; {@code null} =
+     * doesn't count towards any campaign.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private com.fenixcore.optibienestar360.modules.campaign.entity.Campaign campaign;
+
+    /**
      * The user who actually paid. Typically the member's user account; can
      * differ for corporate-contract payments (v2) or when a relative pays
      * for the member. {@code null} when paid in cash by a non-user at the

@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import jakarta.persistence.AttributeOverride;
@@ -18,6 +20,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 /**
  * Configurable commission tier (v2 PDF #5, V42) — the DB-driven replacement of
@@ -48,6 +51,9 @@ public class CommissionTier extends BaseEntity {
     @Column(name = "name", length = 80, nullable = false)
     private String name;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     /** Optional plan scope. {@code null} = applies to every plan type. */
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", length = 20)
@@ -66,6 +72,23 @@ public class CommissionTier extends BaseEntity {
 
     @Column(name = "flat_amount", precision = 10, scale = 2)
     private BigDecimal flatAmount;
+
+    /** Only populated alongside {@link #flatAmount} (V120 CHECK, XOR with {@link #commissionPct}). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "flat_amount_currency_id")
+    private Currency flatAmountCurrency;
+
+    /** Optional campaign anchor (V120) — {@code null} = a standing (non-campaign) tier. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private Campaign campaign;
+
+    /** Own validity window, usually copied from {@link #campaign} when associated. */
+    @Column(name = "starts_at")
+    private OffsetDateTime startsAt;
+
+    @Column(name = "ends_at")
+    private OffsetDateTime endsAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "period_strategy", length = 20, nullable = false)

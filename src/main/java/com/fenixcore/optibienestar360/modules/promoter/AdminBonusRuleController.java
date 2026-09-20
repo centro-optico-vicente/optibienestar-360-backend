@@ -51,8 +51,9 @@ public class AdminBonusRuleController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID promoterTypeUuid,
+            @RequestParam(required = false) UUID campaignUuid,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        Page<BonusRuleDto> page = bonusRulesService.list(pageable, filter, q, promoterTypeUuid, includeInactive);
+        Page<BonusRuleDto> page = bonusRulesService.list(pageable, filter, q, promoterTypeUuid, campaignUuid, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, bonusRulesService.effectiveSort(pageable)));
     }
 

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 
 import java.math.BigDecimal;
@@ -28,6 +29,9 @@ public record MembershipDto(
         String planCode,
         String planName,
         @Display(Display.Kind.ENUM) PlanType planType,
+
+        /** Simple-reporting mirror of the campaign this enrollment counted towards (V124) — read-only, see {@code Membership#campaign}. */
+        @Display DisplayRef campaign,
 
         // Lifecycle dates
         @Display(Display.Kind.DATE) LocalDate enrolledAt,
@@ -61,7 +65,7 @@ public record MembershipDto(
     /** Rebuilds this record with the live conversion of {@link #monthlyFee} populated — see {@code ConversionEnricher}. */
     public MembershipDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
             BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
-        return new MembershipDto(uuid, memberUuid, planUuid, planCode, planName, planType,
+        return new MembershipDto(uuid, memberUuid, planUuid, planCode, planName, planType, campaign,
                 enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
                 inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate, gracePeriodDays,

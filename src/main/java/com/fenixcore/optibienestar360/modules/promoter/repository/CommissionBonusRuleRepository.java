@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.repository;
 
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -17,4 +18,7 @@ public interface CommissionBonusRuleRepository extends JpaRepository<CommissionB
 
     /** Every enabled rule — the set the evaluator scans on each run. */
     List<CommissionBonusRule> findByActiveTrue();
+
+    /** Every rule anchored to a campaign — cloned on relaunch by {@code CampaignService}. */
+    List<CommissionBonusRule> findByCampaign(Campaign campaign);
 }

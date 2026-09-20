@@ -43,6 +43,9 @@ public record PaymentDto(
         @Display DisplayRef member,
         @Display DisplayRef plan,
 
+        /** Simple-reporting mirror of the campaign this payment counted towards (V124) — read-only, see {@code Payment#campaign}. */
+        @Display DisplayRef campaign,
+
         // Payer (flat — null when cash-at-counter)
         UUID payerUserUuid,
 

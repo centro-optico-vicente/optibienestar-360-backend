@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -37,9 +37,9 @@ public record BonusRuleRequest(
 
         @NotNull WindowStrategy windowStrategy,
 
-        LocalDate campaignStart,
+        OffsetDateTime campaignStart,
 
-        LocalDate campaignEnd,
+        OffsetDateTime campaignEnd,
 
         @NotNull RewardType rewardType,
 
@@ -51,5 +51,12 @@ public record BonusRuleRequest(
 
         @Size(min = 3, max = 3) String rewardCurrency,
 
-        Boolean includeSystemPromoters
+        Boolean includeSystemPromoters,
+
+        /** Optional formal campaign anchor (V120) — {@code null} = a standing rule. */
+        UUID campaignUuid,
+
+        OffsetDateTime startsAt,
+
+        OffsetDateTime endsAt
 ) {}

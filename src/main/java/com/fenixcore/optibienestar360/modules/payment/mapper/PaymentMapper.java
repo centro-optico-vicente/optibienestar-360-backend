@@ -24,6 +24,7 @@ public interface PaymentMapper {
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
+    @Mapping(target = "campaign",                source = "campaign")
     @Mapping(target = "currency_Code",           source = "currency.code")
     @Mapping(target = "currency",                source = "currency")
     @Mapping(target = "amountConverted",        expression = "java(convertedAmount(payment))")

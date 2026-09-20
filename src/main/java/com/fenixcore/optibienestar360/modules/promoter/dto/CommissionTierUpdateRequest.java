@@ -9,15 +9,19 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
  * PATCH-style payload for {@code PUT /v1/admin/commission-tiers/{uuid}} — every
  * field optional ({@code null} = leave unchanged). To switch pct↔flat, send the
- * new one; the service re-validates the XOR after applying.
+ * new one; the service re-validates the XOR after applying. {@code campaignUuid}
+ * has no dedicated "clear" sentinel — sending it re-resolves and overwrites the
+ * anchor; leave {@code startsAt}/{@code endsAt} out to keep the tier's window.
  */
 public record CommissionTierUpdateRequest(
         String name,
+        String description,
         PlanType planType,
         UUID promoterTypeUuid,
         @PositiveOrZero Integer thresholdCount,
@@ -25,5 +29,8 @@ public record CommissionTierUpdateRequest(
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         PeriodStrategy periodStrategy,
         AppliesTo appliesTo,
-        Boolean active
+        Boolean active,
+        UUID campaignUuid,
+        OffsetDateTime startsAt,
+        OffsetDateTime endsAt
 ) {}

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
@@ -33,6 +34,7 @@ class CommissionTiersServiceTest {
     @Mock private CommissionTierRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
     @Mock private CommissionRepository commissionRepository;
+    @Mock private CampaignRepository campaignRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private CommissionTiersService sut() {
@@ -40,14 +42,14 @@ class CommissionTiersServiceTest {
                 .thenAnswer(inv -> inv.getArgument(1));
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
-        return new CommissionTiersService(repository, promoterTypeRepository, commissionRepository, defaultSortResolver);
+        return new CommissionTiersService(repository, promoterTypeRepository, campaignRepository, commissionRepository, defaultSortResolver);
     }
 
     @Test
     void create_rejects_whenBothPctAndFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", PlanType.INDIVIDUAL, null, 0, new BigDecimal("20"), new BigDecimal("5"),
-                PeriodStrategy.MONTHLY, AppliesTo.BOTH);
+                "bad", null, PlanType.INDIVIDUAL, null, 0, new BigDecimal("20"), new BigDecimal("5"),
+                PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -58,7 +60,7 @@ class CommissionTiersServiceTest {
     @Test
     void create_rejects_whenNeitherPctNorFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", null, null, 0, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH);
+                "bad", null, null, null, 0, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -68,8 +70,8 @@ class CommissionTiersServiceTest {
     @Test
     void create_persists_validPct() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "Gold 25%", PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
-                PeriodStrategy.MONTHLY, AppliesTo.MONTHLY);
+                "Gold 25%", null, PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
+                PeriodStrategy.MONTHLY, AppliesTo.MONTHLY, null, null, null);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         var dto = sut().create(req);
@@ -90,7 +92,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, null, new BigDecimal("7"), null, null, null);
+                null, null, null, null, null, null, new BigDecimal("7"), null, null, null, null, null, null);
 
         var dto = sut().update(tier.getUuid(), req);
 
@@ -108,7 +110,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null);
+                null, null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null, null, null, null);
 
         assertThatThrownBy(() -> sut().update(tier.getUuid(), req))
                 .isInstanceOf(IllegalArgumentException.class)

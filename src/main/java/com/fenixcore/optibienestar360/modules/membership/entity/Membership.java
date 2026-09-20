@@ -65,6 +65,16 @@ public class Membership extends BaseEntity {
     @JoinColumn(name = "plan_id", nullable = false)
     private Plan plan;
 
+    /**
+     * Simple-reporting mirror of the campaign this enrollment counted
+     * towards (V124) — kept in sync by {@code CampaignService} alongside the
+     * authoritative {@code CampaignTransactionLink} row; {@code null} =
+     * doesn't count towards any campaign.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private com.fenixcore.optibienestar360.modules.campaign.entity.Campaign campaign;
+
     // ─── Lifecycle dates ────────────────────────────────────────────────────
 
     @Column(name = "enrolled_at", nullable = false)
