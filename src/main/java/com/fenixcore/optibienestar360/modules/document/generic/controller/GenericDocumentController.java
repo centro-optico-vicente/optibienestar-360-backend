@@ -88,7 +88,7 @@ public class GenericDocumentController {
     ) {}
 
     @PostMapping("/generic")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
     public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(request.format()) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -116,7 +116,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/records/{entityOrTable}/{identifier}")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica buscando el registro por tabla/entidad e identificador (UUID o ID)")
     public ResponseEntity<byte[]> generateDocumentByRecord(
             @PathVariable String entityOrTable,
@@ -126,6 +126,7 @@ public class GenericDocumentController {
             @RequestParam(required = false) String subtitle,
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
+        checkReportAuthorityForEntity(entityOrTable);
         String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
         Object record = recordResolverService.findRecordByTableAndId(entityOrTable, identifier);
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -153,7 +154,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/tables/{targetTable}")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE')")
+    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte de listado de registros para una tabla específica en PDF o XLSX")
     public ResponseEntity<byte[]> generateTableDocument(
             @PathVariable String targetTable,
@@ -165,6 +166,7 @@ public class GenericDocumentController {
             @RequestParam(defaultValue = "false") boolean includeInactive,
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
+        checkReportAuthorityForEntity(targetTable);
         java.util.UUID actorUuid = actor != null ? actor.getUuid() : null;
         String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
 
@@ -502,6 +504,33 @@ public class GenericDocumentController {
         if (!hasAllowed && !hasGlobal) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Acceso denegado: se requiere alguno de los permisos " + allowedPermissions + " o REPORT_REPORT_GENERATE");
+        }
+
+        private void checkReportAuthorityForEntity(String entityOrTable) {
+            if (!isCampaignEntity(entityOrTable)) {
+                return;
+            }
+
+            org.springframework.security.core.Authentication auth =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean hasCampaignPermission = auth != null
+                    && auth.isAuthenticated()
+                    && auth.getAuthorities().stream()
+                    .anyMatch(a -> "CAMPAIGN_REPORT_GENERATE".equals(a.getAuthority()));
+            if (!hasCampaignPermission) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Acceso denegado: se requiere CAMPAIGN_REPORT_GENERATE para reportes de campañas");
+            }
+        }
+
+        private boolean isCampaignEntity(String entityOrTable) {
+            if (entityOrTable == null) {
+                return false;
+            }
+            String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
+            return normalized.equals("campaign")
+                    || normalized.equals("campaigns")
+                    || normalized.equals("campaigns_table");
         }
     }
 }
