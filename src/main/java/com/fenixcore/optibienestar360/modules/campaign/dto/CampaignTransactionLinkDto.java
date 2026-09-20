@@ -5,7 +5,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.campaign.entity.CampaignTransactionLink;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -16,7 +16,7 @@ import java.util.UUID;
 public record CampaignTransactionLinkDto(
         UUID uuid,
         @Display(Display.Kind.ENUM) CampaignTransactionLink.LinkSource source,
-        @Display(Display.Kind.DATETIME) Instant resolvedAt,
+        @Display(Display.Kind.DATETIME) OffsetDateTime resolvedAt,
         @Display DisplayRef payment,
         @Display DisplayRef membership,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal amount,
