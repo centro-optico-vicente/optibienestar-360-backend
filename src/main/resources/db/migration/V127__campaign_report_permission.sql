@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ============================================================================
--- V126: campaign-specific report generation permission.
+-- V127: campaign-specific report generation permission.
 --
 -- Campaign reports are a separate business capability and must not inherit the
 -- generic REPORT_REPORT_GENERATE permission.
@@ -27,7 +27,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM permissions WHERE name = 'CAMPAIGN_REPORT_GENERATE'
     ) THEN
-        RAISE EXCEPTION 'V126: CAMPAIGN_REPORT_GENERATE was not created';
+        RAISE EXCEPTION 'V127: CAMPAIGN_REPORT_GENERATE was not created';
     END IF;
 
     IF NOT EXISTS (
@@ -38,6 +38,6 @@ BEGIN
         WHERE r.name = 'SYSTEM'
           AND p.name = 'CAMPAIGN_REPORT_GENERATE'
     ) THEN
-        RAISE EXCEPTION 'V126: SYSTEM did not receive CAMPAIGN_REPORT_GENERATE';
+        RAISE EXCEPTION 'V127: SYSTEM did not receive CAMPAIGN_REPORT_GENERATE';
     END IF;
 END $$;
