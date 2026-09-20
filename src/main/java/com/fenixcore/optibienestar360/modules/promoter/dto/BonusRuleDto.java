@@ -12,7 +12,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRul
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -30,8 +30,8 @@ public record BonusRuleDto(
         @Display(Display.Kind.ENUM) AccrualMode accrual,
         int thresholdCount,
         @Display(Display.Kind.ENUM) WindowStrategy windowStrategy,
-        @Display(Display.Kind.DATE) LocalDate campaignStart,
-        @Display(Display.Kind.DATE) LocalDate campaignEnd,
+        @Display(Display.Kind.DATETIME) OffsetDateTime campaignStart,
+        @Display(Display.Kind.DATETIME) OffsetDateTime campaignEnd,
         @Display(Display.Kind.ENUM) RewardType rewardType,
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
         @Display(Display.Kind.NUMBER) BigDecimal rewardPct,

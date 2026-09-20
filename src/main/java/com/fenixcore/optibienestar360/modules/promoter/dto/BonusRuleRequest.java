@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -37,9 +37,9 @@ public record BonusRuleRequest(
 
         @NotNull WindowStrategy windowStrategy,
 
-        LocalDate campaignStart,
+        OffsetDateTime campaignStart,
 
-        LocalDate campaignEnd,
+        OffsetDateTime campaignEnd,
 
         @NotNull RewardType rewardType,
 

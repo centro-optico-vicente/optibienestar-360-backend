@@ -265,9 +265,11 @@ public class BonusEvaluationService {
             return new BonusWindow(LIFETIME_START, asOf);
         }
         if (strategy == WindowStrategy.CAMPAIGN) {
-            return asOf.isBefore(rule.getCampaignStart())
+            LocalDate campaignStart = rule.getCampaignStart().toLocalDate();
+            LocalDate campaignEnd = rule.getCampaignEnd().toLocalDate();
+            return asOf.isBefore(campaignStart)
                     ? null
-                    : new BonusWindow(rule.getCampaignStart(), rule.getCampaignEnd());
+                    : new BonusWindow(campaignStart, campaignEnd);
         }
         PeriodStrategies.Window w = PeriodStrategies.window(strategy.name(), asOf);
         return new BonusWindow(w.start(), w.end());
