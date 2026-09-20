@@ -31,8 +31,8 @@ public record ScheduledJobCreateRequest(
         Boolean enabled,                // default true server-side
         Boolean allowConcurrent,        // default false server-side
         @Min(0) Integer maxSyncSeconds, // default 30 server-side
-        @Min(0) @Max(10) Integer maxRetryAttempts,     // default 0 server-side
-        @Min(0) @Max(3600) Integer retryDelaySeconds,  // default 0 server-side
+        @Min(0) @Max(10) Integer maxRetryAttempts,     // default 5 server-side (V122)
+        @Min(0) @Max(3600) Integer retryDelaySeconds,  // default 10 server-side (V122)
 
         Map<String, Object> parameters  // default {} server-side (V94)
 ) {}

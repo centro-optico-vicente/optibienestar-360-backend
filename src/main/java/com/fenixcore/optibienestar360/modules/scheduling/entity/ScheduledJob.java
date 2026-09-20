@@ -76,16 +76,18 @@ public class ScheduledJob extends BaseEntity {
     private boolean lockHeld = false;
 
     /**
-     * Extra tries after the first failure before giving up (0 = no retry,
-     * matches the pre-V110 behavior). Applied by {@code JobExecutionService}
-     * around every {@code ScheduledJobRunner.run()} call, scheduled or manual.
+     * Extra tries after the first failure before giving up (0 = no retry).
+     * Applied by {@code JobExecutionService} around every
+     * {@code ScheduledJobRunner.run()} call, scheduled or manual. Defaults to
+     * 5 (V1XX) so a new job created without specifying this field still gets
+     * a sane retry policy instead of silently retrying zero times.
      */
     @Column(name = "max_retry_attempts", nullable = false)
-    private int maxRetryAttempts = 0;
+    private int maxRetryAttempts = 5;
 
-    /** Fixed wait between retry attempts. Ignored when {@link #maxRetryAttempts} is 0. */
+    /** Fixed wait between retry attempts. Ignored when {@link #maxRetryAttempts} is 0. Defaults to 10s (V1XX). */
     @Column(name = "retry_delay_seconds", nullable = false)
-    private int retryDelaySeconds = 0;
+    private int retryDelaySeconds = 10;
 
     /**
      * Free-form per-job configuration (V94) — e.g. {@code FETCH_EXCHANGE_RATES}

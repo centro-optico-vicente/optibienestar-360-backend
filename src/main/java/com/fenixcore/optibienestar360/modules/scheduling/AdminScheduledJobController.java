@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobDto;
 import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobRunDto;
 import com.fenixcore.optibienestar360.modules.scheduling.dto.ScheduledJobUpdateRequest;
 import com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJobRun.Outcome;
+import com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJobRun.TriggerSource;
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobExecutionService;
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ManualRunResult;
@@ -32,7 +33,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.net.URI;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -124,8 +128,13 @@ public class AdminScheduledJobController {
     @PreAuthorize("hasAuthority('JOB_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<ScheduledJobRunDto>> listRuns(
             @PathVariable UUID uuid,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<ScheduledJobRunDto> page = jobsService.listRuns(uuid, pageable);
+            @PageableDefault(size = 20) Pageable pageable,
+            @RequestParam(required = false) Outcome outcome,
+            @RequestParam(required = false) TriggerSource triggeredBy,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        jobsService.get(uuid); // 404 if the job itself doesn't exist, before filtering its runs
+        Page<ScheduledJobRunDto> page = jobsService.listAllRuns(pageable, uuid, outcome, triggeredBy, from, to);
         return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSortRuns(pageable)));
     }
 
