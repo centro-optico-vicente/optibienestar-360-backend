@@ -181,6 +181,15 @@ ALTER TABLE commission_tiers
     ADD COLUMN ends_at                 TIMESTAMPTZ,
     ADD COLUMN flat_amount_currency_id BIGINT REFERENCES currencies (currencies_id);
 
+-- Pre-existing seed rows (V42/V49) set flat_amount without a currency, since
+-- the column didn't exist yet. Backfill with USD (this codebase's default for
+-- retroactively-added currency FKs — see V87/V90) before the CHECK below can
+-- enforce "flat_amount implies currency" on every row.
+UPDATE commission_tiers
+SET flat_amount_currency_id = (SELECT currencies_id FROM currencies WHERE code = 'USD')
+WHERE flat_amount IS NOT NULL
+  AND flat_amount_currency_id IS NULL;
+
 ALTER TABLE commission_tiers
     ADD CONSTRAINT chk_commission_tiers_flat_needs_currency
         CHECK (flat_amount IS NULL OR flat_amount_currency_id IS NOT NULL);
