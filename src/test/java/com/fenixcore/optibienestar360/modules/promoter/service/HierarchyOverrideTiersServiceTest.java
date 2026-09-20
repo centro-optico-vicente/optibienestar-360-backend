@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierCreateRequest;
@@ -35,12 +36,13 @@ class HierarchyOverrideTiersServiceTest {
     @Mock private HierarchyOverrideTierRepository repository;
     @Mock private PromoterRankRepository rankRepository;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private CampaignRepository campaignRepository;
     @Mock private PromoterHierarchyOverrideRepository overrideRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private HierarchyOverrideTiersService sut() {
         return new HierarchyOverrideTiersService(repository, rankRepository, currencyRepository,
-                overrideRepository, defaultSortResolver);
+                campaignRepository, overrideRepository, defaultSortResolver);
     }
 
     private static PromoterRank rank() {
@@ -55,8 +57,8 @@ class HierarchyOverrideTiersServiceTest {
 
     private static HierarchyOverrideTierCreateRequest request(BigDecimal pct, BigDecimal flat, UUID currencyUuid) {
         return new HierarchyOverrideTierCreateRequest(
-                "Override apertura", UUID.randomUUID(), OverrideCategory.INSCRIPTION, 0, pct, flat, currencyUuid,
-                PeriodStrategy.MONTHLY);
+                "Override apertura", null, UUID.randomUUID(), OverrideCategory.INSCRIPTION, 0, pct, flat, currencyUuid,
+                PeriodStrategy.MONTHLY, null, null, null);
     }
 
     @Test
@@ -125,7 +127,7 @@ class HierarchyOverrideTiersServiceTest {
         when(repository.findByUuid(uuid)).thenReturn(Optional.of(existing));
 
         HierarchyOverrideTierUpdateRequest req = new HierarchyOverrideTierUpdateRequest(
-                null, null, null, null, null, new BigDecimal("5.00"), null, null, null);
+                null, null, null, null, null, null, new BigDecimal("5.00"), null, null, null, null, null, null);
 
         assertThatThrownBy(() -> sut().update(uuid, req))
                 .isInstanceOf(IllegalArgumentException.class)

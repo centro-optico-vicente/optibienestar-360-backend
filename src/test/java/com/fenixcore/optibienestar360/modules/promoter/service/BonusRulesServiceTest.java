@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
@@ -20,6 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +46,7 @@ class BonusRulesServiceTest {
     @Mock private CommissionBonusRuleRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
     @Mock private CurrencyRepository currencyRepository;
+    @Mock private CampaignRepository campaignRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
 
     private BonusRulesService service() {
@@ -51,7 +55,11 @@ class BonusRulesServiceTest {
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
         lenient().when(currencyRepository.findByCode(any())).thenReturn(Optional.of(usd()));
-        return new BonusRulesService(repository, promoterTypeRepository, currencyRepository, defaultSortResolver);
+        return new BonusRulesService(repository, promoterTypeRepository, currencyRepository, campaignRepository, defaultSortResolver);
+    }
+
+    private static OffsetDateTime dt(LocalDate date) {
+        return date.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
     }
 
     private static Currency usd() {
@@ -93,8 +101,8 @@ class BonusRulesServiceTest {
         // A MONTHLY rule that erroneously carries campaign dates — they must be nulled.
         BonusRuleRequest req = new BonusRuleRequest("stray dates", null, null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
-                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
-                RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null);
+                dt(LocalDate.of(2026, 6, 1)), dt(LocalDate.of(2026, 6, 30)),
+                RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, null, null, null);
 
         service().create(req);
 
@@ -107,7 +115,7 @@ class BonusRulesServiceTest {
     void create_rejectsFlatRewardWithPercentAlsoSet() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.THRESHOLD, 100, WindowStrategy.MONTHLY,
-                null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null);
+                null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -119,7 +127,7 @@ class BonusRulesServiceTest {
     void create_rejectsPercentageRewardOnPerBlockAccrual() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 500, WindowStrategy.LIFETIME,
-                null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null);
+                null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -131,7 +139,7 @@ class BonusRulesServiceTest {
     void create_rejectsCampaignWithoutDates() {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
-                null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null);
+                null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -143,8 +151,8 @@ class BonusRulesServiceTest {
     void create_rejectsCampaignWithEndBeforeStart() {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
-                LocalDate.of(2026, 6, 30), LocalDate.of(2026, 6, 1),
-                RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null);
+                dt(LocalDate.of(2026, 6, 30)), dt(LocalDate.of(2026, 6, 1)),
+                RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -174,6 +182,6 @@ class BonusRulesServiceTest {
     private BonusRuleRequest flatMonthly() {
         return new BonusRuleRequest("300 activos/mes", "bono de cobranza", null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
-                null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null);
+                null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null, null, null, null);
     }
 }
