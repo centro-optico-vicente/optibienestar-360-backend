@@ -51,5 +51,12 @@ public record BonusRuleRequest(
 
         @Size(min = 3, max = 3) String rewardCurrency,
 
-        Boolean includeSystemPromoters
+        Boolean includeSystemPromoters,
+
+        /** Optional formal campaign anchor (V120) — {@code null} = a standing rule. */
+        UUID campaignUuid,
+
+        OffsetDateTime startsAt,
+
+        OffsetDateTime endsAt
 ) {}

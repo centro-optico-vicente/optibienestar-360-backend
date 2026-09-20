@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideT
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /** Output DTO for the admin hierarchy-override-tier surface (V102/V108). Scalars carry a localized {@code _Display} sibling (ADR 0014). */
@@ -24,6 +25,10 @@ public record HierarchyOverrideTierDto(
         @Display DisplayRef flatAmountCurrency,
         String flatAmountCurrency_Code,
         @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
+        /** Optional campaign anchor (V120) — {@code null} = a standing band. */
+        @Display DisplayRef campaign,
+        @Display(Display.Kind.DATETIME) OffsetDateTime startsAt,
+        @Display(Display.Kind.DATETIME) OffsetDateTime endsAt,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "hierarchy_override_tier.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
@@ -35,6 +40,8 @@ public record HierarchyOverrideTierDto(
                 t.getThresholdCount(), t.getOverridePct(), t.getFlatAmount(),
                 DisplayRefs.ref(t.getFlatAmountCurrency()),
                 t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,
-                t.getPeriodStrategy(), t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
+                t.getPeriodStrategy(),
+                DisplayRefs.ref(t.getCampaign()), t.getStartsAt(), t.getEndsAt(),
+                t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

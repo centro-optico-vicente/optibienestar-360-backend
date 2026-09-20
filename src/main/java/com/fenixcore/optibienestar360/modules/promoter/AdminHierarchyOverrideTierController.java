@@ -46,8 +46,9 @@ public class AdminHierarchyOverrideTierController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID rankUuid,
+            @RequestParam(required = false) UUID campaignUuid,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        Page<HierarchyOverrideTierDto> page = service.list(pageable, filter, q, rankUuid, includeInactive);
+        Page<HierarchyOverrideTierDto> page = service.list(pageable, filter, q, rankUuid, campaignUuid, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

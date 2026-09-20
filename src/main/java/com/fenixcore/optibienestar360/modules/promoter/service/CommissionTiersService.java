@@ -7,6 +7,8 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
@@ -57,6 +59,7 @@ public class CommissionTiersService {
 
     private final CommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final CampaignRepository campaignRepository;
     private final com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository commissionRepository;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -65,7 +68,7 @@ public class CommissionTiersService {
     }
 
     public Page<CommissionTierDto> list(Pageable pageable, String filter, String q,
-                                          UUID promoterTypeUuid, boolean includeInactive) {
+                                          UUID promoterTypeUuid, UUID campaignUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "commission_tier", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission_tier");
@@ -79,6 +82,9 @@ public class CommissionTiersService {
         }
         if (promoterTypeUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
+        }
+        if (campaignUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
         }
         return repository.findAll(spec, resolvedPageable).map(CommissionTierDto::from);
     }
@@ -103,6 +109,9 @@ public class CommissionTiersService {
         tier.setFlatAmount(req.flatAmount());
         tier.setPeriodStrategy(req.periodStrategy());
         tier.setAppliesTo(req.appliesTo());
+        tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        tier.setStartsAt(req.startsAt());
+        tier.setEndsAt(req.endsAt());
 
         return CommissionTierDto.from(repository.save(tier));
     }
@@ -120,6 +129,9 @@ public class CommissionTiersService {
         if (req.periodStrategy() != null)   tier.setPeriodStrategy(req.periodStrategy());
         if (req.appliesTo() != null)        tier.setAppliesTo(req.appliesTo());
         if (req.active() != null)           tier.setActive(req.active());
+        if (req.campaignUuid() != null)     tier.setCampaign(resolveCampaign(req.campaignUuid()));
+        if (req.startsAt() != null)         tier.setStartsAt(req.startsAt());
+        if (req.endsAt() != null)           tier.setEndsAt(req.endsAt());
 
         // Reward switch: supplying one clears the other (a tier is pct XOR flat).
         if (req.commissionPct() != null && req.flatAmount() != null) {
@@ -195,6 +207,12 @@ public class CommissionTiersService {
         if (uuid == null) return null;
         return promoterTypeRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
+    }
+
+    private Campaign resolveCampaign(UUID uuid) {
+        if (uuid == null) return null;
+        return campaignRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
     }
 
     private static Specification<CommissionTier> activeOnly() {

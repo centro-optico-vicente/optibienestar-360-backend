@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -17,6 +18,8 @@ import java.util.UUID;
  * re-validates the XOR after applying. {@code rank}/{@code category} stay
  * editable (unlike {@code CommissionTier.planType}) since a band is a pure
  * config row with no calculation-basis snapshot pointing back at it.
+ * {@code campaignUuid} has no dedicated "clear" sentinel — sending it
+ * re-resolves and overwrites the anchor.
  */
 public record HierarchyOverrideTierUpdateRequest(
         String name,
@@ -28,5 +31,8 @@ public record HierarchyOverrideTierUpdateRequest(
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
         PeriodStrategy periodStrategy,
-        Boolean active
+        Boolean active,
+        UUID campaignUuid,
+        OffsetDateTime startsAt,
+        OffsetDateTime endsAt
 ) {}

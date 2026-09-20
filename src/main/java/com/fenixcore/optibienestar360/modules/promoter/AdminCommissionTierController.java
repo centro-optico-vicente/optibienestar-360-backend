@@ -46,8 +46,9 @@ public class AdminCommissionTierController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID promoterTypeUuid,
+            @RequestParam(required = false) UUID campaignUuid,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        Page<CommissionTierDto> page = service.list(pageable, filter, q, promoterTypeUuid, includeInactive);
+        Page<CommissionTierDto> page = service.list(pageable, filter, q, promoterTypeUuid, campaignUuid, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

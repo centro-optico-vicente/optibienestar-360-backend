@@ -7,6 +7,8 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -66,6 +68,7 @@ public class BonusRulesService {
     private final CommissionBonusRuleRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
     private final CurrencyRepository currencyRepository;
+    private final CampaignRepository campaignRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -75,7 +78,7 @@ public class BonusRulesService {
     }
 
     public Page<BonusRuleDto> list(Pageable pageable, String filter, String q,
-                                     UUID promoterTypeUuid, boolean includeInactive) {
+                                     UUID promoterTypeUuid, UUID campaignUuid, boolean includeInactive) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "bonus_rule", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "bonus_rule");
@@ -90,6 +93,9 @@ public class BonusRulesService {
         }
         if (promoterTypeUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
+        }
+        if (campaignUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
         }
         return repository.findAll(spec, resolvedPageable).map(BonusRuleDto::from);
     }
@@ -186,11 +192,20 @@ public class BonusRulesService {
         rule.setRewardPct(req.rewardType() == RewardType.PERCENTAGE ? req.rewardPct() : null);
         rule.setRewardCurrency(resolveCurrency(normalizeCurrency(req.rewardCurrency())));
         rule.setIncludeSystemPromoters(Boolean.TRUE.equals(req.includeSystemPromoters()));
+        rule.setCampaign(resolveCampaign(req.campaignUuid()));
+        rule.setStartsAt(req.startsAt());
+        rule.setEndsAt(req.endsAt());
     }
 
     private Currency resolveCurrency(String code) {
         return currencyRepository.findByCode(code)
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+    }
+
+    private Campaign resolveCampaign(UUID uuid) {
+        if (uuid == null) return null;
+        return campaignRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
     }
 
     private static String normalizeCurrency(String currency) {

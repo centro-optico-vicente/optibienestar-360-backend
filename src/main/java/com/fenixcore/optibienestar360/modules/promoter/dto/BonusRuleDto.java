@@ -37,6 +37,10 @@ public record BonusRuleDto(
         @Display(Display.Kind.NUMBER) BigDecimal rewardPct,
         String rewardCurrency,
         @Display(Display.Kind.BOOLEAN) boolean includeSystemPromoters,
+        /** Formal campaign anchor (V120) — {@code null} = a standing rule not tied to a Campaign. */
+        @Display DisplayRef campaign,
+        @Display(Display.Kind.DATETIME) OffsetDateTime startsAt,
+        @Display(Display.Kind.DATETIME) OffsetDateTime endsAt,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant createdAt
 ) {
@@ -58,6 +62,9 @@ public record BonusRuleDto(
                 r.getRewardPct(),
                 r.getRewardCurrency().getCode(),
                 r.isIncludeSystemPromoters(),
+                DisplayRefs.ref(r.getCampaign()),
+                r.getStartsAt(),
+                r.getEndsAt(),
                 r.isActive(),
                 r.getCreatedAt());
     }

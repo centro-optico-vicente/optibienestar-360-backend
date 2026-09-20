@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -17,7 +18,9 @@ import java.util.UUID;
  * of {@code overridePct} / {@code flatAmount} must be present — enforced
  * service-side ({@code hierarchy_override_tier.pct_xor_flat}); {@code
  * flatAmountCurrencyUuid} is required alongside {@code flatAmount} (ADR
- * 0015 pattern — a flat amount always carries its own currency).
+ * 0015 pattern — a flat amount always carries its own currency). {@code
+ * campaignUuid} is an optional anchor (V120) — {@code null} = a standing
+ * band; {@code startsAt}/{@code endsAt} are the band's own validity window.
  */
 public record HierarchyOverrideTierCreateRequest(
         @NotBlank String name,
@@ -28,5 +31,8 @@ public record HierarchyOverrideTierCreateRequest(
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal overridePct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
-        @NotNull PeriodStrategy periodStrategy
+        @NotNull PeriodStrategy periodStrategy,
+        UUID campaignUuid,
+        OffsetDateTime startsAt,
+        OffsetDateTime endsAt
 ) {}
