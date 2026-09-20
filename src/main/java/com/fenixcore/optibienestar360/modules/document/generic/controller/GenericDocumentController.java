@@ -505,32 +505,32 @@ public class GenericDocumentController {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Acceso denegado: se requiere alguno de los permisos " + allowedPermissions + " o REPORT_REPORT_GENERATE");
         }
+    }
 
-        private void checkReportAuthorityForEntity(String entityOrTable) {
-            if (!isCampaignEntity(entityOrTable)) {
-                return;
-            }
-
-            org.springframework.security.core.Authentication auth =
-                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            boolean hasCampaignPermission = auth != null
-                    && auth.isAuthenticated()
-                    && auth.getAuthorities().stream()
-                    .anyMatch(a -> "CAMPAIGN_REPORT_GENERATE".equals(a.getAuthority()));
-            if (!hasCampaignPermission) {
-                throw new org.springframework.security.access.AccessDeniedException(
-                        "Acceso denegado: se requiere CAMPAIGN_REPORT_GENERATE para reportes de campañas");
-            }
+    private void checkReportAuthorityForEntity(String entityOrTable) {
+        if (!isCampaignEntity(entityOrTable)) {
+            return;
         }
 
-        private boolean isCampaignEntity(String entityOrTable) {
-            if (entityOrTable == null) {
-                return false;
-            }
-            String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
-            return normalized.equals("campaign")
-                    || normalized.equals("campaigns")
-                    || normalized.equals("campaigns_table");
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean hasCampaignPermission = auth != null
+                && auth.isAuthenticated()
+                && auth.getAuthorities().stream()
+                .anyMatch(a -> "CAMPAIGN_REPORT_GENERATE".equals(a.getAuthority()));
+        if (!hasCampaignPermission) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Acceso denegado: se requiere CAMPAIGN_REPORT_GENERATE para reportes de campañas");
         }
+    }
+
+    private boolean isCampaignEntity(String entityOrTable) {
+        if (entityOrTable == null) {
+            return false;
+        }
+        String normalized = entityOrTable.trim().toLowerCase().replace("-", "_");
+        return normalized.equals("campaign")
+                || normalized.equals("campaigns")
+                || normalized.equals("campaigns_table");
     }
 }
