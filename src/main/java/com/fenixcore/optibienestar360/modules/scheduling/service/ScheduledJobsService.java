@@ -266,26 +266,16 @@ public class ScheduledJobsService {
         return runMapper.toDto(run);
     }
 
-    public Page<ScheduledJobRunDto> listRuns(UUID jobUuid, Pageable pageable) {
-        ScheduledJob job = findManaged(jobUuid);
-        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-                "scheduled_job_run", pageable);
-        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, RUN_SORTABLE_FIELDS, "scheduled_job_run");
-        return runRepository.findByScheduledJobId(job.getId(), resolvedPageable)
-                .map(runMapper::toDto);
-    }
-
-    /** The sort {@link #listRuns}/{@link #listAllRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
+    /** The sort {@link #listAllRuns} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSortRuns(Pageable pageable) {
         return defaultSortResolver.effectiveSort("scheduled_job_run", pageable);
     }
 
     /**
-     * Cross-job run history — backs the "Ejecuciones programadas" audit screen
-     * (Seguridad menu), mirroring {@code AdminLoginAuditController}/
-     * {@code AdminDataChangeAuditController}: {@link #listRuns} stays scoped to
-     * one job's detail page, this is the unscoped equivalent with the same
-     * filters shape (entity/date range) the other audit lists use.
+     * Run history — backs both the per-job detail page (via {@code jobUuid})
+     * and the unscoped "Ejecuciones programadas" audit screen (Seguridad
+     * menu, {@code jobUuid} omitted), mirroring {@code AdminLoginAuditController}/
+     * {@code AdminDataChangeAuditController}'s filters shape (entity/date range).
      */
     public Page<ScheduledJobRunDto> listAllRuns(Pageable pageable, UUID jobUuid, ScheduledJobRun.Outcome outcome,
                                                  ScheduledJobRun.TriggerSource triggeredBy, Instant from, Instant to) {
