@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -57,7 +57,7 @@ public class BeneficiaryInscriptionBiller {
         Currency usd = currencyRepository.findByCode("USD")
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
         payment.setCurrency(usd);
-        payment.setPaymentDate(LocalDate.now());
+		payment.setPaymentDate(Instant.now());
         payment.setInscription(true);   // V23 CHECK: inscription rows carry no applied_period
         payment.setStatus(Payment.PaymentStatus.PENDING.name());
         payment.setAdminNotes("Inscripción de afiliado adicional (excede beneficiarios incluidos del plan)");

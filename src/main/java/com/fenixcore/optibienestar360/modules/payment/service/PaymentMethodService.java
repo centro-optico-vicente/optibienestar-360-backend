@@ -111,7 +111,12 @@ public class PaymentMethodService {
         PaymentMethod m = new PaymentMethod();
         m.setCode(req.code());
         m.setName(req.name());
+		m.setDescription(req.description());
+		m.setMandatoryIdentification(req.mandatoryIdentification());
+		m.setMandatoryBank(req.mandatoryBank());
         m.setMandatoryBankAccount(req.mandatoryBankAccount());
+		m.setMandatoryAccountType(req.mandatoryAccountType());
+		m.setMandatoryAccountCode(req.mandatoryAccountCode());
         m.setMandatoryPhone(req.mandatoryPhone());
         m.setMandatoryEmail(req.mandatoryEmail());
         m.setMandatoryReferenceNumber(req.mandatoryReferenceNumber());
@@ -124,7 +129,12 @@ public class PaymentMethodService {
     public PaymentMethodDto update(UUID uuid, PaymentMethodUpdateRequest req) {
         PaymentMethod m = find(uuid);
         m.setName(req.name());
+		m.setDescription(req.description());
+		m.setMandatoryIdentification(req.mandatoryIdentification());
+		m.setMandatoryBank(req.mandatoryBank());
         m.setMandatoryBankAccount(req.mandatoryBankAccount());
+		m.setMandatoryAccountType(req.mandatoryAccountType());
+		m.setMandatoryAccountCode(req.mandatoryAccountCode());
         m.setMandatoryPhone(req.mandatoryPhone());
         m.setMandatoryEmail(req.mandatoryEmail());
         m.setMandatoryReferenceNumber(req.mandatoryReferenceNumber());
@@ -150,8 +160,11 @@ public class PaymentMethodService {
     }
 
     static PaymentMethodDto toDto(PaymentMethod m) {
-        return new PaymentMethodDto(m.getUuid(), m.getCode(), m.getName(),
-                m.isMandatoryBankAccount(), m.isMandatoryPhone(), m.isMandatoryEmail(), m.isMandatoryReferenceNumber(),
-                m.isActive());
+        return new PaymentMethodDto(
+			m.getUuid(), m.getCode(), m.getName(), m.getDescription(),
+			m.isMandatoryIdentification(), m.isMandatoryBank(), m.isMandatoryBankAccount(), m.isMandatoryAccountType(),
+			m.isMandatoryAccountCode(), m.isMandatoryPhone(), m.isMandatoryEmail(), m.isMandatoryReferenceNumber(),
+			m.isActive()
+		);
     }
 }

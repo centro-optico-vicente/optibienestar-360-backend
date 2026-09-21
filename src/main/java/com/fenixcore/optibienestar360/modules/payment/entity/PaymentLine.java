@@ -65,6 +65,24 @@ public class PaymentLine extends BaseEntity {
     @Column(name = "reference_number", length = 80)
     private String referenceNumber;
 
+	@Column(length = 80)
+	private String identification;
+
+	@Column(name = "bank_account_type", length = 40)
+	private String bankAccountType;
+
+	@Column(name = "bank_account_code", length = 40)
+	private String bankAccountCode;
+
+	@Column(name = "bank_account_identifier", length = 120)
+	private String bankAccountIdentifier;
+
+	@Column(length = 40)
+	private String phone;
+
+	@Column(length = 160)
+	private String email;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;

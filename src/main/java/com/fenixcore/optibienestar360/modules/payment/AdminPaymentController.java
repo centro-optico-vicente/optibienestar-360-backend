@@ -6,6 +6,8 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -75,7 +77,7 @@ public class AdminPaymentController {
      * filter clause.</p>
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('COLLECTION_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<PaymentDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
@@ -86,13 +88,13 @@ public class AdminPaymentController {
     }
 
     @GetMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
+    @PreAuthorize("hasAuthority('COLLECTION_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_ALL')")
     public ResponseEntity<PaymentDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(paymentsService.get(uuid));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('PAYMENT_CREATE')")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") PaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile) {
@@ -104,8 +106,52 @@ public class AdminPaymentController {
         return ResponseEntity.created(location).body(created);
     }
 
-    @PutMapping("/{uuid}/approve")
+	@PostMapping(value = "/out", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@PreAuthorize("hasAuthority('PAYMENT_CREATE')")
+	public ResponseEntity<PaymentDto> registerOut(
+			@Valid @RequestPart("payment") OutPaymentCreateRequest request,
+			@RequestPart(value = "support", required = false) MultipartFile supportFile) {
+		PaymentDto created = paymentsService.registerOut(request, supportFile);
+		return ResponseEntity.status(201).body(created);
+	}
+
+	@PutMapping("/{uuid}/out")
+	@PreAuthorize("hasAuthority('PAYMENT_UPDATE')")
+	public ResponseEntity<PaymentDto> updateOut(@PathVariable UUID uuid, @Valid @RequestBody OutPaymentUpdateRequest request) {
+		return ResponseEntity.ok(paymentsService.updateOut(uuid, request));
+	}
+
+	@DeleteMapping("/{uuid}/out")
+	@PreAuthorize("hasAuthority('PAYMENT_DELETE')")
+	public ResponseEntity<Void> deleteOut(@PathVariable UUID uuid) {
+		paymentsService.removeOut(uuid);
+		return ResponseEntity.noContent().build();
+	}
+
+	@PutMapping("/{uuid}/out/process")
+	@PreAuthorize("hasAuthority('PAYMENT_PROCESS')")
+	public ResponseEntity<PaymentDto> processOut(@PathVariable UUID uuid) {
+		return ResponseEntity.ok(paymentsService.processOut(uuid));
+	}
+
+	@PutMapping("/{uuid}/out/approve")
     @PreAuthorize("hasAuthority('PAYMENT_APPROVE')")
+	public ResponseEntity<PaymentDto> approveOut(@PathVariable UUID uuid,
+			@Valid @RequestBody(required = false) PaymentApproveRequest request,
+			@AuthenticationPrincipal CustomUserDetails actor) {
+		return ResponseEntity.ok(paymentsService.approveOut(uuid, request, actor.getUuid()));
+	}
+
+	@PutMapping("/{uuid}/out/reject")
+	@PreAuthorize("hasAuthority('PAYMENT_REJECT')")
+	public ResponseEntity<PaymentDto> rejectOut(@PathVariable UUID uuid,
+			@Valid @RequestBody PaymentRejectRequest request,
+			@AuthenticationPrincipal CustomUserDetails actor) {
+		return ResponseEntity.ok(paymentsService.rejectOut(uuid, request, actor.getUuid()));
+	}
+
+	@PutMapping("/{uuid}/approve")
+	@PreAuthorize("hasAuthority('COLLECTION_APPROVE')")
     public ResponseEntity<PaymentDto> approve(
             @PathVariable UUID uuid,
             @Valid @RequestBody(required = false) PaymentApproveRequest request,
@@ -114,7 +160,7 @@ public class AdminPaymentController {
     }
 
     @PutMapping("/{uuid}/reject")
-    @PreAuthorize("hasAuthority('PAYMENT_REJECT')")
+    @PreAuthorize("hasAuthority('COLLECTION_REJECT')")
     public ResponseEntity<PaymentDto> reject(
             @PathVariable UUID uuid,
             @Valid @RequestBody PaymentRejectRequest request,
@@ -128,7 +174,7 @@ public class AdminPaymentController {
      * those are the audited review outcomes.
      */
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('PAYMENT_DELETE')")
+    @PreAuthorize("hasAuthority('COLLECTION_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         paymentsService.remove(uuid);
         return ResponseEntity.noContent().build();
@@ -158,7 +204,7 @@ public class AdminPaymentController {
      * Defaults to 5 minutes when omitted.</p>
      */
     @GetMapping("/{uuid}/support")
-    @PreAuthorize("hasAuthority('PAYMENT_VIEW_ALL')")
+	@PreAuthorize("hasAuthority('COLLECTION_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_ALL')")
     public ResponseEntity<PaymentSupportUrlDto> getSupportUrl(
             @PathVariable UUID uuid,
             @RequestParam(value = "ttlMinutes", required = false)

@@ -1,7 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.common.service.EmailService;
-import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -380,7 +379,7 @@ public class CommissionPayoutService {
         payment.setPromoter(promoter);
         payment.setAmount(total);
         payment.setCurrency(currency);
-        payment.setPaymentDate(LocalDate.ofInstant(at, AppTimeZone.ZONE));
+        payment.setPaymentDate(at);
         payment.setStatus(Payment.PaymentStatus.APPROVED.name());
         payment.setReviewedBy(actor);
         payment.setReviewedAt(at);

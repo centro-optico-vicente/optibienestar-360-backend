@@ -36,8 +36,23 @@ public class PaymentMethod extends BaseEntity {
     @Column(length = 80, nullable = false)
     private String name;
 
+	@Column(length = 255)
+	private String description;
+
+	@Column(name = "is_mandatory_identification", nullable = false)
+	private boolean mandatoryIdentification;
+
+	@Column(name = "is_mandatory_bank", nullable = false)
+	private boolean mandatoryBank;
+
     @Column(name = "is_mandatory_bank_account", nullable = false)
     private boolean mandatoryBankAccount;
+
+	@Column(name = "is_mandatory_account_type", nullable = false)
+	private boolean mandatoryAccountType;
+
+	@Column(name = "is_mandatory_account_code", nullable = false)
+	private boolean mandatoryAccountCode;
 
     @Column(name = "is_mandatory_phone", nullable = false)
     private boolean mandatoryPhone;

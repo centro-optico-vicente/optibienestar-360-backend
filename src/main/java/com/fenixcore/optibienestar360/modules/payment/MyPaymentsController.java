@@ -48,7 +48,7 @@ public class MyPaymentsController {
     private final PaymentsService paymentsService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('PAYMENT_VIEW_OWN')")
+	@PreAuthorize("hasAuthority('COLLECTION_VIEW_OWN')")
     public ResponseEntity<Page<PaymentDto>> list(
             @PageableDefault(size = 20, sort = "receivedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
@@ -56,7 +56,7 @@ public class MyPaymentsController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('PAYMENT_CREATE_OWN')")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") MyPaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
@@ -70,7 +70,7 @@ public class MyPaymentsController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('PAYMENT_DELETE_OWN')")
+	@PreAuthorize("hasAuthority('COLLECTION_DELETE_OWN')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         paymentsService.removeOwn(actor.getUuid(), uuid);
         return ResponseEntity.noContent().build();

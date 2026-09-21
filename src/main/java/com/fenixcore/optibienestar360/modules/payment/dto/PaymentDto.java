@@ -64,10 +64,21 @@ public record PaymentDto(
 
         // Method — sourced from the (today, single) payment_lines row; V115 catalog code
         @Display(Display.Kind.ENUM) String paymentMethod,
+	String paymentMethodDescription,
+	boolean paymentMethodMandatoryBankAccount,
+	boolean paymentMethodMandatoryPhone,
+	boolean paymentMethodMandatoryEmail,
+	boolean paymentMethodMandatoryReferenceNumber,
         String referenceNumber,
+	String identification,
+	String bankAccountType,
+	String bankAccountCode,
+	String bankAccountIdentifier,
+	String phone,
+	String email,
 
         // Dates
-        @Display(Display.Kind.DATE) LocalDate paymentDate,
+	@Display(Display.Kind.DATETIME) Instant paymentDate,
         @Display(Display.Kind.DATETIME) Instant receivedAt,
 
         // Allocation

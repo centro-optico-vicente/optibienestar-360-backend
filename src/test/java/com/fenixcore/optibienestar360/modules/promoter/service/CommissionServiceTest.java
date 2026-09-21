@@ -19,6 +19,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionComm
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -365,7 +366,10 @@ class CommissionServiceTest {
         payment.setAmount(amount);
         payment.setCurrency(usd());
         payment.setInscription(inscription);
-        payment.setPaymentDate(LocalDate.of(2026, 6, 15));
+        payment.setPaymentDate(LocalDate.of(2026, 6, 15)
+			.atStartOfDay(AppTimeZone.ZONE)
+			.toInstant())
+		;
         if (!inscription) {
             payment.setAppliedPeriod(LocalDate.of(2026, 6, 1));
         }

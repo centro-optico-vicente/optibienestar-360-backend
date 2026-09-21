@@ -9,6 +9,7 @@ import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -49,7 +50,7 @@ public record PaymentCreateRequest(
 
         @Size(max = 80) String referenceNumber,
 
-        @NotNull @PastOrPresent LocalDate paymentDate,
+	@NotNull @PastOrPresent Instant paymentDate,
 
         Boolean inscription,           // default false server-side
         LocalDate appliedPeriod,        // first day of covered month (recurring only)

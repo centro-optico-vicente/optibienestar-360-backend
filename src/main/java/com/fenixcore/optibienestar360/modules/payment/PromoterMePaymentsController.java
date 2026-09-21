@@ -78,7 +78,7 @@ public class PromoterMePaymentsController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('PAYMENT_CREATE_DOWNLINE')")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") DownlinePaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
@@ -92,7 +92,7 @@ public class PromoterMePaymentsController {
     }
 
     @PutMapping("/{uuid}/approve")
-    @PreAuthorize("hasAuthority('PAYMENT_APPROVE_DOWNLINE')")
+	@PreAuthorize("hasAuthority('COLLECTION_APPROVE_DOWNLINE')")
     public ResponseEntity<PaymentDto> approve(
             @PathVariable UUID uuid,
             @Valid @RequestBody(required = false) PaymentApproveRequest request,
@@ -101,7 +101,7 @@ public class PromoterMePaymentsController {
     }
 
     @PutMapping("/{uuid}/reject")
-    @PreAuthorize("hasAuthority('PAYMENT_REJECT_DOWNLINE')")
+	@PreAuthorize("hasAuthority('COLLECTION_REJECT_DOWNLINE')")
     public ResponseEntity<PaymentDto> reject(
             @PathVariable UUID uuid,
             @Valid @RequestBody PaymentRejectRequest request,
@@ -110,7 +110,7 @@ public class PromoterMePaymentsController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize("hasAuthority('PAYMENT_DELETE_DOWNLINE')")
+	@PreAuthorize("hasAuthority('COLLECTION_DELETE_DOWNLINE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         paymentsService.removeForDownline(actor.getUuid(), uuid);
         return ResponseEntity.noContent().build();
