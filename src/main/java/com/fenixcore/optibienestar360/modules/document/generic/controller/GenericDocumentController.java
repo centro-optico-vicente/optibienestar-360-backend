@@ -88,7 +88,7 @@ public class GenericDocumentController {
     ) {}
 
     @PostMapping("/generic")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
+	@PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'COLLECTION_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
     public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(request.format()) ? JasperFormat.XLSX : JasperFormat.PDF;
@@ -116,7 +116,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/records/{entityOrTable}/{identifier}")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
+	@PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'COLLECTION_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica buscando el registro por tabla/entidad e identificador (UUID o ID)")
     public ResponseEntity<byte[]> generateDocumentByRecord(
             @PathVariable String entityOrTable,
@@ -154,7 +154,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/tables/{targetTable}")
-    @PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
+	@PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'COLLECTION_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte de listado de registros para una tabla específica en PDF o XLSX")
     public ResponseEntity<byte[]> generateTableDocument(
             @PathVariable String targetTable,
@@ -194,7 +194,7 @@ public class GenericDocumentController {
     }
 
     @GetMapping("/jasper/{reportName}")
-    @PreAuthorize("hasAuthority('REPORT_REPORT_GENERATE') or (#reportName.matches('(?i)comision(es)?|commission(s)?|pagos?-comision(es)?|payouts?|commission-payouts?') and (hasAuthority('COMMISSION_REPORT_GENERATE') or hasAuthority('COMMISSION_VIEW_ALL') or hasAuthority('COMMISSION_VIEW_OWN'))) or (#reportName.matches('(?i)pagos?(-afiliados)?|payments?|movimientos?(-pagos)?|payment-movements?') and (hasAuthority('PAYMENT_REPORT_GENERATE') or hasAuthority('PAYMENT_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_OWN')))")
+	@PreAuthorize("hasAuthority('REPORT_REPORT_GENERATE') or (#reportName.matches('(?i)comision(es)?|commission(s)?|pagos?-comision(es)?|payouts?|commission-payouts?') and (hasAuthority('COMMISSION_REPORT_GENERATE') or hasAuthority('COMMISSION_VIEW_ALL') or hasAuthority('COMMISSION_VIEW_OWN'))) or (#reportName.matches('(?i)pagos?(-afiliados)?|payments?|movimientos?(-pagos)?|payment-movements?') and (hasAuthority('PAYMENT_REPORT_GENERATE') or hasAuthority('PAYMENT_VIEW_ALL') or hasAuthority('PAYMENT_VIEW_OWN') or hasAuthority('COLLECTION_VIEW_ALL') or hasAuthority('COLLECTION_VIEW_OWN')))")
     @Operation(summary = "Genera un reporte Jasper profesional (comisiones, pagos de comisiones, pagos de afiliados o movimientos generales) en PDF o XLSX con filtros")
     public ResponseEntity<byte[]> generateJasperReport(
             @PathVariable String reportName,
@@ -298,7 +298,7 @@ public class GenericDocumentController {
             parameters.put("P_PAYOUT_REFERENCE", (payoutReference != null && !payoutReference.isBlank()) ? payoutReference.trim() : null);
             parameters.put("P_TARGET_CURRENCY", resolvedTargetCurrency);
         } else {
-            checkReportAuthority(java.util.List.of("PAYMENT_REPORT_GENERATE", "PAYMENT_VIEW_ALL", "PAYMENT_VIEW_OWN"));
+			checkReportAuthority(java.util.List.of("PAYMENT_REPORT_GENERATE", "PAYMENT_VIEW_ALL", "PAYMENT_VIEW_OWN", "COLLECTION_VIEW_ALL", "COLLECTION_VIEW_OWN"));
             parameters.put("P_STATUS", (status != null && !status.isBlank()) ? status.trim() : null);
             parameters.put("P_PAYMENT_METHOD", (paymentMethod != null && !paymentMethod.isBlank()) ? paymentMethod.trim() : null);
             parameters.put("P_PLAN_ID", planId);

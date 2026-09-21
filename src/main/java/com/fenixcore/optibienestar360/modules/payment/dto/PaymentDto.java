@@ -64,10 +64,28 @@ public record PaymentDto(
 
         // Method — sourced from the (today, single) payment_lines row; V115 catalog code
         @Display(Display.Kind.ENUM) String paymentMethod,
+	String paymentMethodDescription,
+	boolean paymentMethodMandatoryIdentification,
+	boolean paymentMethodMandatoryBank,
+	boolean paymentMethodMandatoryBankAccount,
+	boolean paymentMethodMandatoryAccountType,
+	boolean paymentMethodMandatoryAccountCode,
+	boolean paymentMethodMandatoryPhone,
+	boolean paymentMethodMandatoryEmail,
+	boolean paymentMethodMandatoryReferenceNumber,
         String referenceNumber,
+	// Line — bank (V117 FK, ADR 0014 _Display pair) only populated when
+	// paymentMethodMandatoryBank is true (PAGO_MOVIL, CHECK, BANK_TRANSFER, BANK_DEPOSIT)
+	@Display DisplayRef bank,
+	String identification,
+	String bankAccountType,
+	String bankAccountCode,
+	String bankAccountIdentifier,
+	String phone,
+	String email,
 
         // Dates
-        @Display(Display.Kind.DATE) LocalDate paymentDate,
+	@Display(Display.Kind.DATETIME) Instant paymentDate,
         @Display(Display.Kind.DATETIME) Instant receivedAt,
 
         // Allocation

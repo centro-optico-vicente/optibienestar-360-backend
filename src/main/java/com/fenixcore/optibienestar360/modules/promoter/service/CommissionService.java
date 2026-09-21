@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
 import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
@@ -252,7 +253,8 @@ public class CommissionService {
                 : membership.getEnrolledAt().getDayOfMonth();
         YearMonth month = YearMonth.from(periodAnchor);
         LocalDate scheduled = month.atDay(Math.min(day, month.lengthOfMonth()));
-        return (int) Math.max(0, ChronoUnit.DAYS.between(scheduled, payment.getPaymentDate()));
+        LocalDate paymentDate = payment.getPaymentDate().atZone(AppTimeZone.ZONE).toLocalDate();
+        return (int) Math.max(0, ChronoUnit.DAYS.between(scheduled, paymentDate));
     }
 
     // ─── Tier selection ───────────────────────────────────────────────────────
@@ -302,8 +304,10 @@ public class CommissionService {
      */
     private static LocalDate resolvePeriodAnchor(Payment payment) {
         if (payment.isInscription()) {
-            return payment.getPaymentDate();
+            return payment.getPaymentDate().atZone(AppTimeZone.ZONE).toLocalDate();
         }
-        return payment.getAppliedPeriod() != null ? payment.getAppliedPeriod() : payment.getPaymentDate();
+        return payment.getAppliedPeriod() != null
+                ? payment.getAppliedPeriod()
+                : payment.getPaymentDate().atZone(AppTimeZone.ZONE).toLocalDate();
     }
 }

@@ -2,13 +2,13 @@ package com.fenixcore.optibienestar360.modules.payment.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -44,12 +44,25 @@ public record PaymentCreateRequest(
         @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}")
         String currency,   // default 'USD' server-side when null
 
-        /** {@code payment_methods.code} (V115) — e.g. "BANK_TRANSFER", "CASH", "ZELLE". Resolved against the catalog at the service layer. */
-        @NotBlank String paymentMethod,
+        /** {@code payment_methods.uuid} (V115) — resolved against the catalog at the service layer. Same catalog OUT uses. */
+        @NotNull UUID paymentMethodUuid,
+
+        /** FK to {@code banks}; required only when the selected method's {@code mandatoryBank} flag is set (e.g. pago móvil, cheque, transferencia). */
+        UUID bankUuid,
+
+        @Size(max = 80) String identification,
+        @Size(max = 40) String bankAccountType,
+        @Size(max = 40) String bankAccountCode,
+
+        /** Required only when the selected method's {@code mandatoryBankAccount} flag is set (e.g. cheque, transferencia — not pago móvil). */
+        @Size(max = 120) String bankAccountIdentifier,
+
+        @Size(max = 40) String phone,
+        @Size(max = 160) String email,
 
         @Size(max = 80) String referenceNumber,
 
-        @NotNull @PastOrPresent LocalDate paymentDate,
+	@NotNull @PastOrPresent Instant paymentDate,
 
         Boolean inscription,           // default false server-side
         LocalDate appliedPeriod,        // first day of covered month (recurring only)

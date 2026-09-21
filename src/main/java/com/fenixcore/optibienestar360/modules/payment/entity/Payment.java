@@ -170,9 +170,9 @@ public class Payment extends BaseEntity {
 
     // ─── Dates ─────────────────────────────────────────────────────────────
 
-    /** Calendar date the customer's bank settled the payment. */
+	/** Instant when the customer's bank settled the payment. */
     @Column(name = "payment_date", nullable = false)
-    private LocalDate paymentDate;
+	private Instant paymentDate;
 
     /** When the system recorded the registration (defaults to now() at the DB). */
     @Column(name = "received_at", nullable = false)
@@ -259,6 +259,6 @@ public class Payment extends BaseEntity {
      * to exactly these three (see V23).
      */
     public enum PaymentStatus {
-        PENDING, APPROVED, REJECTED
+		DRAFT, PENDING, APPROVED, REJECTED
     }
 }

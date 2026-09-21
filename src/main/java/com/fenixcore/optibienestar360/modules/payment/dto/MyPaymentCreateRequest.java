@@ -2,14 +2,15 @@ package com.fenixcore.optibienestar360.modules.payment.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * JSON part of the {@code POST /v1/me/payments} multipart request. Same
@@ -26,11 +27,19 @@ public record MyPaymentCreateRequest(
         @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}")
         String currency,   // default 'USD' server-side when null
 
-        @NotBlank String paymentMethod,
+        @NotNull UUID paymentMethodUuid,
+
+        UUID bankUuid,
+        @Size(max = 80) String identification,
+        @Size(max = 40) String bankAccountType,
+        @Size(max = 40) String bankAccountCode,
+        @Size(max = 120) String bankAccountIdentifier,
+        @Size(max = 40) String phone,
+        @Size(max = 160) String email,
 
         @Size(max = 80) String referenceNumber,
 
-        @NotNull @PastOrPresent LocalDate paymentDate,
+	@NotNull @PastOrPresent Instant paymentDate,
 
         Boolean inscription,           // default false server-side
         LocalDate appliedPeriod,        // first day of covered month (recurring only)

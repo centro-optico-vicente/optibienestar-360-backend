@@ -15,6 +15,8 @@ import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
+import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
@@ -22,6 +24,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.MyPaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
@@ -30,6 +33,8 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
@@ -45,6 +50,7 @@ import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheSe
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
@@ -88,7 +94,7 @@ import java.util.UUID;
  * starts uploading without changes).</p>
  */
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Transactional(readOnly = true)
 @Slf4j
 public class PaymentsService {
@@ -127,6 +133,8 @@ public class PaymentsService {
     private final PaymentCategoryRepository paymentCategoryRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final PromoterRepository promoterRepository;
+	private final PersonRepository personRepository;
+	private final BankRepository bankRepository;
     private final MembershipRepository membershipRepository;
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
@@ -143,6 +151,36 @@ public class PaymentsService {
     private final CorporateBillingResolver corporateBillingResolver;
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final FileValidationService fileValidationService;
+
+    /** Compatibility constructor retained for existing unit tests and integrations. */
+    public PaymentsService(
+		PaymentRepository paymentRepository,
+		PaymentCategoryRepository paymentCategoryRepository,
+		PaymentMethodRepository paymentMethodRepository,
+		PromoterRepository promoterRepository,
+		MembershipRepository membershipRepository,
+		MemberRepository memberRepository,
+		UserRepository userRepository,
+		CurrencyRepository currencyRepository,
+		com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService,
+		PaymentMapper mapper,
+		DefaultSortResolver defaultSortResolver,
+		ObjectProvider<StorageService> storageProvider,
+		EmailService emailService,
+		MessageSource messageSource,
+		ValidatorCacheService validatorCacheService,
+		CommissionService commissionService,
+		com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService hierarchyOverrideService,
+		CorporateBillingResolver corporateBillingResolver,
+		PresignedUrlPolicy presignedUrlPolicy,
+		FileValidationService fileValidationService
+	) {
+        this(paymentRepository, paymentCategoryRepository, paymentMethodRepository, promoterRepository,
+                null, null, membershipRepository, memberRepository, userRepository, currencyRepository,
+                currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService,
+                messageSource, validatorCacheService, commissionService, hierarchyOverrideService,
+                corporateBillingResolver, presignedUrlPolicy, fileValidationService);
+    }
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -256,8 +294,145 @@ public class PaymentsService {
                         .orElseThrow(() -> new NoSuchElementException("user.not_found"))
                 : null;
         return registerInternal(membership, payer, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+    }
+
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto registerOut(OutPaymentCreateRequest request, MultipartFile supportFile) {
+        Payment payment = new Payment();
+        applyOutFields(payment, request.paymentCategoryUuid(), request.promoterUuid(), request.personUuid(),
+                request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
+                request.identification(), request.bankAccountType(), request.bankAccountCode(),
+                request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
+                request.paymentDate(), request.adminNotes());
+        payment.setDirection("OUT");
+        payment.setStatus(PaymentStatus.DRAFT.name());
+        attachSupportFile(payment, supportFile);
+        return mapper.toDto(paymentRepository.save(payment));
+    }
+
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto updateOut(UUID uuid, OutPaymentUpdateRequest request) {
+        Payment payment = findManaged(uuid);
+        ensureOutDraft(payment);
+        applyOutFields(payment, request.paymentCategoryUuid(), request.promoterUuid(), request.personUuid(),
+                request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
+                request.identification(), request.bankAccountType(), request.bankAccountCode(),
+                request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
+                request.paymentDate(), request.adminNotes());
+        return mapper.toDto(payment);
+    }
+
+    @Transactional
+    public PaymentDto processOut(UUID uuid) {
+        Payment payment = findManaged(uuid);
+        ensureOutDraft(payment);
+        payment.setStatus(PaymentStatus.PENDING.name());
+        for (PaymentLine line : payment.getLines()) line.setStatus(PaymentStatus.PENDING.name());
+        return mapper.toDto(payment);
+    }
+
+    @Transactional
+    public PaymentDto approveOut(UUID uuid, PaymentApproveRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(uuid);
+        ensureOut(payment);
+        return approve(uuid, request, actorUserUuid);
+    }
+
+    @Transactional
+    public PaymentDto rejectOut(UUID uuid, PaymentRejectRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(uuid);
+        ensureOut(payment);
+        return reject(uuid, request, actorUserUuid);
+    }
+
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.DELETE, uuidArgIndex = 0)
+    public void removeOut(UUID uuid) {
+        Payment payment = findManaged(uuid);
+        ensureOutDraft(payment);
+        payment.setActive(false);
+    }
+
+    private void applyOutFields(Payment payment, UUID categoryUuid, UUID promoterUuid, UUID personUuid,
+                                BigDecimal amount, String currencyCode, UUID methodUuid, UUID bankUuid,
+                                String identification, String bankAccountType, String bankAccountCode,
+                                String bankAccountIdentifier, String phone, String email, String referenceNumber,
+                                Instant paymentDate, String adminNotes) {
+        PaymentCategory category = paymentCategoryRepository.findByUuid(categoryUuid)
+                .filter(PaymentCategory::isActive).filter(c -> "OUT".equals(c.getDirection()))
+                .orElseThrow(() -> new NoSuchElementException("payment_category.out_not_found"));
+        Promoter promoter = promoterRepository.findByUuid(promoterUuid)
+                .filter(Promoter::isActive).orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        Person person = personRepository.findByUuid(personUuid)
+                .filter(Person::isActive).orElseThrow(() -> new NoSuchElementException("person.not_found"));
+        if (promoter.getPerson() == null || !promoter.getPerson().getId().equals(person.getId())) {
+            throw new IllegalArgumentException("payment.out.person_promoter_mismatch");
+        }
+        var currency = currencyRepository.findByCode(currencyCode == null ? "USD" : currencyCode)
+                .filter(com.fenixcore.optibienestar360.modules.currency.entity.Currency::isActive)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+        var method = paymentMethodRepository.findByUuid(methodUuid)
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        if (method.isMandatoryReferenceNumber() && (referenceNumber == null || referenceNumber.isBlank()))
+            throw new IllegalArgumentException("payment.reference.required");
+        if (method.isMandatoryPhone() && (phone == null || phone.isBlank()))
+            throw new IllegalArgumentException("payment.phone.required");
+        if (method.isMandatoryEmail() && (email == null || email.isBlank()))
+            throw new IllegalArgumentException("payment.email.required");
+        Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
+                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("payment.bank.required");
+        if (method.isMandatoryBankAccount() &&
+                (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
+            throw new IllegalArgumentException("payment.bank_account.required");
+
+        payment.setPaymentType(category);
+        payment.setPromoter(promoter);
+        payment.setPerson(person);
+        payment.setMembership(null);
+        payment.setPayerUser(null);
+        payment.setAmount(amount);
+        payment.setCurrency(currency);
+        payment.setPaymentDate(paymentDate);
+        payment.setAdminNotes(adminNotes);
+        PaymentLine line = payment.getLines().stream().findFirst().orElseGet(() -> {
+            PaymentLine created = new PaymentLine();
+            created.setPayment(payment);
+            payment.getLines().add(created);
+            return created;
+        });
+        line.setPaymentType(method);
+        line.setBank(bank);
+        line.setAmount(amount);
+        line.setCurrency(currency);
+        line.setIdentification(identification);
+        line.setBankAccountType(bankAccountType);
+        line.setBankAccountCode(bankAccountCode);
+        line.setBankAccountIdentifier(bankAccountIdentifier);
+        line.setPhone(phone);
+        line.setEmail(email);
+        line.setReferenceNumber(referenceNumber);
+        line.setStatus(payment.getStatus() == null ? PaymentStatus.DRAFT.name() : payment.getStatus());
+    }
+
+    private static void ensureOutDraft(Payment payment) {
+        if (!"OUT".equals(payment.getDirection())) throw new IllegalArgumentException("payment.out.required");
+        if (!PaymentStatus.DRAFT.name().equals(payment.getStatus()))
+            throw new IllegalArgumentException("payment.out.not_draft");
+    }
+
+    private static void ensureOut(Payment payment) {
+        if (!"OUT".equals(payment.getDirection())) {
+            throw new IllegalArgumentException("payment.out.required");
+        }
     }
 
     /**
@@ -274,7 +449,9 @@ public class PaymentsService {
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
                 .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
         return registerInternal(membership, null, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
     }
 
@@ -300,13 +477,23 @@ public class PaymentsService {
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
                 .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
         return registerInternal(membership, null, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
     }
 
-    /** Shared build+save logic behind {@link #register}, {@link #registerOwn} and {@link #registerForDownline}. */
+    /**
+     * Shared build+save logic behind {@link #register}, {@link #registerOwn} and
+     * {@link #registerForDownline}. Method/bank/mandatory-field handling mirrors
+     * {@link #applyOutFields} — same {@code payment_methods} catalog, same
+     * mandatory-flag validation (e.g. pago móvil requires a bank but not an
+     * account number; cheque/transferencia require both).
+     */
     private PaymentDto registerInternal(Membership membership, User payer, BigDecimal amount, String currencyCode,
-                                        String paymentMethodCode, String referenceNumber, LocalDate paymentDate,
+                                        UUID methodUuid, UUID bankUuid, String identification,
+                                        String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
+                                        String phone, String email, String referenceNumber, Instant paymentDate,
                                         Boolean inscriptionFlag, LocalDate appliedPeriod, String adminNotes,
                                         MultipartFile supportFile) {
         Payment payment = new Payment();
@@ -320,6 +507,23 @@ public class PaymentsService {
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
         payment.setCurrency(currency);
         payment.setPaymentDate(paymentDate);
+
+        var method = paymentMethodRepository.findByUuid(methodUuid)
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        if (method.isMandatoryReferenceNumber() && (referenceNumber == null || referenceNumber.isBlank()))
+            throw new IllegalArgumentException("payment.reference.required");
+        if (method.isMandatoryPhone() && (phone == null || phone.isBlank()))
+            throw new IllegalArgumentException("payment.phone.required");
+        if (method.isMandatoryEmail() && (email == null || email.isBlank()))
+            throw new IllegalArgumentException("payment.email.required");
+        Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
+                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("payment.bank.required");
+        if (method.isMandatoryBankAccount() &&
+                (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
+            throw new IllegalArgumentException("payment.bank_account.required");
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
         payment.setInscription(inscription);
@@ -345,10 +549,16 @@ public class PaymentsService {
 
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
-        line.setPaymentType(paymentMethodRepository.findByCode(paymentMethodCode)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        line.setPaymentType(method);
+        line.setBank(bank);
         line.setAmount(payment.getAmount());
         line.setCurrency(currency);
+        line.setIdentification(identification);
+        line.setBankAccountType(bankAccountType);
+        line.setBankAccountCode(bankAccountCode);
+        line.setBankAccountIdentifier(bankAccountIdentifier);
+        line.setPhone(phone);
+        line.setEmail(email);
         line.setReferenceNumber(referenceNumber);
         line.setStatus(PaymentStatus.PENDING.name());
         payment.getLines().add(line);
@@ -506,15 +716,19 @@ public class PaymentsService {
     @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto approve(UUID paymentUuid, PaymentApproveRequest request, UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
+        if ("OUT".equals(payment.getDirection())) {
+            throw new IllegalArgumentException("payment.collection.required");
+        }
         ensurePending(payment);
 
         applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
                 request != null ? request.reason() : null);
-        snapshotExchangeRate(payment);
-
-        validatorCacheService.evictForMembership(payment.getMembership());
-        attributeCommission(payment);
-        confirmMemberOnFirstApprovedPayment(payment);
+        if (!"OUT".equals(payment.getDirection())) {
+            snapshotExchangeRate(payment);
+            validatorCacheService.evictForMembership(payment.getMembership());
+            attributeCommission(payment);
+            confirmMemberOnFirstApprovedPayment(payment);
+        }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         return mapper.toDto(payment);
     }
@@ -566,11 +780,16 @@ public class PaymentsService {
     @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto reject(UUID paymentUuid, PaymentRejectRequest request, UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
+        if ("OUT".equals(payment.getDirection())) {
+            throw new IllegalArgumentException("payment.collection.required");
+        }
         ensurePending(payment);
 
         applyReview(payment, PaymentStatus.REJECTED, actorUserUuid, request.reason());
 
-        validatorCacheService.evictForMembership(payment.getMembership());
+        if (payment.getMembership() != null) {
+            validatorCacheService.evictForMembership(payment.getMembership());
+        }
         dispatchNotification(payment, "payment-rejected", "email.payment.rejected.subject");
         return mapper.toDto(payment);
     }
@@ -619,7 +838,7 @@ public class PaymentsService {
         try {
             var result = currencyConversionService.convert(
                     payment.getAmount(), payment.getCurrency(), membershipCurrency,
-                    payment.getPaymentDate().atStartOfDay(com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE).toInstant());
+                    payment.getPaymentDate());
             payment.setExchangeRateUsed(result.rate());
             payment.setExchangeRateDate(result.rateDate());
         } catch (com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException noRate) {
