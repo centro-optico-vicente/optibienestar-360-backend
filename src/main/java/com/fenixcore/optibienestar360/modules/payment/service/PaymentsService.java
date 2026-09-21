@@ -294,7 +294,9 @@ public class PaymentsService {
                         .orElseThrow(() -> new NoSuchElementException("user.not_found"))
                 : null;
         return registerInternal(membership, payer, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
     }
 
@@ -447,7 +449,9 @@ public class PaymentsService {
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
                 .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
         return registerInternal(membership, null, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
     }
 
@@ -473,13 +477,23 @@ public class PaymentsService {
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
                 .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
         return registerInternal(membership, null, request.amount(), request.currency(),
-                request.paymentMethod(), request.referenceNumber(), request.paymentDate(),
+                request.paymentMethodUuid(), request.bankUuid(), request.identification(),
+                request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
     }
 
-    /** Shared build+save logic behind {@link #register}, {@link #registerOwn} and {@link #registerForDownline}. */
+    /**
+     * Shared build+save logic behind {@link #register}, {@link #registerOwn} and
+     * {@link #registerForDownline}. Method/bank/mandatory-field handling mirrors
+     * {@link #applyOutFields} — same {@code payment_methods} catalog, same
+     * mandatory-flag validation (e.g. pago móvil requires a bank but not an
+     * account number; cheque/transferencia require both).
+     */
     private PaymentDto registerInternal(Membership membership, User payer, BigDecimal amount, String currencyCode,
-                                        String paymentMethodCode, String referenceNumber, Instant paymentDate,
+                                        UUID methodUuid, UUID bankUuid, String identification,
+                                        String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
+                                        String phone, String email, String referenceNumber, Instant paymentDate,
                                         Boolean inscriptionFlag, LocalDate appliedPeriod, String adminNotes,
                                         MultipartFile supportFile) {
         Payment payment = new Payment();
@@ -493,6 +507,23 @@ public class PaymentsService {
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
         payment.setCurrency(currency);
         payment.setPaymentDate(paymentDate);
+
+        var method = paymentMethodRepository.findByUuid(methodUuid)
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        if (method.isMandatoryReferenceNumber() && (referenceNumber == null || referenceNumber.isBlank()))
+            throw new IllegalArgumentException("payment.reference.required");
+        if (method.isMandatoryPhone() && (phone == null || phone.isBlank()))
+            throw new IllegalArgumentException("payment.phone.required");
+        if (method.isMandatoryEmail() && (email == null || email.isBlank()))
+            throw new IllegalArgumentException("payment.email.required");
+        Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
+                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("payment.bank.required");
+        if (method.isMandatoryBankAccount() &&
+                (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
+            throw new IllegalArgumentException("payment.bank_account.required");
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
         payment.setInscription(inscription);
@@ -518,10 +549,16 @@ public class PaymentsService {
 
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
-        line.setPaymentType(paymentMethodRepository.findByCode(paymentMethodCode)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        line.setPaymentType(method);
+        line.setBank(bank);
         line.setAmount(payment.getAmount());
         line.setCurrency(currency);
+        line.setIdentification(identification);
+        line.setBankAccountType(bankAccountType);
+        line.setBankAccountCode(bankAccountCode);
+        line.setBankAccountIdentifier(bankAccountIdentifier);
+        line.setPhone(phone);
+        line.setEmail(email);
         line.setReferenceNumber(referenceNumber);
         line.setStatus(PaymentStatus.PENDING.name());
         payment.getLines().add(line);

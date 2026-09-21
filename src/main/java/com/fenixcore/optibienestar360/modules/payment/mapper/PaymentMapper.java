@@ -36,11 +36,16 @@ public interface PaymentMapper {
     @Mapping(target = "supportFileAvailable", source = "supportFileUrl", qualifiedByName = "isPresent")
     @Mapping(target = "paymentMethod",         expression = "java(paymentMethodCode(payment))")
 	@Mapping(target = "paymentMethodDescription", expression = "java(paymentMethodDescription(payment))")
+	@Mapping(target = "paymentMethodMandatoryIdentification", expression = "java(paymentMethodFlag(payment, 5))")
+	@Mapping(target = "paymentMethodMandatoryBank", expression = "java(paymentMethodFlag(payment, 6))")
 	@Mapping(target = "paymentMethodMandatoryBankAccount", expression = "java(paymentMethodFlag(payment, 1))")
+	@Mapping(target = "paymentMethodMandatoryAccountType", expression = "java(paymentMethodFlag(payment, 7))")
+	@Mapping(target = "paymentMethodMandatoryAccountCode", expression = "java(paymentMethodFlag(payment, 8))")
 	@Mapping(target = "paymentMethodMandatoryPhone", expression = "java(paymentMethodFlag(payment, 2))")
 	@Mapping(target = "paymentMethodMandatoryEmail", expression = "java(paymentMethodFlag(payment, 3))")
 	@Mapping(target = "paymentMethodMandatoryReferenceNumber", expression = "java(paymentMethodFlag(payment, 4))")
     @Mapping(target = "referenceNumber",       expression = "java(referenceNumber(payment))")
+	@Mapping(target = "bank", expression = "java(bankRef(payment))")
 	@Mapping(target = "identification", expression = "java(lineValue(payment, 1))")
 	@Mapping(target = "bankAccountType", expression = "java(lineValue(payment, 2))")
 	@Mapping(target = "bankAccountCode", expression = "java(lineValue(payment, 3))")
@@ -82,8 +87,19 @@ public interface PaymentMapper {
 			case 2 -> l.getPaymentType().isMandatoryPhone();
 			case 3 -> l.getPaymentType().isMandatoryEmail();
 			case 4 -> l.getPaymentType().isMandatoryReferenceNumber();
+			case 5 -> l.getPaymentType().isMandatoryIdentification();
+			case 6 -> l.getPaymentType().isMandatoryBank();
+			case 7 -> l.getPaymentType().isMandatoryAccountType();
+			case 8 -> l.getPaymentType().isMandatoryAccountCode();
 			default -> false;
 		}).orElse(false);
+	}
+
+	/** Line-level bank (V117 FK) — only populated when the method's {@code isMandatoryBank} is true. */
+	default DisplayRef bankRef(Payment payment) {
+		return firstLine(payment).map(PaymentLine::getBank)
+				.map(b -> DisplayRef.of(b.getUuid(), b.getCode(), b.getShortName()))
+				.orElse(null);
 	}
 
 	default String lineValue(Payment payment, int field) {
