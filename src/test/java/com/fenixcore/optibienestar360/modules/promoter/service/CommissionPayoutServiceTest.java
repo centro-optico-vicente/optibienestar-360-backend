@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.common.service.EmailService;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
@@ -57,6 +58,7 @@ class CommissionPayoutServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private PaymentCategoryRepository paymentCategoryRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
+    @Mock private CurrencyRepository currencyRepository;
     @Mock private UserRepository userRepository;
     @Mock private EmailService emailService;
     @Mock private MessageSource messageSource;
@@ -74,7 +76,7 @@ class CommissionPayoutServiceTest {
         // below).
         lenient().when(userRepository.findByUuid(ACTOR_UUID)).thenReturn(Optional.of(new User()));
         return new CommissionPayoutService(commissionRepository, overrideRepository, topUpRepository,
-                paymentRepository, paymentCategoryRepository, paymentMethodRepository, userRepository,
+                paymentRepository, paymentCategoryRepository, paymentMethodRepository, currencyRepository, userRepository,
                 emailService, messageSource, auditRecorder, conversionEnricher);
     }
 

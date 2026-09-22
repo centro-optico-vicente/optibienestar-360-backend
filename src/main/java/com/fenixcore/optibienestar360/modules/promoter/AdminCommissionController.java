@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.ApproveCommissionsReq
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalActionResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalGroupDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutBySelectionRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionReRatingRequest;
@@ -68,8 +69,12 @@ public class AdminCommissionController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<CommissionDto> page = commissionsService.list(pageable, filter, q, includeInactive);
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID promoterTypeUuid,
+            @RequestParam(required = false) UUID promoterRankUuid,
+            @RequestParam(required = false) UUID campaignUuid) {
+        Page<CommissionDto> page = commissionsService.list(pageable, filter, q, includeInactive,
+                promoterTypeUuid, promoterRankUuid, campaignUuid);
         return ResponseEntity.ok(new AppliedSortPage<>(page, commissionsService.effectiveSort(pageable)));
     }
 
@@ -103,6 +108,22 @@ public class AdminCommissionController {
             @Valid @RequestBody CommissionPayoutRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(commissionPayoutService.execute(request, actor.getUuid()));
+    }
+
+    /**
+     * Pays an ad-hoc set of {@code APPROVED} commission rows picked by hand
+     * from the approval table (E.2), instead of every row inside a date
+     * range ({@link #payout}). Every id must currently be {@code APPROVED};
+     * the whole request is rejected (400) otherwise — see {@code
+     * CommissionPayoutService#executeBySelection}. Pass {@code dryRun=true}
+     * to preview totals without committing.
+     */
+    @PostMapping("/payout/by-selection")
+    @PreAuthorize("hasAuthority('COMMISSION_PAYOUT')")
+    public ResponseEntity<CommissionPayoutResponse> payoutBySelection(
+            @Valid @RequestBody CommissionPayoutBySelectionRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(commissionPayoutService.executeBySelection(request, actor.getUuid()));
     }
 
     /**
