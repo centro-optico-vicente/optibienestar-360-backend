@@ -93,7 +93,7 @@ public class CurrencyService {
     }
 
     private static String labelOf(Currency c) {
-        return c.getCode() + " — " + c.getName();
+        return c.getCode() + " (" + c.getSymbol() + ")";
     }
 
     @Cacheable(value = "catalogs", key = "'currency:all'")
