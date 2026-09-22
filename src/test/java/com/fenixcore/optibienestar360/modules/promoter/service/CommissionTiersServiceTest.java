@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
@@ -33,23 +35,30 @@ class CommissionTiersServiceTest {
 
     @Mock private CommissionTierRepository repository;
     @Mock private PromoterTypeRepository promoterTypeRepository;
+    @Mock private CurrencyRepository currencyRepository;
     @Mock private CommissionRepository commissionRepository;
     @Mock private CampaignRepository campaignRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
+
+    private static final UUID CURRENCY_UUID = UUID.randomUUID();
 
     private CommissionTiersService sut() {
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
         lenient().when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
-        return new CommissionTiersService(repository, promoterTypeRepository, campaignRepository, commissionRepository, defaultSortResolver);
+        Currency currency = new Currency();
+        currency.setUuid(CURRENCY_UUID);
+        currency.setCode("COP");
+        lenient().when(currencyRepository.findByUuid(CURRENCY_UUID)).thenReturn(Optional.of(currency));
+        return new CommissionTiersService(repository, promoterTypeRepository, currencyRepository, campaignRepository, commissionRepository, defaultSortResolver);
     }
 
     @Test
     void create_rejects_whenBothPctAndFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
                 "bad", null, PlanType.INDIVIDUAL, null, 0, new BigDecimal("20"), new BigDecimal("5"),
-                PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
+                CURRENCY_UUID, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -60,7 +69,7 @@ class CommissionTiersServiceTest {
     @Test
     void create_rejects_whenNeitherPctNorFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", null, null, null, 0, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
+                "bad", null, null, null, 0, null, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -71,7 +80,7 @@ class CommissionTiersServiceTest {
     void create_persists_validPct() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
                 "Gold 25%", null, PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
-                PeriodStrategy.MONTHLY, AppliesTo.MONTHLY, null, null, null);
+                null, PeriodStrategy.MONTHLY, AppliesTo.MONTHLY, null, null, null);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         var dto = sut().create(req);
@@ -92,7 +101,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, null, null, new BigDecimal("7"), null, null, null, null, null, null);
+                null, null, null, null, null, null, new BigDecimal("7"), CURRENCY_UUID, null, null, null, null, null, null);
 
         var dto = sut().update(tier.getUuid(), req);
 
@@ -110,7 +119,7 @@ class CommissionTiersServiceTest {
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null, null, null, null);
+                null, null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> sut().update(tier.getUuid(), req))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -31,6 +31,7 @@ public record CommissionTierCreateRequest(
         @PositiveOrZero Integer thresholdCount,
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
+        UUID flatAmountCurrencyUuid,
         @NotNull PeriodStrategy periodStrategy,
         @NotNull AppliesTo appliesTo,
         UUID campaignUuid,

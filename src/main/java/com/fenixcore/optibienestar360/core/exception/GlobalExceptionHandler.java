@@ -126,6 +126,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     // 409 — unique constraint or FK violation from DB
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleConflict(DataIntegrityViolationException ex) {
+        logger.warn("Data integrity violation: " + ex.getMostSpecificCause().getMessage());
         Locale locale = LocaleContextHolder.getLocale();
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT, resolve("error.detail.conflict", locale));
