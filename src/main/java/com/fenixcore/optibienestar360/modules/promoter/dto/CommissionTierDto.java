@@ -22,7 +22,9 @@ public record CommissionTierDto(
         @Display DisplayRef promoterType,
         int thresholdCount,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
-        @Display(Display.Kind.MONEY) BigDecimal flatAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "flatAmountCurrency_Code") BigDecimal flatAmount,
+        @Display DisplayRef flatAmountCurrency,
+        String flatAmountCurrency_Code,
         @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
         @Display(Display.Kind.ENUM) AppliesTo appliesTo,
         /** Optional campaign anchor (V120) — {@code null} = a standing (non-campaign) tier. */
@@ -39,7 +41,10 @@ public record CommissionTierDto(
                 t.getUuid(), t.getName(), t.getDescription(), t.getPlanType(),
                 DisplayRefs.ref(t.getPromoterType()),
                 t.getThresholdCount(),
-                t.getCommissionPct(), t.getFlatAmount(), t.getPeriodStrategy(), t.getAppliesTo(),
+                t.getCommissionPct(), t.getFlatAmount(),
+                DisplayRefs.ref(t.getFlatAmountCurrency()),
+                t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,
+                t.getPeriodStrategy(), t.getAppliesTo(),
                 DisplayRefs.ref(t.getCampaign()), t.getStartsAt(), t.getEndsAt(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }

@@ -11,6 +11,8 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
@@ -59,6 +61,7 @@ public class CommissionTiersService {
 
     private final CommissionTierRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
+    private final CurrencyRepository currencyRepository;
     private final CampaignRepository campaignRepository;
     private final com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository commissionRepository;
     private final DefaultSortResolver defaultSortResolver;
@@ -98,6 +101,9 @@ public class CommissionTiersService {
     @Auditable(entity = "commission_tier", action = AuditAction.CREATE)
     public CommissionTierDto create(CommissionTierCreateRequest req) {
         requireExactlyOneReward(req.commissionPct(), req.flatAmount());
+        if (req.flatAmount() != null) {
+            requireFlatAmountCurrency(req.flatAmountCurrencyUuid());
+        }
 
         CommissionTier tier = new CommissionTier();
         tier.setName(req.name());
@@ -107,6 +113,7 @@ public class CommissionTiersService {
         tier.setThresholdCount(req.thresholdCount() != null ? req.thresholdCount() : 0);
         tier.setCommissionPct(req.commissionPct());
         tier.setFlatAmount(req.flatAmount());
+        tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
         tier.setPeriodStrategy(req.periodStrategy());
         tier.setAppliesTo(req.appliesTo());
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
@@ -140,8 +147,11 @@ public class CommissionTiersService {
         if (req.commissionPct() != null) {
             tier.setCommissionPct(req.commissionPct());
             tier.setFlatAmount(null);
+            tier.setFlatAmountCurrency(null);
         } else if (req.flatAmount() != null) {
+            requireFlatAmountCurrency(req.flatAmountCurrencyUuid());
             tier.setFlatAmount(req.flatAmount());
+            tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
             tier.setCommissionPct(null);
         }
         requireExactlyOneReward(tier.getCommissionPct(), tier.getFlatAmount());
@@ -196,6 +206,18 @@ public class CommissionTiersService {
         if ((pct == null) == (flat == null)) {
             throw new IllegalArgumentException("commission_tier.pct_xor_flat");
         }
+    }
+
+    private static void requireFlatAmountCurrency(UUID currencyUuid) {
+        if (currencyUuid == null) {
+            throw new IllegalArgumentException("commission_tier.flat_amount.currency_required");
+        }
+    }
+
+    private Currency resolveCurrency(UUID uuid) {
+        if (uuid == null) return null;
+        return currencyRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
     }
 
     private CommissionTier findManaged(UUID uuid) {
