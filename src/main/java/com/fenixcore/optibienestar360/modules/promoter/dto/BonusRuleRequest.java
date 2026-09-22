@@ -51,6 +51,9 @@ public record BonusRuleRequest(
 
         @Size(min = 3, max = 3) String rewardCurrency,
 
+	/** Preferred over {@code rewardCurrency} (code) when present — same FK-uuid pattern as {@code flatAmountCurrencyUuid} on commission tiers. */
+	UUID rewardCurrencyUuid,
+
         Boolean includeSystemPromoters,
 
         /** Optional formal campaign anchor (V120) — {@code null} = a standing rule. */

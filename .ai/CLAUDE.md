@@ -96,3 +96,4 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 - [ADR 0006 Repository search conventions](decisions/0006-repository-search-conventions.md)
 - [ADR 0007 Java naming conventions](decisions/0007-java-naming-conventions.md)
 - [ADR 0009 Code conventions (espejo del hub)](decisions/0009-code-conventions.md)
+- [ADR 0014 Service complexity refactor bajo demanda](decisions/0014-service-complexity-refactor-on-demand.md)
