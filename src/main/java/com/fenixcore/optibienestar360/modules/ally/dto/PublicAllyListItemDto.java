@@ -28,5 +28,9 @@ public record PublicAllyListItemDto(
         String logoUrl,
         String description,
         String website,
-        String phone
+        String phone,
+        String whatsapp,
+        String instagram,
+        String facebook,
+        String googleMapsUrl
 ) {}

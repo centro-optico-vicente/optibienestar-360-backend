@@ -19,6 +19,12 @@ import java.util.List;
 public record UpdateSystemConfigRequest(
 	@Size(max = 500, message = "system_config.report_footer.max_size")
 	String reportFooter,
+	@Size(max = 30, message = "system_config.whatsapp.max_size")
+	String whatsapp,
+	@Size(max = 255, message = "system_config.instagram.max_size")
+	String instagram,
+	@Size(max = 255, message = "system_config.facebook.max_size")
+	String facebook,
 	AuditMode auditCreateMode,
 	AuditMode auditUpdateMode,
 	AuditMode auditDeleteMode,

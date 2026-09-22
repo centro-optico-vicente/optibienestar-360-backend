@@ -228,8 +228,12 @@ public class AlliesService {
         ally.setEmail(req.email());
         ally.setPhone(req.phone());
         ally.setWebsite(req.website());
+        ally.setWhatsapp(req.whatsapp());
+        ally.setInstagram(req.instagram());
+        ally.setFacebook(req.facebook());
         ally.setAddress(req.address());
         ally.setCity(resolveCityOptional(req.cityUuid()));
+        ally.setGoogleMapsUrl(req.googleMapsUrl());
         ally.setLogoUrl(req.logoUrl());
         ally.setDescription(req.description());
         ally.setJoinedAt(req.joinedAt());
@@ -263,8 +267,12 @@ public class AlliesService {
         if (req.email()               != null) ally.setEmail(req.email());
         if (req.phone()               != null) ally.setPhone(req.phone());
         if (req.website()             != null) ally.setWebsite(req.website());
+        if (req.whatsapp()            != null) ally.setWhatsapp(req.whatsapp());
+        if (req.instagram()           != null) ally.setInstagram(req.instagram());
+        if (req.facebook()            != null) ally.setFacebook(req.facebook());
         if (req.address()             != null) ally.setAddress(req.address());
         if (req.cityUuid()            != null) ally.setCity(resolveCityOptional(req.cityUuid()));
+        if (req.googleMapsUrl()       != null) ally.setGoogleMapsUrl(req.googleMapsUrl());
         if (req.logoUrl()             != null) ally.setLogoUrl(req.logoUrl());
         if (req.description()         != null) ally.setDescription(req.description());
         if (req.joinedAt()            != null) ally.setJoinedAt(req.joinedAt());

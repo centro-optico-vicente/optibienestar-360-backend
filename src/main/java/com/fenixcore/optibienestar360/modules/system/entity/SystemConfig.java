@@ -28,6 +28,17 @@ public class SystemConfig extends BaseAuditEntity {
     @Column(name = "report_footer", columnDefinition = "TEXT")
     private String reportFooter;
 
+    // ─── Global social links (shown across the public site) ────────────────
+
+    @Column(length = 30)
+    private String whatsapp;
+
+    @Column(length = 255)
+    private String instagram;
+
+    @Column(length = 255)
+    private String facebook;
+
     /**
      * Global overrides above the per-entity {@code entity_config} flags — see
      * {@link AuditMode} and spec 16-audit.md, Decisión 8. Split per action

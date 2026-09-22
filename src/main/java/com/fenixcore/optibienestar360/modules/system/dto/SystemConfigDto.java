@@ -12,6 +12,9 @@ import java.util.UUID;
 public record SystemConfigDto(
 	UUID uuid,
 	String reportFooter,
+	String whatsapp,
+	String instagram,
+	String facebook,
 	@Display(Display.Kind.ENUM) AuditMode auditCreateMode,
 	@Display(Display.Kind.ENUM) AuditMode auditUpdateMode,
 	@Display(Display.Kind.ENUM) AuditMode auditDeleteMode,
