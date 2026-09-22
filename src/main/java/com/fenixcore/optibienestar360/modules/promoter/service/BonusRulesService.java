@@ -190,7 +190,10 @@ public class BonusRulesService {
         rule.setRewardType(req.rewardType());
         rule.setFlatAmount(req.rewardType() == RewardType.FLAT ? req.flatAmount() : null);
         rule.setRewardPct(req.rewardType() == RewardType.PERCENTAGE ? req.rewardPct() : null);
-        rule.setRewardCurrency(resolveCurrency(normalizeCurrency(req.rewardCurrency())));
+        rule.setRewardCurrency(req.rewardCurrencyUuid() != null
+			? resolveCurrencyByUuid(req.rewardCurrencyUuid())
+			: resolveCurrency(normalizeCurrency(req.rewardCurrency()))
+		);
         rule.setIncludeSystemPromoters(Boolean.TRUE.equals(req.includeSystemPromoters()));
         rule.setCampaign(resolveCampaign(req.campaignUuid()));
         rule.setStartsAt(req.startsAt());
@@ -200,6 +203,12 @@ public class BonusRulesService {
     private Currency resolveCurrency(String code) {
         return currencyRepository.findByCode(code)
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+    }
+
+    private Currency resolveCurrencyByUuid(UUID uuid) {
+		return currencyRepository.findByUuid(uuid)
+			.orElseThrow(() -> new NoSuchElementException("currency.not_found"))
+		;
     }
 
     private Campaign resolveCampaign(UUID uuid) {

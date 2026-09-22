@@ -36,6 +36,8 @@ public record BonusRuleDto(
         @Display(Display.Kind.MONEY) BigDecimal flatAmount,
         @Display(Display.Kind.NUMBER) BigDecimal rewardPct,
         String rewardCurrency,
+		/** Same currency as {@code rewardCurrency}, exposed as a selectable FK ref (uuid) for the form. */
+		@Display DisplayRef rewardCurrencyRef,
         @Display(Display.Kind.BOOLEAN) boolean includeSystemPromoters,
         /** Formal campaign anchor (V120) — {@code null} = a standing rule not tied to a Campaign. */
         @Display DisplayRef campaign,
@@ -61,6 +63,7 @@ public record BonusRuleDto(
                 r.getFlatAmount(),
                 r.getRewardPct(),
                 r.getRewardCurrency().getCode(),
+                DisplayRefs.ref(r.getRewardCurrency()),
                 r.isIncludeSystemPromoters(),
                 DisplayRefs.ref(r.getCampaign()),
                 r.getStartsAt(),

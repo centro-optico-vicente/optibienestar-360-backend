@@ -102,7 +102,7 @@ class BonusRulesServiceTest {
         BonusRuleRequest req = new BonusRuleRequest("stray dates", null, null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
                 dt(LocalDate.of(2026, 6, 1)), dt(LocalDate.of(2026, 6, 30)),
-                RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, null, null, null);
+                RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, null, null, null, null);
 
         service().create(req);
 
@@ -115,7 +115,7 @@ class BonusRulesServiceTest {
     void create_rejectsFlatRewardWithPercentAlsoSet() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.THRESHOLD, 100, WindowStrategy.MONTHLY,
-                null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null, null, null, null);
+                null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -127,7 +127,7 @@ class BonusRulesServiceTest {
     void create_rejectsPercentageRewardOnPerBlockAccrual() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 500, WindowStrategy.LIFETIME,
-                null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null, null, null, null);
+                null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -139,7 +139,7 @@ class BonusRulesServiceTest {
     void create_rejectsCampaignWithoutDates() {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
-                null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null);
+                null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -152,7 +152,7 @@ class BonusRulesServiceTest {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
                 BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
                 dt(LocalDate.of(2026, 6, 30)), dt(LocalDate.of(2026, 6, 1)),
-                RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null);
+                RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -182,6 +182,6 @@ class BonusRulesServiceTest {
     private BonusRuleRequest flatMonthly() {
         return new BonusRuleRequest("300 activos/mes", "bono de cobranza", null,
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
-                null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null, null, null, null);
+                null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null, null, null, null, null);
     }
 }
