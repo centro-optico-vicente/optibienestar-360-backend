@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutBySelectionRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutResponse.PromoterPayoutSummary;
@@ -150,6 +151,7 @@ public class CommissionPayoutService {
     private final PaymentRepository paymentRepository;
     private final PaymentCategoryRepository paymentCategoryRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository currencyRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final MessageSource messageSource;
@@ -221,6 +223,96 @@ public class CommissionPayoutService {
                 totalLines,
                 grandTotal,
                 firstCurrency,
+                executedAt,
+                summaries);
+    }
+
+    /**
+     * Ad-hoc payout for a hand-picked set of commission rows (E.2, hub plan
+     * approval-table selection) — same {@link #markPaid}/{@link
+     * #createPayoutPayment} machinery as {@link #execute}, but sourced from
+     * {@link CommissionRepository#findByUuidIn} instead of {@link
+     * CommissionRepository#findApprovedForPeriod}, and with no hierarchy
+     * overrides/retroactive top-ups in scope (those still only ever move
+     * through a period close). Every row must already be {@code APPROVED} —
+     * same all-or-nothing 400 policy {@code CommissionApprovalService} uses
+     * for its own bulk actions, never a partial "paid some, skipped some".
+     */
+    @Transactional
+    public CommissionPayoutResponse executeBySelection(CommissionPayoutBySelectionRequest request, UUID actorUserUuid) {
+        List<Commission> commissions = commissionRepository.findByUuidIn(request.commissionUuids());
+        if (commissions.size() != request.commissionUuids().size()) {
+            throw new NoSuchElementException("commission.not_found");
+        }
+        List<Commission> notApproved = commissions.stream()
+                .filter(c -> !CommissionStatus.APPROVED.name().equals(c.getStatus()))
+                .toList();
+        if (!notApproved.isEmpty()) {
+            throw new IllegalArgumentException("commission.payout.selection.not_approved: "
+                    + notApproved.size() + " of " + commissions.size());
+        }
+
+        Currency currency = currencyRepository.findByUuid(request.currencyUuid())
+                .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+        String methodCode = paymentMethodRepository.findByUuid(request.paymentMethodUuid())
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"))
+                .getCode();
+
+        boolean isDryRun = request.dryRun();
+        Instant executedAt = Instant.now();
+        User actor = isDryRun ? null : userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+
+        Map<Promoter, PromoterBatch> byPromoter = groupByPromoter(commissions, List.of(), List.of());
+
+        List<PromoterPayoutSummary> summaries = new ArrayList<>(byPromoter.size());
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        int totalLines = 0;
+
+        for (Map.Entry<Promoter, PromoterBatch> entry : byPromoter.entrySet()) {
+            Promoter promoter = entry.getKey();
+            PromoterBatch batch = entry.getValue();
+            BigDecimal promoterTotal = batch.total();
+            String csv = buildCsv(batch);
+            int lineCount = batch.lineCount();
+
+            boolean emailDispatched = false;
+            String emailFailure = null;
+
+            if (!isDryRun) {
+                markPaid(promoter, batch, request.payoutReference(), executedAt, actor, methodCode);
+                // The email template renders periodStart/periodEnd as a formatted
+                // date range — there is no single period for a hand-picked
+                // selection, so span the batch's own commissions instead of
+                // passing null (which would NPE inside the Thymeleaf template).
+                LocalDate spanStart = batch.commissions().stream().map(Commission::getPeriodStart)
+                        .min(LocalDate::compareTo).orElse(executedAt.atZone(java.time.ZoneOffset.UTC).toLocalDate());
+                LocalDate spanEnd = batch.commissions().stream().map(Commission::getPeriodEnd)
+                        .max(LocalDate::compareTo).orElse(spanStart);
+                CommissionPayoutRequest emailReq = new CommissionPayoutRequest(
+                        spanStart, spanEnd, request.payoutReference(), false, methodCode);
+                EmailDispatchResult mail = sendPromoterEmail(promoter, emailReq, promoterTotal,
+                        currency.getCode(), lineCount, csv);
+                emailDispatched = mail.dispatched;
+                emailFailure = mail.failureReason;
+            }
+
+            summaries.add(new PromoterPayoutSummary(
+                    promoter.getUuid(), promoter.getReferralCode(), promoter.getDisplayName(),
+                    lineCount, promoterTotal, currency.getCode(), csv, emailDispatched, emailFailure));
+
+            grandTotal = grandTotal.add(promoterTotal);
+            totalLines += lineCount;
+        }
+
+        return new CommissionPayoutResponse(
+                null, null,
+                request.payoutReference(),
+                isDryRun,
+                byPromoter.size(),
+                totalLines,
+                grandTotal,
+                currency.getCode(),
                 executedAt,
                 summaries);
     }

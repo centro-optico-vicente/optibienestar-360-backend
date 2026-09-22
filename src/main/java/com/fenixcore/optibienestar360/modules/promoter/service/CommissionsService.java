@@ -140,6 +140,20 @@ public class CommissionsService {
      * liquidation path).
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        return list(pageable, filter, q, includeInactive, null, null, null);
+    }
+
+    /**
+     * Overload backing the "Generar pagos" screen's richer filter set
+     * (promoter type, rank/cargo, campaign) — none of these are reachable
+     * through the generic RSQL {@code filter} (2-level joins have no
+     * precedent in this project's RSQL allowlist), so they come in as
+     * dedicated params with their own {@link Specification}, same pattern
+     * {@code PaymentsService#list} used to pull {@code direction} out of
+     * the generic filter.
+     */
+    public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+            UUID promoterTypeUuid, UUID promoterRankUuid, UUID campaignUuid) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "commission", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission");
@@ -152,7 +166,29 @@ public class CommissionsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        if (promoterTypeUuid != null) {
+            spec = spec.and(promoterTypeIs(promoterTypeUuid));
+        }
+        if (promoterRankUuid != null) {
+            spec = spec.and(promoterRankIs(promoterRankUuid));
+        }
+        if (campaignUuid != null) {
+            spec = spec.and(campaignIs(campaignUuid));
+        }
         return repository.findAll(spec, resolvedPageable).map(c -> enrich(mapper.toDto(c), c));
+    }
+
+    private static Specification<Commission> promoterTypeIs(UUID uuid) {
+        return (root, query, cb) -> cb.equal(root.get("promoter").get("promoterType").get("uuid"), uuid);
+    }
+
+    private static Specification<Commission> promoterRankIs(UUID uuid) {
+        return (root, query, cb) -> cb.equal(root.get("promoter").get("rank").get("uuid"), uuid);
+    }
+
+    /** Reaches Campaign through the triggering {@code payment}, not {@code promoter} — Commission has no direct FK to Campaign. */
+    private static Specification<Commission> campaignIs(UUID uuid) {
+        return (root, query, cb) -> cb.equal(root.get("payment").get("campaign").get("uuid"), uuid);
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
