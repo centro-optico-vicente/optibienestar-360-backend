@@ -47,7 +47,8 @@ import java.util.UUID;
 public class CollectionCommissionTiersService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "basis", "maxDays", "minAmount", "commissionPct", "flatAmount", "active", "status", "createdAt", "updatedAt"
+            "name", "basis", "maxDays", "minAmount", "commissionPct", "flatAmount",
+            "accrualPeriodStrategy", "active", "status", "createdAt", "updatedAt"
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -122,6 +123,14 @@ public class CollectionCommissionTiersService {
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
         tier.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
+        if (req.accrualPeriodStrategy() != null) tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null) tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)   tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
@@ -136,6 +145,14 @@ public class CollectionCommissionTiersService {
         if (req.name() != null)             tier.setName(req.name());
         if (req.description() != null)      tier.setDescription(req.description());
         if (req.promoterTypeUuids() != null) tier.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
+        if (req.accrualPeriodStrategy() != null)             tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null)   tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)     tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        if (req.accrualPeriodAnchor() != null)               tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        if (req.partialSettlementPeriodAnchor() != null)     tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        if (req.finalSettlementPeriodAnchor() != null)       tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        if (req.retroactiveSettlementPeriodAnchor() != null) tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
         if (req.active() != null)           tier.setActive(req.active());
         if (req.campaignUuid() != null)     tier.setCampaign(resolveCampaign(req.campaignUuid()));
         if (req.startsAt() != null)         tier.setStartsAt(req.startsAt());

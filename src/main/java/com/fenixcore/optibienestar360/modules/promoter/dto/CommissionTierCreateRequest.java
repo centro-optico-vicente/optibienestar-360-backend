@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter.dto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -34,7 +35,17 @@ public record CommissionTierCreateRequest(
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
-        @NotNull PeriodStrategy periodStrategy,
+        @NotNull PeriodStrategy accrualPeriodStrategy,
+        PeriodStrategy partialSettlementPeriodStrategy,
+        PeriodStrategy finalSettlementPeriodStrategy,
+        PeriodStrategy retroactiveSettlementPeriodStrategy,
+        Short accrualPeriodAnchor,
+        Short partialSettlementPeriodAnchor,
+        Short finalSettlementPeriodAnchor,
+        Short retroactiveSettlementPeriodAnchor,
+        BasisType basis,
+        @DecimalMin("0") @Digits(integer = 12, fraction = 2) BigDecimal thresholdAmount,
+        UUID thresholdAmountCurrencyUuid,
         @NotNull AppliesTo appliesTo,
         UUID campaignUuid,
         OffsetDateTime startsAt,

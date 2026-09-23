@@ -16,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTier
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
+import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.repository.HierarchyOverrideTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterHierarchyOverrideRepository;
@@ -49,7 +50,7 @@ public class HierarchyOverrideTiersService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "name", "category", "thresholdCount", "overridePct", "flatAmount",
-            "periodStrategy", "active", "status", "createdAt", "updatedAt"
+            "accrualPeriodStrategy", "basis", "thresholdAmount", "active", "status", "createdAt", "updatedAt"
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -114,7 +115,20 @@ public class HierarchyOverrideTiersService {
         tier.setOverridePct(req.overridePct());
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
-        tier.setPeriodStrategy(req.periodStrategy());
+        tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null) tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)   tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
+        if (req.basis() != null) tier.setBasis(req.basis());
+        if (tier.getBasis() == BasisType.AMOUNT) {
+            requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+        }
+        tier.setThresholdAmount(req.thresholdAmount());
+        tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
@@ -132,7 +146,29 @@ public class HierarchyOverrideTiersService {
         if (req.rankUuid() != null)       tier.setRank(resolveRank(req.rankUuid()));
         if (req.category() != null)       tier.setCategory(req.category());
         if (req.thresholdCount() != null) tier.setThresholdCount(req.thresholdCount());
-        if (req.periodStrategy() != null) tier.setPeriodStrategy(req.periodStrategy());
+        if (req.accrualPeriodStrategy() != null)             tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null)   tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)     tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        if (req.accrualPeriodAnchor() != null)               tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        if (req.partialSettlementPeriodAnchor() != null)     tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        if (req.finalSettlementPeriodAnchor() != null)       tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        if (req.retroactiveSettlementPeriodAnchor() != null) tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
+        if (req.basis() != null) {
+            tier.setBasis(req.basis());
+            if (req.basis() == BasisType.AMOUNT) {
+                requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+                tier.setThresholdAmount(req.thresholdAmount());
+                tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
+            } else {
+                tier.setThresholdAmount(null);
+                tier.setThresholdAmountCurrency(null);
+            }
+        } else if (req.thresholdAmount() != null) {
+            requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+            tier.setThresholdAmount(req.thresholdAmount());
+            tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
+        }
         if (req.active() != null)         tier.setActive(req.active());
         if (req.campaignUuid() != null)   tier.setCampaign(resolveCampaign(req.campaignUuid()));
         if (req.startsAt() != null)       tier.setStartsAt(req.startsAt());
@@ -192,6 +228,13 @@ public class HierarchyOverrideTiersService {
     private static void requireFlatAmountCurrency(UUID currencyUuid) {
         if (currencyUuid == null) {
             throw new IllegalArgumentException("hierarchy_override_tier.flat_amount.currency_required");
+        }
+    }
+
+    /** {@code basis=AMOUNT} requires {@code thresholdAmountCurrencyUuid}, same pattern as {@link #requireFlatAmountCurrency}. */
+    private static void requireThresholdAmountCurrency(UUID currencyUuid) {
+        if (currencyUuid == null) {
+            throw new IllegalArgumentException("hierarchy_override_tier.threshold_amount.currency_required");
         }
     }
 

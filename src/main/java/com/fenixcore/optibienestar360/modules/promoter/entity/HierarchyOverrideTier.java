@@ -79,29 +79,94 @@ public class HierarchyOverrideTier extends BaseEntity {
     @Column(name = "ends_at")
     private OffsetDateTime endsAt;
 
+    /**
+     * Accumulation window — sizes the team-volume window {@link #thresholdCount}
+     * (or {@link #thresholdAmount}, when {@link #basis} is {@code AMOUNT})
+     * is measured against. Renamed from {@code periodStrategy} (Fase A, hub
+     * plan commission-frequency-currency-unification) to line up with {@link
+     * CommissionTier#getAccrualPeriodStrategy()}.
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "period_strategy", length = 20, nullable = false)
-    private Commission.PeriodStrategy periodStrategy = Commission.PeriodStrategy.MONTHLY;
+    @Column(name = "accrual_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy accrualPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
 
     /**
-     * How often a partial cut of this band is disbursed (V112, hub plan §3)
-     * — same independent axis as {@link CommissionTier#getPayoutPeriodStrategy()}.
+     * How often a partial cut of this band is disbursed (V112, hub plan §3,
+     * renamed from {@code payoutPeriodStrategy} in Fase A) — same independent
+     * axis as {@link CommissionTier#getPartialSettlementPeriodStrategy()}.
      * Consumed by {@code HierarchyOverridePeriodicSettlementService}.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "payout_period_strategy", length = 20, nullable = false)
-    private Commission.PeriodStrategy payoutPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+    @Column(name = "partial_settlement_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy partialSettlementPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
 
     /**
-     * The containing window whose close triggers the retroactive top-up to
-     * the final highest-qualifying band (V112, hub plan §3).
+     * The containing window whose close triggers the top-up to the final
+     * highest-qualifying band (V112, hub plan §3, renamed from {@code
+     * settlementPeriodStrategy} in Fase A).
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "settlement_period_strategy", length = 20, nullable = false)
-    private Commission.PeriodStrategy settlementPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+    @Column(name = "final_settlement_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy finalSettlementPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+
+    /**
+     * The window whose close triggers a retroactive catch-up settlement of
+     * this band (Fase A, new axis). Default {@code MONTHLY}, backfilled from
+     * {@link #finalSettlementPeriodStrategy} (migration V147) to reproduce
+     * today's behavior.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "retroactive_settlement_period_strategy", length = 20, nullable = false)
+    private Commission.PeriodStrategy retroactiveSettlementPeriodStrategy = Commission.PeriodStrategy.MONTHLY;
+
+    /**
+     * Day-of-week (1-7, WEEKLY/BIWEEKLY) or day-of-month (1-31, MONTHLY+)
+     * anchor for {@link #accrualPeriodStrategy} (Fase A) — {@code null} lets
+     * the evaluator fall back to its own default. Interpreted by {@code
+     * PeriodStrategies} (phase 2, not touched here).
+     */
+    @Column(name = "accrual_period_anchor")
+    private Short accrualPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #partialSettlementPeriodStrategy}. */
+    @Column(name = "partial_settlement_period_anchor")
+    private Short partialSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #finalSettlementPeriodStrategy}. */
+    @Column(name = "final_settlement_period_anchor")
+    private Short finalSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #retroactiveSettlementPeriodStrategy}. */
+    @Column(name = "retroactive_settlement_period_anchor")
+    private Short retroactiveSettlementPeriodAnchor;
+
+    /**
+     * Which field a band's qualification is keyed on (Fase A, new axis).
+     * {@code COUNT} (default, backward compatible) keeps today's behavior —
+     * {@link #thresholdCount} team volume. {@code AMOUNT} switches
+     * qualification to {@link #thresholdAmount} (converted to {@link
+     * #thresholdAmountCurrency} by the evaluator — phase 2, not built here).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "basis", length = 10, nullable = false)
+    private BasisType basis = BasisType.COUNT;
+
+    /** Only meaningful when {@link #basis} is {@code AMOUNT} — minimum team-collected-amount threshold, {@code >=} semantics (same as {@link #thresholdCount}). */
+    @Column(name = "threshold_amount", precision = 14, scale = 2)
+    private BigDecimal thresholdAmount;
+
+    /** Reference currency for {@link #thresholdAmount} — required when {@link #basis} is {@code AMOUNT}, same pattern as {@link #flatAmountCurrency}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "threshold_amount_currency_id")
+    private Currency thresholdAmountCurrency;
 
     /** The two override categories — apertura (INSCRIPTION) and cobranza (COLLECTION). */
     public enum OverrideCategory {
         INSCRIPTION, COLLECTION
+    }
+
+    /** Which field ({@link #thresholdCount} or {@link #thresholdAmount}) a band's qualification is keyed on (Fase A). */
+    public enum BasisType {
+        COUNT, AMOUNT
     }
 }

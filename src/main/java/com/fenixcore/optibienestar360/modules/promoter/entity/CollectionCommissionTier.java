@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -105,6 +106,53 @@ public class CollectionCommissionTier extends BaseEntity {
 
     @Column(name = "ends_at")
     private OffsetDateTime endsAt;
+
+    /**
+     * Accumulation window (Fase A, hub plan commission-frequency-currency-
+     * unification, new axis — this table previously had no frequency
+     * columns; the service hardcoded MONTHLY). Migration V148 defaults every
+     * row to {@code MONTHLY} as a no-op that reproduces today's behavior.
+     * Same axis name as {@link CommissionTier#getAccrualPeriodStrategy()}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "accrual_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy accrualPeriodStrategy = PeriodStrategy.MONTHLY;
+
+    /** How often a partial cut of this tier is disbursed (Fase A, new axis) — same spirit as {@link CommissionTier#getPartialSettlementPeriodStrategy()}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "partial_settlement_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy partialSettlementPeriodStrategy = PeriodStrategy.MONTHLY;
+
+    /** The containing window whose close triggers final settlement (Fase A, new axis) — same spirit as {@link CommissionTier#getFinalSettlementPeriodStrategy()}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "final_settlement_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy finalSettlementPeriodStrategy = PeriodStrategy.MONTHLY;
+
+    /** The window whose close triggers a retroactive catch-up settlement of this tier (Fase A, new axis). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "retroactive_settlement_period_strategy", length = 20, nullable = false)
+    private PeriodStrategy retroactiveSettlementPeriodStrategy = PeriodStrategy.MONTHLY;
+
+    /**
+     * Day-of-week (1-7, WEEKLY/BIWEEKLY) or day-of-month (1-31, MONTHLY+)
+     * anchor for {@link #accrualPeriodStrategy} (Fase A) — {@code null} lets
+     * the evaluator fall back to its own default. Interpreted by {@code
+     * PeriodStrategies} (phase 2, not touched here).
+     */
+    @Column(name = "accrual_period_anchor")
+    private Short accrualPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #partialSettlementPeriodStrategy}. */
+    @Column(name = "partial_settlement_period_anchor")
+    private Short partialSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #finalSettlementPeriodStrategy}. */
+    @Column(name = "final_settlement_period_anchor")
+    private Short finalSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #retroactiveSettlementPeriodStrategy}. */
+    @Column(name = "retroactive_settlement_period_anchor")
+    private Short retroactiveSettlementPeriodAnchor;
 
     /** Which bucket field ({@link #maxDays} or {@link #minAmount}) the tier is keyed on. */
     public enum Basis {

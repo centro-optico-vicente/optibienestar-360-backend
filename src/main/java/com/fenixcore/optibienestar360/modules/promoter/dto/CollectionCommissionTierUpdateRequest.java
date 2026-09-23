@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -30,6 +31,14 @@ public record CollectionCommissionTierUpdateRequest(
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
         List<UUID> promoterTypeUuids,
+        PeriodStrategy accrualPeriodStrategy,
+        PeriodStrategy partialSettlementPeriodStrategy,
+        PeriodStrategy finalSettlementPeriodStrategy,
+        PeriodStrategy retroactiveSettlementPeriodStrategy,
+        Short accrualPeriodAnchor,
+        Short partialSettlementPeriodAnchor,
+        Short finalSettlementPeriodAnchor,
+        Short retroactiveSettlementPeriodAnchor,
         Boolean active,
         UUID campaignUuid,
         OffsetDateTime startsAt,

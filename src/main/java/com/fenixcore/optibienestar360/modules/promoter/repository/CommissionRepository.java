@@ -222,4 +222,30 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
     List<Commission> findAllForPeriod(
             @org.springframework.data.repository.query.Param("periodStart") LocalDate periodStart,
             @org.springframework.data.repository.query.Param("periodEnd")   LocalDate periodEnd);
+
+    /**
+     * Powers {@code CommissionRetroactiveTopUpService#executeCut} (Fase A,
+     * retroactive settlement axis) — every PAID commission of a single
+     * promoter, scoped to one {@link Commission.AppliesTo}, whose period
+     * falls inside an arbitrary rule-derived window (the accrual window's
+     * start through the current retroactive cut's end — not the whole
+     * settlement window). Mirrors {@link #findPaidForPeriod} but
+     * promoter-scoped, the same way {@link #findApprovedForPromoterAppliesToInPeriod}
+     * mirrors {@link #findApprovedForPeriod}.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status = 'PAID'
+              AND c.promoter.id = :promoterId
+              AND c.appliesTo = :appliesTo
+              AND c.periodStart >= :start
+              AND c.periodEnd   <= :end
+            ORDER BY c.earnedAt
+            """)
+    List<Commission> findPaidForPromoterAppliesToInPeriod(
+            @org.springframework.data.repository.query.Param("promoterId") Long promoterId,
+            @org.springframework.data.repository.query.Param("appliesTo") Commission.AppliesTo appliesTo,
+            @org.springframework.data.repository.query.Param("start") LocalDate start,
+            @org.springframework.data.repository.query.Param("end") LocalDate end);
 }

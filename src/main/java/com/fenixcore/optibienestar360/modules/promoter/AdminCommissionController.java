@@ -140,20 +140,25 @@ public class AdminCommissionController {
     }
 
     /**
-     * Settlement close (V105, hub plan §3): for every beneficiary with at
-     * least one PAID direct-inscription commission or hierarchy override in
-     * the period, tops up the gap between what the period's final
-     * highest-qualifying band would have paid and what was already
-     * disbursed across the partial cuts. Run after {@code /re-rate} (and its
-     * hierarchy-override sibling) — those bump PENDING rows in place; this
-     * covers what's already PAID and off-limits to them. Reuses {@code
-     * COMMISSION_RE_RATE} (same actor/action, generic ledger).
+     * Settlement close/retroactive top-up (V105 legacy whole-period mode
+     * when {@code periodStart}/{@code periodEnd} are set, V150 cut mode —
+     * Fase A retroactive settlement axis — when {@code asOf} is set): for
+     * every beneficiary with at least one PAID direct-inscription/collection
+     * commission or hierarchy override, tops up the gap between the highest
+     * band reached so far and what was already disbursed. Run after {@code
+     * /re-rate} (and its hierarchy-override sibling) — those bump PENDING
+     * rows in place; this covers what's already PAID and off-limits to
+     * them. Reuses {@code COMMISSION_RE_RATE} (same actor/action, generic
+     * ledger).
      */
     @PostMapping("/retroactive-topups")
     @PreAuthorize("hasAuthority('COMMISSION_RE_RATE')")
     public ResponseEntity<CommissionRetroactiveTopUpResponse> retroactiveTopUps(
             @Valid @RequestBody CommissionRetroactiveTopUpRequest request) {
-        return ResponseEntity.ok(commissionRetroactiveTopUpService.execute(request));
+        CommissionRetroactiveTopUpResponse response = request.asOf() != null
+                ? commissionRetroactiveTopUpService.executeCut(request)
+                : commissionRetroactiveTopUpService.execute(request);
+        return ResponseEntity.ok(response);
     }
 
     /**

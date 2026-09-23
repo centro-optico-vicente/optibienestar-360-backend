@@ -11,11 +11,13 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.CommissionStatus;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
@@ -89,6 +91,7 @@ public class CommissionService {
     private final CommissionAuditRecorder auditRecorder;
     private final ConversionEnricher conversionEnricher;
     private final CurrencyConversionService currencyConversionService;
+    private final PaymentRepository paymentRepository;
 
     /**
      * Computes + persists a commission row for the given approved payment.
@@ -173,7 +176,8 @@ public class CommissionService {
 
     private static Commission priceByVolumeTier(CommissionTier tier, Payment payment,
                                                  AppliesTo appliesTo, LocalDate anchor) {
-        PeriodStrategies.Window window = PeriodStrategies.window(tier.getPeriodStrategy().name(), anchor);
+        PeriodStrategies.Window window =
+                PeriodStrategies.window(tier.getAccrualPeriodStrategy().name(), anchor, tier.getAccrualPeriodAnchor());
         BigDecimal basis = payment.getAmount();
         BigDecimal pct = tier.getCommissionPct();
         BigDecimal flat = tier.getFlatAmount();
@@ -188,7 +192,7 @@ public class CommissionService {
         commission.setFlatAmount(flat);
         commission.setCommissionTierId(tier.getId());
         commission.setTierNameSnapshot(tier.getName());
-        commission.setPeriodStrategy(tier.getPeriodStrategy());
+        commission.setPeriodStrategy(tier.getAccrualPeriodStrategy());
         commission.setPeriodStart(window.start());
         commission.setPeriodEnd(window.end());
         return commission;
@@ -206,24 +210,20 @@ public class CommissionService {
         Membership membership = payment.getMembership();
         int days = collectionDays(membership, payment, anchor);
         BigDecimal basis = membership.getMonthlyFee();
-
         Long promoterTypeId = promoter.getPromoterType() != null ? promoter.getPromoterType().getId() : null;
-        List<CollectionCommissionTier> candidates =
-                collectionTierRepository.findActiveApplicable(days, promoterTypeId);
-        if (candidates == null) candidates = List.of();
-        // AMOUNT-basis tiers are keyed on the payment's own monetary basis (monthly fee),
-        // not on how many days late it was — the two bucket sets are evaluated independently
-        // and never mixed within one candidate list (CollectionCommissionTiersService enforces
-        // basis-field consistency per tier at write time).
-        CollectionCommissionTier amountTier = candidates.isEmpty()
-                ? highestQualifyingAmountTier(basis, payment, promoterTypeId)
-                : null;
-        if (candidates.isEmpty() && amountTier == null) {
+
+        CollectionCommissionTier tier = selectCollectionTier(
+                days, basis, membership.getCurrency(), payment.getPaymentDate(), promoterTypeId).orElse(null);
+        if (tier == null) {
             return null;
         }
-        CollectionCommissionTier tier = !candidates.isEmpty() ? candidates.get(0) : amountTier;
 
-        PeriodStrategies.Window window = PeriodStrategies.window(Commission.PeriodStrategy.MONTHLY.name(), anchor);
+        // Accumulation window now comes from the tier's own accrualPeriodStrategy/Anchor
+        // (Fase A, V148) instead of the hardcoded MONTHLY this service used before those
+        // columns existed — a tier left at the V148 default (MONTHLY, no anchor) is a no-op
+        // change, reproducing today's behavior exactly.
+        PeriodStrategies.Window window =
+                PeriodStrategies.window(tier.getAccrualPeriodStrategy().name(), anchor, tier.getAccrualPeriodAnchor());
         BigDecimal pct = tier.getCommissionPct();
         BigDecimal flat = tier.getFlatAmount();
         BigDecimal amount = pct != null
@@ -238,10 +238,40 @@ public class CommissionService {
         commission.setTierNameSnapshot(tier.getName());
         commission.setCollectionDays(days);
         commission.setCollectionTierId(tier.getId());
-        commission.setPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
+        commission.setPeriodStrategy(tier.getAccrualPeriodStrategy());
         commission.setPeriodStart(window.start());
         commission.setPeriodEnd(window.end());
         return commission;
+    }
+
+    /**
+     * Picks the winning {@code collection_commission_tiers} bucket for a
+     * given days-late/basis-amount pair — the same selection {@link
+     * #priceByCollectionSpeed} uses per-payment, extracted (Fase A, hub plan
+     * commission-frequency-currency-unification, retroactive settlement
+     * axis) so {@code CommissionRetroactiveTopUpService} can re-run it
+     * per-row for a retroactive re-pricing without duplicating the lookup.
+     * Tries {@code basis=DAYS} candidates first (smallest qualifying {@code
+     * maxDays} wins — {@link CollectionCommissionTierRepository
+     * #findActiveApplicable} orders them that way); falls back to {@code
+     * basis=AMOUNT} only when no DAYS bucket applies, same precedence {@link
+     * #priceByCollectionSpeed} always used.
+     *
+     * @return empty when neither bucket set has an applicable/qualifying row
+     *         (the caller then falls back to the volume-tier flow).
+     */
+    public Optional<CollectionCommissionTier> selectCollectionTier(
+            int days, BigDecimal amountBasis, Currency amountBasisCurrency, Instant asOf, Long promoterTypeId) {
+        List<CollectionCommissionTier> candidates = collectionTierRepository.findActiveApplicable(days, promoterTypeId);
+        if (candidates == null) candidates = List.of();
+        if (!candidates.isEmpty()) {
+            return Optional.of(candidates.get(0));
+        }
+        // AMOUNT-basis tiers are keyed on the monetary basis (monthly fee), not on how many
+        // days late it was — the two bucket sets are evaluated independently and never mixed
+        // within one candidate list (CollectionCommissionTiersService enforces basis-field
+        // consistency per tier at write time).
+        return Optional.ofNullable(highestQualifyingAmountTier(amountBasis, amountBasisCurrency, asOf, promoterTypeId));
     }
 
     /**
@@ -256,21 +286,21 @@ public class CommissionService {
      * has to happen per row. A tier whose currency pair has no exchange rate
      * available is skipped (logged) rather than blocking the whole lookup.
      */
-    private CollectionCommissionTier highestQualifyingAmountTier(BigDecimal amount, Payment payment, Long promoterTypeId) {
+    private CollectionCommissionTier highestQualifyingAmountTier(
+            BigDecimal amount, Currency amountCurrency, Instant asOf, Long promoterTypeId) {
         List<CollectionCommissionTier> amountCandidates =
                 collectionTierRepository.findActiveApplicableByAmount(promoterTypeId);
         if (amountCandidates == null) return null;
         for (CollectionCommissionTier candidate : amountCandidates) {
             try {
                 var conversion = currencyConversionService.convert(
-                        amount, payment.getMembership().getCurrency(), candidate.getMinAmountCurrency(), payment.getPaymentDate());
+                        amount, amountCurrency, candidate.getMinAmountCurrency(), asOf);
                 if (conversion.convertedAmount().compareTo(candidate.getMinAmount()) >= 0) {
                     return candidate;
                 }
             } catch (NoExchangeRateAvailableException ex) {
-                log.warn("Collection commission tier {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT threshold check",
-                        candidate.getUuid(), payment.getMembership().getCurrency().getCode(),
-                        candidate.getMinAmountCurrency().getCode(), payment.getUuid());
+                log.warn("Collection commission tier {} — no exchange rate {}→{} as of {}; excluded from AMOUNT threshold check",
+                        candidate.getUuid(), amountCurrency.getCode(), candidate.getMinAmountCurrency().getCode(), asOf);
             }
         }
         return null;
@@ -298,7 +328,17 @@ public class CommissionService {
      * Highest tier the promoter qualifies for among those applicable to the
      * payment. Candidates arrive highest-threshold first; a base tier
      * (threshold 0) is the guaranteed fallback. New-subscriber counts are
-     * computed once per distinct period strategy.
+     * computed once per distinct (period strategy, anchor) window — {@code
+     * basis=COUNT} tiers only.
+     *
+     * <p>{@code basis=AMOUNT} tiers (Fase A, phase 2) are keyed on the
+     * promoter's own collected-amount volume in the tier's accrual window
+     * instead — summed from their APPROVED {@code direction=IN} payments and
+     * converted into the tier's own {@link CommissionTier#getThresholdAmountCurrency()}
+     * before comparing, same degrade-gracefully currency policy {@code
+     * BonusEvaluationService#evaluateAmountCollectedRule} uses (a tier whose
+     * currency pair has no exchange rate available is skipped, logged, and
+     * never blocks the rest of the selection).</p>
      */
     private CommissionTier selectTier(Promoter promoter, PlanType planType, AppliesTo appliesTo, LocalDate anchor) {
         CommissionTier.AppliesTo tierApplies = appliesTo == AppliesTo.INSCRIPTION
@@ -310,11 +350,23 @@ public class CommissionService {
 
         Map<String, Long> countByStrategy = new HashMap<>();
         for (CommissionTier tier : candidates) {
+            if (tier.getBasis() == BasisType.AMOUNT) {
+                if (tier.getThresholdAmount() == null || tier.getThresholdAmount().signum() <= 0) {
+                    return tier;   // base tier — always qualifies
+                }
+                BigDecimal convertedCollected = collectedAmountInTierCurrency(promoter, anchor, tier);
+                if (convertedCollected.compareTo(tier.getThresholdAmount()) >= 0) {
+                    return tier;
+                }
+                continue;
+            }
             if (tier.getThresholdCount() <= 0) {
                 return tier;   // base tier — always qualifies (ordered last among candidates)
             }
-            long count = countByStrategy.computeIfAbsent(tier.getPeriodStrategy().name(), s -> {
-                PeriodStrategies.Window w = PeriodStrategies.window(s, anchor);
+            long count = countByStrategy.computeIfAbsent(
+                    strategyCacheKey(tier.getAccrualPeriodStrategy().name(), tier.getAccrualPeriodAnchor()), s -> {
+                PeriodStrategies.Window w =
+                        PeriodStrategies.window(tier.getAccrualPeriodStrategy().name(), anchor, tier.getAccrualPeriodAnchor());
                 return memberRepository.countNewSubscribersForPromoter(promoter.getId(), w.start(), w.end());
             });
             if (count >= tier.getThresholdCount()) {
@@ -322,6 +374,40 @@ public class CommissionService {
             }
         }
         return null;
+    }
+
+    /** Cache key distinguishing (strategy, anchor) pairs — two tiers with the same strategy but a different anchor size different windows. */
+    private static String strategyCacheKey(String strategy, Short anchor) {
+        return strategy + "#" + anchor;
+    }
+
+    /**
+     * Converts the promoter's window collected amount into {@code
+     * tier.getThresholdAmountCurrency()} payment-by-payment (thresholds
+     * across tiers may be denominated differently, so a single blended sum
+     * can't be reused across tiers) — same degrade-gracefully policy as
+     * {@code BonusEvaluationService#evaluateAmountCollectedRule}: a payment
+     * whose currency pair has no exchange rate available is excluded from
+     * the sum and logged, never blocking the rest of the evaluation.
+     */
+    private BigDecimal collectedAmountInTierCurrency(Promoter promoter, LocalDate anchorDate, CommissionTier tier) {
+        PeriodStrategies.Window w =
+                PeriodStrategies.window(tier.getAccrualPeriodStrategy().name(), anchorDate, tier.getAccrualPeriodAnchor());
+        Instant from = w.start().atStartOfDay(AppTimeZone.ZONE).toInstant();
+        Instant to = w.end().plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant();
+        List<Payment> payments = paymentRepository.findApprovedInForPromoterInWindow(promoter.getId(), from, to);
+        BigDecimal total = BigDecimal.ZERO;
+        for (Payment p : payments) {
+            try {
+                var conversion = currencyConversionService.convert(
+                        p.getAmount(), p.getCurrency(), tier.getThresholdAmountCurrency(), p.getPaymentDate());
+                total = total.add(conversion.convertedAmount());
+            } catch (NoExchangeRateAvailableException ex) {
+                log.warn("Commission tier {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT threshold check",
+                        tier.getUuid(), p.getCurrency().getCode(), tier.getThresholdAmountCurrency().getCode(), p.getUuid());
+            }
+        }
+        return total;
     }
 
     private Optional<Promoter> resolvePromoter(Member member) {

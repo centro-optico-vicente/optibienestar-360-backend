@@ -77,8 +77,8 @@ public class CommissionPeriodicSettlementService {
 
     /**
      * Settles the cut of {@code rule} (its {@link CommissionTier
-     * #getPayoutPeriodStrategy()} inside its {@link CommissionTier
-     * #getSettlementPeriodStrategy()} window) that contains {@code asOf} for
+     * #getPartialSettlementPeriodStrategy()} inside its {@link CommissionTier
+     * #getFinalSettlementPeriodStrategy()} window) that contains {@code asOf} for
      * {@code promoter}: re-prices every {@code APPROVED} {@link
      * AppliesTo#INSCRIPTION} commission of that promoter falling inside the
      * cut to the band the promoter's month(-or-whatever)-to-cut-end count
@@ -101,10 +101,11 @@ public class CommissionPeriodicSettlementService {
     @Transactional
     public SettlementOutcome settleCut(Promoter promoter, CommissionTier rule, LocalDate asOf,
                                        String payoutReference, boolean dryRun) {
-        PeriodStrategies.Window settlementWindow =
-                PeriodStrategies.window(rule.getSettlementPeriodStrategy().name(), asOf);
+        PeriodStrategies.Window settlementWindow = PeriodStrategies.window(
+                rule.getFinalSettlementPeriodStrategy().name(), asOf, rule.getFinalSettlementPeriodAnchor());
         PeriodCutCalculator.Cut cut = PeriodCutCalculator.cutContaining(
-                rule.getPayoutPeriodStrategy().name(), settlementWindow.start(), settlementWindow.end(), asOf);
+                rule.getPartialSettlementPeriodStrategy().name(), settlementWindow.start(), settlementWindow.end(), asOf,
+                rule.getPartialSettlementPeriodAnchor());
 
         // Month(-or-whatever)-to-cut-end accumulation — same metric CommissionService.selectTier
         // and CommissionRetroactiveTopUpService already use, just clipped to the cut's end instead

@@ -212,9 +212,17 @@ public class CampaignService {
             c.setCampaign(saved);
             c.setStartsAt(saved.getStartsAt());
             c.setEndsAt(saved.getEndsAt());
-            c.setPeriodStrategy(t.getPeriodStrategy());
-            c.setPayoutPeriodStrategy(t.getPayoutPeriodStrategy());
-            c.setSettlementPeriodStrategy(t.getSettlementPeriodStrategy());
+            c.setAccrualPeriodStrategy(t.getAccrualPeriodStrategy());
+            c.setPartialSettlementPeriodStrategy(t.getPartialSettlementPeriodStrategy());
+            c.setFinalSettlementPeriodStrategy(t.getFinalSettlementPeriodStrategy());
+            c.setRetroactiveSettlementPeriodStrategy(t.getRetroactiveSettlementPeriodStrategy());
+            c.setAccrualPeriodAnchor(t.getAccrualPeriodAnchor());
+            c.setPartialSettlementPeriodAnchor(t.getPartialSettlementPeriodAnchor());
+            c.setFinalSettlementPeriodAnchor(t.getFinalSettlementPeriodAnchor());
+            c.setRetroactiveSettlementPeriodAnchor(t.getRetroactiveSettlementPeriodAnchor());
+            c.setBasis(t.getBasis());
+            c.setThresholdAmount(t.getThresholdAmount());
+            c.setThresholdAmountCurrency(t.getThresholdAmountCurrency());
             c.setAppliesTo(t.getAppliesTo());
             commissionTierRepository.save(c);
         }
@@ -226,7 +234,14 @@ public class CampaignService {
             c.setMetric(r.getMetric());
             c.setAccrual(r.getAccrual());
             c.setThresholdCount(r.getThresholdCount());
-            c.setWindowStrategy(r.getWindowStrategy());
+            c.setAccrualPeriodStrategy(r.getAccrualPeriodStrategy());
+            c.setPartialSettlementPeriodStrategy(r.getPartialSettlementPeriodStrategy());
+            c.setFinalSettlementPeriodStrategy(r.getFinalSettlementPeriodStrategy());
+            c.setRetroactiveSettlementPeriodStrategy(r.getRetroactiveSettlementPeriodStrategy());
+            c.setAccrualPeriodAnchor(r.getAccrualPeriodAnchor());
+            c.setPartialSettlementPeriodAnchor(r.getPartialSettlementPeriodAnchor());
+            c.setFinalSettlementPeriodAnchor(r.getFinalSettlementPeriodAnchor());
+            c.setRetroactiveSettlementPeriodAnchor(r.getRetroactiveSettlementPeriodAnchor());
             c.setCampaignStart(saved.getStartsAt());
             c.setCampaignEnd(saved.getEndsAt());
             c.setCampaign(saved);
@@ -256,9 +271,17 @@ public class CampaignService {
             c.setCampaign(saved);
             c.setStartsAt(saved.getStartsAt());
             c.setEndsAt(saved.getEndsAt());
-            c.setPeriodStrategy(h.getPeriodStrategy());
-            c.setPayoutPeriodStrategy(h.getPayoutPeriodStrategy());
-            c.setSettlementPeriodStrategy(h.getSettlementPeriodStrategy());
+            c.setAccrualPeriodStrategy(h.getAccrualPeriodStrategy());
+            c.setPartialSettlementPeriodStrategy(h.getPartialSettlementPeriodStrategy());
+            c.setFinalSettlementPeriodStrategy(h.getFinalSettlementPeriodStrategy());
+            c.setRetroactiveSettlementPeriodStrategy(h.getRetroactiveSettlementPeriodStrategy());
+            c.setAccrualPeriodAnchor(h.getAccrualPeriodAnchor());
+            c.setPartialSettlementPeriodAnchor(h.getPartialSettlementPeriodAnchor());
+            c.setFinalSettlementPeriodAnchor(h.getFinalSettlementPeriodAnchor());
+            c.setRetroactiveSettlementPeriodAnchor(h.getRetroactiveSettlementPeriodAnchor());
+            c.setBasis(h.getBasis());
+            c.setThresholdAmount(h.getThresholdAmount());
+            c.setThresholdAmountCurrency(h.getThresholdAmountCurrency());
             hierarchyOverrideTierRepository.save(c);
         }
 
