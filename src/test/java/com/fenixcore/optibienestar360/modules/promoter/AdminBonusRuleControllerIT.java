@@ -76,14 +76,15 @@ class AdminBonusRuleControllerIT {
     private BonusRuleDto ruleDto() {
         return new BonusRuleDto(UUID.randomUUID(), "300 activos/mes", null, List.of(),
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, null, null, null,
-                WindowStrategy.MONTHLY,
+                WindowStrategy.MONTHLY, WindowStrategy.MONTHLY, WindowStrategy.MONTHLY, WindowStrategy.MONTHLY,
+                null, null, null, null,
                 null, null, RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, false,
                 null, null, null, true, null);
     }
 
     private static final String VALID_RULE_JSON = """
             {"name":"300 activos/mes","metric":"ACTIVE_SUBSCRIBERS","accrual":"THRESHOLD",
-             "thresholdCount":300,"windowStrategy":"MONTHLY","rewardType":"FLAT","flatAmount":50.00}
+             "thresholdCount":300,"accrualPeriodStrategy":"MONTHLY","rewardType":"FLAT","flatAmount":50.00}
             """;
 
     // ─── list (read, BONUS_RULE_VIEW_ALL) ────────────────────────────────────

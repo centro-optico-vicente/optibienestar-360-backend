@@ -88,4 +88,29 @@ public interface PromoterHierarchyOverrideRepository extends JpaRepository<Promo
             @Param("category") OverrideCategory category,
             @Param("cutStart") LocalDate cutStart,
             @Param("cutEnd") LocalDate cutEnd);
+
+    /**
+     * Powers {@code CommissionRetroactiveTopUpService#executeCut} (Fase A,
+     * retroactive settlement axis) — every PAID override of a single
+     * beneficiary/category whose period falls inside an arbitrary
+     * rule-derived window (the accrual window's start through the current
+     * retroactive cut's end). Mirrors {@link #findPaidForPeriod} but
+     * beneficiary-scoped, the same way {@link #findPendingForPromoterCategoryInPeriod}
+     * mirrors {@link #findPendingForPeriod}.
+     */
+    @Query("""
+            SELECT o FROM PromoterHierarchyOverride o
+            WHERE o.active = true
+              AND o.status = 'PAID'
+              AND o.promoter.id = :promoterId
+              AND o.category = :category
+              AND o.periodStart >= :start
+              AND o.periodEnd   <= :end
+            ORDER BY o.earnedAt
+            """)
+    List<PromoterHierarchyOverride> findPaidForPromoterCategoryInPeriod(
+            @Param("promoterId") Long promoterId,
+            @Param("category") OverrideCategory category,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end);
 }

@@ -39,13 +39,26 @@ public final class PeriodCutCalculator {
      * @throws IllegalArgumentException when {@code settlementEnd < settlementStart}
      */
     public static List<Cut> cuts(String cutStrategy, LocalDate settlementStart, LocalDate settlementEnd) {
+        return cuts(cutStrategy, settlementStart, settlementEnd, null);
+    }
+
+    /**
+     * Same as {@link #cuts(String, LocalDate, LocalDate)}, but the cut
+     * strategy's natural window is resolved with {@code anchor} (Fase A,
+     * phase 2 — see {@link PeriodStrategies#window(String, LocalDate, Short)}
+     * for the per-strategy anchor semantics). {@code anchor == null}
+     * reproduces the un-anchored behavior exactly. The settlement-window
+     * clipping this class exists for is agnostic to the anchor — it only
+     * ever compares against the already-resolved natural window's bounds.
+     */
+    public static List<Cut> cuts(String cutStrategy, LocalDate settlementStart, LocalDate settlementEnd, Short anchor) {
         if (settlementEnd.isBefore(settlementStart)) {
             throw new IllegalArgumentException("period_cut_calculator.invalid_range");
         }
         List<Cut> result = new ArrayList<>();
         LocalDate pointer = settlementStart;
         while (!pointer.isAfter(settlementEnd)) {
-            PeriodStrategies.Window natural = PeriodStrategies.window(cutStrategy, pointer);
+            PeriodStrategies.Window natural = PeriodStrategies.window(cutStrategy, pointer, anchor);
             LocalDate cutStart = natural.start().isBefore(settlementStart) ? settlementStart : natural.start();
             LocalDate cutEnd = natural.end().isAfter(settlementEnd) ? settlementEnd : natural.end();
             result.add(new Cut(cutStart, cutEnd));
@@ -62,9 +75,20 @@ public final class PeriodCutCalculator {
      * is clamped to the nearest bound.
      */
     public static Cut cutContaining(String cutStrategy, LocalDate settlementStart, LocalDate settlementEnd, LocalDate asOf) {
+        return cutContaining(cutStrategy, settlementStart, settlementEnd, asOf, null);
+    }
+
+    /**
+     * Same as {@link #cutContaining(String, LocalDate, LocalDate, LocalDate)},
+     * but the cut strategy's natural window is resolved with {@code anchor}
+     * (Fase A, phase 2) — {@code anchor == null} reproduces the un-anchored
+     * behavior exactly.
+     */
+    public static Cut cutContaining(String cutStrategy, LocalDate settlementStart, LocalDate settlementEnd,
+                                     LocalDate asOf, Short anchor) {
         LocalDate clamped = asOf.isBefore(settlementStart) ? settlementStart
                 : asOf.isAfter(settlementEnd) ? settlementEnd : asOf;
-        PeriodStrategies.Window natural = PeriodStrategies.window(cutStrategy, clamped);
+        PeriodStrategies.Window natural = PeriodStrategies.window(cutStrategy, clamped, anchor);
         LocalDate cutStart = natural.start().isBefore(settlementStart) ? settlementStart : natural.start();
         LocalDate cutEnd = natural.end().isAfter(settlementEnd) ? settlementEnd : natural.end();
         return new Cut(cutStart, cutEnd);

@@ -85,10 +85,11 @@ public class HierarchyOverridePeriodicSettlementService {
     @Transactional
     public SettlementOutcome settleCut(Promoter beneficiary, HierarchyOverrideTier rule, LocalDate asOf,
                                        String payoutReference, boolean dryRun) {
-        PeriodStrategies.Window settlementWindow =
-                PeriodStrategies.window(rule.getSettlementPeriodStrategy().name(), asOf);
+        PeriodStrategies.Window settlementWindow = PeriodStrategies.window(
+                rule.getFinalSettlementPeriodStrategy().name(), asOf, rule.getFinalSettlementPeriodAnchor());
         PeriodCutCalculator.Cut cut = PeriodCutCalculator.cutContaining(
-                rule.getPayoutPeriodStrategy().name(), settlementWindow.start(), settlementWindow.end(), asOf);
+                rule.getPartialSettlementPeriodStrategy().name(), settlementWindow.start(), settlementWindow.end(), asOf,
+                rule.getPartialSettlementPeriodAnchor());
 
         Instant cutEndAsOf = cut.end().atStartOfDay(AppTimeZone.ZONE).toInstant();
         Set<Long> team = hierarchyService.resolveTeamMemberIds(beneficiary.getId(), cutEndAsOf);

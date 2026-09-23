@@ -58,4 +58,21 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
             @Param("promoterId") Long promoterId,
             @Param("from") java.time.Instant from,
             @Param("to") java.time.Instant to);
+
+    /**
+     * Same as {@link #findApprovedInForPromoterInWindow}, but scoped to a
+     * whole set of promoters — powers the {@code basis=AMOUNT} team-volume
+     * check on {@code HierarchyOverrideTier} (Fase A, phase 2), the
+     * team-subtree analogue of the single-promoter AMOUNT_COLLECTED bonus
+     * check.
+     */
+    @Query("SELECT p FROM Payment p " +
+           "WHERE p.status = 'APPROVED' " +
+           "  AND p.direction = 'IN' " +
+           "  AND p.promoter.id IN :promoterIds " +
+           "  AND p.paymentDate >= :from AND p.paymentDate < :to")
+    java.util.List<Payment> findApprovedInForPromotersInWindow(
+            @Param("promoterIds") java.util.Collection<Long> promoterIds,
+            @Param("from") java.time.Instant from,
+            @Param("to") java.time.Instant to);
 }

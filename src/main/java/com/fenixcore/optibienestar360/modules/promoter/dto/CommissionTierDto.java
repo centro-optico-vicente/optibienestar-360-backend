@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -27,7 +28,18 @@ public record CommissionTierDto(
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "flatAmountCurrency_Code") BigDecimal flatAmount,
         @Display DisplayRef flatAmountCurrency,
         String flatAmountCurrency_Code,
-        @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy accrualPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy partialSettlementPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy finalSettlementPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy retroactiveSettlementPeriodStrategy,
+        Short accrualPeriodAnchor,
+        Short partialSettlementPeriodAnchor,
+        Short finalSettlementPeriodAnchor,
+        Short retroactiveSettlementPeriodAnchor,
+        @Display(Display.Kind.ENUM) BasisType basis,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "thresholdAmountCurrency_Code") BigDecimal thresholdAmount,
+        @Display DisplayRef thresholdAmountCurrency,
+        String thresholdAmountCurrency_Code,
         @Display(Display.Kind.ENUM) AppliesTo appliesTo,
         /** Optional campaign anchor (V120) — {@code null} = a standing (non-campaign) tier. */
         @Display DisplayRef campaign,
@@ -46,7 +58,14 @@ public record CommissionTierDto(
                 t.getCommissionPct(), t.getFlatAmount(),
                 DisplayRefs.ref(t.getFlatAmountCurrency()),
                 t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,
-                t.getPeriodStrategy(), t.getAppliesTo(),
+                t.getAccrualPeriodStrategy(), t.getPartialSettlementPeriodStrategy(),
+                t.getFinalSettlementPeriodStrategy(), t.getRetroactiveSettlementPeriodStrategy(),
+                t.getAccrualPeriodAnchor(), t.getPartialSettlementPeriodAnchor(),
+                t.getFinalSettlementPeriodAnchor(), t.getRetroactiveSettlementPeriodAnchor(),
+                t.getBasis(), t.getThresholdAmount(),
+                DisplayRefs.ref(t.getThresholdAmountCurrency()),
+                t.getThresholdAmountCurrency() != null ? t.getThresholdAmountCurrency().getCode() : null,
+                t.getAppliesTo(),
                 DisplayRefs.ref(t.getCampaign()), t.getStartsAt(), t.getEndsAt(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }

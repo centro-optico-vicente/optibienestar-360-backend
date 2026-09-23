@@ -155,7 +155,7 @@ class CommissionReRatingServiceTest {
         t.setPlanType(null);
         t.setThresholdCount(threshold);
         t.setCommissionPct(new BigDecimal(pct));
-        t.setPeriodStrategy(PeriodStrategy.MONTHLY);
+        t.setAccrualPeriodStrategy(PeriodStrategy.MONTHLY);
         t.setAppliesTo(CommissionTier.AppliesTo.INSCRIPTION);
         return t;
     }

@@ -48,7 +48,21 @@ public record BonusRuleRequest(
         /** Required alongside {@code thresholdAmount}. */
         UUID thresholdCurrencyUuid,
 
-        @NotNull WindowStrategy windowStrategy,
+        @NotNull WindowStrategy accrualPeriodStrategy,
+
+        WindowStrategy partialSettlementPeriodStrategy,
+
+        WindowStrategy finalSettlementPeriodStrategy,
+
+        WindowStrategy retroactiveSettlementPeriodStrategy,
+
+        Short accrualPeriodAnchor,
+
+        Short partialSettlementPeriodAnchor,
+
+        Short finalSettlementPeriodAnchor,
+
+        Short retroactiveSettlementPeriodAnchor,
 
         OffsetDateTime campaignStart,
 

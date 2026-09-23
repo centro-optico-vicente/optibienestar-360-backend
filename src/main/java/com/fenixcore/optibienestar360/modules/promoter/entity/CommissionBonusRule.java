@@ -82,9 +82,78 @@ public class CommissionBonusRule extends BaseEntity {
     @JoinColumn(name = "threshold_currency_id")
     private Currency thresholdCurrency;
 
+    /**
+     * Accumulation window — how the observed metric count/amount is measured
+     * (e.g. "reached 500 new subscribers within the MONTHLY window"). Renamed
+     * from {@code windowStrategy}/{@code window_strategy} (Fase A, hub plan
+     * commission-frequency-currency-unification) to line up with the same
+     * axis name on {@link CommissionTier#getAccrualPeriodStrategy()} /
+     * {@link HierarchyOverrideTier#getAccrualPeriodStrategy()} /
+     * {@link CollectionCommissionTier#getAccrualPeriodStrategy()}. The only
+     * axis where {@link WindowStrategy#CAMPAIGN} and {@link
+     * WindowStrategy#LIFETIME} are valid — the 3 settlement axes below are
+     * always periodic (DB CHECK excludes both).
+     */
     @Enumerated(EnumType.STRING)
-    @Column(name = "window_strategy", nullable = false, length = 20)
-    private WindowStrategy windowStrategy;
+    @Column(name = "accrual_period_strategy", nullable = false, length = 20)
+    private WindowStrategy accrualPeriodStrategy;
+
+    /**
+     * How often a partial disbursement of an already-accrued award is paid
+     * out (Fase A) — independent from {@link #accrualPeriodStrategy}, same
+     * spirit as {@code CommissionTier.partialSettlementPeriodStrategy} (V112).
+     * {@link WindowStrategy#CAMPAIGN}/{@link WindowStrategy#LIFETIME} are not
+     * valid here (DB CHECK) — only {@link #accrualPeriodStrategy} can anchor
+     * a rule to a campaign or run lifetime-cumulative.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "partial_settlement_period_strategy", nullable = false, length = 20)
+    private WindowStrategy partialSettlementPeriodStrategy;
+
+    /**
+     * The containing window whose close triggers the final settlement of the
+     * award (Fase A) — same spirit as {@code CommissionTier
+     * .finalSettlementPeriodStrategy} (V112, renamed from {@code
+     * settlementPeriodStrategy}). {@link WindowStrategy#CAMPAIGN}/{@link
+     * WindowStrategy#LIFETIME} excluded (DB CHECK) — see {@link
+     * #accrualPeriodStrategy}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "final_settlement_period_strategy", nullable = false, length = 20)
+    private WindowStrategy finalSettlementPeriodStrategy;
+
+    /**
+     * The window whose close triggers a retroactive catch-up settlement of
+     * this award (Fase A, new axis — no prior equivalent field). Default
+     * {@code MONTHLY} (migration V145) reproduces today's behavior: retroactive
+     * catch-up piggybacks on the same cadence as final settlement. {@link
+     * WindowStrategy#CAMPAIGN}/{@link WindowStrategy#LIFETIME} excluded (DB
+     * CHECK) — see {@link #accrualPeriodStrategy}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "retroactive_settlement_period_strategy", nullable = false, length = 20)
+    private WindowStrategy retroactiveSettlementPeriodStrategy;
+
+    /**
+     * Day-of-week (1-7, WEEKLY/BIWEEKLY) or day-of-month (1-31, MONTHLY+)
+     * anchor for {@link #accrualPeriodStrategy} (Fase A) — {@code null} lets
+     * the evaluator fall back to its own default. Interpreted by {@code
+     * PeriodStrategies} (phase 2, not touched here).
+     */
+    @Column(name = "accrual_period_anchor")
+    private Short accrualPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #partialSettlementPeriodStrategy}. */
+    @Column(name = "partial_settlement_period_anchor")
+    private Short partialSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #finalSettlementPeriodStrategy}. */
+    @Column(name = "final_settlement_period_anchor")
+    private Short finalSettlementPeriodAnchor;
+
+    /** Same anchor semantics as {@link #accrualPeriodAnchor}, for {@link #retroactiveSettlementPeriodStrategy}. */
+    @Column(name = "retroactive_settlement_period_anchor")
+    private Short retroactiveSettlementPeriodAnchor;
 
     /** Migrated V120 from {@code date} to {@code timestamptz} (existing rows moved to midnight UTC). */
     @Column(name = "campaign_start")
@@ -156,7 +225,12 @@ public class CommissionBonusRule extends BaseEntity {
         THRESHOLD
     }
 
-    /** Evaluation window. LIFETIME = cumulative; CAMPAIGN = fixed date range. */
+    /**
+     * Evaluation window. LIFETIME = cumulative; CAMPAIGN = fixed date range.
+     * Shared Java type across all 4 period axes ({@link #accrualPeriodStrategy}
+     * and the 3 settlement axes) — LIFETIME/CAMPAIGN are only ever persisted
+     * on {@link #accrualPeriodStrategy} (DB CHECK on the other 3 columns).
+     */
     public enum WindowStrategy {
         LIFETIME, DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL, CAMPAIGN
     }

@@ -18,6 +18,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,7 @@ public class CommissionTiersService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "name", "planType", "thresholdCount", "commissionPct", "flatAmount",
-            "periodStrategy", "appliesTo", "active", "status", "createdAt", "updatedAt"
+            "accrualPeriodStrategy", "basis", "thresholdAmount", "appliesTo", "active", "status", "createdAt", "updatedAt"
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -121,7 +122,20 @@ public class CommissionTiersService {
         tier.setCommissionPct(req.commissionPct());
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
-        tier.setPeriodStrategy(req.periodStrategy());
+        tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null) tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)   tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
+        if (req.basis() != null) tier.setBasis(req.basis());
+        if (tier.getBasis() == BasisType.AMOUNT) {
+            requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+        }
+        tier.setThresholdAmount(req.thresholdAmount());
+        tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
         tier.setAppliesTo(req.appliesTo());
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
@@ -140,7 +154,29 @@ public class CommissionTiersService {
         if (req.planType() != null)         tier.setPlanType(req.planType());
         if (req.promoterTypeUuids() != null) tier.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
         if (req.thresholdCount() != null)   tier.setThresholdCount(req.thresholdCount());
-        if (req.periodStrategy() != null)   tier.setPeriodStrategy(req.periodStrategy());
+        if (req.accrualPeriodStrategy() != null)             tier.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        if (req.partialSettlementPeriodStrategy() != null)   tier.setPartialSettlementPeriodStrategy(req.partialSettlementPeriodStrategy());
+        if (req.finalSettlementPeriodStrategy() != null)     tier.setFinalSettlementPeriodStrategy(req.finalSettlementPeriodStrategy());
+        if (req.retroactiveSettlementPeriodStrategy() != null) tier.setRetroactiveSettlementPeriodStrategy(req.retroactiveSettlementPeriodStrategy());
+        if (req.accrualPeriodAnchor() != null)               tier.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        if (req.partialSettlementPeriodAnchor() != null)     tier.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        if (req.finalSettlementPeriodAnchor() != null)       tier.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        if (req.retroactiveSettlementPeriodAnchor() != null) tier.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
+        if (req.basis() != null) {
+            tier.setBasis(req.basis());
+            if (req.basis() == BasisType.AMOUNT) {
+                requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+                tier.setThresholdAmount(req.thresholdAmount());
+                tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
+            } else {
+                tier.setThresholdAmount(null);
+                tier.setThresholdAmountCurrency(null);
+            }
+        } else if (req.thresholdAmount() != null) {
+            requireThresholdAmountCurrency(req.thresholdAmountCurrencyUuid());
+            tier.setThresholdAmount(req.thresholdAmount());
+            tier.setThresholdAmountCurrency(resolveCurrency(req.thresholdAmountCurrencyUuid()));
+        }
         if (req.appliesTo() != null)        tier.setAppliesTo(req.appliesTo());
         if (req.active() != null)           tier.setActive(req.active());
         if (req.campaignUuid() != null)     tier.setCampaign(resolveCampaign(req.campaignUuid()));
@@ -218,6 +254,13 @@ public class CommissionTiersService {
     private static void requireFlatAmountCurrency(UUID currencyUuid) {
         if (currencyUuid == null) {
             throw new IllegalArgumentException("commission_tier.flat_amount.currency_required");
+        }
+    }
+
+    /** {@code basis=AMOUNT} requires {@code thresholdAmountCurrencyUuid}, same pattern as {@link #requireFlatAmountCurrency}. */
+    private static void requireThresholdAmountCurrency(UUID currencyUuid) {
+        if (currencyUuid == null) {
+            throw new IllegalArgumentException("commission_tier.threshold_amount.currency_required");
         }
     }
 

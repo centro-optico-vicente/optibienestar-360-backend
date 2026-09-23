@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
@@ -47,10 +49,12 @@ class HierarchyOverrideServiceTest {
     @Mock private PromoterHierarchyOverrideRepository overrideRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private CommissionRepository commissionRepository;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private CurrencyConversionService currencyConversionService;
 
     private HierarchyOverrideService service() {
         return new HierarchyOverrideService(hierarchyService, tierRepository, overrideRepository,
-                memberRepository, commissionRepository);
+                memberRepository, commissionRepository, paymentRepository, currencyConversionService);
     }
 
     private static PromoterRank rank(String code, int level) {
@@ -81,7 +85,7 @@ class HierarchyOverrideServiceTest {
         t.setCategory(category);
         t.setThresholdCount(threshold);
         t.setOverridePct(new BigDecimal(pct));
-        t.setPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
+        t.setAccrualPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
         return t;
     }
 

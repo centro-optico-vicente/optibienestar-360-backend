@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PrizeAwardResult;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionTiersService;
 import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardPrizeService;
 import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardService;
@@ -96,7 +97,7 @@ class AdminCommissionEngineControllerIT {
         when(tiersService.create(any())).thenReturn(tierDto());
         String json = """
                 {"name":"Gold","thresholdCount":10,"commissionPct":25,
-                 "periodStrategy":"MONTHLY","appliesTo":"BOTH"}
+                 "accrualPeriodStrategy":"MONTHLY","appliesTo":"BOTH"}
                 """;
         mockMvc.perform(post("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
@@ -147,7 +148,11 @@ class AdminCommissionEngineControllerIT {
 
     private static CommissionTierDto tierDto() {
         return new CommissionTierDto(UUID.randomUUID(), "Gold", null, PlanType.FAMILIAR, null, 10,
-                new BigDecimal("25"), null, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null,
+                new BigDecimal("25"), null, null, null,
+                PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
+                null, null, null, null,
+                BasisType.COUNT, null, null, null,
+                AppliesTo.BOTH, null, null, null,
                 true, null, null, null);
     }
 }

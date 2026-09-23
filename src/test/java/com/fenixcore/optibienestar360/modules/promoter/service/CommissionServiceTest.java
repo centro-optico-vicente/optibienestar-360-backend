@@ -337,7 +337,7 @@ class CommissionServiceTest {
         t.setThresholdCount(threshold);
         t.setCommissionPct(pct != null ? new BigDecimal(pct) : null);
         t.setFlatAmount(flat != null ? new BigDecimal(flat) : null);
-        t.setPeriodStrategy(PeriodStrategy.MONTHLY);
+        t.setAccrualPeriodStrategy(PeriodStrategy.MONTHLY);
         t.setAppliesTo(CommissionTier.AppliesTo.BOTH);
         return t;
     }

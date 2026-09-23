@@ -192,7 +192,7 @@ public class BonusEvaluationService {
      * existsActiveByRuleAndPromoter}.
      */
     private RuleOutcome evaluateAmountCollectedRule(CommissionBonusRule rule, BonusWindow window, boolean dryRun) {
-        boolean lifetime = rule.getWindowStrategy() == WindowStrategy.LIFETIME;
+        boolean lifetime = rule.getAccrualPeriodStrategy() == WindowStrategy.LIFETIME;
         Instant from = window.start().atStartOfDay(AppTimeZone.ZONE).toInstant();
         Instant to = window.end().plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant();
 
@@ -287,7 +287,7 @@ public class BonusEvaluationService {
      */
     private AwardComputation computeAward(CommissionBonusRule rule, BonusWindow window,
                                           Promoter promoter, int count) {
-        boolean lifetime = rule.getWindowStrategy() == WindowStrategy.LIFETIME;
+        boolean lifetime = rule.getAccrualPeriodStrategy() == WindowStrategy.LIFETIME;
         int threshold = rule.getThresholdCount();
 
         int blocks;
@@ -369,7 +369,7 @@ public class BonusEvaluationService {
      * are bonus-specific. Returns null when a CAMPAIGN has not started yet.
      */
     private static BonusWindow windowFor(CommissionBonusRule rule, LocalDate asOf) {
-        WindowStrategy strategy = rule.getWindowStrategy();
+        WindowStrategy strategy = rule.getAccrualPeriodStrategy();
         if (strategy == WindowStrategy.LIFETIME) {
             return new BonusWindow(LIFETIME_START, asOf);
         }
@@ -380,7 +380,7 @@ public class BonusEvaluationService {
                     ? null
                     : new BonusWindow(campaignStart, campaignEnd);
         }
-        PeriodStrategies.Window w = PeriodStrategies.window(strategy.name(), asOf);
+        PeriodStrategies.Window w = PeriodStrategies.window(strategy.name(), asOf, rule.getAccrualPeriodAnchor());
         return new BonusWindow(w.start(), w.end());
     }
 

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
+import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -30,7 +31,17 @@ public record HierarchyOverrideTierUpdateRequest(
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal overridePct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
-        PeriodStrategy periodStrategy,
+        PeriodStrategy accrualPeriodStrategy,
+        PeriodStrategy partialSettlementPeriodStrategy,
+        PeriodStrategy finalSettlementPeriodStrategy,
+        PeriodStrategy retroactiveSettlementPeriodStrategy,
+        Short accrualPeriodAnchor,
+        Short partialSettlementPeriodAnchor,
+        Short finalSettlementPeriodAnchor,
+        Short retroactiveSettlementPeriodAnchor,
+        BasisType basis,
+        @DecimalMin("0") @Digits(integer = 12, fraction = 2) BigDecimal thresholdAmount,
+        UUID thresholdAmountCurrencyUuid,
         Boolean active,
         UUID campaignUuid,
         OffsetDateTime startsAt,

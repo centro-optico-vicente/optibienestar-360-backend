@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTier
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
+import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.repository.HierarchyOverrideTierRepository;
@@ -58,7 +59,10 @@ class HierarchyOverrideTiersServiceTest {
     private static HierarchyOverrideTierCreateRequest request(BigDecimal pct, BigDecimal flat, UUID currencyUuid) {
         return new HierarchyOverrideTierCreateRequest(
                 "Override apertura", null, UUID.randomUUID(), OverrideCategory.INSCRIPTION, 0, pct, flat, currencyUuid,
-                PeriodStrategy.MONTHLY, null, null, null);
+                PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
+                null, null, null, null,
+                BasisType.COUNT, null, null,
+                null, null, null);
     }
 
     @Test
@@ -127,7 +131,11 @@ class HierarchyOverrideTiersServiceTest {
         when(repository.findByUuid(uuid)).thenReturn(Optional.of(existing));
 
         HierarchyOverrideTierUpdateRequest req = new HierarchyOverrideTierUpdateRequest(
-                null, null, null, null, null, null, new BigDecimal("5.00"), null, null, null, null, null, null);
+                null, null, null, null, null, null, new BigDecimal("5.00"), null,
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null);
 
         assertThatThrownBy(() -> sut().update(uuid, req))
                 .isInstanceOf(IllegalArgumentException.class)

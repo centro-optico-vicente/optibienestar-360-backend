@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateR
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,11 @@ class CommissionTiersServiceTest {
     void create_rejects_whenBothPctAndFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
                 "bad", null, PlanType.INDIVIDUAL, null, 0, new BigDecimal("20"), new BigDecimal("5"),
-                CURRENCY_UUID, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
+                CURRENCY_UUID,
+                PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
+                null, null, null, null,
+                BasisType.COUNT, null, null,
+                AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -69,7 +74,11 @@ class CommissionTiersServiceTest {
     @Test
     void create_rejects_whenNeitherPctNorFlat() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "bad", null, null, null, 0, null, null, null, PeriodStrategy.MONTHLY, AppliesTo.BOTH, null, null, null);
+                "bad", null, null, null, 0, null, null, null,
+                PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
+                null, null, null, null,
+                BasisType.COUNT, null, null,
+                AppliesTo.BOTH, null, null, null);
 
         assertThatThrownBy(() -> sut().create(req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -80,7 +89,11 @@ class CommissionTiersServiceTest {
     void create_persists_validPct() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
                 "Gold 25%", null, PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
-                null, PeriodStrategy.MONTHLY, AppliesTo.MONTHLY, null, null, null);
+                null,
+                PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
+                null, null, null, null,
+                BasisType.COUNT, null, null,
+                AppliesTo.MONTHLY, null, null, null);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         var dto = sut().create(req);
@@ -96,12 +109,16 @@ class CommissionTiersServiceTest {
         tier.setUuid(UUID.randomUUID());
         tier.setName("t");
         tier.setCommissionPct(new BigDecimal("20"));
-        tier.setPeriodStrategy(PeriodStrategy.MONTHLY);
+        tier.setAccrualPeriodStrategy(PeriodStrategy.MONTHLY);
         tier.setAppliesTo(AppliesTo.BOTH);
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, null, null, new BigDecimal("7"), CURRENCY_UUID, null, null, null, null, null, null);
+                null, null, null, null, null, null, new BigDecimal("7"), CURRENCY_UUID,
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null, null);
 
         var dto = sut().update(tier.getUuid(), req);
 
@@ -114,12 +131,16 @@ class CommissionTiersServiceTest {
         CommissionTier tier = new CommissionTier();
         tier.setUuid(UUID.randomUUID());
         tier.setCommissionPct(new BigDecimal("20"));
-        tier.setPeriodStrategy(PeriodStrategy.MONTHLY);
+        tier.setAccrualPeriodStrategy(PeriodStrategy.MONTHLY);
         tier.setAppliesTo(AppliesTo.BOTH);
         when(repository.findByUuid(tier.getUuid())).thenReturn(Optional.of(tier));
 
         CommissionTierUpdateRequest req = new CommissionTierUpdateRequest(
-                null, null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null, null, null, null, null, null, null);
+                null, null, null, null, null, new BigDecimal("20"), new BigDecimal("5"), null,
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null, null);
 
         assertThatThrownBy(() -> sut().update(tier.getUuid(), req))
                 .isInstanceOf(IllegalArgumentException.class)

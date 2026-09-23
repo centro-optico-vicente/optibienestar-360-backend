@@ -79,7 +79,7 @@ class HierarchyOverrideReRatingServiceTest {
         t.setCategory(OverrideCategory.INSCRIPTION);
         t.setThresholdCount(threshold);
         t.setOverridePct(new BigDecimal(pct));
-        t.setPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
+        t.setAccrualPeriodStrategy(Commission.PeriodStrategy.MONTHLY);
         return t;
     }
 

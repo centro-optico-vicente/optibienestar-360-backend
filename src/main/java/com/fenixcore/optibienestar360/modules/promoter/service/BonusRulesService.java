@@ -55,7 +55,7 @@ import java.util.UUID;
 public class BonusRulesService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "metric", "accrual", "windowStrategy", "rewardType",
+            "name", "metric", "accrual", "accrualPeriodStrategy", "rewardType",
             "thresholdCount", "includeSystemPromoters",
             "createdAt", "updatedAt", "active", "status"
     );
@@ -163,6 +163,13 @@ public class BonusRulesService {
         return resolved;
     }
 
+    /** {@code null} (defaulted later) or any strategy other than LIFETIME/CAMPAIGN — matches the DB CHECK on the 3 settlement axes. */
+    private static void requirePeriodicStrategy(WindowStrategy strategy, String errorCode) {
+        if (strategy == WindowStrategy.LIFETIME || strategy == WindowStrategy.CAMPAIGN) {
+            throw new IllegalArgumentException(errorCode);
+        }
+    }
+
     private static void validate(BonusRuleRequest req) {
         if (req.rewardType() == RewardType.FLAT) {
             if (req.flatAmount() == null || req.rewardPct() != null) {
@@ -177,7 +184,7 @@ public class BonusRulesService {
             }
         }
 
-        if (req.windowStrategy() == WindowStrategy.CAMPAIGN) {
+        if (req.accrualPeriodStrategy() == WindowStrategy.CAMPAIGN) {
             if (req.campaignStart() == null || req.campaignEnd() == null) {
                 throw new IllegalArgumentException("bonus_rule.campaign.dates_required");
             }
@@ -185,6 +192,12 @@ public class BonusRulesService {
                 throw new IllegalArgumentException("bonus_rule.campaign.dates_order");
             }
         }
+
+        // LIFETIME/CAMPAIGN are only ever valid on accrualPeriodStrategy (DB CHECK on
+        // the 3 settlement axes) — see CommissionBonusRule.partialSettlementPeriodStrategy Javadoc.
+        requirePeriodicStrategy(req.partialSettlementPeriodStrategy(), "bonus_rule.partial_settlement_period_strategy.periodic_only");
+        requirePeriodicStrategy(req.finalSettlementPeriodStrategy(), "bonus_rule.final_settlement_period_strategy.periodic_only");
+        requirePeriodicStrategy(req.retroactiveSettlementPeriodStrategy(), "bonus_rule.retroactive_settlement_period_strategy.periodic_only");
 
         // Metric-scoped threshold XOR (I-BE, hub plan Part I) — mirrors the
         // requireExactlyOneReward/requireFlatAmountCurrency style already used
@@ -206,6 +219,9 @@ public class BonusRulesService {
         }
     }
 
+    /** Default the 3 settlement axes reproduce when a full-replace request leaves them unset (V145 backfill). */
+    private static final WindowStrategy DEFAULT_SETTLEMENT_STRATEGY = WindowStrategy.MONTHLY;
+
     private void apply(CommissionBonusRule rule, BonusRuleRequest req) {
         rule.setName(req.name());
         rule.setDescription(req.description());
@@ -215,9 +231,20 @@ public class BonusRulesService {
         rule.setThresholdCount(amountCollected ? 0 : req.thresholdCount());
         rule.setThresholdAmount(amountCollected ? req.thresholdAmount() : null);
         rule.setThresholdCurrency(amountCollected ? resolveCurrencyByUuid(req.thresholdCurrencyUuid()) : null);
-        rule.setWindowStrategy(req.windowStrategy());
 
-        boolean campaign = req.windowStrategy() == WindowStrategy.CAMPAIGN;
+        rule.setAccrualPeriodStrategy(req.accrualPeriodStrategy());
+        rule.setPartialSettlementPeriodStrategy(
+                req.partialSettlementPeriodStrategy() != null ? req.partialSettlementPeriodStrategy() : DEFAULT_SETTLEMENT_STRATEGY);
+        rule.setFinalSettlementPeriodStrategy(
+                req.finalSettlementPeriodStrategy() != null ? req.finalSettlementPeriodStrategy() : DEFAULT_SETTLEMENT_STRATEGY);
+        rule.setRetroactiveSettlementPeriodStrategy(
+                req.retroactiveSettlementPeriodStrategy() != null ? req.retroactiveSettlementPeriodStrategy() : DEFAULT_SETTLEMENT_STRATEGY);
+        rule.setAccrualPeriodAnchor(req.accrualPeriodAnchor());
+        rule.setPartialSettlementPeriodAnchor(req.partialSettlementPeriodAnchor());
+        rule.setFinalSettlementPeriodAnchor(req.finalSettlementPeriodAnchor());
+        rule.setRetroactiveSettlementPeriodAnchor(req.retroactiveSettlementPeriodAnchor());
+
+        boolean campaign = req.accrualPeriodStrategy() == WindowStrategy.CAMPAIGN;
         rule.setCampaignStart(campaign ? req.campaignStart() : null);
         rule.setCampaignEnd(campaign ? req.campaignEnd() : null);
 

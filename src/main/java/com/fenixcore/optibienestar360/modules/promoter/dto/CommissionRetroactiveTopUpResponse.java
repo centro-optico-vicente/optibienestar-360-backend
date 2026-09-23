@@ -24,6 +24,7 @@ public record CommissionRetroactiveTopUpResponse(
         List<TopUpOutcome> topUps
 ) {
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TopUpOutcome(
             UUID promoterUuid,
             String promoterCode,
@@ -33,6 +34,21 @@ public record CommissionRetroactiveTopUpResponse(
             @Display(Display.Kind.MONEY) BigDecimal targetAmount,
             @Display(Display.Kind.MONEY) BigDecimal alreadyPaidAmount,
             @Display(Display.Kind.MONEY) BigDecimal retroAmount,
-            String targetTierName
-    ) {}
+            String targetTierName,
+
+            /** Only populated in cut mode ({@code asOf} request) — null in legacy whole-period mode. */
+            Integer cutSequence,
+            @Display(Display.Kind.DATE) LocalDate accrualPeriodStart,
+            @Display(Display.Kind.DATE) LocalDate accrualPeriodEnd,
+            @Display(Display.Kind.DATE) LocalDate cutStart,
+            @Display(Display.Kind.DATE) LocalDate cutEnd
+    ) {
+        /** Legacy whole-period outcome — no cut fields. */
+        public TopUpOutcome(UUID promoterUuid, String promoterCode, String promoterDisplayName, String ledgerType,
+                             BigDecimal basisAmount, BigDecimal targetAmount, BigDecimal alreadyPaidAmount,
+                             BigDecimal retroAmount, String targetTierName) {
+            this(promoterUuid, promoterCode, promoterDisplayName, ledgerType, basisAmount, targetAmount,
+                    alreadyPaidAmount, retroAmount, targetTierName, null, null, null, null, null);
+        }
+    }
 }

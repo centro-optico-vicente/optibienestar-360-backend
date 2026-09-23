@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis;
 
@@ -28,6 +29,15 @@ public record CollectionCommissionTierDto(
         String flatAmountCurrency_Code,
         /** M:N promoter-type scope (V137, hub plan Part F) — empty = applies to all. */
         List<DisplayRef> promoterTypes,
+        /** Settlement-frequency axes (Fase A, V148) — see {@link CommissionTierDto} for the same shape. */
+        @Display(Display.Kind.ENUM) PeriodStrategy accrualPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy partialSettlementPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy finalSettlementPeriodStrategy,
+        @Display(Display.Kind.ENUM) PeriodStrategy retroactiveSettlementPeriodStrategy,
+        Short accrualPeriodAnchor,
+        Short partialSettlementPeriodAnchor,
+        Short finalSettlementPeriodAnchor,
+        Short retroactiveSettlementPeriodAnchor,
         /** Optional campaign anchor (V126) — {@code null} = a standing tier. */
         @Display DisplayRef campaign,
         @Display(Display.Kind.DATETIME) OffsetDateTime startsAt,
@@ -46,6 +56,10 @@ public record CollectionCommissionTierDto(
                 DisplayRefs.ref(t.getFlatAmountCurrency()),
                 t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,
                 t.getPromoterTypes().stream().map(DisplayRefs::ref).toList(),
+                t.getAccrualPeriodStrategy(), t.getPartialSettlementPeriodStrategy(),
+                t.getFinalSettlementPeriodStrategy(), t.getRetroactiveSettlementPeriodStrategy(),
+                t.getAccrualPeriodAnchor(), t.getPartialSettlementPeriodAnchor(),
+                t.getFinalSettlementPeriodAnchor(), t.getRetroactiveSettlementPeriodAnchor(),
                 DisplayRefs.ref(t.getCampaign()), t.getStartsAt(), t.getEndsAt(),
                 t.isActive(), t.getStatus(), t.getCreatedAt(), t.getUpdatedAt());
     }
