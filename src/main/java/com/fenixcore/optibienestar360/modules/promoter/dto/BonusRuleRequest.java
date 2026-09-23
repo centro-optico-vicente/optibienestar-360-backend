@@ -14,26 +14,39 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Create/replace payload for a bonus rule ({@code POST/PUT /v1/admin/bonus-rules}).
  * Bean validation covers the per-field shape; the cross-field rules (exactly one
  * of {@code flatAmount}/{@code rewardPct}, CAMPAIGN date coherence, PER_BLOCK ⇒
- * FLAT) are enforced in {@code BonusRulesService} for localized 422s.
+ * FLAT, and metric-scoped threshold XOR — {@code thresholdCount} for the two
+ * count metrics vs. {@code thresholdAmount}+{@code thresholdCurrencyUuid} for
+ * {@code AMOUNT_COLLECTED}, I-BE hub plan Part I) are enforced in
+ * {@code BonusRulesService} for localized 422s.
  */
 public record BonusRuleRequest(
         @NotBlank @Size(max = 150) String name,
 
         @Size(max = 2000) String description,
 
-        UUID promoterTypeUuid,
+        /** Empty/null = applies to every promoter type (M:N, V137, hub plan Part F). */
+        List<UUID> promoterTypeUuids,
 
         @NotNull BonusMetric metric,
 
         @NotNull AccrualMode accrual,
 
-        @NotNull @Positive Integer thresholdCount,
+        /** Required (and only meaningful) when {@code metric} is NEW/ACTIVE_SUBSCRIBERS. */
+        Integer thresholdCount,
+
+        /** Required (and only meaningful) when {@code metric} is AMOUNT_COLLECTED. */
+        @DecimalMin(value = "0.01") @Digits(integer = 12, fraction = 2)
+        BigDecimal thresholdAmount,
+
+        /** Required alongside {@code thresholdAmount}. */
+        UUID thresholdCurrencyUuid,
 
         @NotNull WindowStrategy windowStrategy,
 

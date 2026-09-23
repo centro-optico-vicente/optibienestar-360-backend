@@ -41,4 +41,21 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "WHERE p.status = 'APPROVED' " +
            "  AND p.membership.member.id = :memberId")
     long countApprovedByMemberId(@Param("memberId") Long memberId);
+
+    /**
+     * APPROVED collections (direction=IN) directly attributed to a promoter
+     * within a window — feeds the {@code AMOUNT_COLLECTED} bonus metric
+     * (I-BE, hub plan Part I). Uses the denormalized {@code Payment.promoter}
+     * FK (same one {@code CommissionPayoutService} and "cobros de mi red"
+     * filtering already rely on), not a walk through the member's referrer.
+     */
+    @Query("SELECT p FROM Payment p " +
+           "WHERE p.status = 'APPROVED' " +
+           "  AND p.direction = 'IN' " +
+           "  AND p.promoter.id = :promoterId " +
+           "  AND p.paymentDate >= :from AND p.paymentDate < :to")
+    java.util.List<Payment> findApprovedInForPromoterInWindow(
+            @Param("promoterId") Long promoterId,
+            @Param("from") java.time.Instant from,
+            @Param("to") java.time.Instant to);
 }

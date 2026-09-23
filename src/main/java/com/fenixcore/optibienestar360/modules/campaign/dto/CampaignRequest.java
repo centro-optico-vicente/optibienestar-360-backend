@@ -21,6 +21,8 @@ public record CampaignRequest(
         boolean evaluateOnlyAtEnd,
         boolean payOnlyAtEnd,
         BigDecimal targetAmount,
+        /** Required alongside {@code targetAmount} — the currency the goal is expressed in. */
+        UUID targetAmountCurrencyUuid,
         Integer targetCount,
         String exclusivityGroup,
         Integer priority,

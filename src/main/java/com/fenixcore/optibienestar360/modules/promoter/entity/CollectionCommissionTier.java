@@ -11,6 +11,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -19,6 +21,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Collection commission tier (ADR 0013 §3, V44, V126) — decreasing reward by
@@ -70,10 +74,17 @@ public class CollectionCommissionTier extends BaseEntity {
     @JoinColumn(name = "flat_amount_currency_id")
     private Currency flatAmountCurrency;
 
-    /** Optional promoter-type scope. {@code null} = applies to every promoter type. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "promoter_type_id")
-    private PromoterType promoterType;
+    /**
+     * Optional promoter-type scope (M:N, V137, hub plan Part F) — empty set
+     * = applies to every promoter type, same semantics the single-FK
+     * {@code promoter_type_id} carried before.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "collection_commission_tier_promoter_types",
+            joinColumns = @JoinColumn(name = "collection_commission_tier_id"),
+            inverseJoinColumns = @JoinColumn(name = "promoter_type_id"))
+    private Set<PromoterType> promoterTypes = new HashSet<>();
 
     /** Optional campaign anchor (V126) — {@code null} = a standing tier. */
     @ManyToOne(fetch = FetchType.LAZY)

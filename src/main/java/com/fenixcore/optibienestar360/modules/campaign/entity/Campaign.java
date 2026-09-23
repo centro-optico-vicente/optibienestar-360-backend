@@ -1,11 +1,15 @@
 package com.fenixcore.optibienestar360.modules.campaign.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -88,6 +92,16 @@ public class Campaign extends BaseEntity {
 
     @Column(name = "target_amount", precision = 14, scale = 2)
     private java.math.BigDecimal targetAmount;
+
+    /**
+     * Currency {@link #targetAmount} is expressed in — required whenever
+     * {@link #targetAmount} is set, {@code null} otherwise (hub plan "Parte
+     * adicional — Moneda de la meta"). Lets the frontend show "meta esperada:
+     * $X <moneda>" instead of assuming a fixed currency.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_amount_currency_id")
+    private Currency targetAmountCurrency;
 
     @Column(name = "target_count")
     private Integer targetCount;

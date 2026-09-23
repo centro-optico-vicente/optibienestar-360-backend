@@ -10,6 +10,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -18,12 +19,14 @@ import java.util.UUID;
  * new one; the service re-validates the XOR after applying. {@code campaignUuid}
  * has no dedicated "clear" sentinel — sending it re-resolves and overwrites the
  * anchor; leave {@code startsAt}/{@code endsAt} out to keep the tier's window.
+ * {@code promoterTypeUuids} is {@code null} = leave unchanged; an empty list
+ * clears the scope back to "applies to all" (V137, hub plan Part F).
  */
 public record CommissionTierUpdateRequest(
         String name,
         String description,
         PlanType planType,
-        UUID promoterTypeUuid,
+        List<UUID> promoterTypeUuids,
         @PositiveOrZero Integer thresholdCount,
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,

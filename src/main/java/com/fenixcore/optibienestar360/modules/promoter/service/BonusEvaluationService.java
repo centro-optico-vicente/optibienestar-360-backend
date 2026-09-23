@@ -1,7 +1,12 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse.RuleOutcome;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
@@ -70,6 +75,8 @@ public class BonusEvaluationService {
     private final MemberRepository memberRepository;
     private final PromoterRepository promoterRepository;
     private final CommissionRepository commissionRepository;
+    private final PaymentRepository paymentRepository;
+    private final CurrencyConversionService currencyConversionService;
 
     /**
      * Evaluates every active rule against {@code asOf} and grants the awards
@@ -89,6 +96,14 @@ public class BonusEvaluationService {
             if (window == null) {
                 // e.g. a CAMPAIGN that has not started yet as of the reference date.
                 perRule.add(emptyOutcome(rule));
+                continue;
+            }
+
+            if (rule.getMetric() == BonusMetric.AMOUNT_COLLECTED) {
+                RuleOutcome outcome = evaluateAmountCollectedRule(rule, window, dryRun);
+                perRule.add(outcome);
+                awardsCreated += outcome.promotersAwarded();
+                totalAmount = totalAmount.add(outcome.amount());
                 continue;
             }
 
@@ -146,18 +161,112 @@ public class BonusEvaluationService {
     }
 
     /**
-     * A rule scoped to a promoter type (V46, {@code null} = applies to everyone)
-     * only grants to promoters of that type — this is an eligibility filter, not
-     * a "pick one rule" precedence: unlike commission tiers, bonus rules are
-     * independent and combinable, so a type-scoped rule and a generic rule can
-     * both grant to the same promoter in the same window.
+     * A rule scoped to one or more promoter types (V46/V137, empty set = applies
+     * to everyone) only grants to promoters of one of those types — this is an
+     * eligibility filter, not a "pick one rule" precedence: unlike commission
+     * tiers, bonus rules are independent and combinable, so a type-scoped rule
+     * and a generic rule can both grant to the same promoter in the same window.
      */
     private static boolean appliesToPromoterType(CommissionBonusRule rule, Promoter promoter) {
-        if (rule.getPromoterType() == null) {
+        if (rule.getPromoterTypes().isEmpty()) {
             return true;
         }
         return promoter.getPromoterType() != null
-                && rule.getPromoterType().getId().equals(promoter.getPromoterType().getId());
+                && rule.getPromoterTypes().stream()
+                        .anyMatch(pt -> pt.getId().equals(promoter.getPromoterType().getId()));
+    }
+
+    /**
+     * {@code AMOUNT_COLLECTED} evaluation (I-BE, hub plan Part I) — diverges from
+     * the count-based metrics above: instead of grouping a member-count query, it
+     * sums each promoter's own APPROVED {@code direction=IN} {@link Payment}s in
+     * the window, converting every payment to {@link CommissionBonusRule#getThresholdCurrency()}
+     * via {@link CurrencyConversionService#convert}. A payment with no exchange
+     * rate available for its pair is excluded from the sum and logged — never
+     * blocks the whole evaluation (same degrade-gracefully policy {@code
+     * PaymentsService.snapshotExchangeRate} already uses). Threshold semantics are
+     * "minimum" ({@code total >= thresholdAmount}), same {@code >=} the count
+     * metrics use — awarded once per window (or once ever for LIFETIME), same
+     * dedup {@link #computeAward}'s THRESHOLD branch uses via {@link
+     * PromoterBonusAwardRepository#existsActiveInWindow}/{@code
+     * existsActiveByRuleAndPromoter}.
+     */
+    private RuleOutcome evaluateAmountCollectedRule(CommissionBonusRule rule, BonusWindow window, boolean dryRun) {
+        boolean lifetime = rule.getWindowStrategy() == WindowStrategy.LIFETIME;
+        Instant from = window.start().atStartOfDay(AppTimeZone.ZONE).toInstant();
+        Instant to = window.end().plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant();
+
+        // Distinct promoters with at least one attributed IN payment in the window.
+        java.util.List<Payment> allPayments = new java.util.ArrayList<>();
+        for (Promoter promoter : promoterRepository.findAll()) {
+            if (!appliesToPromoterType(rule, promoter)) {
+                continue;
+            }
+            allPayments.addAll(paymentRepository.findApprovedInForPromoterInWindow(promoter.getId(), from, to));
+        }
+        Map<Long, java.util.List<Payment>> byPromoterId = allPayments.stream()
+                .collect(Collectors.groupingBy(p -> p.getPromoter().getId()));
+
+        int promotersAwarded = 0;
+        BigDecimal ruleAmount = BigDecimal.ZERO;
+
+        for (Map.Entry<Long, java.util.List<Payment>> entry : byPromoterId.entrySet()) {
+            BigDecimal total = BigDecimal.ZERO;
+            Promoter promoter = null;
+            for (Payment p : entry.getValue()) {
+                promoter = p.getPromoter();
+                try {
+                    var conversion = currencyConversionService.convert(
+                            p.getAmount(), p.getCurrency(), rule.getThresholdCurrency(), p.getPaymentDate());
+                    total = total.add(conversion.convertedAmount());
+                } catch (NoExchangeRateAvailableException ex) {
+                    log.warn("Bonus rule {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT_COLLECTED sum",
+                            rule.getUuid(), p.getCurrency().getCode(), rule.getThresholdCurrency().getCode(), p.getUuid());
+                }
+            }
+            if (promoter == null || total.compareTo(rule.getThresholdAmount()) < 0) {
+                continue;
+            }
+            boolean already = lifetime
+                    ? awardRepository.existsActiveByRuleAndPromoter(rule.getId(), promoter.getId())
+                    : awardRepository.existsActiveInWindow(rule.getId(), promoter.getId(), window.start(), window.end());
+            if (already) {
+                continue;
+            }
+
+            BigDecimal amount = rule.getRewardType() == RewardType.FLAT
+                    ? rule.getFlatAmount()
+                    : total.multiply(rule.getRewardPct()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            if (amount == null || amount.signum() <= 0) {
+                continue;
+            }
+
+            if (!dryRun) {
+                PromoterBonusAward award = new PromoterBonusAward();
+                award.setRule(rule);
+                award.setPromoter(promoter);
+                award.setWindowStart(window.start());
+                award.setWindowEnd(window.end());
+                award.setBlocksAwarded(1);
+                award.setMetricCount(total.intValue());
+                award.setRewardType(rule.getRewardType());
+                award.setFlatAmount(rule.getRewardType() == RewardType.FLAT ? rule.getFlatAmount() : null);
+                award.setRewardPct(rule.getRewardType() == RewardType.PERCENTAGE ? rule.getRewardPct() : null);
+                award.setBasisAmount(total);
+                award.setAmount(amount);
+                award.setRewardCurrency(rule.getRewardCurrency());
+                award.setRuleNameSnapshot(rule.getName());
+                award.setEvaluatedAt(Instant.now());
+                award.setStatus(AwardStatus.PENDING.name());
+                awardRepository.save(award);
+            }
+
+            promotersAwarded++;
+            ruleAmount = ruleAmount.add(amount);
+        }
+
+        return new RuleOutcome(rule.getUuid(), rule.getName(),
+                rule.getMetric().name(), rule.getAccrual().name(), promotersAwarded, promotersAwarded, ruleAmount);
     }
 
     private Map<Long, Promoter> loadPromoters(List<PromoterMetricCount> counts) {

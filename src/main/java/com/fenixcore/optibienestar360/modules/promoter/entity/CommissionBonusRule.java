@@ -11,6 +11,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -19,6 +21,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A configurable bonus/award rule (V37, v2 PDF #5 "Premiaciones"). Rewards a
@@ -61,8 +65,22 @@ public class CommissionBonusRule extends BaseEntity {
     @Column(nullable = false, length = 20)
     private AccrualMode accrual;
 
+    /** Only meaningful when {@link #metric} is a count metric (NEW/ACTIVE_SUBSCRIBERS). */
     @Column(name = "threshold_count", nullable = false)
     private int thresholdCount;
+
+    /**
+     * Only meaningful when {@link #metric} is {@link BonusMetric#AMOUNT_COLLECTED}
+     * (I-BE, hub plan Part I) — minimum amount collected in the window, compared
+     * against the sum of the promoter's payments converted to {@link #thresholdCurrency}.
+     */
+    @Column(name = "threshold_amount", precision = 14, scale = 2)
+    private BigDecimal thresholdAmount;
+
+    /** Currency {@link #thresholdAmount} is compared in — independent from {@link #rewardCurrency}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "threshold_currency_id")
+    private Currency thresholdCurrency;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "window_strategy", nullable = false, length = 20)
@@ -104,17 +122,30 @@ public class CommissionBonusRule extends BaseEntity {
     @Column(name = "include_system_promoters", nullable = false)
     private boolean includeSystemPromoters = false;
 
-    /** Optional promoter-type scope. {@code null} = applies to every promoter type. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "promoter_type_id")
-    private PromoterType promoterType;
+    /**
+     * Optional promoter-type scope (M:N, V137, hub plan Part F) — empty set
+     * = applies to every promoter type, same semantics the single-FK
+     * {@code promoter_type_id} carried before.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "commission_bonus_rule_promoter_types",
+            joinColumns = @JoinColumn(name = "commission_bonus_rule_id"),
+            inverseJoinColumns = @JoinColumn(name = "promoter_type_id"))
+    private Set<PromoterType> promoterTypes = new HashSet<>();
 
     /** What we count per promoter in the window. */
     public enum BonusMetric {
         /** Members enrolled to the promoter within the window (by {@code enrolled_at}). */
         NEW_SUBSCRIBERS,
         /** Members of the promoter with an ACTIVE membership as of evaluation. */
-        ACTIVE_SUBSCRIBERS
+        ACTIVE_SUBSCRIBERS,
+        /**
+         * Total amount collected (payments) by the promoter within the window,
+         * converted to {@link #thresholdCurrency} and compared against
+         * {@link #thresholdAmount} (I-BE, hub plan Part I).
+         */
+        AMOUNT_COLLECTED
     }
 
     /** How the observed count turns into award units. */

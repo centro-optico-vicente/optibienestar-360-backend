@@ -29,12 +29,13 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
      * taking the first result.
      */
     @Query("""
-            SELECT t FROM CollectionCommissionTier t
+            SELECT DISTINCT t FROM CollectionCommissionTier t
+            LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND t.basis = :basis
               AND t.maxDays >= :days
-              AND (t.promoterType IS NULL OR (:promoterTypeId IS NOT NULL AND t.promoterType.id = :promoterTypeId))
-            ORDER BY (CASE WHEN t.promoterType IS NOT NULL THEN 0 ELSE 1 END), t.maxDays ASC, t.id ASC
+              AND (t.promoterTypes IS EMPTY OR (:promoterTypeId IS NOT NULL AND pt.id = :promoterTypeId))
+            ORDER BY (CASE WHEN pt IS NOT NULL THEN 0 ELSE 1 END), t.maxDays ASC, t.id ASC
             """)
     List<CollectionCommissionTier> findActiveApplicableInternal(@Param("days") int days,
                                                         @Param("promoterTypeId") Long promoterTypeId,
@@ -46,12 +47,13 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
     }
 
     @Query("""
-            SELECT t FROM CollectionCommissionTier t
+            SELECT DISTINCT t FROM CollectionCommissionTier t
+            LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND t.basis = :basis
               AND t.maxAmount >= :amount
-              AND (t.promoterType IS NULL OR (:promoterTypeId IS NOT NULL AND t.promoterType.id = :promoterTypeId))
-            ORDER BY (CASE WHEN t.promoterType IS NOT NULL THEN 0 ELSE 1 END), t.maxAmount ASC, t.id ASC
+              AND (t.promoterTypes IS EMPTY OR (:promoterTypeId IS NOT NULL AND pt.id = :promoterTypeId))
+            ORDER BY (CASE WHEN pt IS NOT NULL THEN 0 ELSE 1 END), t.maxAmount ASC, t.id ASC
             """)
     List<CollectionCommissionTier> findActiveApplicableByAmountInternal(@Param("amount") BigDecimal amount,
                                                                  @Param("promoterTypeId") Long promoterTypeId,
