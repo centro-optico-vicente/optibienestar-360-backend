@@ -55,7 +55,7 @@ class JasperReportServiceTest {
         Map<String, Object> params = new HashMap<>();
         params.put("ReportTitle", "PDF Report Test");
 
-        byte[] pdfBytes = jasperReportService.generateReportFromStream(jrxmlStream, params, Collections.emptyList(), JasperFormat.PDF);
+        byte[] pdfBytes = jasperReportService.generateReportFromStream(jrxmlStream, params, java.util.List.of("dummy"), JasperFormat.PDF);
 
         assertNotNull(pdfBytes);
         assertTrue(pdfBytes.length > 0);
@@ -71,7 +71,7 @@ class JasperReportServiceTest {
         Map<String, Object> params = new HashMap<>();
         params.put("ReportTitle", "Excel Report Test");
 
-        byte[] xlsxBytes = jasperReportService.generateReportFromStream(jrxmlStream, params, Collections.emptyList(), JasperFormat.XLSX);
+        byte[] xlsxBytes = jasperReportService.generateReportFromStream(jrxmlStream, params, java.util.List.of("dummy"), JasperFormat.XLSX);
 
         assertNotNull(xlsxBytes);
         assertTrue(xlsxBytes.length > 0);
@@ -81,12 +81,24 @@ class JasperReportServiceTest {
     }
 
     @Test
+    @DisplayName("Should throw NoSuchElementException when report has no pages/data")
+    void testEmptyDataThrowsNoSuchElementException() {
+        ByteArrayInputStream jrxmlStream = new ByteArrayInputStream(SIMPLE_JRXML.getBytes(StandardCharsets.UTF_8));
+        Map<String, Object> params = Map.of("ReportTitle", "Empty Report Test");
+
+        java.util.NoSuchElementException ex = assertThrows(java.util.NoSuchElementException.class, () -> {
+            jasperReportService.generateReportFromStream(jrxmlStream, params, Collections.emptyList(), JasperFormat.PDF);
+        });
+        assertEquals("report.error.no_data", ex.getMessage());
+    }
+
+    @Test
     @DisplayName("JasperPdfRenderer should return RenderedDocument with application/pdf content type")
     void testPdfRendererComponent() {
         ByteArrayInputStream jrxmlStream = new ByteArrayInputStream(SIMPLE_JRXML.getBytes(StandardCharsets.UTF_8));
         Map<String, Object> params = Map.of("ReportTitle", "Test Component PDF");
 
-        byte[] bytes = jasperReportService.generateReportFromStream(jrxmlStream, params, Collections.emptyList(), JasperFormat.PDF);
+        byte[] bytes = jasperReportService.generateReportFromStream(jrxmlStream, params, java.util.List.of("dummy"), JasperFormat.PDF);
         assertNotNull(bytes);
         assertEquals(JasperFormat.PDF, jasperPdfRenderer.format());
     }
@@ -134,6 +146,20 @@ class JasperReportServiceTest {
             net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(is);
             assertNotNull(report);
             assertEquals("reporte_pagos_comisiones", report.getName());
+            assertNotNull(report.getParameters());
+            assertTrue(report.getParameters().length > 0);
+        }
+    }
+
+    @Test
+    @DisplayName("Should compile and validate reporte-movimientos-pagos.jrxml successfully")
+    void testCompileReporteMovimientosPagosJrxml() throws Exception {
+        org.springframework.core.io.ClassPathResource resource = new org.springframework.core.io.ClassPathResource("reports/reporte-movimientos-pagos.jrxml");
+        assertTrue(resource.exists(), "reporte-movimientos-pagos.jrxml should exist in classpath");
+        try (var is = resource.getInputStream()) {
+            net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(is);
+            assertNotNull(report);
+            assertEquals("reporte_movimientos_pagos", report.getName());
             assertNotNull(report.getParameters());
             assertTrue(report.getParameters().length > 0);
         }

@@ -123,13 +123,19 @@ public class GenericXlsxExporterService {
             row++;
 
             // Data rows
-            for (List<String> dataRow : model.rows()) {
-                col = 0;
-                for (String val : dataRow) {
-                    ws.value(row, col, val != null ? val : "");
-                    col++;
-                }
+            if (model.rows().isEmpty()) {
+                ws.value(row, 0, "No se encontraron registros para mostrar");
+                ws.style(row, 0).italic().fontColor("64748B").set();
                 row++;
+            } else {
+                for (List<String> dataRow : model.rows()) {
+                    col = 0;
+                    for (String val : dataRow) {
+                        ws.value(row, col, val != null ? val : "");
+                        col++;
+                    }
+                    row++;
+                }
             }
 
             wb.finish();

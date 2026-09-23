@@ -362,5 +362,98 @@ class GenericDocumentControllerJasperTest {
                 controller.generateJasperReport("movimientos", "PDF", null, null, null, null, null, null, null, null, null, null, null, null)
         );
     }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when endDate is before startDate")
+    void testDateRangeValidationEndDateBeforeStartDate() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                controller.generateJasperReport("comisiones", "PDF", "2026-09-30", "2026-09-01", null, null, null, null, null, null, null, null, null, null)
+        );
+        assertTrue(ex.getMessage().contains("mayor o igual"));
+    }
+
+    @Test
+    @DisplayName("Should allow date range when startDate equals endDate or endDate is after startDate")
+    void testDateRangeValidationValidDates() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        byte[] fakePdf = "%PDF-1.4 fake".getBytes();
+        when(jasperReportService.generateReportWithConnection(anyString(), anyMap(), any(), eq(JasperFormat.PDF)))
+                .thenReturn(fakePdf);
+
+        // Same date
+        assertDoesNotThrow(() ->
+                controller.generateJasperReport("comisiones", "PDF", "2026-09-15", "2026-09-15", null, null, null, null, null, null, null, null, null, null)
+        );
+
+        // endDate > startDate
+        assertDoesNotThrow(() ->
+                controller.generateJasperReport("pagos", "PDF", "2026-09-01", "2026-09-30", null, null, null, null, null, null, null, null, null, null)
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when date format is invalid")
+    void testDateRangeValidationInvalidFormat() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                controller.generateJasperReport("comisiones", "PDF", "not-a-date", "2026-09-30", null, null, null, null, null, null, null, null, null, null)
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw NoSuchElementException when Jasper report has no data")
+    void testJasperReportNoDataThrowsNoSuchElementException() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        when(jasperReportService.generateReportWithConnection(anyString(), anyMap(), any(), any()))
+                .thenThrow(new java.util.NoSuchElementException("report.error.no_data"));
+
+        var ex = assertThrows(java.util.NoSuchElementException.class, () ->
+                controller.generateJasperReport("comisiones", "PDF", "2026-09-01", "2026-09-30", null, null, null, null, null, null, null, null, null, null)
+        );
+        assertEquals("report.error.no_data", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Should throw NoSuchElementException when table document has no records")
+    void testTableDocumentNoRecordsThrowsNoSuchElementException() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        when(recordResolverService.findRecordsByTable(eq("members"), anyInt(), any(), any(), anyBoolean()))
+                .thenReturn(java.util.Collections.emptyList());
+
+        var ex = assertThrows(java.util.NoSuchElementException.class, () ->
+                controller.generateTableDocument("members", "PDF", null, null, 500, null, false, null)
+        );
+        assertEquals("report.error.no_data", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Should throw NoSuchElementException when generic document request data is empty")
+    void testGenericDocumentEmptyDataThrowsNoSuchElementException() {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        var request = new GenericDocumentController.GenericReportRequest("Title", "Subtitle", "ID", "PDF", Map.of());
+        var ex = assertThrows(java.util.NoSuchElementException.class, () ->
+                controller.generateGenericDocument(request)
+        );
+        assertEquals("report.error.no_data", ex.getMessage());
+    }
 }
 

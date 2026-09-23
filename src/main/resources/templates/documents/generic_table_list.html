@@ -124,6 +124,11 @@
             <tr th:each="row : ${model.rows}">
                 <td th:each="cell : ${row}" th:text="${cell}">Cell</td>
             </tr>
+            <tr th:if="${#lists.isEmpty(model.rows)}">
+                <td th:colspan="${#lists.size(model.headers) > 0 ? #lists.size(model.headers) : 1}" style="text-align: center; padding: 24px; color: #64748b; font-style: italic;" th:text="#{document.table_list.no_data}">
+                    No se encontraron registros para mostrar
+                </td>
+            </tr>
         </tbody>
     </table>
 
