@@ -42,9 +42,6 @@ public class SystemConfigController {
         return new SystemConfigDto(
 			config.getUuid(),
 			config.getReportFooter(),
-			config.getWhatsapp(),
-			config.getInstagram(),
-			config.getFacebook(),
 			config.getAuditCreateMode(),
 			config.getAuditUpdateMode(),
 			config.getAuditDeleteMode(),

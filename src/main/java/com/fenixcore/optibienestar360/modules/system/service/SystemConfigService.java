@@ -161,15 +161,6 @@ public class SystemConfigService {
             String footer = request.reportFooter();
             config.setReportFooter(footer.isBlank() ? null : footer.trim());
         }
-        if (request.whatsapp() != null) {
-            config.setWhatsapp(request.whatsapp().isBlank() ? null : request.whatsapp().trim());
-        }
-        if (request.instagram() != null) {
-            config.setInstagram(request.instagram().isBlank() ? null : request.instagram().trim());
-        }
-        if (request.facebook() != null) {
-            config.setFacebook(request.facebook().isBlank() ? null : request.facebook().trim());
-        }
         if (request.auditCreateMode() != null) {
             config.setAuditCreateMode(request.auditCreateMode());
         }

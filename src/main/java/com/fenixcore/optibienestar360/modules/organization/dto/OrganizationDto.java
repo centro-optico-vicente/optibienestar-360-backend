@@ -18,6 +18,9 @@ public record OrganizationDto(
         String legalName,
         String taxIdentifier,
         String logoKey,
+        String whatsapp,
+        String instagram,
+        String facebook,
         @Display DisplayRef officialCurrency,
         @Display DisplayRef referenceCurrency
 ) {}

@@ -40,6 +40,9 @@ public class OrganizationService {
         org.setLegalName(req.legalName());
         org.setTaxIdentifier(req.taxIdentifier());
         org.setLogoKey(req.logoKey());
+        org.setWhatsapp(req.whatsapp());
+        org.setInstagram(req.instagram());
+        org.setFacebook(req.facebook());
         if (req.officialCurrencyUuid() != null) {
             org.setOfficialCurrency(resolveCurrency(req.officialCurrencyUuid()));
         }
@@ -66,6 +69,9 @@ public class OrganizationService {
                 o.getLegalName(),
                 o.getTaxIdentifier(),
                 o.getLogoKey(),
+                o.getWhatsapp(),
+                o.getInstagram(),
+                o.getFacebook(),
                 DisplayRefs.ref(o.getOfficialCurrency()),
                 DisplayRefs.ref(o.getReferenceCurrency()));
     }

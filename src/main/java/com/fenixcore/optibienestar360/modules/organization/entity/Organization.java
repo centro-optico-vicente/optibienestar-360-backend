@@ -45,6 +45,17 @@ public class Organization extends BaseEntity {
     @Column(name = "logo_key", length = 255)
     private String logoKey;
 
+    // ─── Global social links (shown across the public site) ────────────────
+
+    @Column(length = 30)
+    private String whatsapp;
+
+    @Column(length = 255)
+    private String instagram;
+
+    @Column(length = 255)
+    private String facebook;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "official_currency_id", nullable = false)
     private Currency officialCurrency;
