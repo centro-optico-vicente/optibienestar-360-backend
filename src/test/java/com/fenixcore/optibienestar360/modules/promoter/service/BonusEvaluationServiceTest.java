@@ -250,7 +250,7 @@ class BonusEvaluationServiceTest {
         CommissionBonusRule rule = baseRule("cada " + threshold + " nuevos");
         rule.setMetric(BonusMetric.NEW_SUBSCRIBERS);
         rule.setAccrual(AccrualMode.PER_BLOCK);
-        rule.setWindowStrategy(WindowStrategy.LIFETIME);
+        rule.setAccrualPeriodStrategy(WindowStrategy.LIFETIME);
         rule.setThresholdCount(threshold);
         rule.setRewardType(RewardType.FLAT);
         rule.setFlatAmount(flat);
@@ -261,7 +261,7 @@ class BonusEvaluationServiceTest {
         CommissionBonusRule rule = baseRule(threshold + " activos/mes");
         rule.setMetric(BonusMetric.ACTIVE_SUBSCRIBERS);
         rule.setAccrual(AccrualMode.THRESHOLD);
-        rule.setWindowStrategy(WindowStrategy.MONTHLY);
+        rule.setAccrualPeriodStrategy(WindowStrategy.MONTHLY);
         rule.setThresholdCount(threshold);
         rule.setRewardType(RewardType.FLAT);
         rule.setFlatAmount(flat);

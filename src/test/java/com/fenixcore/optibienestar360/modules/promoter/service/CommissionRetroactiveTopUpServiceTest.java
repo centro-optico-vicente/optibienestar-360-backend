@@ -13,7 +13,9 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideT
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterHierarchyOverride;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRetroactiveTopUpCutRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRetroactiveTopUpRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.HierarchyOverrideTierRepository;
@@ -49,15 +51,19 @@ class CommissionRetroactiveTopUpServiceTest {
 
     @Mock private CommissionRepository commissionRepository;
     @Mock private CommissionTierRepository commissionTierRepository;
+    @Mock private CollectionCommissionTierRepository collectionCommissionTierRepository;
     @Mock private PromoterHierarchyOverrideRepository overrideRepository;
     @Mock private HierarchyOverrideTierRepository hierarchyOverrideTierRepository;
     @Mock private PromoterHierarchyService hierarchyService;
     @Mock private MemberRepository memberRepository;
     @Mock private CommissionRetroactiveTopUpRepository topUpRepository;
+    @Mock private CommissionRetroactiveTopUpCutRepository cutRepository;
+    @Mock private CommissionService commissionService;
 
     private CommissionRetroactiveTopUpService service() {
         return new CommissionRetroactiveTopUpService(commissionRepository, commissionTierRepository,
-                overrideRepository, hierarchyOverrideTierRepository, hierarchyService, memberRepository, topUpRepository);
+                collectionCommissionTierRepository, overrideRepository, hierarchyOverrideTierRepository,
+                hierarchyService, memberRepository, topUpRepository, cutRepository, commissionService);
     }
 
     private static Currency usd() {
@@ -97,7 +103,7 @@ class CommissionRetroactiveTopUpServiceTest {
     }
 
     private static CommissionRetroactiveTopUpRequest request(boolean dryRun) {
-        return new CommissionRetroactiveTopUpRequest(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), dryRun);
+        return new CommissionRetroactiveTopUpRequest(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), null, dryRun);
     }
 
     @Test

@@ -76,7 +76,8 @@ class AdminBonusRuleControllerIT {
     private BonusRuleDto ruleDto() {
         return new BonusRuleDto(UUID.randomUUID(), "300 activos/mes", null, List.of(),
                 BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, null, null, null,
-                WindowStrategy.MONTHLY,
+                WindowStrategy.MONTHLY, WindowStrategy.MONTHLY, WindowStrategy.MONTHLY, WindowStrategy.MONTHLY,
+                null, null, null, null,
                 null, null, RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, false,
                 null, null, null, true, null);
     }
