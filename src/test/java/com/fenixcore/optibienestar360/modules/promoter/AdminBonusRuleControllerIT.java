@@ -84,7 +84,7 @@ class AdminBonusRuleControllerIT {
 
     private static final String VALID_RULE_JSON = """
             {"name":"300 activos/mes","metric":"ACTIVE_SUBSCRIBERS","accrual":"THRESHOLD",
-             "thresholdCount":300,"windowStrategy":"MONTHLY","rewardType":"FLAT","flatAmount":50.00}
+             "thresholdCount":300,"accrualPeriodStrategy":"MONTHLY","rewardType":"FLAT","flatAmount":50.00}
             """;
 
     // ─── list (read, BONUS_RULE_VIEW_ALL) ────────────────────────────────────

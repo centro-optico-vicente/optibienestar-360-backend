@@ -97,7 +97,7 @@ class AdminCommissionEngineControllerIT {
         when(tiersService.create(any())).thenReturn(tierDto());
         String json = """
                 {"name":"Gold","thresholdCount":10,"commissionPct":25,
-                 "periodStrategy":"MONTHLY","appliesTo":"BOTH"}
+                 "accrualPeriodStrategy":"MONTHLY","appliesTo":"BOTH"}
                 """;
         mockMvc.perform(post("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
