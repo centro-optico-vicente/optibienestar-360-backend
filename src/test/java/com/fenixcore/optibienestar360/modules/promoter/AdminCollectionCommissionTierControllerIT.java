@@ -112,7 +112,7 @@ class AdminCollectionCommissionTierControllerIT {
 
     private static CollectionCommissionTierDto tierDto() {
         return new CollectionCommissionTierDto(UUID.randomUUID(), "Hasta 5 días", null,
-                com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis.DAYS, 5, null,
+                com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis.DAYS, 5, null, null, null,
                 new BigDecimal("35"), null, null, null, null, null, null, null, true, null, null, null);
     }
 }

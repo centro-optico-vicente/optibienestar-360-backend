@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,25 +45,38 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
         return findActiveApplicableInternal(days, promoterTypeId, Basis.DAYS);
     }
 
+    /**
+     * All active {@code basis=AMOUNT} buckets scoped to the promoter's type
+     * (V144). Unlike {@link #findActiveApplicableInternal}, this does NOT
+     * filter by the collected amount in SQL — {@code minAmount} is a
+     * threshold compared against an amount that may need currency conversion
+     * per-tier first (each tier's own {@code minAmountCurrency}), so the
+     * caller ({@code CommissionService}) converts and filters in Java.
+     * Ordered so a promoter-type-specific match always outranks a generic
+     * one (same priority as {@link #findActiveApplicableInternal}), then
+     * descending {@code minAmount} first, so the caller can pick the highest
+     * bucket whose (converted) threshold the amount reaches or exceeds by
+     * taking the first qualifying row in iteration order.
+     */
     @Query("""
             SELECT DISTINCT t FROM CollectionCommissionTier t
             LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND t.basis = :basis
-              AND t.maxAmount >= :amount
               AND (t.promoterTypes IS EMPTY OR (:promoterTypeId IS NOT NULL AND pt.id = :promoterTypeId))
-            ORDER BY (CASE WHEN pt IS NOT NULL THEN 0 ELSE 1 END), t.maxAmount ASC, t.id ASC
+            ORDER BY (CASE WHEN pt IS NOT NULL THEN 0 ELSE 1 END), t.minAmount DESC, t.id ASC
             """)
-    List<CollectionCommissionTier> findActiveApplicableByAmountInternal(@Param("amount") BigDecimal amount,
-                                                                 @Param("promoterTypeId") Long promoterTypeId,
+    List<CollectionCommissionTier> findActiveApplicableByAmountInternal(@Param("promoterTypeId") Long promoterTypeId,
                                                                  @Param("basis") Basis basis);
 
     /**
      * {@code basis=AMOUNT} counterpart of {@link #findActiveApplicable(int, Long)}
-     * — same active/promoter-type-scope/ordering semantics, keyed on the
-     * ascending {@code maxAmount} bucket instead of {@code maxDays}.
+     * — same active/promoter-type-scope/ordering priority, but returns every
+     * candidate (descending {@code minAmount}) for the caller to convert +
+     * threshold-filter (V144 minimum-threshold semantics), instead of
+     * filtering by amount in SQL.
      */
-    default List<CollectionCommissionTier> findActiveApplicableByAmount(BigDecimal amount, Long promoterTypeId) {
-        return findActiveApplicableByAmountInternal(amount, promoterTypeId, Basis.AMOUNT);
+    default List<CollectionCommissionTier> findActiveApplicableByAmount(Long promoterTypeId) {
+        return findActiveApplicableByAmountInternal(promoterTypeId, Basis.AMOUNT);
     }
 }

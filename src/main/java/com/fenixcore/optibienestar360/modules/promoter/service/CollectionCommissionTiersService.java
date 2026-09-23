@@ -39,7 +39,7 @@ import java.util.UUID;
  * the DB-driven collection-commission buckets the engine will read. Mirrors
  * {@code HierarchyOverrideTiersService}'s shape (pct-XOR-flat invariant,
  * campaign anchor, soft-delete-with-usage-check) plus its own basis-field
- * invariant (DAYS↔maxDays, AMOUNT↔maxAmount).
+ * invariant (DAYS↔maxDays, AMOUNT↔minAmount — a minimum threshold, V144).
  */
 @Service
 @RequiredArgsConstructor
@@ -47,7 +47,7 @@ import java.util.UUID;
 public class CollectionCommissionTiersService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "basis", "maxDays", "maxAmount", "commissionPct", "flatAmount", "active", "status", "createdAt", "updatedAt"
+            "name", "basis", "maxDays", "minAmount", "commissionPct", "flatAmount", "active", "status", "createdAt", "updatedAt"
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -106,14 +106,18 @@ public class CollectionCommissionTiersService {
         if (req.flatAmount() != null) {
             requireFlatAmountCurrency(req.flatAmountCurrencyUuid());
         }
-        requireBasisFieldMatch(req.basis(), req.maxDays(), req.maxAmount());
+        requireBasisFieldMatch(req.basis(), req.maxDays(), req.minAmount());
+        if (req.basis() == Basis.AMOUNT) {
+            requireMinAmountCurrency(req.minAmountCurrencyUuid());
+        }
 
         CollectionCommissionTier tier = new CollectionCommissionTier();
         tier.setName(req.name());
         tier.setDescription(req.description());
         tier.setBasis(req.basis());
         tier.setMaxDays(req.basis() == Basis.DAYS ? req.maxDays() : null);
-        tier.setMaxAmount(req.basis() == Basis.AMOUNT ? req.maxAmount() : null);
+        tier.setMinAmount(req.basis() == Basis.AMOUNT ? req.minAmount() : null);
+        tier.setMinAmountCurrency(req.basis() == Basis.AMOUNT ? resolveCurrency(req.minAmountCurrencyUuid()) : null);
         tier.setCommissionPct(req.commissionPct());
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
@@ -140,13 +144,28 @@ public class CollectionCommissionTiersService {
         // Basis switch: supplying `basis` swaps which bucket field is live; the matching
         // bucket field must arrive in the same request (a tier is DAYS xor AMOUNT).
         if (req.basis() != null) {
-            requireBasisFieldMatch(req.basis(), req.maxDays(), req.maxAmount());
+            requireBasisFieldMatch(req.basis(), req.maxDays(), req.minAmount());
+            if (req.basis() == Basis.AMOUNT) {
+                requireMinAmountCurrency(req.minAmountCurrencyUuid());
+            }
             tier.setBasis(req.basis());
             tier.setMaxDays(req.basis() == Basis.DAYS ? req.maxDays() : null);
-            tier.setMaxAmount(req.basis() == Basis.AMOUNT ? req.maxAmount() : null);
+            tier.setMinAmount(req.basis() == Basis.AMOUNT ? req.minAmount() : null);
+            tier.setMinAmountCurrency(req.basis() == Basis.AMOUNT ? resolveCurrency(req.minAmountCurrencyUuid()) : null);
         } else {
             if (req.maxDays() != null)   tier.setMaxDays(req.maxDays());
-            if (req.maxAmount() != null) tier.setMaxAmount(req.maxAmount());
+            if (req.minAmount() != null) {
+                tier.setMinAmount(req.minAmount());
+                if (tier.getBasis() == Basis.AMOUNT) {
+                    UUID currencyUuid = req.minAmountCurrencyUuid() != null
+                            ? req.minAmountCurrencyUuid()
+                            : (tier.getMinAmountCurrency() != null ? tier.getMinAmountCurrency().getUuid() : null);
+                    requireMinAmountCurrency(currencyUuid);
+                    tier.setMinAmountCurrency(resolveCurrency(currencyUuid));
+                }
+            } else if (req.minAmountCurrencyUuid() != null && tier.getBasis() == Basis.AMOUNT) {
+                tier.setMinAmountCurrency(resolveCurrency(req.minAmountCurrencyUuid()));
+            }
         }
 
         // Reward switch: supplying one clears the other (a tier is pct XOR flat).
@@ -164,7 +183,7 @@ public class CollectionCommissionTiersService {
             tier.setCommissionPct(null);
         }
         requireExactlyOneReward(tier.getCommissionPct(), tier.getFlatAmount());
-        requireBasisFieldMatch(tier.getBasis(), tier.getMaxDays(), tier.getMaxAmount());
+        requireBasisFieldMatch(tier.getBasis(), tier.getMaxDays(), tier.getMinAmount());
 
         return CollectionCommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -217,12 +236,19 @@ public class CollectionCommissionTiersService {
         }
     }
 
-    /** {@code DAYS} requires {@code maxDays} (and rejects {@code maxAmount}), and vice versa for {@code AMOUNT}. */
-    private static void requireBasisFieldMatch(Basis basis, Integer maxDays, BigDecimal maxAmount) {
-        if (basis == Basis.DAYS && (maxDays == null || maxAmount != null)) {
+    /** {@code minAmount} (V144, a minimum threshold) requires its reference currency, same as {@code flatAmount}. */
+    private static void requireMinAmountCurrency(UUID currencyUuid) {
+        if (currencyUuid == null) {
+            throw new IllegalArgumentException("collection_commission_tier.min_amount.currency_required");
+        }
+    }
+
+    /** {@code DAYS} requires {@code maxDays} (and rejects {@code minAmount}), and vice versa for {@code AMOUNT}. */
+    private static void requireBasisFieldMatch(Basis basis, Integer maxDays, BigDecimal minAmount) {
+        if (basis == Basis.DAYS && (maxDays == null || minAmount != null)) {
             throw new IllegalArgumentException("collection_commission_tier.basis_field_mismatch");
         }
-        if (basis == Basis.AMOUNT && (maxAmount == null || maxDays != null)) {
+        if (basis == Basis.AMOUNT && (minAmount == null || maxDays != null)) {
             throw new IllegalArgumentException("collection_commission_tier.basis_field_mismatch");
         }
     }

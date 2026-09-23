@@ -25,15 +25,19 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Collection commission tier (ADR 0013 §3, V44, V126) — decreasing reward by
- * how late (days) or how large (amount) the recurring (MONTHLY) payment was.
+ * Collection commission tier (ADR 0013 §3, V44, V126, V144) — reward by how
+ * late (days) or how large (amount) the recurring (MONTHLY) payment was.
  *
  * <p>{@link #basis} picks which bucket field is live: {@code DAYS} (default,
  * backward compatible) applies when the payment's days-to-collect is
- * {@code <= maxDays}; {@code AMOUNT} applies when the payment amount is
- * {@code <= maxAmount}. The engine picks the smallest qualifying bucket for
- * whichever basis the tier uses. Orthogonal to {@link CommissionTier}, which
- * scopes by monthly new-subscriber volume.</p>
+ * {@code <= maxDays} — the engine picks the smallest qualifying bucket for
+ * that basis. {@code AMOUNT} (V144) is a minimum threshold instead — it
+ * applies when the collected amount is {@code >= minAmount} (same {@code >=}
+ * semantics as {@code thresholdCount}/{@code thresholdAmount} elsewhere in
+ * the promoter module), and the engine picks the HIGHEST qualifying bucket
+ * (the most generous threshold the amount reaches or exceeds), the opposite
+ * "biggest qualifying bucket" pattern of a ceiling. Orthogonal to
+ * {@link CommissionTier}, which scopes by monthly new-subscriber volume.</p>
  *
  * <p>Reward is pct XOR flat (V126), same shape as {@link HierarchyOverrideTier}.</p>
  */
@@ -59,9 +63,14 @@ public class CollectionCommissionTier extends BaseEntity {
     @Column(name = "max_days")
     private Integer maxDays;
 
-    /** Only meaningful when {@link #basis} is {@code AMOUNT}. */
-    @Column(name = "max_amount", precision = 14, scale = 2)
-    private BigDecimal maxAmount;
+    /** Only meaningful when {@link #basis} is {@code AMOUNT} — a minimum threshold (V144), not a ceiling. */
+    @Column(name = "min_amount", precision = 14, scale = 2)
+    private BigDecimal minAmount;
+
+    /** Reference currency for {@link #minAmount} (V144) — required when {@link #basis} is {@code AMOUNT}, same pattern as {@link #flatAmountCurrency}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "min_amount_currency_id")
+    private Currency minAmountCurrency;
 
     @Column(name = "commission_pct", precision = 5, scale = 2)
     private BigDecimal commissionPct;
@@ -97,7 +106,7 @@ public class CollectionCommissionTier extends BaseEntity {
     @Column(name = "ends_at")
     private OffsetDateTime endsAt;
 
-    /** Which bucket field ({@link #maxDays} or {@link #maxAmount}) the tier is keyed on. */
+    /** Which bucket field ({@link #maxDays} or {@link #minAmount}) the tier is keyed on. */
     public enum Basis {
         DAYS, AMOUNT
     }

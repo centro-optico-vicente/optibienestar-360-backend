@@ -19,7 +19,9 @@ public record CollectionCommissionTierDto(
         String description,
         @Display(Display.Kind.ENUM) Basis basis,
         Integer maxDays,
-        @Display(Display.Kind.NUMBER) BigDecimal maxAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "minAmountCurrency_Code") BigDecimal minAmount,
+        @Display DisplayRef minAmountCurrency,
+        String minAmountCurrency_Code,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "flatAmountCurrency_Code") BigDecimal flatAmount,
         @Display DisplayRef flatAmountCurrency,
@@ -37,7 +39,9 @@ public record CollectionCommissionTierDto(
 ) {
     public static CollectionCommissionTierDto from(CollectionCommissionTier t) {
         return new CollectionCommissionTierDto(
-                t.getUuid(), t.getName(), t.getDescription(), t.getBasis(), t.getMaxDays(), t.getMaxAmount(),
+                t.getUuid(), t.getName(), t.getDescription(), t.getBasis(), t.getMaxDays(), t.getMinAmount(),
+                DisplayRefs.ref(t.getMinAmountCurrency()),
+                t.getMinAmountCurrency() != null ? t.getMinAmountCurrency().getCode() : null,
                 t.getCommissionPct(), t.getFlatAmount(),
                 DisplayRefs.ref(t.getFlatAmountCurrency()),
                 t.getFlatAmountCurrency() != null ? t.getFlatAmountCurrency().getCode() : null,
