@@ -24,6 +24,14 @@ public interface CommissionTierRepository extends JpaRepository<CommissionTier, 
     List<CommissionTier> findByCampaign(Campaign campaign);
 
     /**
+     * Every active tier, unscoped by plan/promoter type — powers {@code
+     * CommissionTierSettlementCutJobRunner} (phase 3 automation), which
+     * needs every candidate rule to resolve "is today a cut-close day for
+     * this rule" before narrowing to any one promoter.
+     */
+    List<CommissionTier> findByActiveTrue();
+
+    /**
      * Active tiers applicable to a payment of {@code planType} and fee type
      * {@code appliesTo}, scoped to the promoter's type: rows are either unscoped
      * ({@code promoterTypes} empty, apply to everyone — V137 M:N, hub plan Part F)

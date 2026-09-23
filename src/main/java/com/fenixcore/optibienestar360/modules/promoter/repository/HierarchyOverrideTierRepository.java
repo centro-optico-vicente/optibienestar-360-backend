@@ -23,6 +23,14 @@ public interface HierarchyOverrideTierRepository extends JpaRepository<Hierarchy
     List<HierarchyOverrideTier> findByCampaign(Campaign campaign);
 
     /**
+     * Every active band, unscoped by rank/category — powers {@code
+     * HierarchyOverrideSettlementCutJobRunner} (phase 3 automation), which
+     * needs every candidate rule to resolve "is today a cut-close day for
+     * this rule" before narrowing to any one beneficiary/category.
+     */
+    List<HierarchyOverrideTier> findByActiveTrue();
+
+    /**
      * Candidate bands for a (rank, category) combination, highest threshold
      * first — mirrors {@code CommissionTierRepository.findActiveApplicable}'s
      * ordering so {@code HierarchyOverrideService.selectTier} can reuse the
