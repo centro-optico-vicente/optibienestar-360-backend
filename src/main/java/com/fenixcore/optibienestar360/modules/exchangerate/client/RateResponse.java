@@ -18,10 +18,13 @@ import java.math.BigDecimal;
  * target field without extra configuration, so no custom deserializer is
  * needed here.</p>
  *
- * <p>{@code timestamp}'s exact format is unconfirmed (the live server
- * wasn't reachable during investigation) — {@link ExchangeRatesApiClient}
- * callers must parse it defensively; see
- * {@code ExchangeRateIngestionService}.</p>
+ * <p>{@code timestamp} is the BCV "Fecha Valor" (vigency date — the day the
+ * rate becomes effective), NOT the publish/operation date, confirmed against
+ * live responses from {@code GET /v1/ve/bcv/{currency}} (every currency in a
+ * given response shares the same {@code timestamp}, matching the source's own
+ * "Fecha Valor" label). {@link ExchangeRatesApiClient} callers must still
+ * parse it defensively (exact offset/format can vary); see
+ * {@code ExchangeRateIngestionService#parseValueDate}.</p>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record RateResponse(

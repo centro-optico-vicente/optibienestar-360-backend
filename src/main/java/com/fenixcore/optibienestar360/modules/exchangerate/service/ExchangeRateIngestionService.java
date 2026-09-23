@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,14 @@ import java.util.Optional;
  * upstream, unparseable timestamp, already-ingested-today) never aborts the
  * whole run — "degrade, never block": each currency is attempted
  * independently and recorded in the returned {@link IngestionSummary}.</p>
+ *
+ * <p>If a currency comes back {@code ALREADY_HAD_TODAY} (BCV hasn't
+ * published today's rate yet as of this call), retrying the whole run is
+ * {@code FetchExchangeRatesJobRunner}'s job — it signals this to
+ * {@code JobExecutionService}'s existing fixed-backoff retry engine (the
+ * job's own {@code max_retry_attempts}/{@code retry_delay_seconds} columns,
+ * same fields every other scheduled job uses) rather than this service
+ * looping on its own; see that runner's javadoc.</p>
  *
  * <p>Deliberately NOT wrapped in a single {@code @Transactional}: each
  * currency's insert happens in its own {@code REQUIRES_NEW} transaction via
@@ -111,6 +120,7 @@ public class ExchangeRateIngestionService {
         for (String baseCode : BASE_CURRENCY_CODES) {
             results.add(ingestOne(baseCode, quote.get(), vigencyCountry.get(), baseUrl.get()));
         }
+
         return new IngestionSummary(results);
     }
 
@@ -141,8 +151,8 @@ public class ExchangeRateIngestionService {
                     baseCode, IngestionSummary.Status.FETCH_FAILED, "response_missing_rate");
         }
 
-        Optional<LocalDate> operationDate = parseOperationDate(rateResponse.timestamp());
-        if (operationDate.isEmpty()) {
+        Optional<LocalDate> valueDate = parseValueDate(rateResponse.timestamp());
+        if (valueDate.isEmpty()) {
             log.warn("Could not parse timestamp '{}' for {} — skipping this run's ingestion for that currency",
                     rateResponse.timestamp(), baseCode);
             return new IngestionSummary.CurrencyResult(
@@ -156,11 +166,16 @@ public class ExchangeRateIngestionService {
                     baseCode, IngestionSummary.Status.FETCH_FAILED, "base_currency_not_seeded");
         }
 
-        Instant validFrom = businessDayCalculator.nextBusinessDayAt(operationDate.get(), vigencyCountry, VIGENCY_TIME, CARACAS);
+        // rateResponse.timestamp() is already the BCV "Fecha Valor" (vigency
+        // date), not the publish date — valid_from is the vigency date itself
+        // at VIGENCY_TIME, and operation_date (publish day, ADR 0015 §2) is
+        // derived backward from it via previousBusinessDayBefore.
+        Instant validFrom = ZonedDateTime.of(valueDate.get(), VIGENCY_TIME, CARACAS).toInstant();
+        LocalDate operationDate = businessDayCalculator.previousBusinessDayBefore(valueDate.get(), vigencyCountry);
 
         ExchangeRateWriter.WriteOutcome outcome;
         try {
-            outcome = writer.insert(base.get(), quote, rateResponse.rate(), operationDate.get(), validFrom);
+            outcome = writer.insert(base.get(), quote, rateResponse.rate(), operationDate, validFrom);
         } catch (DataIntegrityViolationException raceLostToAnotherRun) {
             // ExchangeRateWriter already checks existence before inserting —
             // this only fires on a genuine race (another run for the same
@@ -168,7 +183,7 @@ public class ExchangeRateIngestionService {
             // here, outside any transaction of our own, so there is nothing
             // for Spring to mark rollback-only over.
             log.info("Rate for {}->{} on {} was ingested by a concurrent run — treating as already-had-today",
-                    baseCode, quote.getCode(), operationDate.get());
+                    baseCode, quote.getCode(), operationDate);
             outcome = ExchangeRateWriter.WriteOutcome.ALREADY_HAD_TODAY;
         }
 
@@ -178,15 +193,14 @@ public class ExchangeRateIngestionService {
     }
 
     /**
-     * Defensive parsing of {@code RateResponse.timestamp} — its exact live
-     * format is unconfirmed (see {@link RateResponse} javadoc). Tries
-     * offset/instant ISO-8601 forms first (treating the value as the BCV
-     * publish moment, converted to the equivalent Venezuelan calendar day),
-     * then falls back to a bare date-only {@code LocalDate}. Returns empty
-     * when neither parses — callers must skip that currency for this run,
-     * never throw.
+     * Defensive parsing of {@code RateResponse.timestamp} — this is the BCV
+     * "Fecha Valor" (vigency date), NOT the publish/operation date (see
+     * {@link RateResponse} javadoc). Tries offset/instant ISO-8601 forms
+     * first, converted to the equivalent Venezuelan calendar day, then falls
+     * back to a bare date-only {@code LocalDate}. Returns empty when neither
+     * parses — callers must skip that currency for this run, never throw.
      */
-    private Optional<LocalDate> parseOperationDate(String timestamp) {
+    private Optional<LocalDate> parseValueDate(String timestamp) {
         if (timestamp == null || timestamp.isBlank()) {
             return Optional.empty();
         }

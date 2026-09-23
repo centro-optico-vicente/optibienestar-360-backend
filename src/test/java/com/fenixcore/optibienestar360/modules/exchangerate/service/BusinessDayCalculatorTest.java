@@ -177,4 +177,32 @@ class BusinessDayCalculatorTest {
         Instant expected = Instant.parse("2025-03-11T12:00:00Z"); // Tuesday 8 AM -04:00 = 12:00 UTC (03-10 Monday matches the still-bounded annual rule and is skipped)
         assertThat(validFrom).isEqualTo(expected);
     }
+
+    @Test
+    void previousBusinessDayBeforeMondaySkipsBackOverTheWeekendToFriday() {
+        when(holidayRepository.findApplicableNationalRules(any())).thenReturn(List.of());
+        // 2026-09-07 is a Monday (the vigency/valueDate) -> the business day
+        // strictly before it is Friday 2026-09-04, skipping Sat/Sun.
+        LocalDate monday = LocalDate.of(2026, 9, 7);
+
+        LocalDate operationDate = calculator().previousBusinessDayBefore(monday, venezuela());
+
+        assertThat(operationDate).isEqualTo(LocalDate.of(2026, 9, 4));
+    }
+
+    @Test
+    void previousBusinessDayBeforeSkipsPastOneOffHolidaysImmediatelyPrecedingTheValueDate() {
+        // valueDate Monday 2026-04-06; Thursday 04-02 and Friday 04-03 are
+        // one-off (NONE) holidays (Jueves/Viernes Santo), and 04-04/04-05 are
+        // the weekend -> the previous business day is Wednesday 2026-04-01.
+        LocalDate monday = LocalDate.of(2026, 4, 6);
+        when(holidayRepository.findApplicableNationalRules(any())).thenReturn(List.of(
+                oneOff(LocalDate.of(2026, 4, 2)),
+                oneOff(LocalDate.of(2026, 4, 3))
+        ));
+
+        LocalDate operationDate = calculator().previousBusinessDayBefore(monday, venezuela());
+
+        assertThat(operationDate).isEqualTo(LocalDate.of(2026, 4, 1));
+    }
 }
