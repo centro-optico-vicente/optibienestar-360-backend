@@ -27,6 +27,9 @@ import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignPromot
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignTransactionExceptionRepository;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignTransactionLinkRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -69,6 +72,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@lombok.extern.slf4j.Slf4j
 public class CampaignService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
@@ -93,6 +97,7 @@ public class CampaignService {
     private final CommissionBonusRuleRepository bonusRuleRepository;
     private final HierarchyOverrideTierRepository hierarchyOverrideTierRepository;
     private final com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository currencyRepository;
+    private final CurrencyConversionService currencyConversionService;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -360,7 +365,13 @@ public class CampaignService {
      * Simple JSON summary (see {@link CampaignEffectivenessDto} javadoc for
      * why this doesn't go through the PDF/XLSX/CSV reporting engine yet).
      * Sums {@link Payment#getAmount()} across every non-excluded {@link
-     * CampaignTransactionLink} pointing at the campaign.
+     * CampaignTransactionLink} pointing at the campaign, converted into a
+     * single currency (the campaign's {@code targetAmountCurrency}, or USD
+     * when no goal/currency is set) so a multi-currency campaign doesn't add
+     * apples and oranges — same conversion pattern as {@code
+     * BonusEvaluationService#evaluateAmountCollectedRule}. A payment with no
+     * exchange rate available for that pair is excluded from the sum and
+     * logged, not blocking.
      */
     public CampaignEffectivenessDto effectiveness(UUID uuid) {
         Campaign campaign = findManaged(uuid);
@@ -368,12 +379,24 @@ public class CampaignService {
                 .filter(l -> l.getSource() != LinkSource.EXCEPTION_EXCLUDE)
                 .collect(Collectors.toList());
 
-        BigDecimal total = links.stream()
-                .map(CampaignTransactionLink::getPayment)
-                .filter(java.util.Objects::nonNull)
-                .map(Payment::getAmount)
-                .filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Currency reportingCurrency = campaign.getTargetAmountCurrency() != null
+                ? campaign.getTargetAmountCurrency()
+                : currencyRepository.findByCode("USD")
+                        .orElseThrow(() -> new IllegalStateException("currency.usd_not_seeded"));
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (CampaignTransactionLink link : links) {
+            Payment payment = link.getPayment();
+            if (payment == null || payment.getAmount() == null) continue;
+            try {
+                var conversion = currencyConversionService.convert(
+                        payment.getAmount(), payment.getCurrency(), reportingCurrency, payment.getPaymentDate());
+                total = total.add(conversion.convertedAmount());
+            } catch (NoExchangeRateAvailableException ex) {
+                log.warn("Campaign {} effectiveness — no exchange rate {}→{} for payment {}; excluded from total",
+                        campaign.getUuid(), payment.getCurrency().getCode(), reportingCurrency.getCode(), payment.getUuid());
+            }
+        }
 
         long count = links.size();
 
@@ -386,7 +409,8 @@ public class CampaignService {
                 : null;
 
         return new CampaignEffectivenessDto(campaign.getUuid(), campaign.getName(), total, count,
-                campaign.getTargetAmount(), campaign.getTargetCount(), amountPct, countPct);
+                campaign.getTargetAmount(), campaign.getTargetCount(), amountPct, countPct,
+                DisplayRefs.ref(reportingCurrency), reportingCurrency.getCode());
     }
 
     // ─── Exceptions (list) ──────────────────────────────────────────────────
