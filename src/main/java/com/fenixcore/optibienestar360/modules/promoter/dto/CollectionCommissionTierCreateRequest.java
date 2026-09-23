@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,7 +33,7 @@ public record CollectionCommissionTierCreateRequest(
         @DecimalMin("0.01") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,
         UUID flatAmountCurrencyUuid,
-        UUID promoterTypeUuid,
+        List<UUID> promoterTypeUuids,
         UUID campaignUuid,
         OffsetDateTime startsAt,
         OffsetDateTime endsAt

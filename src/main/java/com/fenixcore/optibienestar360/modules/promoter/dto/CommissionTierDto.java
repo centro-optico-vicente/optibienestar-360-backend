@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.App
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /** Output DTO for the admin commission-tier surface. Scalars carry a localized {@code _Display} sibling (ADR 0014). */
@@ -19,7 +20,8 @@ public record CommissionTierDto(
         String name,
         String description,
         @Display(Display.Kind.ENUM) PlanType planType,
-        @Display DisplayRef promoterType,
+        /** M:N promoter-type scope (V137, hub plan Part F) — empty = applies to all. */
+        List<DisplayRef> promoterTypes,
         int thresholdCount,
         @Display(Display.Kind.NUMBER) BigDecimal commissionPct,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "flatAmountCurrency_Code") BigDecimal flatAmount,
@@ -39,7 +41,7 @@ public record CommissionTierDto(
     public static CommissionTierDto from(CommissionTier t) {
         return new CommissionTierDto(
                 t.getUuid(), t.getName(), t.getDescription(), t.getPlanType(),
-                DisplayRefs.ref(t.getPromoterType()),
+                t.getPromoterTypes().stream().map(DisplayRefs::ref).toList(),
                 t.getThresholdCount(),
                 t.getCommissionPct(), t.getFlatAmount(),
                 DisplayRefs.ref(t.getFlatAmountCurrency()),

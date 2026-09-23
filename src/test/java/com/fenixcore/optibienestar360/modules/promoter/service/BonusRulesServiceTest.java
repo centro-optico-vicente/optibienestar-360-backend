@@ -100,7 +100,7 @@ class BonusRulesServiceTest {
 
         // A MONTHLY rule that erroneously carries campaign dates — they must be nulled.
         BonusRuleRequest req = new BonusRuleRequest("stray dates", null, null,
-                BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
+                BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, null, null, WindowStrategy.MONTHLY,
                 dt(LocalDate.of(2026, 6, 1)), dt(LocalDate.of(2026, 6, 30)),
                 RewardType.FLAT, new BigDecimal("50.00"), null, "USD", null, null, null, null, null);
 
@@ -114,7 +114,7 @@ class BonusRulesServiceTest {
     @Test
     void create_rejectsFlatRewardWithPercentAlsoSet() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
-                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.THRESHOLD, 100, WindowStrategy.MONTHLY,
+                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.THRESHOLD, 100, null, null, WindowStrategy.MONTHLY,
                 null, null, RewardType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
@@ -126,7 +126,7 @@ class BonusRulesServiceTest {
     @Test
     void create_rejectsPercentageRewardOnPerBlockAccrual() {
         BonusRuleRequest req = new BonusRuleRequest("bad", null, null,
-                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 500, WindowStrategy.LIFETIME,
+                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 500, null, null, WindowStrategy.LIFETIME,
                 null, null, RewardType.PERCENTAGE, null, new BigDecimal("5.00"), "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
@@ -138,7 +138,7 @@ class BonusRulesServiceTest {
     @Test
     void create_rejectsCampaignWithoutDates() {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
-                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
+                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, null, null, WindowStrategy.CAMPAIGN,
                 null, null, RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null, null);
 
         assertThatThrownBy(() -> service().create(req))
@@ -150,7 +150,7 @@ class BonusRulesServiceTest {
     @Test
     void create_rejectsCampaignWithEndBeforeStart() {
         BonusRuleRequest req = new BonusRuleRequest("campaign", null, null,
-                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, WindowStrategy.CAMPAIGN,
+                BonusMetric.NEW_SUBSCRIBERS, AccrualMode.PER_BLOCK, 50, null, null, WindowStrategy.CAMPAIGN,
                 dt(LocalDate.of(2026, 6, 30)), dt(LocalDate.of(2026, 6, 1)),
                 RewardType.FLAT, new BigDecimal("200.00"), null, "USD", null, null, null, null, null);
 
@@ -181,7 +181,7 @@ class BonusRulesServiceTest {
     /** "300 active subscribers/month → $50" — a valid THRESHOLD/FLAT/MONTHLY rule. */
     private BonusRuleRequest flatMonthly() {
         return new BonusRuleRequest("300 activos/mes", "bono de cobranza", null,
-                BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, WindowStrategy.MONTHLY,
+                BonusMetric.ACTIVE_SUBSCRIBERS, AccrualMode.THRESHOLD, 300, null, null, WindowStrategy.MONTHLY,
                 null, null, RewardType.FLAT, new BigDecimal("50.00"), null, null, null, null, null, null, null);
     }
 }

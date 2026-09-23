@@ -12,22 +12,24 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Payload for {@code POST /v1/admin/commission-tiers}. Exactly one of
  * {@code commissionPct} / {@code flatAmount} must be present — enforced
  * service-side ({@code commission_tier.pct_xor_flat}). {@code planType} and
- * {@code promoterTypeUuid} are optional ({@code null} = applies to every plan
- * / promoter type). {@code campaignUuid} is an optional anchor (V120) —
- * {@code null} = a standing (non-campaign) tier; {@code startsAt}/{@code endsAt}
- * are the tier's own validity window, usually copied from the campaign.
+ * {@code promoterTypeUuids} are optional ({@code null}/empty = applies to
+ * every plan / promoter type — V137, hub plan Part F). {@code campaignUuid}
+ * is an optional anchor (V120) — {@code null} = a standing (non-campaign)
+ * tier; {@code startsAt}/{@code endsAt} are the tier's own validity window,
+ * usually copied from the campaign.
  */
 public record CommissionTierCreateRequest(
         @NotBlank String name,
         String description,
         PlanType planType,
-        UUID promoterTypeUuid,
+        List<UUID> promoterTypeUuids,
         @PositiveOrZero Integer thresholdCount,
         @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal commissionPct,
         @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal flatAmount,

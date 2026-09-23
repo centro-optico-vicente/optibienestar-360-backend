@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusEvaluationResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -24,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,10 +50,13 @@ class BonusEvaluationServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private PromoterRepository promoterRepository;
     @Mock private CommissionRepository commissionRepository;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private CurrencyConversionService currencyConversionService;
 
     private BonusEvaluationService service() {
         return new BonusEvaluationService(ruleRepository, awardRepository,
-                memberRepository, promoterRepository, commissionRepository);
+                memberRepository, promoterRepository, commissionRepository,
+                paymentRepository, currencyConversionService);
     }
 
     private static final LocalDate JUN_15 = LocalDate.of(2026, 6, 15);
@@ -195,7 +201,7 @@ class BonusEvaluationServiceTest {
     void typeScopedRule_skipsPromoterOfADifferentType() {
         com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType wantedType = promoterType(9L);
         CommissionBonusRule rule = newLifetimeRule(500, new BigDecimal("100.00"));
-        rule.setPromoterType(wantedType);
+        rule.setPromoterTypes(Set.of(wantedType));
         stubRules(rule);
         Promoter otherType = promoter(7L);
         otherType.setPromoterType(promoterType(1L));   // different type — rule doesn't apply
@@ -213,7 +219,7 @@ class BonusEvaluationServiceTest {
     void typeScopedRule_appliesToPromoterOfTheMatchingType() {
         com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType wantedType = promoterType(9L);
         CommissionBonusRule rule = newLifetimeRule(500, new BigDecimal("100.00"));
-        rule.setPromoterType(wantedType);
+        rule.setPromoterTypes(Set.of(wantedType));
         stubRules(rule);
         Promoter matching = promoter(7L);
         matching.setPromoterType(promoterType(9L));

@@ -26,20 +26,23 @@ public interface CommissionTierRepository extends JpaRepository<CommissionTier, 
     /**
      * Active tiers applicable to a payment of {@code planType} and fee type
      * {@code appliesTo}, scoped to the promoter's type: rows are either unscoped
-     * ({@code promoterType IS NULL}, apply to everyone) or scoped to
-     * {@code promoterTypeId} — rows scoped to a *different* promoter type never
-     * qualify and are excluded. Ordered so a promoter-type-specific match always
-     * outranks a generic one (project chat 2026-08-07), then highest-threshold
-     * first so the engine can pick the top qualifying tier by iterating within
-     * that precedence group. Ties broken by id for determinism.
+     * ({@code promoterTypes} empty, apply to everyone — V137 M:N, hub plan Part F)
+     * or scoped via a match in {@code promoterTypes} — rows scoped to *only*
+     * different promoter type(s) never qualify and are excluded. Ordered so a
+     * promoter-type-specific match always outranks a generic one (project chat
+     * 2026-08-07), then highest-threshold first so the engine can pick the top
+     * qualifying tier by iterating within that precedence group. Ties broken by
+     * id for determinism. {@code DISTINCT} guards against row duplication from
+     * the {@code promoterTypes} join.
      */
     @Query("""
-            SELECT t FROM CommissionTier t
+            SELECT DISTINCT t FROM CommissionTier t
+            LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND (t.planType = :planType OR t.planType IS NULL)
               AND (t.appliesTo = :appliesTo OR t.appliesTo = :both)
-              AND (t.promoterType IS NULL OR (:promoterTypeId IS NOT NULL AND t.promoterType.id = :promoterTypeId))
-            ORDER BY (CASE WHEN t.promoterType IS NOT NULL THEN 0 ELSE 1 END), t.thresholdCount DESC, t.id ASC
+              AND (t.promoterTypes IS EMPTY OR (:promoterTypeId IS NOT NULL AND pt.id = :promoterTypeId))
+            ORDER BY (CASE WHEN pt IS NOT NULL THEN 0 ELSE 1 END), t.thresholdCount DESC, t.id ASC
             """)
     List<CommissionTier> findActiveApplicable(@Param("planType") PlanType planType,
                                               @Param("appliesTo") AppliesTo appliesTo,

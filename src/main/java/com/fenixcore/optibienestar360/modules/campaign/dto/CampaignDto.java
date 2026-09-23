@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.campaign.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 
 import java.math.BigDecimal;
@@ -18,7 +20,9 @@ public record CampaignDto(
         Campaign.CampaignMode mode,
         boolean evaluateOnlyAtEnd,
         boolean payOnlyAtEnd,
-        BigDecimal targetAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "targetAmountCurrency_Code") BigDecimal targetAmount,
+        @Display DisplayRef targetAmountCurrency,
+        String targetAmountCurrency_Code,
         Integer targetCount,
         String exclusivityGroup,
         Integer priority,

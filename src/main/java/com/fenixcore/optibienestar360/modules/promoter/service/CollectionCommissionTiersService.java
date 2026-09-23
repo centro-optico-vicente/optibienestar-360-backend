@@ -51,9 +51,7 @@ public class CollectionCommissionTiersService {
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-            SortFieldValidator.sortableFieldsOf(CollectionCommissionTier.class, Map.of(
-                    "promoterType_Display", "promoterType.name"
-            ));
+            SortFieldValidator.sortableFieldsOf(CollectionCommissionTier.class, Map.of());
 
     private static final String[] SEARCHABLE_FIELDS = {"name"};
 
@@ -82,7 +80,14 @@ public class CollectionCommissionTiersService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         if (promoterTypeUuid != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
+            spec = spec.and((root, query, cb) -> {
+                query.distinct(true);
+                jakarta.persistence.criteria.Join<Object, Object> join =
+                        root.join("promoterTypes", jakarta.persistence.criteria.JoinType.LEFT);
+                return cb.or(
+                        cb.equal(join.get("uuid"), promoterTypeUuid),
+                        cb.isEmpty(root.get("promoterTypes")));
+            });
         }
         if (campaignUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
@@ -112,7 +117,7 @@ public class CollectionCommissionTiersService {
         tier.setCommissionPct(req.commissionPct());
         tier.setFlatAmount(req.flatAmount());
         tier.setFlatAmountCurrency(resolveCurrency(req.flatAmountCurrencyUuid()));
-        tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        tier.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
@@ -126,7 +131,7 @@ public class CollectionCommissionTiersService {
 
         if (req.name() != null)             tier.setName(req.name());
         if (req.description() != null)      tier.setDescription(req.description());
-        if (req.promoterTypeUuid() != null) tier.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        if (req.promoterTypeUuids() != null) tier.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
         if (req.active() != null)           tier.setActive(req.active());
         if (req.campaignUuid() != null)     tier.setCampaign(resolveCampaign(req.campaignUuid()));
         if (req.startsAt() != null)         tier.setStartsAt(req.startsAt());
@@ -227,10 +232,15 @@ public class CollectionCommissionTiersService {
                 .orElseThrow(() -> new NoSuchElementException("collection_commission_tier.not_found"));
     }
 
-    private PromoterType resolvePromoterType(UUID uuid) {
-        if (uuid == null) return null;
-        return promoterTypeRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
+    /** Empty/null = applies to every promoter type (V137, hub plan Part F). */
+    private Set<PromoterType> resolvePromoterTypes(List<UUID> uuids) {
+        if (uuids == null || uuids.isEmpty()) return new java.util.HashSet<>();
+        Set<PromoterType> resolved = new java.util.HashSet<>();
+        for (UUID uuid : uuids) {
+            resolved.add(promoterTypeRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found")));
+        }
+        return resolved;
     }
 
     private Currency resolveCurrency(UUID uuid) {

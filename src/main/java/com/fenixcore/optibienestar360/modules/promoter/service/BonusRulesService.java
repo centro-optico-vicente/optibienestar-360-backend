@@ -17,6 +17,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.BonusRuleRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.AccrualMode;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.BonusMetric;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.RewardType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule.WindowStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionBonusRuleRepository;
@@ -28,6 +29,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Map;
@@ -59,9 +61,7 @@ public class BonusRulesService {
     );
 
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-            SortFieldValidator.sortableFieldsOf(CommissionBonusRule.class, Map.of(
-                    "promoterType_Display", "promoterType.name"
-            ));
+            SortFieldValidator.sortableFieldsOf(CommissionBonusRule.class, Map.of());
 
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
@@ -92,7 +92,14 @@ public class BonusRulesService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         if (promoterTypeUuid != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoterType").get("uuid"), promoterTypeUuid));
+            spec = spec.and((root, query, cb) -> {
+                query.distinct(true);
+                jakarta.persistence.criteria.Join<Object, Object> join =
+                        root.join("promoterTypes", jakarta.persistence.criteria.JoinType.LEFT);
+                return cb.or(
+                        cb.equal(join.get("uuid"), promoterTypeUuid),
+                        cb.isEmpty(root.get("promoterTypes")));
+            });
         }
         if (campaignUuid != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("campaign").get("uuid"), campaignUuid));
@@ -113,7 +120,7 @@ public class BonusRulesService {
         validate(req);
         CommissionBonusRule rule = new CommissionBonusRule();
         apply(rule, req);
-        rule.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        rule.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
         return BonusRuleDto.from(repository.save(rule));
     }
 
@@ -125,8 +132,8 @@ public class BonusRulesService {
         validate(req);
         CommissionBonusRule rule = findManaged(uuid);
         apply(rule, req);
-        // Full replace: null clears any previously set promoter-type scope.
-        rule.setPromoterType(resolvePromoterType(req.promoterTypeUuid()));
+        // Full replace: empty/null clears any previously set promoter-type scope.
+        rule.setPromoterTypes(resolvePromoterTypes(req.promoterTypeUuids()));
         return BonusRuleDto.from(rule);   // dirty-check flushes on commit
     }
 
@@ -145,10 +152,15 @@ public class BonusRulesService {
                 .orElseThrow(() -> new NoSuchElementException("bonus_rule.not_found"));
     }
 
-    private PromoterType resolvePromoterType(UUID uuid) {
-        if (uuid == null) return null;
-        return promoterTypeRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found"));
+    /** Empty/null = applies to every promoter type (V137, hub plan Part F). */
+    private Set<PromoterType> resolvePromoterTypes(List<UUID> uuids) {
+        if (uuids == null || uuids.isEmpty()) return new HashSet<>();
+        Set<PromoterType> resolved = new HashSet<>();
+        for (UUID uuid : uuids) {
+            resolved.add(promoterTypeRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("promoter_type.not_found")));
+        }
+        return resolved;
     }
 
     private static void validate(BonusRuleRequest req) {
@@ -173,6 +185,25 @@ public class BonusRulesService {
                 throw new IllegalArgumentException("bonus_rule.campaign.dates_order");
             }
         }
+
+        // Metric-scoped threshold XOR (I-BE, hub plan Part I) — mirrors the
+        // requireExactlyOneReward/requireFlatAmountCurrency style already used
+        // by CommissionTiersService/CollectionCommissionTiersService.
+        if (req.metric() == BonusMetric.AMOUNT_COLLECTED) {
+            if (req.thresholdAmount() == null || req.thresholdCurrencyUuid() == null) {
+                throw new IllegalArgumentException("bonus_rule.threshold_amount.currency_required");
+            }
+            if (req.thresholdCount() != null) {
+                throw new IllegalArgumentException("bonus_rule.threshold.metric_mismatch");
+            }
+        } else {
+            if (req.thresholdCount() == null || req.thresholdCount() <= 0) {
+                throw new IllegalArgumentException("bonus_rule.threshold_count.required");
+            }
+            if (req.thresholdAmount() != null || req.thresholdCurrencyUuid() != null) {
+                throw new IllegalArgumentException("bonus_rule.threshold.metric_mismatch");
+            }
+        }
     }
 
     private void apply(CommissionBonusRule rule, BonusRuleRequest req) {
@@ -180,7 +211,10 @@ public class BonusRulesService {
         rule.setDescription(req.description());
         rule.setMetric(req.metric());
         rule.setAccrual(req.accrual());
-        rule.setThresholdCount(req.thresholdCount());
+        boolean amountCollected = req.metric() == BonusMetric.AMOUNT_COLLECTED;
+        rule.setThresholdCount(amountCollected ? 0 : req.thresholdCount());
+        rule.setThresholdAmount(amountCollected ? req.thresholdAmount() : null);
+        rule.setThresholdCurrency(amountCollected ? resolveCurrencyByUuid(req.thresholdCurrencyUuid()) : null);
         rule.setWindowStrategy(req.windowStrategy());
 
         boolean campaign = req.windowStrategy() == WindowStrategy.CAMPAIGN;

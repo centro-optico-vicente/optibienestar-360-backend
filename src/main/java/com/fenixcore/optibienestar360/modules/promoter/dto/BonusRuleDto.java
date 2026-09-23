@@ -13,22 +13,29 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRul
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Admin read view of a bonus rule. {@code campaign*} present only for CAMPAIGN
- * windows; {@code flatAmount}/{@code rewardPct} mutually exclusive per reward type.
- * Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
+ * windows; {@code flatAmount}/{@code rewardPct} mutually exclusive per reward type;
+ * {@code thresholdCount} only set for count metrics, {@code thresholdAmount}/
+ * {@code thresholdCurrency} only set for {@code AMOUNT_COLLECTED} (I-BE, hub plan
+ * Part I). Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BonusRuleDto(
         UUID uuid,
         String name,
         String description,
-        @Display DisplayRef promoterType,
+        /** M:N promoter-type scope (V137, hub plan Part F) — empty = applies to all. */
+        List<DisplayRef> promoterTypes,
         @Display(Display.Kind.ENUM) BonusMetric metric,
         @Display(Display.Kind.ENUM) AccrualMode accrual,
         int thresholdCount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "thresholdCurrency_Code") BigDecimal thresholdAmount,
+        @Display DisplayRef thresholdCurrency,
+        String thresholdCurrency_Code,
         @Display(Display.Kind.ENUM) WindowStrategy windowStrategy,
         @Display(Display.Kind.DATETIME) OffsetDateTime campaignStart,
         @Display(Display.Kind.DATETIME) OffsetDateTime campaignEnd,
@@ -52,10 +59,13 @@ public record BonusRuleDto(
                 r.getUuid(),
                 r.getName(),
                 r.getDescription(),
-                DisplayRefs.ref(r.getPromoterType()),
+                r.getPromoterTypes().stream().map(DisplayRefs::ref).toList(),
                 r.getMetric(),
                 r.getAccrual(),
                 r.getThresholdCount(),
+                r.getThresholdAmount(),
+                DisplayRefs.ref(r.getThresholdCurrency()),
+                r.getThresholdCurrency() != null ? r.getThresholdCurrency().getCode() : null,
                 r.getWindowStrategy(),
                 r.getCampaignStart(),
                 r.getCampaignEnd(),

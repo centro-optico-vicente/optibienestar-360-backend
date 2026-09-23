@@ -92,6 +92,7 @@ public class CampaignService {
     private final CommissionTierRepository commissionTierRepository;
     private final CommissionBonusRuleRepository bonusRuleRepository;
     private final HierarchyOverrideTierRepository hierarchyOverrideTierRepository;
+    private final com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ public class CampaignService {
             c.setName(t.getName());
             c.setDescription(t.getDescription());
             c.setPlanType(t.getPlanType());
-            c.setPromoterType(t.getPromoterType());
+            c.setPromoterTypes(new java.util.HashSet<>(t.getPromoterTypes()));
             c.setThresholdCount(t.getThresholdCount());
             c.setCommissionPct(t.getCommissionPct());
             c.setFlatAmount(t.getFlatAmount());
@@ -231,7 +232,9 @@ public class CampaignService {
             c.setRewardPct(r.getRewardPct());
             c.setRewardCurrency(r.getRewardCurrency());
             c.setIncludeSystemPromoters(r.isIncludeSystemPromoters());
-            c.setPromoterType(r.getPromoterType());
+            c.setPromoterTypes(new java.util.HashSet<>(r.getPromoterTypes()));
+            c.setThresholdAmount(r.getThresholdAmount());
+            c.setThresholdCurrency(r.getThresholdCurrency());
             bonusRuleRepository.save(c);
         }
 
@@ -496,6 +499,11 @@ public class CampaignService {
                 && (req.promoterUuids() == null || req.promoterUuids().isEmpty())) {
             throw new IllegalArgumentException("campaign.scope.promoters_required");
         }
+        // Goal currency required alongside targetAmount (hub plan "Parte adicional",
+        // same requireFlatAmountCurrency style as CommissionTiersService).
+        if (req.targetAmount() != null && req.targetAmountCurrencyUuid() == null) {
+            throw new IllegalArgumentException("campaign.target_amount.currency_required");
+        }
     }
 
     private void apply(Campaign campaign, CampaignRequest req) {
@@ -509,6 +517,10 @@ public class CampaignService {
         campaign.setEvaluateOnlyAtEnd(req.evaluateOnlyAtEnd());
         campaign.setPayOnlyAtEnd(req.evaluateOnlyAtEnd() || req.payOnlyAtEnd());
         campaign.setTargetAmount(req.targetAmount());
+        campaign.setTargetAmountCurrency(req.targetAmount() != null
+                ? currencyRepository.findByUuid(req.targetAmountCurrencyUuid())
+                        .orElseThrow(() -> new NoSuchElementException("currency.not_found"))
+                : null);
         campaign.setTargetCount(req.targetCount());
         campaign.setExclusivityGroup(req.exclusivityGroup());
         campaign.setPriority(req.priority());
@@ -537,7 +549,10 @@ public class CampaignService {
                 campaign.getUuid(), campaign.getName(), campaign.getDescription(),
                 campaign.getStartsAt(), campaign.getEndsAt(), campaign.isEnabled(),
                 campaign.getScope(), campaign.getMode(), campaign.isEvaluateOnlyAtEnd(), campaign.isPayOnlyAtEnd(),
-                campaign.getTargetAmount(), campaign.getTargetCount(), campaign.getExclusivityGroup(),
+                campaign.getTargetAmount(),
+                DisplayRefs.ref(campaign.getTargetAmountCurrency()),
+                campaign.getTargetAmountCurrency() != null ? campaign.getTargetAmountCurrency().getCode() : null,
+                campaign.getTargetCount(), campaign.getExclusivityGroup(),
                 campaign.getPriority(), campaign.isActive(), promoterUuids);
     }
 
