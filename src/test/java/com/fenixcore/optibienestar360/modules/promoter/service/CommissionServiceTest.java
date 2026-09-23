@@ -58,6 +58,7 @@ class CommissionServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private CommissionAuditRecorder auditRecorder;
     @Mock private ConversionEnricher conversionEnricher;
+    @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
 
     @InjectMocks private CommissionService service;
 

@@ -2,7 +2,9 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -86,6 +88,7 @@ public class CommissionService {
     private final MemberRepository memberRepository;
     private final CommissionAuditRecorder auditRecorder;
     private final ConversionEnricher conversionEnricher;
+    private final CurrencyConversionService currencyConversionService;
 
     /**
      * Computes + persists a commission row for the given approved payment.
@@ -212,13 +215,13 @@ public class CommissionService {
         // not on how many days late it was — the two bucket sets are evaluated independently
         // and never mixed within one candidate list (CollectionCommissionTiersService enforces
         // basis-field consistency per tier at write time).
-        List<CollectionCommissionTier> amountCandidates =
-                collectionTierRepository.findActiveApplicableByAmount(basis, promoterTypeId);
-        if (amountCandidates == null) amountCandidates = List.of();
-        if (candidates.isEmpty() && amountCandidates.isEmpty()) {
+        CollectionCommissionTier amountTier = candidates.isEmpty()
+                ? highestQualifyingAmountTier(basis, payment, promoterTypeId)
+                : null;
+        if (candidates.isEmpty() && amountTier == null) {
             return null;
         }
-        CollectionCommissionTier tier = !candidates.isEmpty() ? candidates.get(0) : amountCandidates.get(0);
+        CollectionCommissionTier tier = !candidates.isEmpty() ? candidates.get(0) : amountTier;
 
         PeriodStrategies.Window window = PeriodStrategies.window(Commission.PeriodStrategy.MONTHLY.name(), anchor);
         BigDecimal pct = tier.getCommissionPct();
@@ -239,6 +242,38 @@ public class CommissionService {
         commission.setPeriodStart(window.start());
         commission.setPeriodEnd(window.end());
         return commission;
+    }
+
+    /**
+     * Picks the highest-threshold {@code basis=AMOUNT} bucket the collected
+     * amount reaches or exceeds (V144 minimum-threshold semantics — same
+     * degrade-gracefully currency policy as
+     * {@code BonusEvaluationService#evaluateAmountCollectedRule}). Candidates
+     * arrive ordered promoter-type-specific-first, then descending {@code
+     * minAmount}; the amount is converted into each candidate's own {@code
+     * minAmountCurrency} before comparing (thresholds across tiers may be
+     * denominated differently), so the conversion — not just the SQL order —
+     * has to happen per row. A tier whose currency pair has no exchange rate
+     * available is skipped (logged) rather than blocking the whole lookup.
+     */
+    private CollectionCommissionTier highestQualifyingAmountTier(BigDecimal amount, Payment payment, Long promoterTypeId) {
+        List<CollectionCommissionTier> amountCandidates =
+                collectionTierRepository.findActiveApplicableByAmount(promoterTypeId);
+        if (amountCandidates == null) return null;
+        for (CollectionCommissionTier candidate : amountCandidates) {
+            try {
+                var conversion = currencyConversionService.convert(
+                        amount, payment.getMembership().getCurrency(), candidate.getMinAmountCurrency(), payment.getPaymentDate());
+                if (conversion.convertedAmount().compareTo(candidate.getMinAmount()) >= 0) {
+                    return candidate;
+                }
+            } catch (NoExchangeRateAvailableException ex) {
+                log.warn("Collection commission tier {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT threshold check",
+                        candidate.getUuid(), payment.getMembership().getCurrency().getCode(),
+                        candidate.getMinAmountCurrency().getCode(), payment.getUuid());
+            }
+        }
+        return null;
     }
 
     /**
