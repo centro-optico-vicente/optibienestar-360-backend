@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationCurrenciesDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
@@ -30,6 +31,24 @@ public class OrganizationService {
 
     public OrganizationDto getMine() {
         return toDto(repository.findSingleton());
+    }
+
+    /**
+     * Backs {@code GET /v1/organizations/currencies} (open to any
+     * authenticated caller, no {@code ORGANIZATION_VIEW} required — see
+     * {@code OrganizationCurrenciesController}).
+     */
+    public OrganizationCurrenciesDto getCurrencies() {
+        Organization org = repository.findSingleton();
+        return new OrganizationCurrenciesDto(
+                toCurrencyRef(org.getOfficialCurrency()),
+                toCurrencyRef(org.getReferenceCurrency()));
+    }
+
+    private static OrganizationCurrenciesDto.CurrencyRef toCurrencyRef(Currency c) {
+        return c == null
+                ? null
+                : new OrganizationCurrenciesDto.CurrencyRef(c.getCode(), c.getSymbol(), c.getDecimalPlaces());
     }
 
     @Transactional
