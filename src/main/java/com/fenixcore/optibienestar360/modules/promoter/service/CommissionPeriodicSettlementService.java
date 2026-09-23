@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.CommissionStatus;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
@@ -183,5 +184,79 @@ public class CommissionPeriodicSettlementService {
         return pct != null
                 ? basis.multiply(pct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP)
                 : flatAmount;
+    }
+
+    /** Outcome of settling one promoter's collection-commission cut. */
+    public record CollectionSettlementOutcome(
+            LocalDate settlementStart, LocalDate settlementEnd,
+            LocalDate cutStart, LocalDate cutEnd,
+            int commissionsPaid, BigDecimal totalPaid) {
+    }
+
+    /**
+     * Settles the cut of {@code rule} (its {@link CollectionCommissionTier
+     * #getPartialSettlementPeriodStrategy()} inside its {@link
+     * CollectionCommissionTier#getFinalSettlementPeriodStrategy()} window)
+     * that contains {@code asOf} for {@code promoter}: marks every {@code
+     * APPROVED} {@link AppliesTo#MONTHLY} commission of that promoter falling
+     * inside the cut {@code PAID}.
+     *
+     * <p><b>Deliberately does NOT re-price</b> — unlike {@link #settleCut}
+     * (INSCRIPTION), a collection commission's amount/band is priced once,
+     * per transaction, at creation time ({@code
+     * CommissionService.priceByCollectionSpeed}, keyed on that single
+     * payment's days-late or amount against {@code CollectionCommissionTier})
+     * and never re-rated afterward — {@code CommissionReRatingService}
+     * explicitly excludes {@code AppliesTo.MONTHLY} rows. There is no
+     * cumulative volume metric to re-qualify against at cut time, so this
+     * method is a pure status transition, same as what {@code
+     * CommissionPayoutService} already does, just scoped to the rule's own
+     * cut window instead of "everything pending".</p>
+     *
+     * @param rule          the collection-commission-tier rule whose
+     *                      period-strategy config drives the cut calculation
+     *                      — never consulted for pricing, only for its four
+     *                      frequency axes.
+     * @param asOf          reference date — "today" in production, an
+     *                      arbitrary past date for manual/backfill runs.
+     * @param payoutReference free-text reference stamped on every row paid
+     *                      by this cut (same field {@code
+     *                      CommissionPayoutService} stamps).
+     * @param dryRun        when {@code true}, computes and returns the
+     *                      outcome without mutating any row.
+     */
+    @Transactional
+    public CollectionSettlementOutcome settleCollectionCut(Promoter promoter, CollectionCommissionTier rule, LocalDate asOf,
+                                                            String payoutReference, boolean dryRun) {
+        PeriodStrategies.Window settlementWindow = PeriodStrategies.window(
+                rule.getFinalSettlementPeriodStrategy().name(), asOf, rule.getFinalSettlementPeriodAnchor());
+        PeriodCutCalculator.Cut cut = PeriodCutCalculator.cutContaining(
+                rule.getPartialSettlementPeriodStrategy().name(), settlementWindow.start(), settlementWindow.end(), asOf,
+                rule.getPartialSettlementPeriodAnchor());
+
+        List<Commission> cutCommissions = commissionRepository.findApprovedForPromoterAppliesToInPeriod(
+                promoter.getId(), AppliesTo.MONTHLY, cut.start(), cut.end());
+
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        Instant now = Instant.now();
+        for (Commission c : cutCommissions) {
+            totalPaid = totalPaid.add(c.getAmount());
+            if (dryRun) {
+                continue;
+            }
+            Map<String, Object> before = auditRecorder.snapshot(c);
+            c.setStatus(CommissionStatus.PAID.name());
+            c.setPaidAt(now);
+            c.setPayoutReference(payoutReference);
+            auditRecorder.recordUpdate(c.getUuid(), before, auditRecorder.snapshot(c));
+        }
+
+        log.info("COLLECTION_COMMISSION_PERIODIC_SETTLEMENT promoter={} settlement={}..{} cut={}..{} dryRun={} "
+                        + "commissionsPaid={} totalPaid={}",
+                promoter.getReferralCode(), settlementWindow.start(), settlementWindow.end(),
+                cut.start(), cut.end(), dryRun, cutCommissions.size(), totalPaid);
+
+        return new CollectionSettlementOutcome(settlementWindow.start(), settlementWindow.end(),
+                cut.start(), cut.end(), cutCommissions.size(), totalPaid);
     }
 }

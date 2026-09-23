@@ -19,6 +19,16 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
     Optional<CollectionCommissionTier> findByUuid(UUID uuid);
 
     /**
+     * Every active tier, unscoped by basis/promoter type — powers {@code
+     * CollectionCommissionTierSettlementCutJobRunner} (phase 3 automation,
+     * cobranza gap), which needs every candidate rule to resolve "is today a
+     * cut-close day for this rule" before narrowing to any one promoter.
+     * Same pattern as {@code CommissionTierRepository#findByActiveTrue} /
+     * {@code HierarchyOverrideTierRepository#findByActiveTrue}.
+     */
+    List<CollectionCommissionTier> findByActiveTrue();
+
+    /**
      * Active buckets that cover {@code days} and are scoped to the promoter's
      * type: unscoped rows ({@code promoterType IS NULL}, apply to everyone) or
      * rows scoped to {@code promoterTypeId} — rows scoped to a *different*
