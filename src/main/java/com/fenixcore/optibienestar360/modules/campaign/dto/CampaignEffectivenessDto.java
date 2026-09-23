@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.campaign.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -20,10 +23,13 @@ import java.util.UUID;
 public record CampaignEffectivenessDto(
         UUID campaignUuid,
         String campaignName,
-        BigDecimal totalCollected,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal totalCollected,
         long transactionCount,
-        BigDecimal targetAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal targetAmount,
         Integer targetCount,
         BigDecimal amountAchievedPct,
-        BigDecimal countAchievedPct) {
+        BigDecimal countAchievedPct,
+        /** Currency both {@code totalCollected} and {@code targetAmount} were converted/expressed into — see {@link com.fenixcore.optibienestar360.modules.campaign.service.CampaignService#effectiveness}. */
+        @Display DisplayRef currency,
+        String currency_Code) {
 }
