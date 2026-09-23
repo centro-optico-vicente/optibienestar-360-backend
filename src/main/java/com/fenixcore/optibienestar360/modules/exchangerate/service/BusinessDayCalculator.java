@@ -49,6 +49,23 @@ public class BusinessDayCalculator {
         return ZonedDateTime.of(candidate, at, zone).toInstant();
     }
 
+    /**
+     * Returns the business day strictly before {@code valueDate} — the inverse
+     * of {@link #nextBusinessDayAt}. Used by {@code ExchangeRateIngestionService}
+     * to derive {@code operation_date} (BCV publish day) from the upstream
+     * API's {@code timestamp}, which is actually the "Fecha Valor" (vigency
+     * date), not the publish date.
+     */
+    public LocalDate previousBusinessDayBefore(LocalDate valueDate, Country country) {
+        List<Holiday> applicableRules = holidayRepository.findApplicableNationalRules(country);
+
+        LocalDate candidate = valueDate.minusDays(1);
+        while (!isBusinessDay(candidate, applicableRules)) {
+            candidate = candidate.minusDays(1);
+        }
+        return candidate;
+    }
+
     private boolean isBusinessDay(LocalDate date, List<Holiday> applicableRules) {
         DayOfWeek dow = date.getDayOfWeek();
         if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {

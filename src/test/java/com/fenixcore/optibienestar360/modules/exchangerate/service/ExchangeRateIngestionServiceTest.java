@@ -16,8 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 
@@ -90,16 +88,20 @@ class ExchangeRateIngestionServiceTest {
         when(countryRepository.findByIsoCode("VE")).thenReturn(Optional.of(venezuela()));
         stubConfiguredJob();
 
+        // timestamp is the BCV "Fecha Valor" (2026-09-04) — validFrom is that
+        // date at 08:00 Caracas directly; operationDate is the business day
+        // before it, resolved via previousBusinessDayBefore.
         when(apiClient.fetchRate("USD", BASE_URL)).thenReturn(Optional.of(response("USD", "805.42", "2026-09-04T16:00:00-04:00")));
         when(apiClient.fetchRate("EUR", BASE_URL)).thenReturn(Optional.of(response("EUR", "870.10", "2026-09-04T16:00:00-04:00")));
 
-        Instant validFrom = Instant.parse("2026-09-07T12:00:00Z");
-        when(businessDayCalculator.nextBusinessDayAt(eq(LocalDate.of(2026, 9, 4)), any(), eq(LocalTime.of(8, 0)), eq(ZoneId.of("America/Caracas"))))
-                .thenReturn(validFrom);
+        Instant validFrom = Instant.parse("2026-09-04T12:00:00Z");
+        LocalDate operationDate = LocalDate.of(2026, 9, 3);
+        when(businessDayCalculator.previousBusinessDayBefore(eq(LocalDate.of(2026, 9, 4)), any()))
+                .thenReturn(operationDate);
 
-        when(writer.insert(eq(usd), eq(ves), eq(new BigDecimal("805.42")), eq(LocalDate.of(2026, 9, 4)), eq(validFrom)))
+        when(writer.insert(eq(usd), eq(ves), eq(new BigDecimal("805.42")), eq(operationDate), eq(validFrom)))
                 .thenReturn(ExchangeRateWriter.WriteOutcome.INSERTED);
-        when(writer.insert(eq(eur), eq(ves), eq(new BigDecimal("870.10")), eq(LocalDate.of(2026, 9, 4)), eq(validFrom)))
+        when(writer.insert(eq(eur), eq(ves), eq(new BigDecimal("870.10")), eq(operationDate), eq(validFrom)))
                 .thenReturn(ExchangeRateWriter.WriteOutcome.INSERTED);
 
         IngestionSummary summary = service().fetchAndStoreLatest();
@@ -121,7 +123,7 @@ class ExchangeRateIngestionServiceTest {
         stubConfiguredJob();
 
         when(apiClient.fetchRate(any(), eq(BASE_URL))).thenReturn(Optional.of(response("X", "800.00", "2026-09-04T16:00:00-04:00")));
-        when(businessDayCalculator.nextBusinessDayAt(any(), any(), any(), any())).thenReturn(Instant.parse("2026-09-07T12:00:00Z"));
+        when(businessDayCalculator.previousBusinessDayBefore(any(), any())).thenReturn(LocalDate.of(2026, 9, 3));
         when(writer.insert(any(), any(), any(), any(), any())).thenReturn(ExchangeRateWriter.WriteOutcome.ALREADY_HAD_TODAY);
 
         IngestionSummary summary = service().fetchAndStoreLatest();
@@ -153,7 +155,7 @@ class ExchangeRateIngestionServiceTest {
         stubConfiguredJob();
 
         when(apiClient.fetchRate(any(), eq(BASE_URL))).thenReturn(Optional.of(response("X", "800.00", "2026-09-04T16:00:00-04:00")));
-        when(businessDayCalculator.nextBusinessDayAt(any(), any(), any(), any())).thenReturn(Instant.parse("2026-09-07T12:00:00Z"));
+        when(businessDayCalculator.previousBusinessDayBefore(any(), any())).thenReturn(LocalDate.of(2026, 9, 3));
         when(writer.insert(any(), any(), any(), any(), any()))
                 .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
 
@@ -175,9 +177,8 @@ class ExchangeRateIngestionServiceTest {
         when(apiClient.fetchRate("USD", BASE_URL)).thenReturn(Optional.empty());
         when(apiClient.fetchRate("EUR", BASE_URL)).thenReturn(Optional.of(response("EUR", "870.10", "2026-09-04T16:00:00-04:00")));
 
-        Instant validFrom = Instant.parse("2026-09-07T12:00:00Z");
-        when(businessDayCalculator.nextBusinessDayAt(eq(LocalDate.of(2026, 9, 4)), any(), eq(LocalTime.of(8, 0)), eq(ZoneId.of("America/Caracas"))))
-                .thenReturn(validFrom);
+        when(businessDayCalculator.previousBusinessDayBefore(eq(LocalDate.of(2026, 9, 4)), any()))
+                .thenReturn(LocalDate.of(2026, 9, 3));
         when(writer.insert(eq(eur), eq(ves), any(), any(), any())).thenReturn(ExchangeRateWriter.WriteOutcome.INSERTED);
 
         IngestionSummary summary = service().fetchAndStoreLatest();
