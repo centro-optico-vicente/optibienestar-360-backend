@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -67,7 +69,7 @@ class PublicPlanControllerIT {
         return new PublicPlanDto(
                 UUID.randomUUID(), "FAMILIAR", "Plan Familiar",
                 "Cobertura para el titular y su grupo familiar", PlanType.FAMILIAR,
-                new BigDecimal("20.00"), new BigDecimal("5.00"),
+                new BigDecimal("20.00"), new BigDecimal("5.00"), "USD",
                 3, 5, new BigDecimal("5.00"), 7);
     }
 
@@ -81,7 +83,11 @@ class PublicPlanControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].code").value("FAMILIAR"))
-                .andExpect(jsonPath("$.content[0].monthlyFee").value(5.00));
+                .andExpect(jsonPath("$.content[0].monthlyFee").value(5.00))
+                // Regression: without currency_Code wired through, DisplayFormatter
+                // silently fell back to VES even though plan pricing is USD (ADR 0008).
+                .andExpect(jsonPath("$.content[0].monthlyFee_Display", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("VES"))))
+                .andExpect(jsonPath("$.content[0].monthlyFee_Display", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Bs"))));
     }
 
     @Test

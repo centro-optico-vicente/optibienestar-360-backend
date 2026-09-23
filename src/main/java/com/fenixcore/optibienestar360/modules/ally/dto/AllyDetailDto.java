@@ -34,8 +34,12 @@ public record AllyDetailDto(
         String email,
         String phone,
         String website,
+        String whatsapp,
+        String instagram,
+        String facebook,
         String address,
         CityDto city,
+        String googleMapsUrl,
 
         // ─── Branding ──────────────────────────────────────────────────────
         String logoUrl,

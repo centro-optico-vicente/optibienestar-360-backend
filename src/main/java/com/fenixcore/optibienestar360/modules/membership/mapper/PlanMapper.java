@@ -19,5 +19,6 @@ public interface PlanMapper {
     PlanDto toDto(Plan plan);
 
     /** Sanitized projection for the anonymous pricing surface — see {@link PublicPlanDto}. */
+    @Mapping(target = "currency_Code", source = "currency.code")
     PublicPlanDto toPublicDto(Plan plan);
 }

@@ -77,6 +77,15 @@ public class Ally extends BaseEntity {
     @Column(length = 255)
     private String website;
 
+    @Column(length = 30)
+    private String whatsapp;
+
+    @Column(length = 255)
+    private String instagram;
+
+    @Column(length = 255)
+    private String facebook;
+
     // ─── Address ────────────────────────────────────────────────────────────
 
     @Column(columnDefinition = "text")
@@ -85,6 +94,9 @@ public class Ally extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "city_id")
     private City city;
+
+    @Column(name = "google_maps_url", length = 500)
+    private String googleMapsUrl;
 
     // ─── Branding ───────────────────────────────────────────────────────────
 

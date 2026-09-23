@@ -27,7 +27,10 @@ import java.util.UUID;
  * (INDIVIDUAL / FAMILIAR / CORPORATIVO) — public-facing by nature, useful for
  * per-tier styling. Beneficiary fields are selling points straight off the
  * flyer ("incluye 3 beneficiarios, hasta 5, +$5 por adicional"), so they stay
- * in.</p>
+ * in. {@code currency_Code} rides along solely so the {@code MONEY} fields
+ * format in the plan's real currency (ADR 0008: plan pricing is USD today)
+ * instead of {@link com.fenixcore.optibienestar360.core.display.DisplayFormatter}'s
+ * VES fallback.</p>
  */
 public record PublicPlanDto(
         UUID uuid,
@@ -37,13 +40,14 @@ public record PublicPlanDto(
         @Display(Display.Kind.ENUM) PlanType type,
 
         // Pricing
-        @Display(Display.Kind.MONEY) BigDecimal inscriptionFee,
-        @Display(Display.Kind.MONEY) BigDecimal monthlyFee,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal inscriptionFee,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal monthlyFee,
+        String currency_Code,
 
         // Beneficiaries (public selling points)
         int includedBeneficiaries,
         Integer maxBeneficiaries,
-        @Display(Display.Kind.MONEY) BigDecimal extraBeneficiaryInscriptionFee,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal extraBeneficiaryInscriptionFee,
 
         int gracePeriodDays
 ) {}

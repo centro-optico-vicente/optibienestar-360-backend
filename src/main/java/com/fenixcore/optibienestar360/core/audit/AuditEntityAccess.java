@@ -66,7 +66,9 @@ public class AuditEntityAccess {
 		Map.entry("occupation", "OCCUPATION_RECORD_AUDIT_VIEW"),
 		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_RECORD_AUDIT_VIEW"),
 		Map.entry("service_category", "SERVICE_CATEGORY_RECORD_AUDIT_VIEW"),
-		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"))
+		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"),
+		Map.entry("terms_version", "TERMS_RECORD_AUDIT_VIEW"),
+		Map.entry("terms_acceptance", "TERMS_RECORD_AUDIT_VIEW"))
 	;
 
 	private static final String REPORT_VIEW_ALL = "REPORT_AUDIT_VIEW_ALL";

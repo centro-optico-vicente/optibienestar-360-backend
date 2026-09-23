@@ -36,6 +36,10 @@ public record PublicAllyDetailDto(
         String description,
         String website,
         String phone,
+        String whatsapp,
+        String instagram,
+        String facebook,
+        String googleMapsUrl,
 
         // Specialties (just labels)
         List<String> specialtyNames,

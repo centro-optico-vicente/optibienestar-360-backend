@@ -18,6 +18,9 @@ public record OrganizationUpdateRequest(
         @Size(max = 200) String legalName,
         @Size(max = 20) String taxIdentifier,
         @Size(max = 255) String logoKey,
+        @Size(max = 30) String whatsapp,
+        @Size(max = 255) String instagram,
+        @Size(max = 255) String facebook,
         UUID officialCurrencyUuid,
         UUID referenceCurrencyUuid
 ) {}

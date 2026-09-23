@@ -34,9 +34,13 @@ public record AllyCreateRequest(
         @Email @Size(max = 255) String email,
         @Size(max = 30) String phone,
         @Size(max = 255) String website,
+        @Size(max = 30) String whatsapp,
+        @Size(max = 255) String instagram,
+        @Size(max = 255) String facebook,
 
         String address,
         UUID cityUuid,
+        @Size(max = 500) String googleMapsUrl,
 
         @Size(max = 500) String logoUrl,
         String description,

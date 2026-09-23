@@ -82,7 +82,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null));
+                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null));
 
         assertThat(result.name()).isEqualTo("Nuevo nombre");
         assertThat(result.legalName()).isEqualTo("Nuevo nombre legal");
@@ -103,7 +103,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, eurUuid, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -119,7 +119,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, bogus, null)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
