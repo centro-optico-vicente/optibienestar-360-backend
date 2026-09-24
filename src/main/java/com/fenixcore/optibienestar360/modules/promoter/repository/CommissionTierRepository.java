@@ -40,11 +40,12 @@ public interface CommissionTierRepository extends JpaRepository<CommissionTier, 
      * promoter-type-specific match always outranks a generic one (project chat
      * 2026-08-07), then highest-threshold first so the engine can pick the top
      * qualifying tier by iterating within that precedence group. Ties broken by
-     * id for determinism. {@code DISTINCT} guards against row duplication from
-     * the {@code promoterTypes} join.
+     * id for determinism. (DISTINCT is omitted because the promoterTypes condition
+     * matches at most one promoter type per tier, preventing duplicates while
+     * avoiding PostgreSQL's SELECT DISTINCT ORDER BY restriction).
      */
     @Query("""
-            SELECT DISTINCT t FROM CommissionTier t
+            SELECT t FROM CommissionTier t
             LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND (t.planType = :planType OR t.planType IS NULL)
