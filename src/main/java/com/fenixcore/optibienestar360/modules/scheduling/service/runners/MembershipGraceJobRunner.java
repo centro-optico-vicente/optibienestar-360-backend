@@ -1,9 +1,14 @@
 package com.fenixcore.optibienestar360.modules.scheduling.service.runners;
 
 import com.fenixcore.optibienestar360.core.util.AppTimeZone;
+import com.fenixcore.optibienestar360.core.util.ScheduledJobParams;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver.RecipientType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJob;
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ScheduledJobRunner;
@@ -41,7 +46,10 @@ public class MembershipGraceJobRunner implements ScheduledJobRunner {
 
     private static final String TEMPLATE = "payment-overdue";
     private static final String SUBJECT_KEY = "email.payment.overdue.subject";
-    private static final int DAYS_BEFORE_EXPIRY = 3;
+    private static final String PROMOTER_TEMPLATE = "collection-reminder-promoter";
+    private static final String PROMOTER_SUBJECT_KEY = "email.collection.reminder.promoter.subject";
+    private static final int DEFAULT_DAYS_BEFORE_GRACE_END = 3;
+    private static final int DEFAULT_DAYS_BEFORE_ADVISOR_NOTIFY = 3;
 
     private final ScheduledJobRepository jobRepository;
     private final MembershipRepository membershipRepository;
@@ -55,20 +63,29 @@ public class MembershipGraceJobRunner implements ScheduledJobRunner {
     @Override
     @Transactional
     public JobRunResult run() {
-        LocalDate today = LocalDate.now(resolveZone());
+        ScheduledJob job = jobRepository.findByCode(CODE).orElse(null);
+        LocalDate today = LocalDate.now(resolveZone(job));
+        int daysBeforeGraceEnd = job != null
+                ? ScheduledJobParams.intParam(job.getParameters(), "daysBeforeGraceEnd", DEFAULT_DAYS_BEFORE_GRACE_END)
+                : DEFAULT_DAYS_BEFORE_GRACE_END;
+        int daysBeforeAdvisorNotify = job != null
+                ? ScheduledJobParams.intParam(job.getParameters(), "daysBeforeAdvisorNotify", DEFAULT_DAYS_BEFORE_ADVISOR_NOTIFY)
+                : DEFAULT_DAYS_BEFORE_ADVISOR_NOTIFY;
         List<Membership> suspended = membershipRepository
                 .findByActiveTrueAndStatus(LifecycleStatus.SUSPENDED.name());
 
         int notified = 0;
         int skipped = 0;
         for (Membership membership : suspended) {
-            if (!isNudgeDay(membership, today)) {
-                continue;
+            if (isNudgeDay(membership, today, daysBeforeGraceEnd)) {
+                if (enqueuer.enqueue(membership, TEMPLATE, SUBJECT_KEY)) {
+                    notified++;
+                } else {
+                    skipped++;
+                }
             }
-            if (enqueuer.enqueue(membership, TEMPLATE, SUBJECT_KEY)) {
-                notified++;
-            } else {
-                skipped++;
+            if (isAdvisorNotifyDay(membership, today, daysBeforeAdvisorNotify)) {
+                notifyPromoter(membership);
             }
         }
 
@@ -81,24 +98,41 @@ public class MembershipGraceJobRunner implements ScheduledJobRunner {
         return JobRunResult.success(summary);
     }
 
-    /** The per-membership nudge day: ~{@value #DAYS_BEFORE_EXPIRY} days before grace expiry, clamped. */
-    private static boolean isNudgeDay(Membership membership, LocalDate today) {
-        int offset = Math.max(1, membership.getGracePeriodDays() - DAYS_BEFORE_EXPIRY);
+    /** Best-effort — a member outside any promoter's downline (or with no promoter email) is simply skipped. */
+    private void notifyPromoter(Membership membership) {
+        Member member = membership.getMember();
+        Promoter promoter = member != null ? member.getPromoter() : null;
+        if (promoter == null) {
+            return;
+        }
+        enqueuer.enqueueToRecipient(promoter.getEmail(), null, membership,
+                PROMOTER_TEMPLATE, PROMOTER_SUBJECT_KEY, RecipientType.PROMOTER);
+    }
+
+    /** The per-membership member nudge day: ~{@code daysBeforeGraceEnd} days before grace expiry, clamped. */
+    private static boolean isNudgeDay(Membership membership, LocalDate today, int daysBeforeGraceEnd) {
+        int offset = Math.max(1, membership.getGracePeriodDays() - daysBeforeGraceEnd);
         LocalDate nudgeDay = membership.getNextDueDate().plusDays(offset);
         return today.isEqual(nudgeDay);
     }
 
-    private ZoneId resolveZone() {
-        return jobRepository.findByCode(CODE)
-                .map(job -> {
-                    try {
-                        return ZoneId.of(job.getTimezone());
-                    } catch (RuntimeException ex) {
-                        log.warn("Invalid timezone '{}' on {} — falling back to America/Caracas",
-                                job.getTimezone(), CODE);
-                        return AppTimeZone.ZONE;
-                    }
-                })
-                .orElse(AppTimeZone.ZONE);
+    /** Same shape as {@link #isNudgeDay}, its own configurable offset for the promoter/advisor notice. */
+    private static boolean isAdvisorNotifyDay(Membership membership, LocalDate today, int daysBeforeAdvisorNotify) {
+        int offset = Math.max(1, membership.getGracePeriodDays() - daysBeforeAdvisorNotify);
+        LocalDate notifyDay = membership.getNextDueDate().plusDays(offset);
+        return today.isEqual(notifyDay);
+    }
+
+    private ZoneId resolveZone(ScheduledJob job) {
+        if (job == null) {
+            return AppTimeZone.ZONE;
+        }
+        try {
+            return ZoneId.of(job.getTimezone());
+        } catch (RuntimeException ex) {
+            log.warn("Invalid timezone '{}' on {} — falling back to America/Caracas",
+                    job.getTimezone(), CODE);
+            return AppTimeZone.ZONE;
+        }
     }
 }

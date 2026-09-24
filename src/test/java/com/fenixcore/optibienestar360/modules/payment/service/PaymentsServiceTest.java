@@ -13,6 +13,8 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -39,6 +41,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -69,13 +72,15 @@ class PaymentsServiceTest {
     @Mock private PresignedUrlPolicy presignedUrlPolicy;
     @Mock private FileValidationService fileValidationService;
     @Mock private DefaultSortResolver defaultSortResolver;
+    @Mock private MembershipChargeService membershipChargeService;
+    @Mock private NotificationChannelResolver notificationChannelResolver;
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
                 promoterRepository, membershipRepository, memberRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
                 validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
-                presignedUrlPolicy, fileValidationService);
+                presignedUrlPolicy, fileValidationService, membershipChargeService, notificationChannelResolver);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();
@@ -171,6 +176,23 @@ class PaymentsServiceTest {
         sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
 
         assertThat(member.getConfirmedAt()).isNull();
+    }
+
+    @Test
+    void approve_appliesMembershipCharges_forCollectionPayment() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
+
+        verify(membershipChargeService).applyPayment(payment);
     }
 
     private static Payment pending(BigDecimal amount) {

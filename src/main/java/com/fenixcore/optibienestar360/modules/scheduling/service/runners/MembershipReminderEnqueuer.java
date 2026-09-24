@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.scheduling.service.runners;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.notification.dto.NotificationEnqueueCommand;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver.RecipientType;
 import com.fenixcore.optibienestar360.modules.notification.service.NotificationService;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class MembershipReminderEnqueuer {
 
     private final NotificationService notificationService;
     private final MessageSource messageSource;
+    private final NotificationChannelResolver channelResolver;
 
     /**
      * @return {@code true} when a notification was enqueued; {@code false} when
@@ -54,18 +57,39 @@ public class MembershipReminderEnqueuer {
             return false;
         }
 
-        Locale locale = localeOf(person.getLocale());
-        String subject = messageSource.getMessage(subjectKey, null, locale);
+        return enqueueToRecipient(email, person.getLocale(), membership, templateCode, subjectKey, RecipientType.MEMBER);
+    }
+
+    /**
+     * Same reminder content, sent to an explicit recipient (e.g. the member's
+     * promoter, V153) instead of resolving it from {@code membership.member.person}.
+     * Shared by both membership-reminder job runners.
+     *
+     * @return {@code true} when a notification was enqueued; {@code false}
+     *         when {@code email} is null/blank (skipped).
+     */
+    public boolean enqueueToRecipient(String email, String locale, Membership membership,
+                                       String templateCode, String subjectKey, RecipientType recipientType) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        // No-op today (EMAIL-only) — the extension point for a future SMS/WhatsApp channel.
+        channelResolver.resolve(recipientType, templateCode);
+
+        Locale resolvedLocale = localeOf(locale);
+        String subject = messageSource.getMessage(subjectKey, null, resolvedLocale);
 
         Map<String, Object> vars = new HashMap<>();
-        vars.put("fullName", Optional.ofNullable(person.getFullName()).orElse(""));
+        Person person = personFor(membership);
+        vars.put("fullName", Optional.ofNullable(person != null ? person.getFullName() : null).orElse(""));
         vars.put("planName", membership.getPlan().getName());
         vars.put("nextDueDate", membership.getNextDueDate());
         vars.put("monthlyFee", membership.getMonthlyFee());
         vars.put("gracePeriodDays", membership.getGracePeriodDays());
 
         notificationService.enqueue(new NotificationEnqueueCommand(
-                email, null, locale.getLanguage(), templateCode, subject, vars,
+                email, null, resolvedLocale.getLanguage(), templateCode, subject, vars,
                 SOURCE_MODULE, membership.getUuid(), null, false));
         return true;
     }

@@ -65,4 +65,10 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
      * grace length is a per-row snapshot.
      */
     List<Membership> findByActiveTrueAndStatus(String status);
+
+    /**
+     * Charge-generation job (V153): live memberships still expected to pay —
+     * ACTIVE or SUSPENDED (EXPIRED/CANCELED never get a new charge row).
+     */
+    List<Membership> findByActiveTrueAndStatusIn(List<String> statuses);
 }

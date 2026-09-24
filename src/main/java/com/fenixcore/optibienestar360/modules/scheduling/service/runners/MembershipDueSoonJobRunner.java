@@ -1,9 +1,14 @@
 package com.fenixcore.optibienestar360.modules.scheduling.service.runners;
 
 import com.fenixcore.optibienestar360.core.util.AppTimeZone;
+import com.fenixcore.optibienestar360.core.util.ScheduledJobParams;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver.RecipientType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.scheduling.entity.ScheduledJob;
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ScheduledJobRunner;
@@ -37,7 +42,9 @@ public class MembershipDueSoonJobRunner implements ScheduledJobRunner {
 
     private static final String TEMPLATE = "payment-reminder";
     private static final String SUBJECT_KEY = "email.payment.reminder.subject";
-    private static final int DAYS_BEFORE_DUE = 3;
+    private static final String PROMOTER_TEMPLATE = "collection-reminder-promoter";
+    private static final String PROMOTER_SUBJECT_KEY = "email.collection.reminder.promoter.subject";
+    private static final int DEFAULT_DAYS_BEFORE_DUE = 3;
 
     private final ScheduledJobRepository jobRepository;
     private final MembershipRepository membershipRepository;
@@ -51,8 +58,12 @@ public class MembershipDueSoonJobRunner implements ScheduledJobRunner {
     @Override
     @Transactional
     public JobRunResult run() {
-        LocalDate today = LocalDate.now(resolveZone());
-        LocalDate dueDate = today.plusDays(DAYS_BEFORE_DUE);
+        ScheduledJob job = jobRepository.findByCode(CODE).orElse(null);
+        LocalDate today = LocalDate.now(resolveZone(job));
+        int daysBeforeDue = job != null
+                ? ScheduledJobParams.intParam(job.getParameters(), "daysBeforeDue", DEFAULT_DAYS_BEFORE_DUE)
+                : DEFAULT_DAYS_BEFORE_DUE;
+        LocalDate dueDate = today.plusDays(daysBeforeDue);
         List<Membership> due = membershipRepository
                 .findByActiveTrueAndStatusAndNextDueDate(LifecycleStatus.ACTIVE.name(), dueDate);
 
@@ -64,6 +75,7 @@ public class MembershipDueSoonJobRunner implements ScheduledJobRunner {
             } else {
                 skipped++;
             }
+            notifyPromoter(membership);
         }
 
         Map<String, Object> summary = new HashMap<>();
@@ -76,17 +88,27 @@ public class MembershipDueSoonJobRunner implements ScheduledJobRunner {
         return JobRunResult.success(summary);
     }
 
-    private ZoneId resolveZone() {
-        return jobRepository.findByCode(CODE)
-                .map(job -> {
-                    try {
-                        return ZoneId.of(job.getTimezone());
-                    } catch (RuntimeException ex) {
-                        log.warn("Invalid timezone '{}' on {} — falling back to America/Caracas",
-                                job.getTimezone(), CODE);
-                        return AppTimeZone.ZONE;
-                    }
-                })
-                .orElse(AppTimeZone.ZONE);
+    /** Best-effort — a member outside any promoter's downline (or with no promoter email) is simply skipped. */
+    private void notifyPromoter(Membership membership) {
+        Member member = membership.getMember();
+        Promoter promoter = member != null ? member.getPromoter() : null;
+        if (promoter == null) {
+            return;
+        }
+        enqueuer.enqueueToRecipient(promoter.getEmail(), null, membership,
+                PROMOTER_TEMPLATE, PROMOTER_SUBJECT_KEY, RecipientType.PROMOTER);
+    }
+
+    private ZoneId resolveZone(ScheduledJob job) {
+        if (job == null) {
+            return AppTimeZone.ZONE;
+        }
+        try {
+            return ZoneId.of(job.getTimezone());
+        } catch (RuntimeException ex) {
+            log.warn("Invalid timezone '{}' on {} — falling back to America/Caracas",
+                    job.getTimezone(), CODE);
+            return AppTimeZone.ZONE;
+        }
     }
 }

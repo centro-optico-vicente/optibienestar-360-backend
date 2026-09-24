@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 8px; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .info-box { background: #eef7f1; padding: 14px; border-left: 4px solid #1f7a4d; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>New payment submitted, pending review</h2>
+
+    <p>Hello,</p>
+
+    <div class="info-box">
+        <p>
+            <strong th:text="${fullName}"></strong> submitted a payment that
+            needs review.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Plan:</span>
+        <span th:text="${planName}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Amount:</span>
+        <span th:text="${amount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field" th:if="${inscription}">
+        <span class="label">Type:</span>
+        <span>Inscription fee</span>
+    </div>
+    <div class="field" th:if="${!inscription and appliedPeriod != null}">
+        <span class="label">Period covered:</span>
+        <span th:text="${#temporals.format(appliedPeriod, 'yyyy-MM')}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Payment date:</span>
+        <span th:text="${#temporals.format(paymentDate, 'yyyy-MM-dd')}"></span>
+    </div>
+
+    <p>Please review it from the admin panel when you get a chance.</p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>

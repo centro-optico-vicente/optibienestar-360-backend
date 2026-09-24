@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.notification.dto.NotificationEnqueueCommand;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver;
 import com.fenixcore.optibienestar360.modules.notification.service.NotificationService;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,10 @@ class MembershipReminderEnqueuerTest {
 
     @Mock private NotificationService notificationService;
     @Mock private MessageSource messageSource;
+    @Mock private NotificationChannelResolver channelResolver;
 
     private MembershipReminderEnqueuer sut() {
-        return new MembershipReminderEnqueuer(notificationService, messageSource);
+        return new MembershipReminderEnqueuer(notificationService, messageSource, channelResolver);
     }
 
     @Test

@@ -191,6 +191,18 @@ public class Payment extends BaseEntity {
     @Column(name = "applied_period")
     private LocalDate appliedPeriod;
 
+    /**
+     * First day of the LAST month covered by a multi-month advance payment
+     * (V154) — {@code null} means single-month, the historical behavior
+     * unchanged. When set, {@link #appliedPeriod} through this (inclusive)
+     * form the advance's covered range; {@code MembershipChargeService}
+     * settles a {@code MembershipCharge} row for every month in between
+     * against this one payment, so the commission engine still calculates
+     * against the payment's full amount (never fractioned per month).
+     */
+    @Column(name = "coverage_through_period")
+    private LocalDate coverageThroughPeriod;
+
     // ─── Proof of payment (uploaded to R2) ─────────────────────────────────
 
     @Column(name = "support_file_url", length = 500)

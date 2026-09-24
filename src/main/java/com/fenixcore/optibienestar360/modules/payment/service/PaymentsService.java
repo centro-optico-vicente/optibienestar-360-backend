@@ -23,6 +23,9 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver;
+import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver.RecipientType;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest;
@@ -51,6 +54,7 @@ import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
@@ -151,6 +155,12 @@ public class PaymentsService {
     private final CorporateBillingResolver corporateBillingResolver;
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final FileValidationService fileValidationService;
+    private final MembershipChargeService membershipChargeService;
+    private final NotificationChannelResolver notificationChannelResolver;
+
+    /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
+    @Value("${mail.admin}")
+    private String adminEmail;
 
     /** Compatibility constructor retained for existing unit tests and integrations. */
     public PaymentsService(
@@ -173,13 +183,16 @@ public class PaymentsService {
 		com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService hierarchyOverrideService,
 		CorporateBillingResolver corporateBillingResolver,
 		PresignedUrlPolicy presignedUrlPolicy,
-		FileValidationService fileValidationService
+		FileValidationService fileValidationService,
+		MembershipChargeService membershipChargeService,
+		NotificationChannelResolver notificationChannelResolver
 	) {
         this(paymentRepository, paymentCategoryRepository, paymentMethodRepository, promoterRepository,
                 null, null, membershipRepository, memberRepository, userRepository, currencyRepository,
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService,
                 messageSource, validatorCacheService, commissionService, hierarchyOverrideService,
-                corporateBillingResolver, presignedUrlPolicy, fileValidationService);
+                corporateBillingResolver, presignedUrlPolicy, fileValidationService,
+                membershipChargeService, notificationChannelResolver);
     }
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -565,6 +578,7 @@ public class PaymentsService {
 
         Payment saved = paymentRepository.save(payment);
         dispatchNotification(saved, "payment-received", "email.payment.received.subject");
+        notifySubmissionToPromoterAndAdmin(saved);
         return mapper.toDto(saved);
     }
 
@@ -728,9 +742,24 @@ public class PaymentsService {
             validatorCacheService.evictForMembership(payment.getMembership());
             attributeCommission(payment);
             confirmMemberOnFirstApprovedPayment(payment);
+            applyMembershipCharges(payment);
         }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
+        notifyPromoterOfDecision(payment, "APPROVED");
         return mapper.toDto(payment);
+    }
+
+    /**
+     * Settles the {@code MembershipCharge} row(s) this collection covers
+     * (V153) — best-effort, same reasoning as {@link #attributeCommission}: a
+     * failure here must never roll back an already-committed payment review.
+     */
+    private void applyMembershipCharges(Payment payment) {
+        try {
+            membershipChargeService.applyPayment(payment);
+        } catch (RuntimeException ex) {
+            log.error("Failed to apply membership charges for payment {}", payment.getUuid(), ex);
+        }
     }
 
     /**
@@ -791,6 +820,7 @@ public class PaymentsService {
             validatorCacheService.evictForMembership(payment.getMembership());
         }
         dispatchNotification(payment, "payment-rejected", "email.payment.rejected.subject");
+        notifyPromoterOfDecision(payment, "REJECTED");
         return mapper.toDto(payment);
     }
 
@@ -959,10 +989,20 @@ public class PaymentsService {
 
         Locale locale = resolveLocale(person);
         String subject = messageSource.getMessage(subjectKey, null, locale);
+        Map<String, Object> vars = buildTemplateVars(payment, person);
 
+        try {
+            emailService.sendTemplated(to, subject, template, locale, vars);
+        } catch (RuntimeException ex) {
+            log.error("Failed to dispatch {} email for payment {}", template, payment.getUuid(), ex);
+        }
+    }
+
+    /** Shared template-var shape for every payment notification (member, promoter or admin). */
+    private static Map<String, Object> buildTemplateVars(Payment payment, Person person) {
         Map<String, Object> vars = new HashMap<>();
-        vars.put("fullName", Optional.ofNullable(person.getFullName()).orElse(""));
-        vars.put("planName", payment.getMembership().getPlan().getName());
+        vars.put("fullName", person != null ? Optional.ofNullable(person.getFullName()).orElse("") : "");
+        vars.put("planName", payment.getMembership() != null ? payment.getMembership().getPlan().getName() : null);
         vars.put("amount", payment.getAmount());
         vars.put("currency", payment.getCurrency().getCode());
         // V117: method/reference moved to payment_lines — first (today, only) line.
@@ -973,12 +1013,63 @@ public class PaymentsService {
         vars.put("inscription", payment.isInscription());
         vars.put("appliedPeriod", payment.getAppliedPeriod());
         vars.put("reviewReason", payment.getReviewReason());
+        return vars;
+    }
 
-        try {
-            emailService.sendTemplated(to, subject, template, locale, vars);
-        } catch (RuntimeException ex) {
-            log.error("Failed to dispatch {} email for payment {}", template, payment.getUuid(), ex);
+    /**
+     * Notifies the paying affiliate's promoter (V153) of an approve/reject
+     * decision — best-effort, same swallow-and-log policy as
+     * {@link #dispatchNotification}: a missing promoter link, a promoter
+     * without an email, or an SMTP failure must never affect the already-
+     * committed review.
+     */
+    private void notifyPromoterOfDecision(Payment payment, String decision) {
+        Promoter promoter = promoterFor(payment);
+        if (promoter == null || promoter.getEmail() == null || promoter.getEmail().isBlank()) {
+            return;
         }
+        try {
+            notificationChannelResolver.resolve(RecipientType.PROMOTER, "payment-decision-promoter");
+            Locale locale = Locale.forLanguageTag("es");
+            String subject = messageSource.getMessage("email.payment.decision.promoter.subject", null, locale);
+            Map<String, Object> vars = buildTemplateVars(payment, personFor(payment));
+            vars.put("decision", decision);
+            emailService.sendTemplated(promoter.getEmail(), subject, "payment-decision-promoter", locale, vars);
+        } catch (RuntimeException ex) {
+            log.error("Failed to notify promoter of {} decision for payment {}", decision, payment.getUuid(), ex);
+        }
+    }
+
+    /**
+     * Notifies the affiliate's promoter and the {@code mail.admin} recipient
+     * (V153) that a new collection was submitted and needs review —
+     * best-effort, same swallow-and-log policy as {@link #dispatchNotification}.
+     */
+    private void notifySubmissionToPromoterAndAdmin(Payment payment) {
+        try {
+            Locale locale = Locale.forLanguageTag("es");
+            String subject = messageSource.getMessage("email.payment.submitted.promoter_admin.subject", null, locale);
+            Map<String, Object> vars = buildTemplateVars(payment, personFor(payment));
+
+            Promoter promoter = promoterFor(payment);
+            if (promoter != null && promoter.getEmail() != null && !promoter.getEmail().isBlank()) {
+                notificationChannelResolver.resolve(RecipientType.PROMOTER, "payment-submitted-promoter-admin");
+                emailService.sendTemplated(promoter.getEmail(), subject, "payment-submitted-promoter-admin", locale, vars);
+            }
+            if (adminEmail != null && !adminEmail.isBlank()) {
+                notificationChannelResolver.resolve(RecipientType.ADMIN, "payment-submitted-promoter-admin");
+                emailService.sendTemplated(adminEmail, subject, "payment-submitted-promoter-admin", locale, vars);
+            }
+        } catch (RuntimeException ex) {
+            log.error("Failed to notify promoter/admin of new payment submission {}", payment.getUuid(), ex);
+        }
+    }
+
+    private static Promoter promoterFor(Payment payment) {
+        Membership membership = payment.getMembership();
+        if (membership == null) return null;
+        Member member = membership.getMember();
+        return member != null ? member.getPromoter() : null;
     }
 
     private static Person personFor(Payment payment) {
