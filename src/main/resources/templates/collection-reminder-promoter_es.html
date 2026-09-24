@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #eef7f1; padding: 14px; border-left: 4px solid #1f7a4d; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Un afiliado de tu red tiene una cuota por vencer</h2>
+
+    <p>Hola,</p>
+
+    <div class="info-box">
+        <p>
+            Tu afiliado <strong th:text="${fullName}"></strong>, del plan
+            <strong th:text="${planName}"></strong>, tiene una cuota que vence el
+            <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Monto:</span>
+        <span th:text="'$' + ${monthlyFee}"></span>
+    </div>
+
+    <p>
+        Te lo compartimos para que puedas darle seguimiento y ayudarlo a mantener
+        su membresía activa.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #eef7f1; padding: 14px; border-left: 4px solid #1f7a4d; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>One of your affiliates has a payment coming due</h2>
+
+    <p>Hello,</p>
+
+    <div class="info-box">
+        <p>
+            Your affiliate <strong th:text="${fullName}"></strong>, on the
+            <strong th:text="${planName}"></strong> plan, has a fee due on
+            <strong th:text="${#temporals.format(nextDueDate, 'yyyy-MM-dd')}"></strong>.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Amount:</span>
+        <span th:text="'$' + ${monthlyFee}"></span>
+    </div>
+
+    <p>
+        Sharing this so you can follow up and help them keep their membership
+        active.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>
