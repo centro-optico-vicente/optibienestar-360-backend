@@ -84,7 +84,7 @@ public class AlliesService {
 		Ally.class,
 		Map.of(
 			// ADR 0014: the public sort key for a FK column is its `_Display` alias.
-			"allyType_Display", "allyType.name",
+			// allyType is no longer sortable here — it's multi-valued (M:N) since V157.
 			"city_Display", "city.name"
 		)
 	);
@@ -222,7 +222,7 @@ public class AlliesService {
 
         Ally ally = new Ally();
         ally.setName(req.name());
-        ally.setAllyType(resolveAllyType(req.allyTypeUuid()));
+        ally.setAllyTypes(resolveAllyTypes(req.allyTypeUuids()));
         ally.setTaxDocumentType(req.taxDocumentType());
         ally.setTaxDocumentNumber(req.taxDocumentNumber());
         ally.setEmail(req.email());
@@ -261,7 +261,16 @@ public class AlliesService {
         }
 
         if (req.name()                != null) ally.setName(req.name());
-        if (req.allyTypeUuid()        != null) ally.setAllyType(resolveAllyType(req.allyTypeUuid()));
+        // allyTypeUuids: null = leave untouched; non-null = replace, but never
+        // to an empty set — an ally must always keep at least one type.
+        if (req.allyTypeUuids() != null) {
+            if (req.allyTypeUuids().isEmpty()) {
+                throw new IllegalArgumentException("ally_type.min_required");
+            }
+            Set<AllyType> resolvedTypes = resolveAllyTypes(req.allyTypeUuids());
+            ally.getAllyTypes().clear();
+            ally.getAllyTypes().addAll(resolvedTypes);
+        }
         if (req.taxDocumentType()     != null) ally.setTaxDocumentType(req.taxDocumentType());
         if (req.taxDocumentNumber()   != null) ally.setTaxDocumentNumber(req.taxDocumentNumber());
         if (req.email()               != null) ally.setEmail(req.email());
@@ -419,6 +428,83 @@ public class AlliesService {
         ally.getProfessions().removeIf(ms -> ms.getUuid().equals(professionUuid));
     }
 
+    // ─── Ally types sub-resource (single-item add / remove) ──────────────────
+
+    /** Client-facing sortable keys for {@link #listAllyTypes} — {@code AllyType} has no relations, only its own scalar columns. */
+    private static final Map<String, SortFieldValidator.SortableField> ALLY_TYPE_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyType.class, Map.of());
+
+    /**
+     * List the ally types currently attached to the ally. Mirrors the
+     * {@code allyTypes} field of {@link AllyDetailDto} but exposed as a
+     * dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/ally-types}
+     * endpoint family.
+     */
+    public List<com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto>
+            listAllyTypes(UUID allyUuid, Pageable pageable) {
+        Ally ally = findManaged(allyUuid);
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "ally_ally_type", pageable);
+        Sort sort = SortFieldValidator.resolve(defaulted, ALLY_TYPE_SORTABLE_FIELDS, "ally_ally_type").getSort();
+        // `Ally.allyTypes` is an in-memory `@ManyToMany` Set (no natural order, not backed
+        // by a repository query) — sorted here by reflection instead of at the DB.
+        List<AllyType> allyTypes = new ArrayList<>(ally.getAllyTypes());
+        allyTypes.sort(allyTypeComparator(sort));
+        return allyTypes.stream().map(mapper::toAllyTypeDto).toList();
+    }
+
+    private static Comparator<AllyType> allyTypeComparator(Sort sort) {
+        Comparator<AllyType> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<AllyType> fieldComparator = switch (order.getProperty()) {
+                case "code" -> Comparator.comparing(AllyType::getCode, String.CASE_INSENSITIVE_ORDER);
+                case "name" -> Comparator.comparing(AllyType::getName, String.CASE_INSENSITIVE_ORDER);
+                case "active" -> Comparator.comparing(AllyType::isActive);
+                case "createdAt" -> Comparator.comparing(AllyType::getCreatedAt);
+                default -> null;
+            };
+            if (fieldComparator == null) {
+                continue;
+            }
+            if (order.isDescending()) {
+                fieldComparator = fieldComparator.reversed();
+            }
+            comparator = comparator == null ? fieldComparator : comparator.thenComparing(fieldComparator);
+        }
+        return comparator != null ? comparator
+                : Comparator.comparing(AllyType::getCreatedAt).reversed();
+    }
+
+    /**
+     * Attach a single ally type to the ally. Idempotent — re-adding an
+     * already-present type is a no-op and still returns 200.
+     */
+    @Transactional
+    public void addAllyType(UUID allyUuid, UUID allyTypeUuid) {
+        Ally ally = findManaged(allyUuid);
+        AllyType allyType = allyTypeRepository.findByUuid(allyTypeUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+        ally.getAllyTypes().add(allyType);  // Set semantics → idempotent
+    }
+
+    /**
+     * Detach a single ally type from the ally. Idempotent for a non-attached
+     * type, but rejects the removal outright when it would leave the ally
+     * with zero types — an ally must always keep at least one.
+     */
+    @Transactional
+    public void removeAllyType(UUID allyUuid, UUID allyTypeUuid) {
+        Ally ally = findManaged(allyUuid);
+        boolean attached = ally.getAllyTypes().stream().anyMatch(t -> t.getUuid().equals(allyTypeUuid));
+        if (!attached) {
+            return;
+        }
+        if (ally.getAllyTypes().size() <= 1) {
+            throw new IllegalArgumentException("ally_type.min_required");
+        }
+        ally.getAllyTypes().removeIf(t -> t.getUuid().equals(allyTypeUuid));
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private Ally findManaged(UUID uuid) {
@@ -426,9 +512,18 @@ public class AlliesService {
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
     }
 
-    private AllyType resolveAllyType(UUID allyTypeUuid) {
-        return allyTypeRepository.findByUuid(allyTypeUuid)
-                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+    private Set<AllyType> resolveAllyTypes(List<UUID> uuids) {
+        if (uuids == null || uuids.isEmpty()) {
+            throw new IllegalArgumentException("ally_type.min_required");
+        }
+        // LinkedHashSet preserves request order — friendlier for debugging
+        // and irrelevant to the underlying @ManyToMany semantics.
+        Set<AllyType> resolved = new LinkedHashSet<>();
+        for (UUID uuid : uuids) {
+            resolved.add(allyTypeRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("ally_type.not_found")));
+        }
+        return resolved;
     }
 
     private City resolveCityOptional(UUID cityUuid) {

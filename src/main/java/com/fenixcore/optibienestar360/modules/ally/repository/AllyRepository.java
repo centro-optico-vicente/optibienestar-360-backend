@@ -21,8 +21,13 @@ public interface AllyRepository extends JpaRepository<Ally, Long>, JpaSpecificat
     boolean existsByTaxDocumentTypeAndTaxDocumentNumber(String taxDocumentType,
                                                         String taxDocumentNumber);
 
-    /** Usage count for {@code AllyType} delete/reactivation checks — see {@code AllyTypeService}. */
-    long countByAllyType_Uuid(UUID uuid);
+    /**
+     * Usage count for {@code AllyType} delete/reactivation checks — see
+     * {@code AllyTypeService}. A derived {@code countBy} cannot traverse a
+     * {@code @ManyToMany} collection cleanly, so this is a plain join count.
+     */
+    @Query("select count(a) from Ally a join a.allyTypes t where t.uuid = :uuid")
+    long countByAllyTypes_Uuid(@Param("uuid") UUID uuid);
 
     /** Usage count for {@code City} delete/reactivation checks — see {@code CityService}. */
     long countByCity_Uuid(UUID uuid);

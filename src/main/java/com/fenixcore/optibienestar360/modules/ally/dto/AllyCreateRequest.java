@@ -2,7 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -22,10 +22,14 @@ import java.util.UUID;
  *
  * <p>{@code professionUuids} populates the {@code @ManyToMany} pivote
  * {@code ally_professions}. Empty list = no professions.</p>
+ *
+ * <p>{@code allyTypeUuids} populates the {@code @ManyToMany} pivot
+ * {@code ally_ally_types} — at least one type is required (business rule,
+ * not a DB-level NOT NULL since the relation is now M:N).</p>
  */
 public record AllyCreateRequest(
         @NotBlank @Size(max = 200) String name,
-        @NotNull UUID allyTypeUuid,
+        @NotEmpty List<UUID> allyTypeUuids,
 
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String taxDocumentType,

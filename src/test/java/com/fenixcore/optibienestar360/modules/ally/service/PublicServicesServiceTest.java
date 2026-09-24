@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,7 +131,7 @@ class PublicServicesServiceTest {
         // Parent-ally identity flattened onto the row.
         assertThat(row.allyUuid()).isEqualTo(ally.getUuid());
         assertThat(row.allyName()).isEqualTo("Óptica Vicente");
-        assertThat(row.allyTypeName()).isEqualTo("Óptica");
+        assertThat(row.allyTypeNames()).containsExactly("Óptica");
         assertThat(row.allyCityName()).isEqualTo("Mérida");
         assertThat(row.allyPhone()).isEqualTo("+58 274 5550100");
     }
@@ -152,7 +153,7 @@ class PublicServicesServiceTest {
         ally.setId(1L);
         ally.setUuid(UUID.randomUUID());
         ally.setName(name);
-        ally.setAllyType(type);
+        ally.setAllyTypes(Set.of(type));
         ally.setCity(city);
         ally.setPhone("+58 274 5550100");
         ally.setLogoUrl("https://cdn.example/logo.png");

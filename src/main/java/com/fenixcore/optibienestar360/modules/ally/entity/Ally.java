@@ -53,9 +53,16 @@ public class Ally extends BaseEntity {
     @Column(length = 200, nullable = false)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ally_type_id", nullable = false)
-    private AllyType allyType;
+    // ─── Ally types (ally_ally_types pivot) — at least 1 required, ─────────
+    // enforced in AlliesService, not at the DB level (M:N has no NOT NULL).
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "ally_ally_types",
+            joinColumns = @JoinColumn(name = "ally_id"),
+            inverseJoinColumns = @JoinColumn(name = "ally_type_id")
+    )
+    private Set<AllyType> allyTypes = new HashSet<>();
 
     // ─── Tax identity (Venezuelan RIF) ──────────────────────────────────────
 

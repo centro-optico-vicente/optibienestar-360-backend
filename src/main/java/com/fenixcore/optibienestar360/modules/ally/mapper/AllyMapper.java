@@ -41,17 +41,20 @@ public interface AllyMapper {
     // ─── Ally → DTOs ───────────────────────────────────────────────────────
 
     /**
-     * Compact list row. {@code allyType} / {@code city} map to {@link
+     * Compact list row. {@code city} maps to {@link
      * com.fenixcore.optibienestar360.core.display.DisplayRef} via
-     * {@link DisplayRefs}; the serializer flattens them to
+     * {@link DisplayRefs}; the serializer flattens it to
      * {@code <rel>_Uuid} + {@code <rel>_Display} and adds the scalar
      * {@code _Display} siblings from the request {@code Locale} (ADR 0014).
+     * {@code allyTypeNames} is multi-valued (M:N) so it no longer fits that
+     * single-FK convention and is exposed as a plain label list instead.
      */
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
     AllyListItemDto toListItem(Ally ally);
 
     /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */
-    @Mapping(target = "allyTypeName", source = "allyType.name")
-    @Mapping(target = "cityName",     source = "city.name")
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
+    @Mapping(target = "cityName",      source = "city.name")
     PublicAllyListItemDto toPublicListItem(Ally ally);
 
     /**
@@ -60,7 +63,7 @@ public interface AllyMapper {
      * names + only the public-visible services
      * ({@code active AND published AND reviewStatus=APPROVED}).
      */
-    @Mapping(target = "allyTypeName",   source = "allyType.name")
+    @Mapping(target = "allyTypeNames",   expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
     @Mapping(target = "cityName",       source = "city.name")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
     @Mapping(target = "services",       expression = "java(extractPublicServices(ally.getServices()))")
@@ -74,17 +77,17 @@ public interface AllyMapper {
      * Flattens a compact slice of the parent ally's public identity onto the
      * service so a {@code GET /v1/public/services} result stands on its own.
      */
-    @Mapping(target = "categoryName", source = "serviceCategory.name")
-    @Mapping(target = "imageUrl",     expression = "java(imageUrl(service, publicBaseUrl))")
-    @Mapping(target = "allyUuid",     source = "ally.uuid")
-    @Mapping(target = "allyName",     source = "ally.name")
-    @Mapping(target = "allyTypeName", source = "ally.allyType.name")
-    @Mapping(target = "allyCityName", source = "ally.city.name")
-    @Mapping(target = "allyLogoUrl",  source = "ally.logoUrl")
-    @Mapping(target = "allyPhone",    source = "ally.phone")
+    @Mapping(target = "categoryName",  source = "serviceCategory.name")
+    @Mapping(target = "imageUrl",      expression = "java(imageUrl(service, publicBaseUrl))")
+    @Mapping(target = "allyUuid",      source = "ally.uuid")
+    @Mapping(target = "allyName",      source = "ally.name")
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(service.getAlly().getAllyTypes()))")
+    @Mapping(target = "allyCityName",  source = "ally.city.name")
+    @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
+    @Mapping(target = "allyPhone",     source = "ally.phone")
     PublicServiceListItemDto toPublicServiceListItem(AllyService service, @Context String publicBaseUrl);
 
-    @Mapping(target = "allyType",    source = "allyType")
+    @Mapping(target = "allyTypes",   expression = "java(toAllyTypeDtoList(ally.getAllyTypes()))")
     @Mapping(target = "city",        source = "city")
     @Mapping(target = "professions", source = "professions")
     @Mapping(target = "activeUsersCount",      expression = "java(countActive(ally.getUsers()))")
@@ -120,11 +123,11 @@ public interface AllyMapper {
      * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
      * {@code uuid} is deliberately the ally's — see {@link MyAllyDto}.
      */
-    @Mapping(target = "uuid",     source = "ally.uuid")
-    @Mapping(target = "name",     source = "ally.name")
-    @Mapping(target = "allyType", source = "ally.allyType")
-    @Mapping(target = "logoUrl",  source = "ally.logoUrl")
-    @Mapping(target = "phone",    source = "ally.phone")
+    @Mapping(target = "uuid",          source = "ally.uuid")
+    @Mapping(target = "name",         source = "ally.name")
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(allyUser.getAlly().getAllyTypes()))")
+    @Mapping(target = "logoUrl",      source = "ally.logoUrl")
+    @Mapping(target = "phone",        source = "ally.phone")
     MyAllyDto toMyAllyDto(AllyUser allyUser);
 
     /**
@@ -174,6 +177,11 @@ public interface AllyMapper {
         return set.stream().map(this::toProfessionDto).toList();
     }
 
+    default List<AllyTypeDto> toAllyTypeDtoList(Set<AllyType> set) {
+        if (set == null) return List.of();
+        return set.stream().map(this::toAllyTypeDto).toList();
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────────
 
     /**
@@ -198,6 +206,14 @@ public interface AllyMapper {
         return professions.stream()
                 .filter(Profession::isActive)
                 .map(Profession::getName)
+                .toList();
+    }
+
+    default List<String> extractAllyTypeNames(Set<AllyType> allyTypes) {
+        if (allyTypes == null) return List.of();
+        return allyTypes.stream()
+                .filter(AllyType::isActive)
+                .map(AllyType::getName)
                 .toList();
     }
 

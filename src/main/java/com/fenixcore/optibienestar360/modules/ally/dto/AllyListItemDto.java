@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -22,7 +23,7 @@ public record AllyListItemDto(
         UUID uuid,
         String name,
 
-        @Display DisplayRef allyType,
+        List<String> allyTypeNames,
         @Display DisplayRef city,
 
         String taxDocumentType,

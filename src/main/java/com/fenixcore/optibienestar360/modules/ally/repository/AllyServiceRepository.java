@@ -27,12 +27,16 @@ public interface AllyServiceRepository extends JpaRepository<AllyService, Long>,
      * ({@link com.fenixcore.optibienestar360.modules.ally.dto.PublicServiceListItemDto}
      * flattens the parent ally's identity), avoiding an N+1 over the page rows.
      * All fetched paths are {@code @ManyToOne}, so in-DB pagination is safe (no
-     * collection fetch → no HHH000104 in-memory paging). This method has no
+     * collection fetch → no HHH000104 in-memory paging). {@code ally.allyTypes}
+     * is deliberately NOT in this graph — it became a {@code @ManyToMany}
+     * collection in V157, and fetching it here would force in-memory paging;
+     * the mapper reads it lazily instead (safe: the caller is
+     * {@code @Transactional(readOnly = true)}). This method has no
      * other callers today — the admin/propose services use named finders — so
      * the eager graph does not over-fetch anywhere else.
      */
     @Override
-    @EntityGraph(attributePaths = {"ally", "ally.allyType", "ally.city", "serviceCategory"})
+    @EntityGraph(attributePaths = {"ally", "ally.city", "serviceCategory"})
     Page<AllyService> findAll(Specification<AllyService> spec, Pageable pageable);
 
     List<AllyService> findByAllyIdAndActiveTrue(Long allyId, Sort sort);

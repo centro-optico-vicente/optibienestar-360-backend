@@ -24,7 +24,7 @@ import java.util.UUID;
 public record AllyDetailDto(
         UUID uuid,
         String name,
-        AllyTypeDto allyType,
+        List<AllyTypeDto> allyTypes,
 
         // ─── Tax identity ──────────────────────────────────────────────────
         String taxDocumentType,

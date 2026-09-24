@@ -67,9 +67,9 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
      * com.fenixcore.optibienestar360.modules.ally.service.MyAlliesService}
      * applies the primary-first ordering in Java.</p>
      */
-    @Query("SELECT au FROM AllyUser au " +
+    @Query("SELECT DISTINCT au FROM AllyUser au " +
            "JOIN FETCH au.ally a " +
-           "LEFT JOIN FETCH a.allyType " +
+           "LEFT JOIN FETCH a.allyTypes " +
            "WHERE au.user.uuid = :userUuid " +
            "  AND au.active = true " +
            "  AND a.active = true")

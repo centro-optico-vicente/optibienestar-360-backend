@@ -25,7 +25,7 @@ import java.util.UUID;
 public record PublicAllyDetailDto(
         UUID uuid,
         String name,
-        String allyTypeName,
+        List<String> allyTypeNames,
 
         // Location
         String address,
