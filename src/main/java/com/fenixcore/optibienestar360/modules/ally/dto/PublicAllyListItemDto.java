@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -22,7 +23,7 @@ public record PublicAllyListItemDto(
         UUID uuid,
         String name,
 
-        String allyTypeName,
+        List<String> allyTypeNames,
         String cityName,
 
         String logoUrl,

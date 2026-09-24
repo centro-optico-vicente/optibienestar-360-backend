@@ -1,10 +1,10 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
-import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -19,9 +19,10 @@ import java.util.UUID;
  * expect as {@code allyUuid}, and having the portal read it straight off
  * this record is the whole point of the endpoint.</p>
  *
- * <p>{@code allyType} serializes as {@code allyType_Uuid} +
- * {@code allyType_Display} ("code - name"); membership scalars carry their
- * {@code _Display} sibling (hub ADR 0014).</p>
+ * <p>{@code allyTypeNames} is a plain label list — an ally type is now
+ * multi-valued (M:N), so it no longer fits the single-FK {@code _Display}
+ * convention (hub ADR 0014); membership scalars still carry their
+ * {@code _Display} sibling.</p>
  *
  * <p>{@code allyRole} is the caller's authority <i>inside</i> this ally, so
  * the portal can hide write actions from a VIEWER instead of letting them
@@ -34,7 +35,7 @@ public record MyAllyDto(
         UUID uuid,
         String name,
 
-        @Display DisplayRef allyType,
+        List<String> allyTypeNames,
 
         String logoUrl,
         String phone,

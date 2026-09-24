@@ -4,7 +4,7 @@ import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
-import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
+import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,9 +53,16 @@ public class Ally extends BaseEntity {
     @Column(length = 200, nullable = false)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ally_type_id", nullable = false)
-    private AllyType allyType;
+    // ─── Ally types (ally_ally_types pivot) — at least 1 required, ─────────
+    // enforced in AlliesService, not at the DB level (M:N has no NOT NULL).
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "ally_ally_types",
+            joinColumns = @JoinColumn(name = "ally_id"),
+            inverseJoinColumns = @JoinColumn(name = "ally_type_id")
+    )
+    private Set<AllyType> allyTypes = new HashSet<>();
 
     // ─── Tax identity (Venezuelan RIF) ──────────────────────────────────────
 
@@ -117,15 +124,15 @@ public class Ally extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    // ─── Medical specialties (ally_specialties pivot) ───────────────────────
+    // ─── Professions (ally_professions pivot) ────────────────────────────────
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "ally_specialties",
+            name = "ally_professions",
             joinColumns = @JoinColumn(name = "ally_id"),
-            inverseJoinColumns = @JoinColumn(name = "medical_specialty_id")
+            inverseJoinColumns = @JoinColumn(name = "profession_id")
     )
-    private Set<MedicalSpecialty> specialties = new HashSet<>();
+    private Set<Profession> professions = new HashSet<>();
 
     // ─── User memberships (V12 ally_users) ──────────────────────────────────
 

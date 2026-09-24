@@ -126,7 +126,7 @@ public class AllyTypeService {
     }
 
     public long countUsages(UUID uuid) {
-        return allyRepository.countByAllyType_Uuid(uuid);
+        return allyRepository.countByAllyTypes_Uuid(uuid);
     }
 
     @Transactional

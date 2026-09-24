@@ -29,9 +29,9 @@ import java.net.URI;
 import java.util.UUID;
 
 /**
- * Admin CRUD for the ally directory. Sub-resources (specialties / services /
+ * Admin CRUD for the ally directory. Sub-resources (professions / services /
  * agreements / users) get their own controllers per vertical-3 bullet
- * "/v1/admin/allies/{id}/specialties|services|agreements|users".
+ * "/v1/admin/allies/{id}/professions|services|agreements|users".
  *
  * <p>Pagination convention follows the project standard (see
  * {@code .ai/specs/06-rest-api.md}): default page size 20; client may

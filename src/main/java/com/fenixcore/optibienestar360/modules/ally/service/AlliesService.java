@@ -23,10 +23,10 @@ import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRep
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
-import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
+import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
-import com.fenixcore.optibienestar360.modules.catalog.repository.MedicalSpecialtyRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +55,7 @@ import java.util.UUID;
  * (the offerings entity).
  *
  * <p>Read methods return DTOs; mutations return the updated detail DTO.
- * FK lookups (allyType, city, specialties) resolve via the catalog repos and
+ * FK lookups (allyType, city, professions) resolve via the catalog repos and
  * fail with {@link NoSuchElementException} carrying a localizable message
  * code when the requested UUID doesn't exist — turned into 422 by
  * {@code GlobalExceptionHandler}.</p>
@@ -84,7 +84,7 @@ public class AlliesService {
 		Ally.class,
 		Map.of(
 			// ADR 0014: the public sort key for a FK column is its `_Display` alias.
-			"allyType_Display", "allyType.name",
+			// allyType is no longer sortable here — it's multi-valued (M:N) since V157.
 			"city_Display", "city.name"
 		)
 	);
@@ -92,7 +92,7 @@ public class AlliesService {
     private final AllyRepository repository;
     private final AllyTypeRepository allyTypeRepository;
     private final CityRepository cityRepository;
-    private final MedicalSpecialtyRepository medicalSpecialtyRepository;
+    private final ProfessionRepository professionRepository;
     private final AllyMapper mapper;
     private final AllyUserRepository allyUserRepository;
     private final AllyServiceRepository allyServiceRepository;
@@ -156,16 +156,16 @@ public class AlliesService {
      * <p>{@code q} is a free-text search across {@code name} +
      * {@code description}; reuses {@link SearchSpecifications#acrossFields}
      * so accents are normalized ({@code "merida"} matches
-     * {@code "Mérida"}). The specialty filter joins through the
-     * {@code @ManyToMany ally_specialties} pivot with
-     * {@code query.distinct(true)} so an ally with multiple specialties
+     * {@code "Mérida"}). The profession filter joins through the
+     * {@code @ManyToMany ally_professions} pivot with
+     * {@code query.distinct(true)} so an ally with multiple professions
      * doesn't duplicate in results.</p>
      *
      * @return paginated sanitized {@link PublicAllyListItemDto} — see that
      *         DTO for which fields are intentionally omitted.
      */
     public Page<PublicAllyListItemDto> publicDirectory(UUID cityUuid,
-                                                       UUID medicalSpecialtyUuid,
+                                                       UUID professionUuid,
                                                        String q,
                                                        Pageable pageable) {
         Specification<Ally> spec = publishedOnly();
@@ -175,13 +175,13 @@ public class AlliesService {
                     cb.equal(root.get("city").get("uuid"), cityUuid));
         }
 
-        if (medicalSpecialtyUuid != null) {
+        if (professionUuid != null) {
             spec = spec.and((root, query, cb) -> {
                 if (query != null) {
                     query.distinct(true);
                 }
-                Join<Object, Object> specialties = root.join("specialties");
-                return cb.equal(specialties.get("uuid"), medicalSpecialtyUuid);
+                Join<Object, Object> professions = root.join("professions");
+                return cb.equal(professions.get("uuid"), professionUuid);
             });
         }
 
@@ -222,7 +222,7 @@ public class AlliesService {
 
         Ally ally = new Ally();
         ally.setName(req.name());
-        ally.setAllyType(resolveAllyType(req.allyTypeUuid()));
+        ally.setAllyTypes(resolveAllyTypes(req.allyTypeUuids()));
         ally.setTaxDocumentType(req.taxDocumentType());
         ally.setTaxDocumentNumber(req.taxDocumentNumber());
         ally.setEmail(req.email());
@@ -239,7 +239,7 @@ public class AlliesService {
         ally.setJoinedAt(req.joinedAt());
         if (req.published() != null) ally.setPublished(req.published());
         ally.setPublishedAt(req.publishedAt());
-        ally.setSpecialties(resolveSpecialties(req.specialtyUuids()));
+        ally.setProfessions(resolveProfessions(req.professionUuids()));
 
         Ally saved = repository.save(ally);
         return mapper.toDetail(saved);
@@ -261,7 +261,16 @@ public class AlliesService {
         }
 
         if (req.name()                != null) ally.setName(req.name());
-        if (req.allyTypeUuid()        != null) ally.setAllyType(resolveAllyType(req.allyTypeUuid()));
+        // allyTypeUuids: null = leave untouched; non-null = replace, but never
+        // to an empty set — an ally must always keep at least one type.
+        if (req.allyTypeUuids() != null) {
+            if (req.allyTypeUuids().isEmpty()) {
+                throw new IllegalArgumentException("ally_type.min_required");
+            }
+            Set<AllyType> resolvedTypes = resolveAllyTypes(req.allyTypeUuids());
+            ally.getAllyTypes().clear();
+            ally.getAllyTypes().addAll(resolvedTypes);
+        }
         if (req.taxDocumentType()     != null) ally.setTaxDocumentType(req.taxDocumentType());
         if (req.taxDocumentNumber()   != null) ally.setTaxDocumentNumber(req.taxDocumentNumber());
         if (req.email()               != null) ally.setEmail(req.email());
@@ -281,14 +290,14 @@ public class AlliesService {
         if (req.active()              != null) ally.setActive(req.active());
         if (req.status()              != null) ally.setStatus(req.status());
 
-        // specialtyUuids: null = leave untouched; non-null = replace.
+        // professionUuids: null = leave untouched; non-null = replace.
         // Reuse the existing collection instance (clear + addAll) instead of
         // replacing the reference so Hibernate's orphan tracking on the
         // @ManyToMany sees one managed collection rather than a swap.
-        if (req.specialtyUuids() != null) {
-            Set<MedicalSpecialty> resolved = resolveSpecialties(req.specialtyUuids());
-            ally.getSpecialties().clear();
-            ally.getSpecialties().addAll(resolved);
+        if (req.professionUuids() != null) {
+            Set<Profession> resolved = resolveProfessions(req.professionUuids());
+            ally.getProfessions().clear();
+            ally.getProfessions().addAll(resolved);
         }
 
         return mapper.toDetail(ally);  // managed → dirty-check on commit
@@ -350,39 +359,39 @@ public class AlliesService {
         return mapper.toDetail(ally);
     }
 
-    // ─── Specialties sub-resource (single-item add / remove) ────────────────
+    // ─── Professions sub-resource (single-item add / remove) ────────────────
 
     /**
-     * List the medical specialties currently attached to the ally. Mirrors
-     * the {@code specialties} field of {@link AllyDetailDto} but exposed as
-     * a dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/specialties}
+     * List the medical professions currently attached to the ally. Mirrors
+     * the {@code professions} field of {@link AllyDetailDto} but exposed as
+     * a dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/professions}
      * endpoint family.
      */
-    /** Client-facing sortable keys for {@link #listSpecialties} — {@code MedicalSpecialty} has no relations, only its own scalar columns. */
-    private static final Map<String, SortFieldValidator.SortableField> SPECIALTY_SORTABLE_FIELDS =
-            SortFieldValidator.sortableFieldsOf(MedicalSpecialty.class, Map.of());
+    /** Client-facing sortable keys for {@link #listProfessions} — {@code Profession} has no relations, only its own scalar columns. */
+    private static final Map<String, SortFieldValidator.SortableField> PROFESSION_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(Profession.class, Map.of());
 
-    public List<com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto>
-            listSpecialties(UUID allyUuid, Pageable pageable) {
+    public List<com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto>
+            listProfessions(UUID allyUuid, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
-                "ally_specialty", pageable);
-        Sort sort = SortFieldValidator.resolve(defaulted, SPECIALTY_SORTABLE_FIELDS, "ally_specialty").getSort();
-        // `Ally.specialties` is an in-memory `@ManyToMany` Set (no natural order, not backed
+                "ally_profession", pageable);
+        Sort sort = SortFieldValidator.resolve(defaulted, PROFESSION_SORTABLE_FIELDS, "ally_profession").getSort();
+        // `Ally.professions` is an in-memory `@ManyToMany` Set (no natural order, not backed
         // by a repository query) — sorted here by reflection instead of at the DB.
-        List<MedicalSpecialty> specialties = new ArrayList<>(ally.getSpecialties());
-        specialties.sort(specialtyComparator(sort));
-        return specialties.stream().map(mapper::toMedicalSpecialtyDto).toList();
+        List<Profession> professions = new ArrayList<>(ally.getProfessions());
+        professions.sort(professionComparator(sort));
+        return professions.stream().map(mapper::toProfessionDto).toList();
     }
 
-    private static Comparator<MedicalSpecialty> specialtyComparator(Sort sort) {
-        Comparator<MedicalSpecialty> comparator = null;
+    private static Comparator<Profession> professionComparator(Sort sort) {
+        Comparator<Profession> comparator = null;
         for (Sort.Order order : sort) {
-            Comparator<MedicalSpecialty> fieldComparator = switch (order.getProperty()) {
-                case "code" -> Comparator.comparing(MedicalSpecialty::getCode, String.CASE_INSENSITIVE_ORDER);
-                case "name" -> Comparator.comparing(MedicalSpecialty::getName, String.CASE_INSENSITIVE_ORDER);
-                case "active" -> Comparator.comparing(MedicalSpecialty::isActive);
-                case "createdAt" -> Comparator.comparing(MedicalSpecialty::getCreatedAt);
+            Comparator<Profession> fieldComparator = switch (order.getProperty()) {
+                case "code" -> Comparator.comparing(Profession::getCode, String.CASE_INSENSITIVE_ORDER);
+                case "name" -> Comparator.comparing(Profession::getName, String.CASE_INSENSITIVE_ORDER);
+                case "active" -> Comparator.comparing(Profession::isActive);
+                case "createdAt" -> Comparator.comparing(Profession::getCreatedAt);
                 default -> null;
             };
             if (fieldComparator == null) {
@@ -394,29 +403,106 @@ public class AlliesService {
             comparator = comparator == null ? fieldComparator : comparator.thenComparing(fieldComparator);
         }
         return comparator != null ? comparator
-                : Comparator.comparing(MedicalSpecialty::getCreatedAt).reversed();
+                : Comparator.comparing(Profession::getCreatedAt).reversed();
     }
 
     /**
-     * Attach a single medical specialty to the ally. Idempotent — re-adding an
-     * already-present specialty is a no-op and still returns 200.
+     * Attach a single medical profession to the ally. Idempotent — re-adding an
+     * already-present profession is a no-op and still returns 200.
      */
     @Transactional
-    public void addSpecialty(UUID allyUuid, UUID specialtyUuid) {
+    public void addProfession(UUID allyUuid, UUID professionUuid) {
         Ally ally = findManaged(allyUuid);
-        MedicalSpecialty specialty = medicalSpecialtyRepository.findByUuid(specialtyUuid)
-                .orElseThrow(() -> new NoSuchElementException("medical_specialty.not_found"));
-        ally.getSpecialties().add(specialty);  // Set semantics → idempotent
+        Profession profession = professionRepository.findByUuid(professionUuid)
+                .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
+        ally.getProfessions().add(profession);  // Set semantics → idempotent
     }
 
     /**
-     * Detach a single medical specialty from the ally. Idempotent — removing
-     * a non-attached specialty is a no-op.
+     * Detach a single medical profession from the ally. Idempotent — removing
+     * a non-attached profession is a no-op.
      */
     @Transactional
-    public void removeSpecialty(UUID allyUuid, UUID specialtyUuid) {
+    public void removeProfession(UUID allyUuid, UUID professionUuid) {
         Ally ally = findManaged(allyUuid);
-        ally.getSpecialties().removeIf(ms -> ms.getUuid().equals(specialtyUuid));
+        ally.getProfessions().removeIf(ms -> ms.getUuid().equals(professionUuid));
+    }
+
+    // ─── Ally types sub-resource (single-item add / remove) ──────────────────
+
+    /** Client-facing sortable keys for {@link #listAllyTypes} — {@code AllyType} has no relations, only its own scalar columns. */
+    private static final Map<String, SortFieldValidator.SortableField> ALLY_TYPE_SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(AllyType.class, Map.of());
+
+    /**
+     * List the ally types currently attached to the ally. Mirrors the
+     * {@code allyTypes} field of {@link AllyDetailDto} but exposed as a
+     * dedicated sub-resource for the {@code /v1/admin/allies/{uuid}/ally-types}
+     * endpoint family.
+     */
+    public List<com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto>
+            listAllyTypes(UUID allyUuid, Pageable pageable) {
+        Ally ally = findManaged(allyUuid);
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
+                "ally_ally_type", pageable);
+        Sort sort = SortFieldValidator.resolve(defaulted, ALLY_TYPE_SORTABLE_FIELDS, "ally_ally_type").getSort();
+        // `Ally.allyTypes` is an in-memory `@ManyToMany` Set (no natural order, not backed
+        // by a repository query) — sorted here by reflection instead of at the DB.
+        List<AllyType> allyTypes = new ArrayList<>(ally.getAllyTypes());
+        allyTypes.sort(allyTypeComparator(sort));
+        return allyTypes.stream().map(mapper::toAllyTypeDto).toList();
+    }
+
+    private static Comparator<AllyType> allyTypeComparator(Sort sort) {
+        Comparator<AllyType> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<AllyType> fieldComparator = switch (order.getProperty()) {
+                case "code" -> Comparator.comparing(AllyType::getCode, String.CASE_INSENSITIVE_ORDER);
+                case "name" -> Comparator.comparing(AllyType::getName, String.CASE_INSENSITIVE_ORDER);
+                case "active" -> Comparator.comparing(AllyType::isActive);
+                case "createdAt" -> Comparator.comparing(AllyType::getCreatedAt);
+                default -> null;
+            };
+            if (fieldComparator == null) {
+                continue;
+            }
+            if (order.isDescending()) {
+                fieldComparator = fieldComparator.reversed();
+            }
+            comparator = comparator == null ? fieldComparator : comparator.thenComparing(fieldComparator);
+        }
+        return comparator != null ? comparator
+                : Comparator.comparing(AllyType::getCreatedAt).reversed();
+    }
+
+    /**
+     * Attach a single ally type to the ally. Idempotent — re-adding an
+     * already-present type is a no-op and still returns 200.
+     */
+    @Transactional
+    public void addAllyType(UUID allyUuid, UUID allyTypeUuid) {
+        Ally ally = findManaged(allyUuid);
+        AllyType allyType = allyTypeRepository.findByUuid(allyTypeUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+        ally.getAllyTypes().add(allyType);  // Set semantics → idempotent
+    }
+
+    /**
+     * Detach a single ally type from the ally. Idempotent for a non-attached
+     * type, but rejects the removal outright when it would leave the ally
+     * with zero types — an ally must always keep at least one.
+     */
+    @Transactional
+    public void removeAllyType(UUID allyUuid, UUID allyTypeUuid) {
+        Ally ally = findManaged(allyUuid);
+        boolean attached = ally.getAllyTypes().stream().anyMatch(t -> t.getUuid().equals(allyTypeUuid));
+        if (!attached) {
+            return;
+        }
+        if (ally.getAllyTypes().size() <= 1) {
+            throw new IllegalArgumentException("ally_type.min_required");
+        }
+        ally.getAllyTypes().removeIf(t -> t.getUuid().equals(allyTypeUuid));
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
@@ -426,9 +512,18 @@ public class AlliesService {
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
     }
 
-    private AllyType resolveAllyType(UUID allyTypeUuid) {
-        return allyTypeRepository.findByUuid(allyTypeUuid)
-                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+    private Set<AllyType> resolveAllyTypes(List<UUID> uuids) {
+        if (uuids == null || uuids.isEmpty()) {
+            throw new IllegalArgumentException("ally_type.min_required");
+        }
+        // LinkedHashSet preserves request order — friendlier for debugging
+        // and irrelevant to the underlying @ManyToMany semantics.
+        Set<AllyType> resolved = new LinkedHashSet<>();
+        for (UUID uuid : uuids) {
+            resolved.add(allyTypeRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("ally_type.not_found")));
+        }
+        return resolved;
     }
 
     private City resolveCityOptional(UUID cityUuid) {
@@ -437,16 +532,16 @@ public class AlliesService {
                 .orElseThrow(() -> new NoSuchElementException("city.not_found"));
     }
 
-    private Set<MedicalSpecialty> resolveSpecialties(List<UUID> uuids) {
+    private Set<Profession> resolveProfessions(List<UUID> uuids) {
         if (uuids == null || uuids.isEmpty()) {
             return new HashSet<>();
         }
         // LinkedHashSet preserves request order — friendlier for debugging
         // and irrelevant to the underlying @ManyToMany semantics.
-        Set<MedicalSpecialty> resolved = new LinkedHashSet<>();
+        Set<Profession> resolved = new LinkedHashSet<>();
         for (UUID uuid : uuids) {
-            resolved.add(medicalSpecialtyRepository.findByUuid(uuid)
-                    .orElseThrow(() -> new NoSuchElementException("medical_specialty.not_found")));
+            resolved.add(professionRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("profession.not_found")));
         }
         return resolved;
     }

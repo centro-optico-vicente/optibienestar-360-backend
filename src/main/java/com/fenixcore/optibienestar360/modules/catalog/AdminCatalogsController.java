@@ -8,9 +8,9 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyCreateRequest;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryUpdateRequest;
@@ -42,7 +42,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.CountryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.DocumentTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.GenderService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusService;
-import com.fenixcore.optibienestar360.modules.catalog.service.MedicalSpecialtyService;
+import com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
 import com.fenixcore.optibienestar360.modules.catalog.service.PromoterTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.ServiceCategoryService;
@@ -118,10 +118,10 @@ public class AdminCatalogsController {
     private static final String OCCUPATION_UPDATE = "hasAuthority('OCCUPATION_UPDATE')";
     private static final String OCCUPATION_DELETE = "hasAuthority('OCCUPATION_DELETE')";
 
-    private static final String MEDICAL_SPECIALTY_VIEW   = "hasAuthority('MEDICAL_SPECIALTY_VIEW_ALL')";
-    private static final String MEDICAL_SPECIALTY_CREATE = "hasAuthority('MEDICAL_SPECIALTY_CREATE')";
-    private static final String MEDICAL_SPECIALTY_UPDATE = "hasAuthority('MEDICAL_SPECIALTY_UPDATE')";
-    private static final String MEDICAL_SPECIALTY_DELETE = "hasAuthority('MEDICAL_SPECIALTY_DELETE')";
+    private static final String PROFESSION_VIEW   = "hasAuthority('PROFESSION_VIEW_ALL')";
+    private static final String PROFESSION_CREATE = "hasAuthority('PROFESSION_CREATE')";
+    private static final String PROFESSION_UPDATE = "hasAuthority('PROFESSION_UPDATE')";
+    private static final String PROFESSION_DELETE = "hasAuthority('PROFESSION_DELETE')";
 
     private static final String SERVICE_CATEGORY_VIEW   = "hasAuthority('SERVICE_CATEGORY_VIEW_ALL')";
     private static final String SERVICE_CATEGORY_CREATE = "hasAuthority('SERVICE_CATEGORY_CREATE')";
@@ -145,7 +145,7 @@ public class AdminCatalogsController {
     private final DocumentTypeService documentTypeService;
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
-    private final MedicalSpecialtyService medicalSpecialtyService;
+    private final ProfessionService professionService;
     private final ServiceCategoryService serviceCategoryService;
     private final AllyTypeService allyTypeService;
     private final PromoterTypeService promoterTypeService;
@@ -547,59 +547,59 @@ public class AdminCatalogsController {
         return ResponseEntity.noContent().build();
     }
 
-    // ═══════════════ medical-specialties ═══════════════
-    @GetMapping("/medical-specialties")
-    @PreAuthorize(MEDICAL_SPECIALTY_VIEW)
-    public ResponseEntity<AppliedSortPage<MedicalSpecialtyDto>> listMedicalSpecialties(
+    // ═══════════════ professions ═══════════════
+    @GetMapping("/professions")
+    @PreAuthorize(PROFESSION_VIEW)
+    public ResponseEntity<AppliedSortPage<ProfessionDto>> listProfessions(
             @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<MedicalSpecialtyDto> page = medicalSpecialtyService.list(pageable, filter, q, includeInactive);
-        return ResponseEntity.ok(new AppliedSortPage<>(page, medicalSpecialtyService.effectiveSort(pageable)));
+        Page<ProfessionDto> page = professionService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, professionService.effectiveSort(pageable)));
     }
 
-    @GetMapping("/medical-specialties/options")
-    @PreAuthorize(MEDICAL_SPECIALTY_VIEW)
-    public ResponseEntity<List<OptionDto>> medicalSpecialtyOptions(
+    @GetMapping("/professions/options")
+    @PreAuthorize(PROFESSION_VIEW)
+    public ResponseEntity<List<OptionDto>> professionOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
             @RequestParam(required = false) List<UUID> currentValues) {
-        return ResponseEntity.ok(medicalSpecialtyService.listOptions(q, limit, currentValues));
+        return ResponseEntity.ok(professionService.listOptions(q, limit, currentValues));
     }
 
-    @GetMapping("/medical-specialties/{uuid}")
-    @PreAuthorize(MEDICAL_SPECIALTY_VIEW)
-    public ResponseEntity<MedicalSpecialtyDto> getMedicalSpecialty(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(medicalSpecialtyService.get(uuid));
+    @GetMapping("/professions/{uuid}")
+    @PreAuthorize(PROFESSION_VIEW)
+    public ResponseEntity<ProfessionDto> getProfession(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(professionService.get(uuid));
     }
 
-    @PostMapping("/medical-specialties")
-    @PreAuthorize(MEDICAL_SPECIALTY_CREATE)
-    public ResponseEntity<MedicalSpecialtyDto> createMedicalSpecialty(@Valid @RequestBody MedicalSpecialtyCreateRequest req) {
-        MedicalSpecialtyDto created = medicalSpecialtyService.create(req);
+    @PostMapping("/professions")
+    @PreAuthorize(PROFESSION_CREATE)
+    public ResponseEntity<ProfessionDto> createProfession(@Valid @RequestBody ProfessionCreateRequest req) {
+        ProfessionDto created = professionService.create(req);
         return ResponseEntity.created(locationFor(created.uuid())).body(created);
     }
 
-    @PutMapping("/medical-specialties/{uuid}")
-    @PreAuthorize(MEDICAL_SPECIALTY_UPDATE)
-    public ResponseEntity<MedicalSpecialtyDto> updateMedicalSpecialty(@PathVariable UUID uuid,
-                                                                      @Valid @RequestBody MedicalSpecialtyUpdateRequest req) {
-        return ResponseEntity.ok(medicalSpecialtyService.update(uuid, req));
+    @PutMapping("/professions/{uuid}")
+    @PreAuthorize(PROFESSION_UPDATE)
+    public ResponseEntity<ProfessionDto> updateProfession(@PathVariable UUID uuid,
+                                                                      @Valid @RequestBody ProfessionUpdateRequest req) {
+        return ResponseEntity.ok(professionService.update(uuid, req));
     }
 
-    @GetMapping("/medical-specialties/{uuid}/usage")
-    @PreAuthorize(MEDICAL_SPECIALTY_VIEW)
-    public ResponseEntity<UsageDto> medicalSpecialtyUsage(@PathVariable UUID uuid) {
-        long count = medicalSpecialtyService.countUsages(uuid);
+    @GetMapping("/professions/{uuid}/usage")
+    @PreAuthorize(PROFESSION_VIEW)
+    public ResponseEntity<UsageDto> professionUsage(@PathVariable UUID uuid) {
+        long count = professionService.countUsages(uuid);
         return ResponseEntity.ok(new UsageDto(count > 0, count));
     }
 
-    @DeleteMapping("/medical-specialties/{uuid}")
-    @PreAuthorize(MEDICAL_SPECIALTY_DELETE)
-    public ResponseEntity<Void> deleteMedicalSpecialty(@PathVariable UUID uuid,
+    @DeleteMapping("/professions/{uuid}")
+    @PreAuthorize(PROFESSION_DELETE)
+    public ResponseEntity<Void> deleteProfession(@PathVariable UUID uuid,
                                                        @RequestParam(defaultValue = "false") boolean physical) {
-        medicalSpecialtyService.delete(uuid, physical);
+        professionService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 

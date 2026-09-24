@@ -2,7 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * Full per-ally view returned by {@code GET /v1/admin/allies/{uuid}} and
  * {@code GET /v1/public/allies/{uuid}}. Embeds the catalog DTOs for
- * ally_type, city, and specialties so the frontend can render the full
+ * ally_type, city, and professions so the frontend can render the full
  * ficha without follow-up calls.
  *
  * <p>Users / services / agreements are NOT inlined — they have dedicated
@@ -24,7 +24,7 @@ import java.util.UUID;
 public record AllyDetailDto(
         UUID uuid,
         String name,
-        AllyTypeDto allyType,
+        List<AllyTypeDto> allyTypes,
 
         // ─── Tax identity ──────────────────────────────────────────────────
         String taxDocumentType,
@@ -50,8 +50,8 @@ public record AllyDetailDto(
         boolean published,
         Instant publishedAt,
 
-        // ─── Medical specialties (ally_specialties pivot) ──────────────────
-        List<MedicalSpecialtyDto> specialties,
+        // ─── Medical professions (ally_professions pivot) ──────────────────
+        List<ProfessionDto> professions,
 
         // ─── Aggregated summary (sub-lists not inlined; sub-resources handle that) ─
         int activeUsersCount,

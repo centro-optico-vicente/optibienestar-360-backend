@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,7 +34,7 @@ public record PublicServiceListItemDto(
         // ─── Parent ally (public identity slice) ───
         UUID allyUuid,
         String allyName,
-        String allyTypeName,
+        List<String> allyTypeNames,
         String allyCityName,
         String allyLogoUrl,
         String allyPhone

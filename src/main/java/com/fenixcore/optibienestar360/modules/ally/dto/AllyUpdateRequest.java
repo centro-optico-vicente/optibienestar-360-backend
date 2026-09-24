@@ -11,13 +11,15 @@ import java.util.UUID;
 
 /**
  * Payload for {@code PUT /v1/admin/allies/{uuid}} — PATCH semantics: only
- * fields present (non-null) are applied. Setting {@code specialtyUuids} to a
- * non-null list <em>replaces</em> the current set of specialties; leaving it
- * null keeps the existing set untouched.
+ * fields present (non-null) are applied. Setting {@code professionUuids} to a
+ * non-null list <em>replaces</em> the current set of professions; leaving it
+ * null keeps the existing set untouched. Same for {@code allyTypeUuids},
+ * except the resulting set is validated to never end up empty (an ally must
+ * always keep at least one type).
  */
 public record AllyUpdateRequest(
         @Size(max = 200) String name,
-        UUID allyTypeUuid,
+        List<UUID> allyTypeUuids,
 
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String taxDocumentType,
@@ -44,5 +46,5 @@ public record AllyUpdateRequest(
         Boolean active,
         String status,
 
-        List<UUID> specialtyUuids
+        List<UUID> professionUuids
 ) {}

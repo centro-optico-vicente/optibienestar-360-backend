@@ -11,7 +11,7 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>Full {@code address} on top of the city label.</li>
- *   <li>List of medical specialty names (just labels, no UUIDs) so the
+ *   <li>List of medical profession names (just labels, no UUIDs) so the
  *       frontend can render them as tags.</li>
  *   <li>List of {@link PublicAllyServiceDto} — filtered to only published +
  *       APPROVED + active offerings; everything else (PROPOSED / IN_REVIEW /
@@ -25,7 +25,7 @@ import java.util.UUID;
 public record PublicAllyDetailDto(
         UUID uuid,
         String name,
-        String allyTypeName,
+        List<String> allyTypeNames,
 
         // Location
         String address,
@@ -41,8 +41,8 @@ public record PublicAllyDetailDto(
         String facebook,
         String googleMapsUrl,
 
-        // Specialties (just labels)
-        List<String> specialtyNames,
+        // Professions (just labels)
+        List<String> professionNames,
 
         // Public offerings (already filtered to APPROVED + published + active)
         List<PublicAllyServiceDto> services

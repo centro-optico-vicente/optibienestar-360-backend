@@ -6,7 +6,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.CountryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.DocumentTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.GenderDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
@@ -16,7 +16,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.CountryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.DocumentTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.GenderService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusService;
-import com.fenixcore.optibienestar360.modules.catalog.service.MedicalSpecialtyService;
+import com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
 import com.fenixcore.optibienestar360.modules.catalog.service.ServiceCategoryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.StateService;
@@ -55,7 +55,7 @@ public class PublicCatalogsController {
     private final DocumentTypeService documentTypeService;
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
-    private final MedicalSpecialtyService medicalSpecialtyService;
+    private final ProfessionService professionService;
     private final ServiceCategoryService serviceCategoryService;
     private final AllyTypeService allyTypeService;
 
@@ -160,18 +160,18 @@ public class PublicCatalogsController {
         return ResponseEntity.ok(occupationService.get(uuid));
     }
 
-    // ─── medical-specialties ────────────────────────────────────────────────
-    @GetMapping("/medical-specialties")
-    public ResponseEntity<Page<MedicalSpecialtyDto>> listMedicalSpecialties(
+    // ─── professions ────────────────────────────────────────────────
+    @GetMapping("/professions")
+    public ResponseEntity<Page<ProfessionDto>> listProfessions(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(medicalSpecialtyService.list(pageable, filter, q, false));
+        return ResponseEntity.ok(professionService.list(pageable, filter, q, false));
     }
 
-    @GetMapping("/medical-specialties/{uuid}")
-    public ResponseEntity<MedicalSpecialtyDto> getMedicalSpecialty(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(medicalSpecialtyService.get(uuid));
+    @GetMapping("/professions/{uuid}")
+    public ResponseEntity<ProfessionDto> getProfession(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(professionService.get(uuid));
     }
 
     // ─── service-categories ─────────────────────────────────────────────────
