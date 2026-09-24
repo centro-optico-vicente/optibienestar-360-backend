@@ -38,7 +38,7 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
      * taking the first result.
      */
     @Query("""
-            SELECT DISTINCT t FROM CollectionCommissionTier t
+            SELECT t FROM CollectionCommissionTier t
             LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND t.basis = :basis
@@ -69,7 +69,7 @@ public interface CollectionCommissionTierRepository extends JpaRepository<Collec
      * taking the first qualifying row in iteration order.
      */
     @Query("""
-            SELECT DISTINCT t FROM CollectionCommissionTier t
+            SELECT t FROM CollectionCommissionTier t
             LEFT JOIN t.promoterTypes pt
             WHERE t.active = true
               AND t.basis = :basis
