@@ -17,12 +17,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import javax.sql.DataSource;
 
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperReportService;
@@ -91,6 +93,10 @@ public class GenericDocumentController {
 	@PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'COLLECTION_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
     public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
+        if (request.data() == null || request.data().isEmpty()) {
+            throw new NoSuchElementException("report.error.no_data");
+        }
+
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(request.format()) ? JasperFormat.XLSX : JasperFormat.PDF;
 
         String safeIdentifier = (request.identifier() != null && UUID_PATTERN.matcher(request.identifier()).matches())
@@ -171,6 +177,9 @@ public class GenericDocumentController {
         String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
 
         java.util.List<?> records = recordResolverService.findRecordsByTable(targetTable, limit, actorUuid, q, includeInactive);
+        if (records == null || records.isEmpty()) {
+            throw new NoSuchElementException("report.error.no_data");
+        }
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
 
         String documentTitle = (title != null && !title.isBlank()) ? title : "Listado de " + formatEntityPluralTitle(targetTable);
@@ -212,6 +221,8 @@ public class GenericDocumentController {
             @RequestParam(required = false) String conversionDate,
             @RequestParam(required = false) String direction
     ) {
+        validateDateRange(startDate, endDate);
+
         String normalizedReport = reportName.trim().toLowerCase();
         String templatePath;
         String baseFilename;
@@ -310,6 +321,8 @@ public class GenericDocumentController {
         byte[] reportBytes;
         try (Connection connection = dataSource.getConnection()) {
             reportBytes = jasperReportService.generateReportWithConnection(templatePath, parameters, connection, selectedFormat);
+        } catch (NoSuchElementException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error al generar reporte Jasper (" + reportName + "): " + e.getMessage(), e);
         }
@@ -532,5 +545,28 @@ public class GenericDocumentController {
         return normalized.equals("campaign")
                 || normalized.equals("campaigns")
                 || normalized.equals("campaigns_table");
+    }
+
+    private void validateDateRange(String startDate, String endDate) {
+        LocalDate start = null;
+        LocalDate end = null;
+        if (startDate != null && !startDate.isBlank()) {
+            start = parseDate(startDate.trim(), "desde");
+        }
+        if (endDate != null && !endDate.isBlank()) {
+            end = parseDate(endDate.trim(), "hacia");
+        }
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new IllegalArgumentException("La fecha hacia (" + endDate.trim() + ") debe ser mayor o igual a la fecha desde (" + startDate.trim() + ").");
+        }
+    }
+
+    private LocalDate parseDate(String dateStr, String paramName) {
+        try {
+            String clean = dateStr.length() >= 10 ? dateStr.substring(0, 10) : dateStr;
+            return LocalDate.parse(clean);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Formato de fecha inválido para '" + paramName + "': " + dateStr + ". Se esperaba YYYY-MM-DD.");
+        }
     }
 }

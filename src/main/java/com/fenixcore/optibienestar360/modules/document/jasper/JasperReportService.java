@@ -37,6 +37,8 @@ public class JasperReportService {
     public byte[] generateReport(String reportPath, Map<String, Object> parameters, Collection<?> data, JasperFormat format) {
         try (InputStream templateStream = new ClassPathResource(reportPath).getInputStream()) {
             return generateReportFromStream(templateStream, parameters, data, format);
+        } catch (java.util.NoSuchElementException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalArgumentException("Could not load report template from classpath: " + reportPath, e);
         }
@@ -54,6 +56,8 @@ public class JasperReportService {
     public byte[] generateReportWithConnection(String reportPath, Map<String, Object> parameters, Connection connection, JasperFormat format) {
         try (InputStream templateStream = new ClassPathResource(reportPath).getInputStream()) {
             return generateReportFromStreamWithConnection(templateStream, parameters, connection, format);
+        } catch (java.util.NoSuchElementException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalArgumentException("Could not load report template from classpath: " + reportPath, e);
         }
@@ -69,7 +73,12 @@ public class JasperReportService {
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(data != null ? data : Collections.emptyList());
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
+            if (jasperPrint.getPages().isEmpty()) {
+                throw new java.util.NoSuchElementException("report.error.no_data");
+            }
             return exportJasperPrint(jasperPrint, format);
+        } catch (java.util.NoSuchElementException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error processing Jasper report: " + e.getMessage(), e);
         }
@@ -84,7 +93,12 @@ public class JasperReportService {
             Map<String, Object> params = parameters != null ? new HashMap<>(parameters) : new HashMap<>();
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, connection);
+            if (jasperPrint.getPages().isEmpty()) {
+                throw new java.util.NoSuchElementException("report.error.no_data");
+            }
             return exportJasperPrint(jasperPrint, format);
+        } catch (java.util.NoSuchElementException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error processing Jasper report with JDBC connection: " + e.getMessage(), e);
         }
