@@ -10,7 +10,7 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CountryRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.GenderRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRepository;
-import com.fenixcore.optibienestar360.modules.catalog.repository.MedicalSpecialtyRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.OccupationRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
@@ -95,7 +95,7 @@ public class AuditDisplayResolver {
             GenderRepository genderRepository,
             MaritalStatusRepository maritalStatusRepository,
             OccupationRepository occupationRepository,
-            MedicalSpecialtyRepository medicalSpecialtyRepository,
+            ProfessionRepository professionRepository,
             ServiceCategoryRepository serviceCategoryRepository,
             PromoterTypeRepository promoterTypeRepository) {
         this.messageSource = messageSource;
@@ -137,7 +137,7 @@ public class AuditDisplayResolver {
 		fieldResolvers.put("maritalStatusUuid", uuid -> maritalStatusRepository.findByUuid(uuid)
 				.map(m -> displayFormatter.catalogLabel(m.getCode(), m.getName())));
         fieldResolvers.put("occupationUuid", uuid -> occupationRepository.findByUuid(uuid).map(o -> o.getName()));
-		fieldResolvers.put("medicalSpecialtyUuid", uuid -> medicalSpecialtyRepository.findByUuid(uuid)
+		fieldResolvers.put("professionUuid", uuid -> professionRepository.findByUuid(uuid)
 				.map(s -> displayFormatter.catalogLabel(s.getCode(), s.getName())));
 		fieldResolvers.put("serviceCategoryUuid", uuid -> serviceCategoryRepository.findByUuid(uuid)
 				.map(c -> displayFormatter.catalogLabel(c.getCode(), c.getName())));

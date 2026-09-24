@@ -20,8 +20,8 @@ import java.util.UUID;
  * record can leave them split since the validation message is friendlier from
  * the constraint trigger).</p>
  *
- * <p>{@code specialtyUuids} populates the {@code @ManyToMany} pivote
- * {@code ally_specialties}. Empty list = no specialties.</p>
+ * <p>{@code professionUuids} populates the {@code @ManyToMany} pivote
+ * {@code ally_professions}. Empty list = no professions.</p>
  */
 public record AllyCreateRequest(
         @NotBlank @Size(max = 200) String name,
@@ -49,5 +49,5 @@ public record AllyCreateRequest(
         Boolean published,
         Instant publishedAt,
 
-        List<UUID> specialtyUuids
+        List<UUID> professionUuids
 ) {}

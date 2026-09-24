@@ -11,8 +11,8 @@ import java.util.UUID;
 
 /**
  * Payload for {@code PUT /v1/admin/allies/{uuid}} — PATCH semantics: only
- * fields present (non-null) are applied. Setting {@code specialtyUuids} to a
- * non-null list <em>replaces</em> the current set of specialties; leaving it
+ * fields present (non-null) are applied. Setting {@code professionUuids} to a
+ * non-null list <em>replaces</em> the current set of professions; leaving it
  * null keeps the existing set untouched.
  */
 public record AllyUpdateRequest(
@@ -44,5 +44,5 @@ public record AllyUpdateRequest(
         Boolean active,
         String status,
 
-        List<UUID> specialtyUuids
+        List<UUID> professionUuids
 ) {}

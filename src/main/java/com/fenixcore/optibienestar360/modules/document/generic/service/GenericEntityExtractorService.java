@@ -81,9 +81,8 @@ public class GenericEntityExtractorService {
         SPANISH_FIELD_LABELS.put("published", "Publicado");
         SPANISH_FIELD_LABELS.put("ispublished", "Publicado");
         SPANISH_FIELD_LABELS.put("publishedat", "Fecha de Publicación");
-        SPANISH_FIELD_LABELS.put("specialties", "Especialidades Médicas");
-        SPANISH_FIELD_LABELS.put("specialty", "Especialidad Médica");
-        SPANISH_FIELD_LABELS.put("medicalspecialty", "Especialidad Médica");
+        SPANISH_FIELD_LABELS.put("professions", "Profesiones");
+        SPANISH_FIELD_LABELS.put("profession", "Profesión");
         SPANISH_FIELD_LABELS.put("services", "Servicios Ofrecidos");
         SPANISH_FIELD_LABELS.put("servicecategory", "Categoría de Servicio");
         SPANISH_FIELD_LABELS.put("agreements", "Acuerdos Comerciales");
@@ -325,7 +324,7 @@ public class GenericEntityExtractorService {
         if (lower.equals("allytype") || lower.equals("promotertype") || lower.equals("plantype") || lower.equals("agreementtype") || lower.equals("type") || lower.equals("tipo") || lower.equals("allytype.name") || lower.equals("promotertype.name") || lower.equals("promotertypename")) {
             return 45;
         }
-        if (lower.equals("servicecategory") || lower.equals("medicalspecialty") || lower.equals("specialty") || lower.equals("specialties") || lower.equals("services")) {
+        if (lower.equals("servicecategory") || lower.equals("profession") || lower.equals("professions") || lower.equals("services")) {
             return 48;
         }
         if (lower.equals("relationship") || lower.equals("parentesco") || lower.equals("allyrole") || lower.equals("role") || lower.equals("roles") || lower.equals("user") || lower.equals("person")) {

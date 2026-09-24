@@ -216,7 +216,7 @@ public class DisplayFormatter {
 	 * them naturally.
 	 */
 	private static final java.util.Set<String> CATALOG_RELS = java.util.Set.of(
-			"allyType", "gender", "maritalStatus", "promoterType", "medicalSpecialty",
+			"allyType", "gender", "maritalStatus", "promoterType", "profession",
 			"serviceCategory", "documentType", "occupation", "country", "state", "plan");
 
 	/**

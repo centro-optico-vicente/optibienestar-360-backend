@@ -13,9 +13,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "medical_specialties")
-@AttributeOverride(name = "id", column = @Column(name = "medical_specialties_id", nullable = false, updatable = false))
-public class MedicalSpecialty extends BaseAuditEntity {
+@Table(name = "professions")
+@AttributeOverride(name = "id", column = @Column(name = "professions_id", nullable = false, updatable = false))
+public class Profession extends BaseAuditEntity {
 
     @Column(length = 40, unique = true, nullable = false)
     private String code;

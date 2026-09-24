@@ -64,7 +64,7 @@ public class AuditEntityAccess {
 		Map.entry("document_type", "DOCUMENT_TYPE_RECORD_AUDIT_VIEW"),
 		Map.entry("marital_status", "MARITAL_STATUS_RECORD_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_RECORD_AUDIT_VIEW"),
-		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_RECORD_AUDIT_VIEW"),
+		Map.entry("profession", "PROFESSION_RECORD_AUDIT_VIEW"),
 		Map.entry("service_category", "SERVICE_CATEGORY_RECORD_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"),
 		Map.entry("terms_version", "TERMS_RECORD_AUDIT_VIEW"),
@@ -109,7 +109,7 @@ public class AuditEntityAccess {
 		Map.entry("document_type", "DOCUMENT_TYPE_REPORT_AUDIT_VIEW"),
 		Map.entry("marital_status", "MARITAL_STATUS_REPORT_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_REPORT_AUDIT_VIEW"),
-		Map.entry("medical_specialty", "MEDICAL_SPECIALTY_REPORT_AUDIT_VIEW"),
+		Map.entry("profession", "PROFESSION_REPORT_AUDIT_VIEW"),
 		Map.entry("service_category", "SERVICE_CATEGORY_REPORT_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_REPORT_AUDIT_VIEW"))
 	;

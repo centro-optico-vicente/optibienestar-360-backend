@@ -20,11 +20,11 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
-import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
+import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
 import org.mapstruct.Context;
@@ -56,13 +56,13 @@ public interface AllyMapper {
 
     /**
      * Sanitized projection for the public detail page. Same omission rules
-     * as {@link #toPublicListItem} plus filtered sub-lists: specialty
+     * as {@link #toPublicListItem} plus filtered sub-lists: profession
      * names + only the public-visible services
      * ({@code active AND published AND reviewStatus=APPROVED}).
      */
     @Mapping(target = "allyTypeName",   source = "allyType.name")
     @Mapping(target = "cityName",       source = "city.name")
-    @Mapping(target = "specialtyNames", expression = "java(extractSpecialtyNames(ally.getSpecialties()))")
+    @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
     @Mapping(target = "services",       expression = "java(extractPublicServices(ally.getServices()))")
     PublicAllyDetailDto toPublicDetail(Ally ally);
 
@@ -86,7 +86,7 @@ public interface AllyMapper {
 
     @Mapping(target = "allyType",    source = "allyType")
     @Mapping(target = "city",        source = "city")
-    @Mapping(target = "specialties", source = "specialties")
+    @Mapping(target = "professions", source = "professions")
     @Mapping(target = "activeUsersCount",      expression = "java(countActive(ally.getUsers()))")
     @Mapping(target = "activeServicesCount",   expression = "java(countActive(ally.getServices()))")
     @Mapping(target = "activeAgreementsCount", expression = "java(countActive(ally.getAgreements()))")
@@ -157,9 +157,9 @@ public interface AllyMapper {
         );
     }
 
-    default MedicalSpecialtyDto toMedicalSpecialtyDto(MedicalSpecialty ms) {
+    default ProfessionDto toProfessionDto(Profession ms) {
         if (ms == null) return null;
-        return new MedicalSpecialtyDto(ms.getUuid(), ms.getCode(),
+        return new ProfessionDto(ms.getUuid(), ms.getCode(),
                 ms.getName(), ms.getDescription(), ms.isActive());
     }
 
@@ -169,9 +169,9 @@ public interface AllyMapper {
                 sc.getName(), sc.getDescription(), sc.isActive());
     }
 
-    default List<MedicalSpecialtyDto> toMedicalSpecialtyDtoList(Set<MedicalSpecialty> set) {
+    default List<ProfessionDto> toProfessionDtoList(Set<Profession> set) {
         if (set == null) return List.of();
-        return set.stream().map(this::toMedicalSpecialtyDto).toList();
+        return set.stream().map(this::toProfessionDto).toList();
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────
@@ -193,11 +193,11 @@ public interface AllyMapper {
         return (int) entities.stream().filter(BaseEntity::isActive).count();
     }
 
-    default List<String> extractSpecialtyNames(Set<MedicalSpecialty> specialties) {
-        if (specialties == null) return List.of();
-        return specialties.stream()
-                .filter(MedicalSpecialty::isActive)
-                .map(MedicalSpecialty::getName)
+    default List<String> extractProfessionNames(Set<Profession> professions) {
+        if (professions == null) return List.of();
+        return professions.stream()
+                .filter(Profession::isActive)
+                .map(Profession::getName)
                 .toList();
     }
 

@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Compact projection for list / directory views. Avoids loading nested
- * collections (specialties, users, services, agreements) — those come from
+ * collections (professions, users, services, agreements) — those come from
  * {@link AllyDetailDto} on the per-ally GET.
  *
  * <p>{@code _Display} convention (hub ADR 0014): {@code @Display} foreign

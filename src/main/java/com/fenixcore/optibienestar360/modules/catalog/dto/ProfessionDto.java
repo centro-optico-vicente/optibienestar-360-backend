@@ -4,7 +4,7 @@ import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.util.UUID;
 
-public record MedicalSpecialtyDto(
+public record ProfessionDto(
 	UUID uuid,
 	String code,
 	String name,

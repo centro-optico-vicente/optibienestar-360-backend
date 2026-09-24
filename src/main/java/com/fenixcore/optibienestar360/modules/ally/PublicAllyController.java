@@ -28,7 +28,7 @@ import java.util.UUID;
  * (RIF, audit, status, email, manager, publishedAt, sub-collections) are
  * intentionally omitted; see that DTO's javadoc for the rationale.</p>
  *
- * <p>Filtering: by city UUID, by medical specialty UUID, by free-text
+ * <p>Filtering: by city UUID, by medical profession UUID, by free-text
  * {@code q} (accent-insensitive over {@code name + description}). All
  * optional; combined with AND.</p>
  */
@@ -43,10 +43,10 @@ public class PublicAllyController {
     @GetMapping
     public ResponseEntity<Page<PublicAllyListItemDto>> directory(
             @RequestParam(required = false) UUID cityUuid,
-            @RequestParam(required = false) UUID specialtyUuid,
+            @RequestParam(required = false) UUID professionUuid,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(alliesService.publicDirectory(cityUuid, specialtyUuid, q, pageable));
+        return ResponseEntity.ok(alliesService.publicDirectory(cityUuid, professionUuid, q, pageable));
     }
 
     /**

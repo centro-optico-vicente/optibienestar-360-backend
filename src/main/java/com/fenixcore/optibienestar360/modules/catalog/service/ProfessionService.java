@@ -10,12 +10,12 @@ import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyCreateRequest;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.MedicalSpecialtyUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
-import com.fenixcore.optibienestar360.modules.catalog.entity.MedicalSpecialty;
-import com.fenixcore.optibienestar360.modules.catalog.repository.MedicalSpecialtyRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,74 +38,74 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MedicalSpecialtyService {
+public class ProfessionService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "description");
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
-        SortFieldValidator.sortableFieldsOf(MedicalSpecialty.class, Map.of());
+        SortFieldValidator.sortableFieldsOf(Profession.class, Map.of());
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
 
-    private final MedicalSpecialtyRepository repository;
+    private final ProfessionRepository repository;
     private final AllyRepository allyRepository;
 
     private final DefaultSortResolver defaultSortResolver;
 
     @Autowired @Lazy
-    private MedicalSpecialtyService self;
+    private ProfessionService self;
 
-    public Page<MedicalSpecialtyDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+    public Page<ProfessionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
         if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
-            "medical_specialty", pageable);
-        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "medical_specialty");
-        Specification<MedicalSpecialty> spec = includeInactive
+            "profession", pageable);
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "profession");
+        Specification<Profession> spec = includeInactive
                 ? (root, query, cb) -> cb.conjunction()
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (filter != null && !filter.isBlank()) {
-            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "medical_specialty.filter.field_not_allowed");
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "profession.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return repository.findAll(spec, resolvedPageable).map(MedicalSpecialtyService::toDto);
+        return repository.findAll(spec, resolvedPageable).map(ProfessionService::toDto);
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
-        return defaultSortResolver.effectiveSort("medical_specialty", pageable);
+        return defaultSortResolver.effectiveSort("profession", pageable);
     }
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
-        Specification<MedicalSpecialty> spec = ((Specification<MedicalSpecialty>) (root, query, cb) -> cb.isTrue(root.get("active")))
+        Specification<Profession> spec = ((Specification<Profession>) (root, query, cb) -> cb.isTrue(root.get("active")))
                 .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
-                MedicalSpecialty::getUuid, MedicalSpecialty::getCode, MedicalSpecialtyService::labelOf, MedicalSpecialty::isActive);
+                Profession::getUuid, Profession::getCode, ProfessionService::labelOf, Profession::isActive);
     }
 
-    private static String labelOf(MedicalSpecialty m) {
+    private static String labelOf(Profession m) {
         return m.getCode() + " — " + m.getName();
     }
 
-    @Cacheable(value = "catalogs", key = "'medical_specialty:all'")
-    public List<MedicalSpecialtyDto> loadAllForDropdown() {
+    @Cacheable(value = "catalogs", key = "'profession:all'")
+    public List<ProfessionDto> loadAllForDropdown() {
         return repository.findAllByActiveTrueOrderByName().stream()
-                .map(MedicalSpecialtyService::toDto)
+                .map(ProfessionService::toDto)
                 .toList();
     }
 
-    public MedicalSpecialtyDto get(UUID uuid) {
+    public ProfessionDto get(UUID uuid) {
         return toDto(find(uuid));
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    @Auditable(entity = "medical_specialty", action = AuditAction.CREATE)
-    public MedicalSpecialtyDto create(MedicalSpecialtyCreateRequest req) {
-        MedicalSpecialty m = new MedicalSpecialty();
+    @Auditable(entity = "profession", action = AuditAction.CREATE)
+    public ProfessionDto create(ProfessionCreateRequest req) {
+        Profession m = new Profession();
         m.setCode(req.code());
         m.setName(req.name());
         m.setDescription(req.description());
@@ -114,9 +114,9 @@ public class MedicalSpecialtyService {
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    @Auditable(entity = "medical_specialty", action = AuditAction.UPDATE, uuidArgIndex = 0)
-    public MedicalSpecialtyDto update(UUID uuid, MedicalSpecialtyUpdateRequest req) {
-        MedicalSpecialty m = find(uuid);
+    @Auditable(entity = "profession", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public ProfessionDto update(UUID uuid, ProfessionUpdateRequest req) {
+        Profession m = find(uuid);
         m.setName(req.name());
         m.setDescription(req.description());
         if (req.active() != null) {
@@ -126,14 +126,14 @@ public class MedicalSpecialtyService {
     }
 
     public long countUsages(UUID uuid) {
-        return allyRepository.countBySpecialties_Uuid(uuid);
+        return allyRepository.countByProfessions_Uuid(uuid);
     }
 
     @Transactional
     @CacheEvict(value = "catalogs", allEntries = true)
-    @Auditable(entity = "medical_specialty", action = AuditAction.DELETE, uuidArgIndex = 0)
+    @Auditable(entity = "profession", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
-        MedicalSpecialty m = find(uuid);
+        Profession m = find(uuid);
         long usages = countUsages(uuid);
         // physical=true is only honored when truly unused — never trust the client
         // flag blindly, to avoid violating the FK or losing referenced data on a
@@ -146,12 +146,12 @@ public class MedicalSpecialtyService {
         repository.save(m);
     }
 
-    private MedicalSpecialty find(UUID uuid) {
+    private Profession find(UUID uuid) {
         return repository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("MedicalSpecialty not found: " + uuid));
+                .orElseThrow(() -> new NoSuchElementException("Profession not found: " + uuid));
     }
 
-    static MedicalSpecialtyDto toDto(MedicalSpecialty m) {
-        return new MedicalSpecialtyDto(m.getUuid(), m.getCode(), m.getName(), m.getDescription(), m.isActive());
+    static ProfessionDto toDto(Profession m) {
+        return new ProfessionDto(m.getUuid(), m.getCode(), m.getName(), m.getDescription(), m.isActive());
     }
 }
