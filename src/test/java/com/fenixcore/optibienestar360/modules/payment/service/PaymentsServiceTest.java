@@ -443,6 +443,8 @@ class PaymentsServiceTest {
         exemptMethod.setCode("CASH");
         exemptMethod.setRequiresApproval(false);
         when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(exemptMethod));
+        PaymentCategory category = new PaymentCategory();
+        when(paymentCategoryRepository.findByCode(any())).thenReturn(Optional.of(category));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"),
@@ -644,7 +646,7 @@ class PaymentsServiceTest {
     private static User user() {
         User u = new User();
         u.setId(1L);
-        u.setUuid(UUID.randomUUID());
+        u.setUuid(ACTOR);
         return u;
     }
 }
