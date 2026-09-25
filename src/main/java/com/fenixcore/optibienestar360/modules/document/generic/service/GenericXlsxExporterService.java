@@ -4,14 +4,28 @@ import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecord
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import org.dhatim.fastexcel.Workbook;
 import org.dhatim.fastexcel.Worksheet;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class GenericXlsxExporterService {
+
+    private final MessageSource messageSource;
+
+    public GenericXlsxExporterService(@Autowired(required = false) MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    public GenericXlsxExporterService() {
+        this(null);
+    }
 
     /**
      * Generates XLSX bytes from a GenericRecordModel using FastExcel.
@@ -124,7 +138,11 @@ public class GenericXlsxExporterService {
 
             // Data rows
             if (model.rows().isEmpty()) {
-                ws.value(row, 0, "No se encontraron registros para mostrar");
+                Locale locale = LocaleContextHolder.getLocale();
+                String emptyMessage = messageSource != null
+                        ? messageSource.getMessage("document.table_list.no_data", null, "No records found to display", locale)
+                        : "No records found to display";
+                ws.value(row, 0, emptyMessage);
                 ws.style(row, 0).italic().fontColor("64748B").set();
                 row++;
             } else {

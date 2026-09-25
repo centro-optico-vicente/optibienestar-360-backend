@@ -373,7 +373,7 @@ class GenericDocumentControllerJasperTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
                 controller.generateJasperReport("comisiones", "PDF", "2026-09-30", "2026-09-01", null, null, null, null, null, null, null, null, null, null)
         );
-        assertTrue(ex.getMessage().contains("mayor o igual"));
+        assertEquals("report.error.date_range_invalid", ex.getMessage());
     }
 
     @Test
@@ -405,9 +405,10 @@ class GenericDocumentControllerJasperTest {
                 "admin", "pass", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("REPORT_REPORT_GENERATE")));
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
 
-        assertThrows(IllegalArgumentException.class, () ->
+        var ex = assertThrows(IllegalArgumentException.class, () ->
                 controller.generateJasperReport("comisiones", "PDF", "not-a-date", "2026-09-30", null, null, null, null, null, null, null, null, null, null)
         );
+        assertEquals("report.error.invalid_date_format", ex.getMessage());
     }
 
     @Test
