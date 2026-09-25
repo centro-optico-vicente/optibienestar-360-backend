@@ -18,5 +18,6 @@ public record PaymentMethodDto(
         @Display(Display.Kind.BOOLEAN) boolean mandatoryPhone,
         @Display(Display.Kind.BOOLEAN) boolean mandatoryEmail,
         @Display(Display.Kind.BOOLEAN) boolean mandatoryReferenceNumber,
+        @Display(Display.Kind.BOOLEAN) boolean requiresApproval,
         @Display(Display.Kind.BOOLEAN) boolean active
 ) {}

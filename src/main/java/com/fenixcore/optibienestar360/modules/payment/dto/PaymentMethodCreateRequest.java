@@ -16,11 +16,13 @@ public record PaymentMethodCreateRequest(
 	@NotNull Boolean mandatoryAccountCode,
         @NotNull Boolean mandatoryPhone,
         @NotNull Boolean mandatoryEmail,
-        @NotNull Boolean mandatoryReferenceNumber
+        @NotNull Boolean mandatoryReferenceNumber,
+        @NotNull Boolean requiresApproval
 ) {
 	public PaymentMethodCreateRequest(String code, String name, boolean mandatoryBankAccount,
 					boolean mandatoryPhone, boolean mandatoryEmail,
 					boolean mandatoryReferenceNumber) {
-		this(code, name, null, false, false, mandatoryBankAccount, false, false, mandatoryPhone, mandatoryEmail, mandatoryReferenceNumber);
+		this(code, name, null, false, false, mandatoryBankAccount, false, false, mandatoryPhone, mandatoryEmail,
+				mandatoryReferenceNumber, true);
 	}
 }

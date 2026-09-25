@@ -334,6 +334,128 @@ class PaymentsServiceTest {
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("75.50");
     }
 
+    // ─── Auto-approval (V158): requiresApproval=false payment methods ───────
+
+    @Test
+    void register_autoApproves_whenSingleLineMethodDoesNotRequireApproval() {
+        Membership membership = membershipWithMember();
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        Currency currency = new Currency();
+        currency.setCode("USD");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(currency));
+        PaymentMethod exemptMethod = new PaymentMethod();
+        exemptMethod.setCode("CASH");
+        exemptMethod.setRequiresApproval(false);
+        when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(exemptMethod));
+        PaymentCategory category = new PaymentCategory();
+        when(paymentCategoryRepository.findByCode(any())).thenReturn(Optional.of(category));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"),
+                List.of(line("10.00")));
+
+        sut().register(request, null, false, ACTOR);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        Payment saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PaymentStatus.APPROVED.name());
+        assertThat(saved.getReviewedBy()).isNotNull();
+        assertThat(saved.getReviewedBy().getUuid()).isEqualTo(ACTOR);
+        assertThat(saved.getLines()).allMatch(l -> PaymentStatus.APPROVED.name().equals(l.getStatus()));
+        verify(commissionService).calculateAndPersistFor(saved);
+        verify(membershipChargeService).applyPayment(saved);
+        verify(validatorCacheService).evictForMembership(membership);
+    }
+
+    @Test
+    void register_legacySingleFlatLine_autoApproves_whenMethodDoesNotRequireApproval() {
+        Membership membership = membershipWithMember();
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        Currency currency = new Currency();
+        currency.setCode("USD");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(currency));
+        PaymentMethod exemptMethod = new PaymentMethod();
+        exemptMethod.setCode("CASH");
+        exemptMethod.setRequiresApproval(false);
+        when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(exemptMethod));
+        PaymentCategory category = new PaymentCategory();
+        when(paymentCategoryRepository.findByCode(any())).thenReturn(Optional.of(category));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        // No `lines` on the request — the legacy flat method/amount fields build the
+        // single line internally (still supported post-PR#290, see registerInternal).
+        PaymentCreateRequest request = createRequest(membership.getUuid(), false,
+                LocalDate.of(2026, 8, 15), null);
+
+        sut().register(request, null, false, ACTOR);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(PaymentStatus.APPROVED.name());
+    }
+
+    @Test
+    void register_staysPending_whenLinesUseMixedApprovalMethods() {
+        Membership membership = membershipWithMember();
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        Currency currency = new Currency();
+        currency.setCode("USD");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(currency));
+        PaymentMethod exemptMethod = new PaymentMethod();
+        exemptMethod.setCode("CASH");
+        exemptMethod.setRequiresApproval(false);
+        PaymentMethod reviewedMethod = new PaymentMethod();
+        reviewedMethod.setCode("BANK_TRANSFER");
+        reviewedMethod.setRequiresApproval(true);
+        UUID exemptUuid = UUID.randomUUID();
+        UUID reviewedUuid = UUID.randomUUID();
+        when(paymentMethodRepository.findByUuid(exemptUuid)).thenReturn(Optional.of(exemptMethod));
+        when(paymentMethodRepository.findByUuid(reviewedUuid)).thenReturn(Optional.of(reviewedMethod));
+        PaymentCategory category = new PaymentCategory();
+        when(paymentCategoryRepository.findByCode(any())).thenReturn(Optional.of(category));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentLineRequest exemptLine = new PaymentLineRequest(exemptUuid, null, new BigDecimal("5.00"), null,
+                null, null, null, null, null, null, null);
+        PaymentLineRequest reviewedLine = new PaymentLineRequest(reviewedUuid, null, new BigDecimal("5.00"), null,
+                null, null, null, null, null, null, null);
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"),
+                List.of(exemptLine, reviewedLine));
+
+        sut().register(request, null, false, ACTOR);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(PaymentStatus.PENDING.name());
+    }
+
+    @Test
+    void register_staysDraft_evenWhenEveryLineMethodIsExempt() {
+        Membership membership = membershipWithMember();
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        Currency currency = new Currency();
+        currency.setCode("USD");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(currency));
+        PaymentMethod exemptMethod = new PaymentMethod();
+        exemptMethod.setCode("CASH");
+        exemptMethod.setRequiresApproval(false);
+        when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(exemptMethod));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"),
+                List.of(line("10.00")));
+
+        sut().register(request, null, true, ACTOR);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(PaymentStatus.DRAFT.name());
+        verify(commissionService, org.mockito.Mockito.never()).calculateAndPersistFor(any());
+    }
+
     // ─── Lines lifecycle: updateLines / submit / reactivateToDraft (V117) ───
 
     @Test

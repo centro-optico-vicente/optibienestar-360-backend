@@ -302,7 +302,7 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile) {
-        return register(request, supportFile, false);
+        return register(request, supportFile, false, null);
     }
 
     /**
@@ -318,6 +318,20 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
+        return register(request, supportFile, draft, null);
+    }
+
+    /**
+     * Same as {@link #register(PaymentCreateRequest, MultipartFile, boolean)} plus an explicit
+     * {@code actorUserUuid} — the reviewer to stamp when the auto-approval path (V158, direct-receipt
+     * payment methods e.g. cash) fires and the payment lands straight at APPROVED instead of PENDING.
+     * {@code null} keeps the two overloads above's historical behavior: auto-approval is still evaluated,
+     * but {@link #applyApprovalEffects} would need a resolvable reviewer to actually complete, so callers
+     * that want auto-approval to take effect must supply a real actor (see {@code AdminPaymentController}).
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile, boolean draft, UUID actorUserUuid) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
         User payer = request.payerUserUuid() != null
@@ -329,7 +343,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), request.lines(), draft, supportFile);
+                request.adminNotes(), request.lines(), draft, actorUserUuid, supportFile);
     }
 
     @Transactional
@@ -492,7 +506,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), request.lines(), draft, supportFile);
+                request.adminNotes(), request.lines(), draft, actorUserUuid, supportFile);
     }
 
     /**
@@ -528,7 +542,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), request.lines(), draft, supportFile);
+                request.adminNotes(), request.lines(), draft, actorUserUuid, supportFile);
     }
 
     /**
@@ -544,7 +558,7 @@ public class PaymentsService {
                                         String phone, String email, String referenceNumber, Instant paymentDate,
                                         Boolean inscriptionFlag, LocalDate appliedPeriod,
                                         LocalDate coverageThroughPeriod, String adminNotes,
-                                        List<PaymentLineRequest> lines, boolean draft,
+                                        List<PaymentLineRequest> lines, boolean draft, UUID actorUserUuid,
                                         MultipartFile supportFile) {
         Payment payment = new Payment();
         payment.setMembership(membership);
@@ -606,7 +620,18 @@ public class PaymentsService {
                 resolveCoverageThroughPeriod(inscription, resolvedAppliedPeriod, coverageThroughPeriod));
 
         payment.setAdminNotes(adminNotes);
-        PaymentStatus initialStatus = draft ? PaymentStatus.DRAFT : PaymentStatus.PENDING;
+
+        // V158 auto-approval: a non-draft payment whose every line uses only a
+        // direct-receipt method (PaymentMethod.requiresApproval = false, e.g. cash)
+        // skips PENDING review entirely and lands straight at APPROVED — nothing to
+        // verify against a bank/third-party statement. Empty lines (shouldn't happen
+        // past validation above, but defensive) never auto-approve.
+        boolean autoApprove = !draft && !payment.getLines().isEmpty()
+                && payment.getLines().stream()
+                        .allMatch(line -> !line.getPaymentType().isRequiresApproval());
+
+        PaymentStatus initialStatus = draft ? PaymentStatus.DRAFT
+                : (autoApprove ? PaymentStatus.APPROVED : PaymentStatus.PENDING);
         payment.setStatus(initialStatus.name());
 
         // Header (V117): this flow only ever produces a collection (IN),
@@ -629,7 +654,13 @@ public class PaymentsService {
         }
 
         Payment saved = paymentRepository.save(payment);
-        if (!draft) {
+        if (autoApprove) {
+            // Effects run against the saved, managed entity — same precondition
+            // approve() relies on (findManaged returns a row already persisted by a
+            // prior transaction). Here the row is persisted earlier in this same
+            // transaction instead, but the entity reference is otherwise identical.
+            applyApprovalEffects(saved, actorUserUuid, "Auto-approved — direct-receipt payment method");
+        } else if (!draft) {
             dispatchNotification(saved, "payment-received", "email.payment.received.subject");
             notifySubmissionToPromoterAndAdmin(saved);
         }
@@ -1030,8 +1061,23 @@ public class PaymentsService {
         }
         ensurePending(payment);
 
-        applyReview(payment, PaymentStatus.APPROVED, actorUserUuid,
-                request != null ? request.reason() : null);
+        applyApprovalEffects(payment, actorUserUuid, request != null ? request.reason() : null);
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Everything "becoming APPROVED" means for a payment — the single place both
+     * {@link #approve} (PENDING → APPROVED via admin/promoter review) and the
+     * auto-approval branch of {@link #registerInternal} (V158, a direct-receipt
+     * payment method that skips review entirely) go through, so the two paths can
+     * never drift apart on what firing the side effects actually does. Reuses
+     * {@link #applyReview} for the status/reviewer stamping (never reimplemented by
+     * hand) — same {@code chk_payments_review_consistency} guarantee either way.
+     * OUT payments never reach the commission/membership side effects, mirroring
+     * {@code approve()}'s historical {@code direction != "OUT"} guard.
+     */
+    private void applyApprovalEffects(Payment payment, UUID actorUserUuid, String reviewReason) {
+        applyReview(payment, PaymentStatus.APPROVED, actorUserUuid, reviewReason);
         if (!"OUT".equals(payment.getDirection())) {
             snapshotExchangeRate(payment);
             validatorCacheService.evictForMembership(payment.getMembership());
@@ -1041,7 +1087,6 @@ public class PaymentsService {
         }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         notifyPromoterOfDecision(payment, "APPROVED");
-        return mapper.toDto(payment);
     }
 
     /**

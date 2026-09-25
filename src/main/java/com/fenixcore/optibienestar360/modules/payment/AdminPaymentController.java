@@ -106,8 +106,9 @@ public class AdminPaymentController {
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") PaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
-            @RequestParam(required = false, defaultValue = "false") boolean draft) {
-        PaymentDto created = paymentsService.register(request, supportFile, draft);
+            @RequestParam(required = false, defaultValue = "false") boolean draft,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        PaymentDto created = paymentsService.register(request, supportFile, draft, actor.getUuid());
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
