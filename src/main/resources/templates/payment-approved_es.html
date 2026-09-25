@@ -40,6 +40,10 @@
         <span class="label">Mes cubierto:</span>
         <span th:text="${#temporals.format(appliedPeriod, 'MM/yyyy')}"></span>
     </div>
+    <div class="field" th:if="${!inscription and coverageThroughPeriod != null and !coverageThroughPeriod.equals(appliedPeriod)}">
+        <span class="label">Cubre:</span>
+        <span th:text="${#temporals.format(appliedPeriod, 'MM/yyyy')} + ' → ' + ${#temporals.format(coverageThroughPeriod, 'MM/yyyy')}"></span>
+    </div>
     <div class="field">
         <span class="label">Fecha del pago:</span>
         <span th:text="${#temporals.format(paymentDate, 'dd/MM/yyyy')}"></span>

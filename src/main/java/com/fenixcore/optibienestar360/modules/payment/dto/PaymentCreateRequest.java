@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -36,7 +38,13 @@ import java.util.UUID;
 public record PaymentCreateRequest(
         @NotNull UUID membershipUuid,
 
-        @NotNull
+        /**
+         * The declared header total. Required when {@link #lines} is
+         * null/empty (legacy single-line shape, unchanged). Optional when
+         * {@link #lines} is populated — omit it to auto-total from the
+         * lines, or supply it to validate {@code sum(lines.amount) <= amount}
+         * (service layer enforces both, see {@code PaymentsService}).
+         */
         @Digits(integer = 8, fraction = 2)
         @DecimalMin(value = "0.01", message = "{payment.amount.positive}")
         BigDecimal amount,
@@ -79,5 +87,13 @@ public record PaymentCreateRequest(
 
         UUID payerUserUuid,             // optional — null for cash-at-counter
 
-        String adminNotes
+        String adminNotes,
+
+        /**
+         * Multi-line split (V117 lines feature). {@code null}/empty falls
+         * back to the legacy single-line shape built from this record's own
+         * flat method/amount/reference fields above (which are then
+         * ignored when this is populated — see {@code PaymentsService}).
+         */
+        @Valid List<PaymentLineRequest> lines
 ) {}

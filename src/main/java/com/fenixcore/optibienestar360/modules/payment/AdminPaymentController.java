@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentCreateRequest;
@@ -93,17 +94,62 @@ public class AdminPaymentController {
         return ResponseEntity.ok(paymentsService.get(uuid));
     }
 
+    /**
+     * {@code ?draft=true} starts the payment at {@code DRAFT} instead of the
+     * historical one-step {@code PENDING} (V117 lines feature design fork —
+     * see hub plan) — lines then stay editable via {@code PUT .../lines}
+     * until an explicit {@code PUT .../submit}. Omitted/{@code false} keeps
+     * today's behavior unchanged.
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('COLLECTION_CREATE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") PaymentCreateRequest request,
-            @RequestPart(value = "support", required = false) MultipartFile supportFile) {
-        PaymentDto created = paymentsService.register(request, supportFile);
+            @RequestPart(value = "support", required = false) MultipartFile supportFile,
+            @RequestParam(required = false, defaultValue = "false") boolean draft) {
+        PaymentDto created = paymentsService.register(request, supportFile, draft);
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /**
+     * Replaces the entire lines collection of a {@code DRAFT} collection
+     * payment (V117 lines feature) — rejected once the payment has left
+     * {@code DRAFT}. Same permission tier as {@code register}: composing a
+     * draft's lines is part of the same "not yet submitted" phase.
+     */
+    @PutMapping("/{uuid}/lines")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE')")
+    public ResponseEntity<PaymentDto> updateLines(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody PaymentLinesUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.updateLines(uuid, request, actor.getUuid()));
+    }
+
+    /** {@code DRAFT → PENDING} — moves a draft collection into the admin review queue. */
+    @PutMapping("/{uuid}/submit")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE')")
+    public ResponseEntity<PaymentDto> submit(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.submit(uuid, actor.getUuid()));
+    }
+
+    /**
+     * {@code PENDING → DRAFT} — the only way to make a submitted payment's
+     * lines editable again. Same permission tier as {@code delete}: both
+     * "undo" a not-yet-reviewed submission.
+     */
+    @PutMapping("/{uuid}/reactivate")
+    @PreAuthorize("hasAuthority('COLLECTION_DELETE')")
+    public ResponseEntity<PaymentDto> reactivate(
+            @PathVariable UUID uuid,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.reactivateToDraft(uuid, actor.getUuid()));
     }
 
 	@PostMapping(value = "/out", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

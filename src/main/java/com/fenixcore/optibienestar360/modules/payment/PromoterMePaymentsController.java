@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.payment;
 import com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -77,18 +78,44 @@ public class PromoterMePaymentsController {
         return ResponseEntity.ok(paymentsService.listForPromoter(actor.getUuid(), direction, pageable));
     }
 
+    /** {@code ?draft=true} starts the payment at {@code DRAFT} — see {@code AdminPaymentController.register}. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") DownlinePaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
+            @RequestParam(required = false, defaultValue = "false") boolean draft,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        PaymentDto created = paymentsService.registerForDownline(actor.getUuid(), request, supportFile);
+        PaymentDto created = paymentsService.registerForDownline(actor.getUuid(), request, supportFile, draft);
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /** Replaces the lines of a {@code DRAFT} collection from the caller's own downline (V117 lines feature). */
+    @PutMapping("/{uuid}/lines")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
+    public ResponseEntity<PaymentDto> updateLines(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody PaymentLinesUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.updateLinesForDownline(actor.getUuid(), uuid, request));
+    }
+
+    /** {@code DRAFT → PENDING} for a downline collection. */
+    @PutMapping("/{uuid}/submit")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
+    public ResponseEntity<PaymentDto> submit(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.submitForDownline(actor.getUuid(), uuid));
+    }
+
+    /** {@code PENDING → DRAFT} for a downline collection. */
+    @PutMapping("/{uuid}/reactivate")
+	@PreAuthorize("hasAuthority('COLLECTION_DELETE_DOWNLINE')")
+    public ResponseEntity<PaymentDto> reactivate(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.reactivateToDraftForDownline(actor.getUuid(), uuid));
     }
 
     @PutMapping("/{uuid}/approve")

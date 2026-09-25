@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -24,7 +26,7 @@ import java.util.UUID;
 public record DownlinePaymentCreateRequest(
         @NotNull UUID memberUuid,
 
-        @NotNull
+        /** See {@link PaymentCreateRequest#amount()} — required only when {@link #lines} is null/empty. */
         @Digits(integer = 8, fraction = 2)
         @DecimalMin(value = "0.01", message = "{payment.amount.positive}")
         BigDecimal amount,
@@ -52,5 +54,8 @@ public record DownlinePaymentCreateRequest(
         /** See {@link PaymentCreateRequest#coverageThroughPeriod()} — same rules. */
         LocalDate coverageThroughPeriod,
 
-        String adminNotes
+        String adminNotes,
+
+        /** See {@link PaymentCreateRequest#lines()}. */
+        @Valid List<PaymentLineRequest> lines
 ) {}
