@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.payment;
 
 import com.fenixcore.optibienestar360.modules.payment.dto.MyPaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -18,7 +19,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,18 +59,44 @@ public class MyPaymentsController {
         return ResponseEntity.ok(paymentsService.listForUser(actor.getUuid(), pageable));
     }
 
+    /** {@code ?draft=true} starts the payment at {@code DRAFT} — see {@code AdminPaymentController.register}. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") MyPaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
+            @RequestParam(required = false, defaultValue = "false") boolean draft,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        PaymentDto created = paymentsService.registerOwn(actor.getUuid(), request, supportFile);
+        PaymentDto created = paymentsService.registerOwn(actor.getUuid(), request, supportFile, draft);
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /** Replaces the lines of the caller's own {@code DRAFT} payment (V117 lines feature). */
+    @PutMapping("/{uuid}/lines")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<PaymentDto> updateLines(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody PaymentLinesUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.updateLinesOwn(actor.getUuid(), uuid, request));
+    }
+
+    /** {@code DRAFT → PENDING} for the caller's own payment. */
+    @PutMapping("/{uuid}/submit")
+	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<PaymentDto> submit(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.submitOwn(actor.getUuid(), uuid));
+    }
+
+    /** {@code PENDING → DRAFT} for the caller's own payment. */
+    @PutMapping("/{uuid}/reactivate")
+	@PreAuthorize("hasAuthority('COLLECTION_DELETE_OWN')")
+    public ResponseEntity<PaymentDto> reactivate(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.reactivateToDraftOwn(actor.getUuid(), uuid));
     }
 
     @DeleteMapping("/{uuid}")

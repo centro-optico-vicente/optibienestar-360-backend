@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.payment.mapper;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLineDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -12,6 +13,7 @@ import org.mapstruct.Named;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Optional;
 
 @Mapper(componentModel = "spring", uses = DisplayRefs.class)
@@ -52,7 +54,46 @@ public interface PaymentMapper {
 	@Mapping(target = "bankAccountIdentifier", expression = "java(lineValue(payment, 4))")
 	@Mapping(target = "phone", expression = "java(lineValue(payment, 5))")
 	@Mapping(target = "email", expression = "java(lineValue(payment, 6))")
+	@Mapping(target = "lines", expression = "java(toLineDtos(payment))")
     PaymentDto toDto(Payment payment);
+
+    /** Full lines collection (V117 lines feature) — every {@code payment_lines} row, mapped independently of the flattened first-line fields above. */
+    default List<PaymentLineDto> toLineDtos(Payment payment) {
+        return payment.getLines().stream().map(this::toLineDto).toList();
+    }
+
+    default PaymentLineDto toLineDto(PaymentLine line) {
+        var method = line.getPaymentType();
+        return new PaymentLineDto(
+                line.getUuid(),
+                DisplayRef.of(method.getUuid(), method.getCode(), method.getName()),
+                method.getDescription(),
+                method.isMandatoryIdentification(),
+                method.isMandatoryBank(),
+                method.isMandatoryBankAccount(),
+                method.isMandatoryAccountType(),
+                method.isMandatoryAccountCode(),
+                method.isMandatoryPhone(),
+                method.isMandatoryEmail(),
+                method.isMandatoryReferenceNumber(),
+                line.getAmount(),
+                line.getCurrency() != null ? line.getCurrency().getCode() : null,
+                line.getCurrency() != null ? DisplayRefs.ref(line.getCurrency()) : null,
+                line.getReferenceNumber(),
+                line.getBank() != null
+                        ? DisplayRef.of(line.getBank().getUuid(), line.getBank().getCode(), line.getBank().getShortName())
+                        : null,
+                line.getIdentification(),
+                line.getBankAccountType(),
+                line.getBankAccountCode(),
+                line.getBankAccountIdentifier(),
+                line.getPhone(),
+                line.getEmail(),
+                line.getStatus(),
+                line.getReviewedBy() != null ? DisplayRefs.ref(line.getReviewedBy()) : null,
+                line.getReviewedAt(),
+                line.getReviewReason());
+    }
 
     @Named("isPresent")
     static boolean isPresent(String value) {

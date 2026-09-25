@@ -20,6 +20,8 @@ import com.fenixcore.optibienestar360.modules.notification.service.NotificationC
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLineRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
@@ -44,6 +46,7 @@ import org.springframework.context.MessageSource;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -270,6 +273,207 @@ class PaymentsServiceTest {
                 .hasMessage("payment.coverage_through.inscription_forbidden");
     }
 
+    // ─── Multi-line create (V117 lines feature) ─────────────────────────────
+
+    @Test
+    void register_multiLine_sumEqualsDeclaredAmount_ok() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsFull(membership);
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("100.00"),
+                List.of(line("60.00"), line("40.00")));
+
+        sut().register(request, null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualByComparingTo("100.00");
+        assertThat(captor.getValue().getLines()).hasSize(2);
+    }
+
+    @Test
+    void register_multiLine_sumLessThanDeclaredAmount_ok() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsFull(membership);
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("100.00"),
+                List.of(line("30.00"), line("40.00")));
+
+        sut().register(request, null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void register_multiLine_sumExceedsDeclaredAmount_rejected() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsMinimal(membership);
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("50.00"),
+                List.of(line("30.00"), line("40.00")));
+
+        assertThatThrownBy(() -> sut().register(request, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.lines.sum_exceeds_amount");
+    }
+
+    @Test
+    void register_multiLine_autoSums_whenNoDeclaredAmount() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsFull(membership);
+
+        PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), null,
+                List.of(line("30.00"), line("45.50")));
+
+        sut().register(request, null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualByComparingTo("75.50");
+    }
+
+    // ─── Lines lifecycle: updateLines / submit / reactivateToDraft (V117) ───
+
+    @Test
+    void updateLines_succeeds_onDraft() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        PaymentMethod method = new PaymentMethod();
+        method.setCode("CASH");
+        when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(method));
+
+        PaymentLinesUpdateRequest request = new PaymentLinesUpdateRequest(
+                List.of(line("15.00"), line("25.00")), new BigDecimal("40.00"));
+
+        sut().updateLines(payment.getUuid(), request, ACTOR);
+
+        assertThat(payment.getLines()).hasSize(2);
+        assertThat(payment.getAmount()).isEqualByComparingTo("40.00");
+    }
+
+    @Test
+    void updateLines_rejected_whenPending() {
+        Payment payment = pending(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        PaymentLinesUpdateRequest request = new PaymentLinesUpdateRequest(List.of(line("10.00")), null);
+
+        assertThatThrownBy(() -> sut().updateLines(payment.getUuid(), request, ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.lines.not_draft");
+    }
+
+    @Test
+    void updateLines_rejected_whenApproved() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        payment.setStatus(PaymentStatus.APPROVED.name());
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        PaymentLinesUpdateRequest request = new PaymentLinesUpdateRequest(List.of(line("10.00")), null);
+
+        assertThatThrownBy(() -> sut().updateLines(payment.getUuid(), request, ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.lines.not_draft");
+    }
+
+    @Test
+    void updateLines_rejected_whenRejected() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        payment.setStatus(PaymentStatus.REJECTED.name());
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        PaymentLinesUpdateRequest request = new PaymentLinesUpdateRequest(List.of(line("10.00")), null);
+
+        assertThatThrownBy(() -> sut().updateLines(payment.getUuid(), request, ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.lines.not_draft");
+    }
+
+    @Test
+    void submit_movesDraftToPending() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        sut().submit(payment.getUuid(), ACTOR);
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING.name());
+    }
+
+    @Test
+    void submit_rejected_whenNotDraft() {
+        Payment payment = pending(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().submit(payment.getUuid(), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.lines.not_draft");
+    }
+
+    @Test
+    void reactivateToDraft_movesPendingToDraft() {
+        Payment payment = pending(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        sut().reactivateToDraft(payment.getUuid(), ACTOR);
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.DRAFT.name());
+    }
+
+    @Test
+    void reactivateToDraft_rejected_whenAlreadyDraft() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().reactivateToDraft(payment.getUuid(), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.reactivate.already_draft");
+    }
+
+    @Test
+    void reactivateToDraft_rejected_whenApproved() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        payment.setStatus(PaymentStatus.APPROVED.name());
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().reactivateToDraft(payment.getUuid(), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.reactivate.terminal");
+    }
+
+    @Test
+    void reactivateToDraft_rejected_whenRejected() {
+        Payment payment = draft(new BigDecimal("10.00"));
+        payment.setStatus(PaymentStatus.REJECTED.name());
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> sut().reactivateToDraft(payment.getUuid(), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.reactivate.terminal");
+    }
+
+    private static PaymentLineRequest line(String amount) {
+        return new PaymentLineRequest(UUID.randomUUID(), null, new BigDecimal(amount), null,
+                null, null, null, null, null, null, null);
+    }
+
+    private static PaymentCreateRequest createRequestWithLines(UUID membershipUuid, BigDecimal amount,
+                                                                List<PaymentLineRequest> lines) {
+        return new PaymentCreateRequest(membershipUuid, amount, "USD",
+                UUID.randomUUID(), null, null, null, null, null, null, null, null,
+                Instant.parse("2026-08-20T00:00:00Z"), false, null, null,
+                null, null, lines);
+    }
+
+    private static Payment draft(BigDecimal amount) {
+        Payment p = new Payment();
+        p.setUuid(UUID.randomUUID());
+        p.setAmount(amount);
+        p.setStatus(PaymentStatus.DRAFT.name());
+        return p;
+    }
+
     private Membership membershipWithMember() {
         Member member = new Member();
         member.setId(9L);
@@ -304,7 +508,7 @@ class PaymentsServiceTest {
         return new PaymentCreateRequest(membershipUuid, new BigDecimal("10.00"), "USD",
                 UUID.randomUUID(), null, null, null, null, null, null, null, null,
                 Instant.parse("2026-08-20T00:00:00Z"), inscription, appliedPeriod, coverageThroughPeriod,
-                null, null);
+                null, null, null);
     }
 
     private static Payment pending(BigDecimal amount) {

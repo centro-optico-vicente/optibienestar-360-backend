@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -83,6 +84,15 @@ public record PaymentDto(
 	String bankAccountIdentifier,
 	String phone,
 	String email,
+
+        /**
+         * Full lines collection (V117 lines feature) — every {@code
+         * payment_lines} row, in addition to the flattened first-line fields
+         * above (kept as-is for backward compatibility). A payment with a
+         * single line still populates both; a genuinely split payment only
+         * shows its first line in the flat fields, the full split here.
+         */
+        List<PaymentLineDto> lines,
 
         // Dates
 	@Display(Display.Kind.DATETIME) Instant paymentDate,

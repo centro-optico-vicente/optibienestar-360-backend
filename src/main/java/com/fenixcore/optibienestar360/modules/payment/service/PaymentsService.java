@@ -34,6 +34,8 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLineRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentCreateRequest;
@@ -300,6 +302,22 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile) {
+        return register(request, supportFile, false);
+    }
+
+    /**
+     * Same as {@link #register(PaymentCreateRequest, MultipartFile)} plus an
+     * explicit {@code draft} flag (V117 lines feature design fork — see hub
+     * plan): {@code false} (the historical default, used by every caller
+     * that doesn't ask otherwise) keeps today's one-step "submit for review"
+     * behavior, status lands directly at {@code PENDING}. {@code true}
+     * starts the payment at {@code DRAFT} instead — lines then stay editable
+     * via {@link #updateLines} until an explicit {@link #submit} moves it to
+     * {@code PENDING}. No submission notification fires for a draft create.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto register(PaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
         User payer = request.payerUserUuid() != null
@@ -311,7 +329,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), supportFile);
+                request.adminNotes(), request.lines(), draft, supportFile);
     }
 
     @Transactional
@@ -458,6 +476,13 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto registerOwn(UUID actorUserUuid, MyPaymentCreateRequest request, MultipartFile supportFile) {
+        return registerOwn(actorUserUuid, request, supportFile, false);
+    }
+
+    /** Same as {@link #registerOwn(UUID, MyPaymentCreateRequest, MultipartFile)} plus {@code draft} — see {@link #register(PaymentCreateRequest, MultipartFile, boolean)}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto registerOwn(UUID actorUserUuid, MyPaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
         Member member = memberRepository.findByUserUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("member.not_found"));
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
@@ -467,7 +492,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), supportFile);
+                request.adminNotes(), request.lines(), draft, supportFile);
     }
 
     /**
@@ -482,6 +507,13 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto registerForDownline(UUID actorUserUuid, DownlinePaymentCreateRequest request, MultipartFile supportFile) {
+        return registerForDownline(actorUserUuid, request, supportFile, false);
+    }
+
+    /** Same as {@link #registerForDownline(UUID, DownlinePaymentCreateRequest, MultipartFile)} plus {@code draft} — see {@link #register(PaymentCreateRequest, MultipartFile, boolean)}. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.CREATE)
+    public PaymentDto registerForDownline(UUID actorUserUuid, DownlinePaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
         Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         Member member = memberRepository.findByUuid(request.memberUuid())
@@ -496,7 +528,7 @@ public class PaymentsService {
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
                 request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
-                request.adminNotes(), supportFile);
+                request.adminNotes(), request.lines(), draft, supportFile);
     }
 
     /**
@@ -512,6 +544,7 @@ public class PaymentsService {
                                         String phone, String email, String referenceNumber, Instant paymentDate,
                                         Boolean inscriptionFlag, LocalDate appliedPeriod,
                                         LocalDate coverageThroughPeriod, String adminNotes,
+                                        List<PaymentLineRequest> lines, boolean draft,
                                         MultipartFile supportFile) {
         Payment payment = new Payment();
         payment.setMembership(membership);
@@ -519,28 +552,51 @@ public class PaymentsService {
             payment.setPayerUser(payer);
         }
 
-        payment.setAmount(amount);
         var currency = currencyRepository.findByCode(currencyCode != null ? currencyCode : "USD")
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
         payment.setCurrency(currency);
         payment.setPaymentDate(paymentDate);
 
-        var method = paymentMethodRepository.findByUuid(methodUuid)
-                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
-        if (method.isMandatoryReferenceNumber() && (referenceNumber == null || referenceNumber.isBlank()))
-            throw new IllegalArgumentException("payment.reference.required");
-        if (method.isMandatoryPhone() && (phone == null || phone.isBlank()))
-            throw new IllegalArgumentException("payment.phone.required");
-        if (method.isMandatoryEmail() && (email == null || email.isBlank()))
-            throw new IllegalArgumentException("payment.email.required");
-        Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
-                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
-        if (method.isMandatoryBank() && bank == null)
-            throw new IllegalArgumentException("payment.bank.required");
-        if (method.isMandatoryBankAccount() &&
-                (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
-            throw new IllegalArgumentException("payment.bank_account.required");
+        // V117 lines feature: a non-empty `lines` list takes precedence over the
+        // legacy flat method/amount fields on this same request (the flat fields
+        // are then ignored — single source of truth per create call, see the
+        // request DTOs' Javadoc). Empty/null `lines` keeps today's single-line
+        // behavior unchanged, byte-for-byte.
+        if (lines != null && !lines.isEmpty()) {
+            applyLines(payment, lines, currency, amount);
+        } else {
+            if (amount == null) {
+                throw new IllegalArgumentException("payment.amount.required");
+            }
+            payment.setAmount(amount);
+
+            var method = paymentMethodRepository.findByUuid(methodUuid)
+                    .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+            validateMandatoryFields(method, referenceNumber, phone, email);
+            Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
+                    .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+            if (method.isMandatoryBank() && bank == null)
+                throw new IllegalArgumentException("payment.bank.required");
+            if (method.isMandatoryBankAccount() &&
+                    (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
+                throw new IllegalArgumentException("payment.bank_account.required");
+
+            PaymentLine line = new PaymentLine();
+            line.setPayment(payment);
+            line.setPaymentType(method);
+            line.setBank(bank);
+            line.setAmount(payment.getAmount());
+            line.setCurrency(currency);
+            line.setIdentification(identification);
+            line.setBankAccountType(bankAccountType);
+            line.setBankAccountCode(bankAccountCode);
+            line.setBankAccountIdentifier(bankAccountIdentifier);
+            line.setPhone(phone);
+            line.setEmail(email);
+            line.setReferenceNumber(referenceNumber);
+            payment.getLines().add(line);
+        }
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
         payment.setInscription(inscription);
@@ -550,7 +606,8 @@ public class PaymentsService {
                 resolveCoverageThroughPeriod(inscription, resolvedAppliedPeriod, coverageThroughPeriod));
 
         payment.setAdminNotes(adminNotes);
-        payment.setStatus(PaymentStatus.PENDING.name());
+        PaymentStatus initialStatus = draft ? PaymentStatus.DRAFT : PaymentStatus.PENDING;
+        payment.setStatus(initialStatus.name());
 
         // Header (V117): this flow only ever produces a collection (IN),
         // never a commission payout (OUT — CommissionPayoutService).
@@ -567,26 +624,257 @@ public class PaymentsService {
 
         attachSupportFile(payment, supportFile);
 
+        for (PaymentLine line : payment.getLines()) {
+            line.setStatus(initialStatus.name());
+        }
+
+        Payment saved = paymentRepository.save(payment);
+        if (!draft) {
+            dispatchNotification(saved, "payment-received", "email.payment.received.subject");
+            notifySubmissionToPromoterAndAdmin(saved);
+        }
+        return mapper.toDto(saved);
+    }
+
+    /**
+     * Builds one {@link PaymentLine} per {@link PaymentLineRequest} and adds
+     * them to {@code payment}, then applies the mixed total rule to the
+     * header {@code amount}: {@code sum(lines) <= declaredAmount} when a
+     * declared amount is supplied (a partial registration against an
+     * expected total is fine, an overshoot is rejected); auto-summed when
+     * {@code declaredAmount} is {@code null}.
+     */
+    private void applyLines(Payment payment, List<PaymentLineRequest> lines,
+                            com.fenixcore.optibienestar360.modules.currency.entity.Currency headerCurrency,
+                            BigDecimal declaredAmount) {
+        List<PaymentLine> built = lines.stream().map(req -> buildLine(payment, req, headerCurrency)).toList();
+        BigDecimal sum = built.stream().map(PaymentLine::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (declaredAmount != null) {
+            if (sum.compareTo(declaredAmount) > 0) {
+                throw new IllegalArgumentException("payment.lines.sum_exceeds_amount");
+            }
+            payment.setAmount(declaredAmount);
+        } else {
+            payment.setAmount(sum);
+        }
+        built.forEach(payment.getLines()::add);
+    }
+
+    /**
+     * Builds (but does not persist) a single {@link PaymentLine} from a
+     * {@link PaymentLineRequest} — same catalog/mandatory-field validation
+     * {@link #registerInternal}'s legacy single-line branch already applies,
+     * extracted here so both the multi-line create path and {@link #updateLines}
+     * share it. {@code req.currencyUuid()} is optional — {@code null} falls
+     * back to the payment's own header currency.
+     */
+    private PaymentLine buildLine(Payment payment, PaymentLineRequest req,
+                                  com.fenixcore.optibienestar360.modules.currency.entity.Currency headerCurrency) {
+        var method = paymentMethodRepository.findByUuid(req.paymentMethodUuid())
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        validateMandatoryFields(method, req.referenceNumber(), req.phone(), req.email());
+        Bank bank = req.bankUuid() == null ? null : bankRepository.findByUuid(req.bankUuid())
+                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("payment.bank.required");
+        if (method.isMandatoryBankAccount() &&
+                (req.bankAccountIdentifier() == null || req.bankAccountIdentifier().isBlank()))
+            throw new IllegalArgumentException("payment.bank_account.required");
+        var currency = req.currencyUuid() != null
+                ? currencyRepository.findByUuid(req.currencyUuid())
+                        .filter(com.fenixcore.optibienestar360.modules.currency.entity.Currency::isActive)
+                        .orElseThrow(() -> new NoSuchElementException("currency.not_found"))
+                : headerCurrency;
+
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
         line.setPaymentType(method);
         line.setBank(bank);
-        line.setAmount(payment.getAmount());
+        line.setAmount(req.amount());
         line.setCurrency(currency);
-        line.setIdentification(identification);
-        line.setBankAccountType(bankAccountType);
-        line.setBankAccountCode(bankAccountCode);
-        line.setBankAccountIdentifier(bankAccountIdentifier);
-        line.setPhone(phone);
-        line.setEmail(email);
-        line.setReferenceNumber(referenceNumber);
-        line.setStatus(PaymentStatus.PENDING.name());
-        payment.getLines().add(line);
+        line.setIdentification(req.identification());
+        line.setBankAccountType(req.bankAccountType());
+        line.setBankAccountCode(req.bankAccountCode());
+        line.setBankAccountIdentifier(req.bankAccountIdentifier());
+        line.setPhone(req.phone());
+        line.setEmail(req.email());
+        line.setReferenceNumber(req.referenceNumber());
+        return line;
+    }
 
-        Payment saved = paymentRepository.save(payment);
-        dispatchNotification(saved, "payment-received", "email.payment.received.subject");
-        notifySubmissionToPromoterAndAdmin(saved);
-        return mapper.toDto(saved);
+    private static void validateMandatoryFields(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method,
+                                                String referenceNumber, String phone, String email) {
+        if (method.isMandatoryReferenceNumber() && (referenceNumber == null || referenceNumber.isBlank()))
+            throw new IllegalArgumentException("payment.reference.required");
+        if (method.isMandatoryPhone() && (phone == null || phone.isBlank()))
+            throw new IllegalArgumentException("payment.phone.required");
+        if (method.isMandatoryEmail() && (email == null || email.isBlank()))
+            throw new IllegalArgumentException("payment.email.required");
+    }
+
+    // ─── Lines lifecycle (DRAFT ⇄ PENDING, V117 lines feature) ──────────────
+
+    /**
+     * Admin: replaces the entire lines collection of a {@code DRAFT}
+     * collection payment and recomputes the header amount per the mixed
+     * total rule (see {@link #applyLines}). Rejected once the payment has
+     * left {@code DRAFT} — {@link #ensureDraft}.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto updateLines(UUID paymentUuid, PaymentLinesUpdateRequest request, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensureCollection(payment);
+        return applyLinesUpdate(payment, request);
+    }
+
+    /** Affiliate: only their own {@code DRAFT} payment. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto updateLinesOwn(UUID actorUserUuid, UUID paymentUuid, PaymentLinesUpdateRequest request) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applyLinesUpdate(payment, request);
+    }
+
+    /** Promoter: only a {@code DRAFT} collection from their own downline. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto updateLinesForDownline(UUID actorUserUuid, UUID paymentUuid, PaymentLinesUpdateRequest request) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applyLinesUpdate(payment, request);
+    }
+
+    private PaymentDto applyLinesUpdate(Payment payment, PaymentLinesUpdateRequest request) {
+        ensureDraft(payment);
+        payment.getLines().clear();
+        applyLines(payment, request.lines(), payment.getCurrency(), request.amount());
+        for (PaymentLine line : payment.getLines()) {
+            line.setStatus(PaymentStatus.DRAFT.name());
+        }
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Admin: {@code DRAFT → PENDING}. The only way a draft collection enters
+     * the admin review queue.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto submit(UUID paymentUuid, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensureCollection(payment);
+        return applySubmit(payment);
+    }
+
+    /** Affiliate: only their own {@code DRAFT} payment. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto submitOwn(UUID actorUserUuid, UUID paymentUuid) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applySubmit(payment);
+    }
+
+    /** Promoter: only a {@code DRAFT} collection from their own downline. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto submitForDownline(UUID actorUserUuid, UUID paymentUuid) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applySubmit(payment);
+    }
+
+    private PaymentDto applySubmit(Payment payment) {
+        ensureDraft(payment);
+        payment.setStatus(PaymentStatus.PENDING.name());
+        for (PaymentLine line : payment.getLines()) {
+            line.setStatus(PaymentStatus.PENDING.name());
+        }
+        dispatchNotification(payment, "payment-received", "email.payment.received.subject");
+        notifySubmissionToPromoterAndAdmin(payment);
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Admin: {@code PENDING → DRAFT} — the only way to make a submitted
+     * payment's lines editable again. Blocked from {@code DRAFT} itself
+     * ("already draft", a no-op the caller should not have attempted) and
+     * from the terminal {@code APPROVED}/{@code REJECTED} statuses
+     * ("terminal, cannot reactivate") — distinct messages per the business
+     * rule.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto reactivateToDraft(UUID paymentUuid, UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensureCollection(payment);
+        return applyReactivateToDraft(payment);
+    }
+
+    /** Affiliate: only their own payment. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto reactivateToDraftOwn(UUID actorUserUuid, UUID paymentUuid) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applyReactivateToDraft(payment);
+    }
+
+    /** Promoter: only a collection from their own downline. */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto reactivateToDraftForDownline(UUID actorUserUuid, UUID paymentUuid) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByPromoterDownline(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        return applyReactivateToDraft(payment);
+    }
+
+    private PaymentDto applyReactivateToDraft(Payment payment) {
+        if (PaymentStatus.DRAFT.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.reactivate.already_draft");
+        }
+        if (!PaymentStatus.PENDING.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.reactivate.terminal");
+        }
+        payment.setStatus(PaymentStatus.DRAFT.name());
+        for (PaymentLine line : payment.getLines()) {
+            line.setStatus(PaymentStatus.DRAFT.name());
+        }
+        return mapper.toDto(payment);
+    }
+
+    /** {@code updateLines}/{@code submit}/{@code reactivateToDraft} only ever operate on a collection (IN) — OUT has its own draft lifecycle ({@code processOut}/{@code ensureOutDraft}). */
+    private static void ensureCollection(Payment payment) {
+        if ("OUT".equals(payment.getDirection())) {
+            throw new IllegalArgumentException("payment.collection.required");
+        }
+    }
+
+    private static void ensureDraft(Payment payment) {
+        if (!PaymentStatus.DRAFT.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.lines.not_draft");
+        }
     }
 
     // ─── Delete (PENDING only — a mistaken registration, not yet reviewed) ──
@@ -1042,6 +1330,10 @@ public class PaymentsService {
         vars.put("paymentDate", payment.getPaymentDate());
         vars.put("inscription", payment.isInscription());
         vars.put("appliedPeriod", payment.getAppliedPeriod());
+        // V154 multi-month advance — only meaningfully distinct from `appliedPeriod`
+        // when it covers more than a single month; the template only renders the
+        // "Covers" line when this differs from appliedPeriod (see the templates).
+        vars.put("coverageThroughPeriod", payment.getCoverageThroughPeriod());
         vars.put("reviewReason", payment.getReviewReason());
         return vars;
     }
