@@ -49,5 +49,8 @@ public record DownlinePaymentCreateRequest(
         Boolean inscription,           // default false server-side
         LocalDate appliedPeriod,        // first day of covered month (recurring only)
 
+        /** See {@link PaymentCreateRequest#coverageThroughPeriod()} — same rules. */
+        LocalDate coverageThroughPeriod,
+
         String adminNotes
 ) {}

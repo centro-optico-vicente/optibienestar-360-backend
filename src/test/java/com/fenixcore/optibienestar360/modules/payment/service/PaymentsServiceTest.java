@@ -7,7 +7,9 @@ import com.fenixcore.optibienestar360.common.storage.PresignedUrlPolicy;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
 import com.fenixcore.optibienestar360.modules.corporate.service.CorporateBillingResolver;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
@@ -16,13 +18,18 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService;
 import com.fenixcore.optibienestar360.modules.notification.service.NotificationChannelResolver;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
@@ -35,6 +42,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,6 +65,8 @@ class PaymentsServiceTest {
     @Mock private PaymentCategoryRepository paymentCategoryRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
     @Mock private PromoterRepository promoterRepository;
+    @Mock private PersonRepository personRepository;
+    @Mock private BankRepository bankRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private MemberRepository memberRepository;
     @Mock private UserRepository userRepository;
@@ -77,10 +88,11 @@ class PaymentsServiceTest {
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
-                promoterRepository, membershipRepository, memberRepository, userRepository, currencyRepository,
-                currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService, messageSource,
-                validatorCacheService, commissionService, hierarchyOverrideService, corporateBillingResolver,
-                presignedUrlPolicy, fileValidationService, membershipChargeService, notificationChannelResolver);
+                promoterRepository, personRepository, bankRepository, membershipRepository, memberRepository,
+                userRepository, currencyRepository, currencyConversionService, mapper, defaultSortResolver,
+                storageProvider, emailService, messageSource, validatorCacheService, commissionService,
+                hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
+                membershipChargeService, notificationChannelResolver);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();
@@ -193,6 +205,106 @@ class PaymentsServiceTest {
         sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
 
         verify(membershipChargeService).applyPayment(payment);
+    }
+
+    // ─── register(): coverageThroughPeriod (V154 advance) ──────────────────
+
+    @Test
+    void register_persistsCoverageThroughPeriod_whenSet() {
+        Membership membership = membershipWithMember();
+        UUID membershipUuid = membership.getUuid();
+        stubRegisterCollaboratorsFull(membership);
+
+        PaymentCreateRequest request = createRequest(membershipUuid, false,
+                LocalDate.of(2026, 8, 15), LocalDate.of(2026, 10, 3));
+
+        sut().register(request, null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getAppliedPeriod()).isEqualTo(LocalDate.of(2026, 8, 1));
+        assertThat(captor.getValue().getCoverageThroughPeriod()).isEqualTo(LocalDate.of(2026, 10, 1));
+    }
+
+    @Test
+    void register_leavesCoverageThroughPeriodNull_whenOmitted() {
+        Membership membership = membershipWithMember();
+        UUID membershipUuid = membership.getUuid();
+        stubRegisterCollaboratorsFull(membership);
+
+        PaymentCreateRequest request = createRequest(membershipUuid, false,
+                LocalDate.of(2026, 8, 15), null);
+
+        sut().register(request, null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getCoverageThroughPeriod()).isNull();
+    }
+
+    @Test
+    void register_rejects_whenCoverageThroughPeriodBeforeAppliedPeriod() {
+        Membership membership = membershipWithMember();
+        UUID membershipUuid = membership.getUuid();
+        stubRegisterCollaboratorsMinimal(membership);
+
+        PaymentCreateRequest request = createRequest(membershipUuid, false,
+                LocalDate.of(2026, 8, 15), LocalDate.of(2026, 7, 1));
+
+        assertThatThrownBy(() -> sut().register(request, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.coverage_through.before_applied_period");
+    }
+
+    @Test
+    void register_rejects_whenCoverageThroughPeriodSetOnInscription() {
+        Membership membership = membershipWithMember();
+        UUID membershipUuid = membership.getUuid();
+        stubRegisterCollaboratorsMinimal(membership);
+
+        PaymentCreateRequest request = createRequest(membershipUuid, true,
+                null, LocalDate.of(2026, 10, 1));
+
+        assertThatThrownBy(() -> sut().register(request, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.coverage_through.inscription_forbidden");
+    }
+
+    private Membership membershipWithMember() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setUuid(UUID.randomUUID());
+        membership.setMember(member);
+        return membership;
+    }
+
+    /** Stubs collaborators consulted before the {@code inscription}/{@code coverageThroughPeriod} validation runs. */
+    private void stubRegisterCollaboratorsMinimal(Membership membership) {
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        Currency currency = new Currency();
+        currency.setCode("USD");
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(currency));
+        PaymentMethod method = new PaymentMethod();
+        method.setCode("CASH");
+        when(paymentMethodRepository.findByUuid(any())).thenReturn(Optional.of(method));
+    }
+
+    /** Full happy-path stubbing — adds the collaborators reached only after validation passes. */
+    private void stubRegisterCollaboratorsFull(Membership membership) {
+        stubRegisterCollaboratorsMinimal(membership);
+        PaymentCategory category = new PaymentCategory();
+        when(paymentCategoryRepository.findByCode(any())).thenReturn(Optional.of(category));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    private static PaymentCreateRequest createRequest(UUID membershipUuid, boolean inscription,
+                                                       LocalDate appliedPeriod, LocalDate coverageThroughPeriod) {
+        return new PaymentCreateRequest(membershipUuid, new BigDecimal("10.00"), "USD",
+                UUID.randomUUID(), null, null, null, null, null, null, null, null,
+                Instant.parse("2026-08-20T00:00:00Z"), inscription, appliedPeriod, coverageThroughPeriod,
+                null, null);
     }
 
     private static Payment pending(BigDecimal amount) {

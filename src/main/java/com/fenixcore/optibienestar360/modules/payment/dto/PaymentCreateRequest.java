@@ -67,6 +67,16 @@ public record PaymentCreateRequest(
         Boolean inscription,           // default false server-side
         LocalDate appliedPeriod,        // first day of covered month (recurring only)
 
+        /**
+         * First day of the LAST month covered by a multi-month advance
+         * payment (V154) — {@code null} means single-month (historical
+         * behavior). Must be {@code null} when {@link #inscription} is
+         * {@code true}, and never before {@link #appliedPeriod} — enforced
+         * at the service layer alongside the {@code appliedPeriod} rules
+         * above.
+         */
+        LocalDate coverageThroughPeriod,
+
         UUID payerUserUuid,             // optional — null for cash-at-counter
 
         String adminNotes
