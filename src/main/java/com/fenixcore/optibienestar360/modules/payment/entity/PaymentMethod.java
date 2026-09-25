@@ -62,4 +62,15 @@ public class PaymentMethod extends BaseEntity {
 
     @Column(name = "is_mandatory_reference_number", nullable = false)
     private boolean mandatoryReferenceNumber;
+
+    /**
+     * {@code true} (default): the historical behavior — a payment line using
+     * this method always goes through admin/promoter review (PENDING) before
+     * it can be APPROVED. {@code false}: a direct-receipt method (e.g. cash
+     * collected in person) — a payment whose every line uses only such
+     * methods skips review entirely and lands straight at APPROVED on
+     * registration (V158, see {@code PaymentsService#registerInternal}).
+     */
+    @Column(name = "requires_approval", nullable = false)
+    private boolean requiresApproval = true;
 }

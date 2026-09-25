@@ -120,6 +120,7 @@ public class PaymentMethodService {
         m.setMandatoryPhone(req.mandatoryPhone());
         m.setMandatoryEmail(req.mandatoryEmail());
         m.setMandatoryReferenceNumber(req.mandatoryReferenceNumber());
+        m.setRequiresApproval(req.requiresApproval());
         return toDto(repository.save(m));
     }
 
@@ -138,6 +139,7 @@ public class PaymentMethodService {
         m.setMandatoryPhone(req.mandatoryPhone());
         m.setMandatoryEmail(req.mandatoryEmail());
         m.setMandatoryReferenceNumber(req.mandatoryReferenceNumber());
+        m.setRequiresApproval(req.requiresApproval());
         if (req.active() != null) {
             m.setActive(req.active());
         }
@@ -164,7 +166,7 @@ public class PaymentMethodService {
 			m.getUuid(), m.getCode(), m.getName(), m.getDescription(),
 			m.isMandatoryIdentification(), m.isMandatoryBank(), m.isMandatoryBankAccount(), m.isMandatoryAccountType(),
 			m.isMandatoryAccountCode(), m.isMandatoryPhone(), m.isMandatoryEmail(), m.isMandatoryReferenceNumber(),
-			m.isActive()
+			m.isRequiresApproval(), m.isActive()
 		);
     }
 }

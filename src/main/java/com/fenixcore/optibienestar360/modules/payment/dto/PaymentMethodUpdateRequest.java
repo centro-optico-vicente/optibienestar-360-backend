@@ -16,11 +16,13 @@ public record PaymentMethodUpdateRequest(
         @NotNull Boolean mandatoryPhone,
         @NotNull Boolean mandatoryEmail,
         @NotNull Boolean mandatoryReferenceNumber,
+        @NotNull Boolean requiresApproval,
         Boolean active
 ) {
 	public PaymentMethodUpdateRequest(String name, boolean mandatoryBankAccount,
 			boolean mandatoryPhone, boolean mandatoryEmail,
 			boolean mandatoryReferenceNumber, Boolean active) {
-		this(name, null, false, false, mandatoryBankAccount, false, false, mandatoryPhone, mandatoryEmail, mandatoryReferenceNumber, active);
+		this(name, null, false, false, mandatoryBankAccount, false, false, mandatoryPhone, mandatoryEmail,
+				mandatoryReferenceNumber, true, active);
 	}
 }
