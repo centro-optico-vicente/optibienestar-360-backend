@@ -92,6 +92,13 @@ public record PaymentDto(
         @Display(Display.Kind.BOOLEAN) boolean inscription,
         @Display(Display.Kind.DATE) LocalDate appliedPeriod,
 
+        /**
+         * First day of the LAST month covered by a multi-month advance
+         * payment (V154) — {@code null} means single-month, same as
+         * {@link #appliedPeriod}'s historical meaning.
+         */
+        @Display(Display.Kind.DATE) LocalDate coverageThroughPeriod,
+
         // Proof of payment (metadata only; raw URL is fetched via
         // /support presigned endpoint when wired up)
         @Display(Display.Kind.BOOLEAN) boolean supportFileAvailable,

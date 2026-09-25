@@ -310,7 +310,8 @@ public class PaymentsService {
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
-                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+                request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
+                request.adminNotes(), supportFile);
     }
 
     @Transactional
@@ -465,7 +466,8 @@ public class PaymentsService {
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
-                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+                request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
+                request.adminNotes(), supportFile);
     }
 
     /**
@@ -493,7 +495,8 @@ public class PaymentsService {
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
-                request.inscription(), request.appliedPeriod(), request.adminNotes(), supportFile);
+                request.inscription(), request.appliedPeriod(), request.coverageThroughPeriod(),
+                request.adminNotes(), supportFile);
     }
 
     /**
@@ -507,7 +510,8 @@ public class PaymentsService {
                                         UUID methodUuid, UUID bankUuid, String identification,
                                         String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
                                         String phone, String email, String referenceNumber, Instant paymentDate,
-                                        Boolean inscriptionFlag, LocalDate appliedPeriod, String adminNotes,
+                                        Boolean inscriptionFlag, LocalDate appliedPeriod,
+                                        LocalDate coverageThroughPeriod, String adminNotes,
                                         MultipartFile supportFile) {
         Payment payment = new Payment();
         payment.setMembership(membership);
@@ -540,7 +544,10 @@ public class PaymentsService {
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
         payment.setInscription(inscription);
-        payment.setAppliedPeriod(resolveAppliedPeriod(inscription, appliedPeriod));
+        LocalDate resolvedAppliedPeriod = resolveAppliedPeriod(inscription, appliedPeriod);
+        payment.setAppliedPeriod(resolvedAppliedPeriod);
+        payment.setCoverageThroughPeriod(
+                resolveCoverageThroughPeriod(inscription, resolvedAppliedPeriod, coverageThroughPeriod));
 
         payment.setAdminNotes(adminNotes);
         payment.setStatus(PaymentStatus.PENDING.name());
@@ -927,6 +934,29 @@ public class PaymentsService {
             return explicit.withDayOfMonth(1);
         }
         return LocalDate.now().withDayOfMonth(1);
+    }
+
+    /**
+     * Normalizes the optional multi-month advance range end (V154) the same
+     * way {@link #resolveAppliedPeriod} normalizes the range start — first
+     * day of the month. {@code null} means single-month, the historical
+     * behavior unchanged. Mirrors the {@code inscription_no_period} CHECK
+     * intent: an inscription fee can never carry a coverage range, and the
+     * range can never end before {@code resolvedAppliedPeriod}.
+     */
+    private static LocalDate resolveCoverageThroughPeriod(boolean inscription, LocalDate resolvedAppliedPeriod,
+                                                           LocalDate explicit) {
+        if (explicit == null) {
+            return null;
+        }
+        if (inscription) {
+            throw new IllegalArgumentException("payment.coverage_through.inscription_forbidden");
+        }
+        LocalDate normalized = explicit.withDayOfMonth(1);
+        if (normalized.isBefore(resolvedAppliedPeriod)) {
+            throw new IllegalArgumentException("payment.coverage_through.before_applied_period");
+        }
+        return normalized;
     }
 
     /**
