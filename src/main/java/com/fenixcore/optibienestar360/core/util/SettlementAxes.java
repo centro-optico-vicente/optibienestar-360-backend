@@ -97,11 +97,16 @@ public final class SettlementAxes {
         }
 
         int retroRank = granularityRank(retroactive);
-        if (retroRank < partialRank) {
-            throw new IllegalArgumentException("settlement_axes.retroactive_out_of_range");
-        }
-        if (accrualIsPeriodic && retroRank > granularityRank(accrual)) {
-            throw new IllegalArgumentException("settlement_axes.retroactive_out_of_range");
+        // The [partial..accrual] bound only makes sense when accrual is itself
+        // periodic (there's a real window to bound retroactive within). With a
+        // non-periodic accrual (CAMPAIGN/LIFETIME) there's nothing to bound
+        // against — retroactive stays any independent periodic value, exactly
+        // today's actual (pre-D15) behavior.
+        if (accrualIsPeriodic) {
+            int accrualRank = granularityRank(accrual);
+            if (retroRank < partialRank || retroRank > accrualRank) {
+                throw new IllegalArgumentException("settlement_axes.retroactive_out_of_range");
+            }
         }
         return new Resolution(retroactive, retroactiveAnchor, true);
     }
