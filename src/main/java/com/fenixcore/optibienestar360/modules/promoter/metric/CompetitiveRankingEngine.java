@@ -81,10 +81,18 @@ public final class CompetitiveRankingEngine {
         }
     }
 
-    private static final Comparator<Candidate> DETERMINISTIC_ORDER = Comparator
+    /** RANKING: highest metric wins; ties break by who got there first, then fewest transactions, then id (D6). */
+    private static final Comparator<Candidate> RANKING_ORDER = Comparator
             .comparing(Candidate::value, Comparator.reverseOrder())
             .thenComparing(c -> c.achievedAt() == null ? Instant.MAX : c.achievedAt())
             .thenComparing(Candidate::transactionCount, Comparator.reverseOrder())
+            .thenComparing(Candidate::promoterId);
+
+    /** FIRST_TO_REACH: whoever crossed the threshold earliest wins — the overshoot amount is irrelevant. */
+    private static final Comparator<Candidate> FIRST_TO_REACH_ORDER = Comparator
+            .comparing((Candidate c) -> c.achievedAt() == null ? Instant.MAX : c.achievedAt())
+            .thenComparing(Candidate::value, Comparator.reverseOrder())
+            .thenComparing(Candidate::transactionCount)
             .thenComparing(Candidate::promoterId);
 
     /**
@@ -127,7 +135,9 @@ public final class CompetitiveRankingEngine {
      * is removed from the tier's remaining capacity; {@code exclusions} removes promoters from
      * the pool entirely (disqualified, or already won a higher-priority rule in the same D16
      * group). Pass {@code applyMinimums = false} for FIRST_TO_REACH rules — D12 minimums are
-     * RANKING-only.
+     * RANKING-only. {@code firstToReachMode} picks the sort order: RANKING sorts by highest
+     * metric value (ties break by who got there first, D6); FIRST_TO_REACH sorts by who crossed
+     * the threshold earliest — a bigger overshoot never outranks an earlier crossing.
      *
      * <p>{@code tiePolicy} only matters once a residual tie group overflows the tier it lands in
      * (fitting entirely inside one tier is never ambiguous, regardless of policy):
@@ -143,7 +153,8 @@ public final class CompetitiveRankingEngine {
      * </ul>
      */
     public static RankingResult rank(List<Candidate> candidates, List<PositionSpec> positions, boolean countMetric,
-                                      boolean applyMinimums, TiePolicy tiePolicy, Map<Integer, Long> pins, Set<Long> exclusions) {
+                                      boolean applyMinimums, boolean firstToReachMode, TiePolicy tiePolicy,
+                                      Map<Integer, Long> pins, Set<Long> exclusions) {
         Map<Integer, Long> effectivePins = pins == null ? Map.of() : pins;
         Set<Long> effectiveExclusions = exclusions == null ? Set.of() : exclusions;
         Set<Long> pinnedPromoters = new java.util.HashSet<>(effectivePins.values());
@@ -155,7 +166,7 @@ public final class CompetitiveRankingEngine {
             }
             pool.add(candidate);
         }
-        pool.sort(DETERMINISTIC_ORDER);
+        pool.sort(firstToReachMode ? FIRST_TO_REACH_ORDER : RANKING_ORDER);
 
         Map<Long, Candidate> byId = new java.util.HashMap<>();
         for (Candidate candidate : candidates) {

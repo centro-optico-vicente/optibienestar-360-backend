@@ -61,7 +61,7 @@ class CompetitiveRankingEngineTest {
                 new MetricEvent(2L, BigDecimal.valueOf(100), T0.plusSeconds(5))); // promoter 2 crosses 100 immediately, earlier
 
         List<Candidate> reached = CompetitiveRankingEngine.firstToReach(events, BigDecimal.valueOf(100));
-        RankingResult result = CompetitiveRankingEngine.rank(reached, List.of(spec(1, 1)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(reached, List.of(spec(1, 1)), false, false, true,
                 TiePolicy.MANUAL, Map.of(), Set.of());
 
         assertThat(positionOf(result)).containsEntry(1, 2L);
@@ -117,7 +117,7 @@ class CompetitiveRankingEngineTest {
         PositionSpec first = new PositionSpec(1, 1, 100, null); // requires >= 100 (count metric)
         List<Candidate> candidates = List.of(candidate(1, 80, 0, 1), candidate(2, 70, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(first), true, true,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(first), true, true, false,
                 TiePolicy.MANUAL, Map.of(), Set.of());
 
         assertThat(result.awards()).isEmpty(); // promoter 1 fails the min and is NOT promoted to a lower tier
@@ -129,7 +129,7 @@ class CompetitiveRankingEngineTest {
         PositionSpec second = new PositionSpec(2, 2, null, null); // no minimum
         List<Candidate> candidates = List.of(candidate(1, 80, 0, 1), candidate(2, 70, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(first, second), true, true,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(first, second), true, true, false,
                 TiePolicy.MANUAL, Map.of(), Set.of());
 
         // Promoter 1 (who'd occupy position 1) fails the min and gets nothing — position 2 stays
@@ -180,7 +180,7 @@ class CompetitiveRankingEngineTest {
                 candidate(1, 100, 0, 1), candidate(2, 100, 0, 1), candidate(3, 100, 0, 1),
                 candidate(4, 50, 0, 1), candidate(5, 50, 0, 1), candidate(6, 50, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 4)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 4)), false, false, false,
                 TiePolicy.MANUAL, Map.of(1, 1L), Set.of());
 
         assertThat(result.awards()).filteredOn(a -> a.promoterId() == 1L).extracting(ProjectedAward::position)
@@ -215,7 +215,7 @@ class CompetitiveRankingEngineTest {
         List<Candidate> candidates = List.of(
                 candidate(3, 100, 0, 1), candidate(1, 100, 0, 1), candidate(2, 100, 0, 1)); // tied; sorted by id asc
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false, false,
                 TiePolicy.STRICT, Map.of(), Set.of());
 
         assertThat(result.openTie()).isNull();
@@ -226,7 +226,7 @@ class CompetitiveRankingEngineTest {
     void rank_strictPolicy_leftoverTiedMembersCascadeToTheNextTier() {
         List<Candidate> candidates = List.of(candidate(1, 100, 0, 1), candidate(2, 100, 0, 1), candidate(3, 100, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 2)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 2)), false, false, false,
                 TiePolicy.STRICT, Map.of(), Set.of());
 
         assertThat(positionOf(result)).containsOnly(Map.entry(1, 1L), Map.entry(2, 2L));
@@ -236,7 +236,7 @@ class CompetitiveRankingEngineTest {
     void rank_sharedFull_everyTiedMemberGetsTheRicherTier_consumingItEntirely() {
         List<Candidate> candidates = List.of(candidate(1, 100, 0, 1), candidate(2, 100, 0, 1), candidate(3, 100, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false, false,
                 TiePolicy.SHARED_FULL, Map.of(), Set.of());
 
         assertThat(result.awards()).extracting(ProjectedAward::position).containsOnly(1);
@@ -250,7 +250,7 @@ class CompetitiveRankingEngineTest {
                 candidate(1, 100, 0, 1), candidate(2, 100, 0, 1), candidate(3, 100, 0, 1),
                 candidate(4, 50, 0, 1));
 
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 4)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1), spec(2, 4)), false, false, false,
                 TiePolicy.SHARED_FULL, Map.of(), Set.of());
 
         // Tier 1's single slot is consumed by all 3 tied members (each at position 1); promoter 4
@@ -265,7 +265,7 @@ class CompetitiveRankingEngineTest {
     @Test
     void rank_exclusion_removesAPromoterFromContentionEntirely() {
         List<Candidate> candidates = List.of(candidate(1, 100, 0, 1), candidate(2, 90, 0, 1));
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 1)), false, false, false,
                 TiePolicy.MANUAL, Map.of(), Set.of(1L));
         assertThat(positionOf(result)).containsExactly(Map.entry(1, 2L));
     }
@@ -273,7 +273,7 @@ class CompetitiveRankingEngineTest {
     @Test
     void rank_pin_isHonoredEvenIfNotTheTopValue() {
         List<Candidate> candidates = List.of(candidate(1, 100, 0, 1), candidate(2, 90, 0, 1), candidate(3, 80, 0, 1));
-        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 2)), false, false,
+        RankingResult result = CompetitiveRankingEngine.rank(candidates, List.of(spec(1, 2)), false, false, false,
                 TiePolicy.MANUAL, Map.of(1, 3L), Set.of());
 
         Map<Integer, Long> byPosition = positionOf(result);
@@ -283,6 +283,6 @@ class CompetitiveRankingEngineTest {
     }
 
     private static RankingResult rankAuto(List<Candidate> candidates, List<PositionSpec> positions) {
-        return CompetitiveRankingEngine.rank(candidates, positions, false, false, TiePolicy.MANUAL, Map.of(), Set.of());
+        return CompetitiveRankingEngine.rank(candidates, positions, false, false, false, TiePolicy.MANUAL, Map.of(), Set.of());
     }
 }
