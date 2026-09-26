@@ -102,4 +102,51 @@ class SettlementAxesTest {
         assertThat(r.retroactiveStrategy()).isEqualTo("MONTHLY");
         assertThat(r.retroactiveAnchor()).isNull();
     }
+
+    // ─── END_DATE (Fase 1, competitive commission rules) ───────────────────
+
+    @Test
+    void resolve_partialEndDate_alwaysAllowed_andDisablesRetroactive() {
+        // Monthly recurring accrual, but every closed period pays out in one
+        // lump at the rule's own ends_at (D15) — legal regardless of accrual's
+        // own granularity, and there's nothing left to catch up on separately.
+        SettlementAxes.Resolution r = SettlementAxes.resolve("MONTHLY", "END_DATE", "WEEKLY", (short) 1);
+        assertThat(r.retroactiveEnabled()).isFalse();
+        assertThat(r.retroactiveStrategy()).isEqualTo("END_DATE");
+        assertThat(r.retroactiveAnchor()).isNull();
+    }
+
+    @Test
+    void resolve_accrualEndDate_withFinerPartial_enablesRetroactive() {
+        // A single starts_at..ends_at evaluation window, sliced into weekly
+        // payout cuts within it — END_DATE is the coarsest rank, so any
+        // periodic partial is finer.
+        SettlementAxes.Resolution r = SettlementAxes.resolve("END_DATE", "WEEKLY", "BIWEEKLY", (short) 2);
+        assertThat(r.retroactiveEnabled()).isTrue();
+        assertThat(r.retroactiveStrategy()).isEqualTo("BIWEEKLY");
+    }
+
+    @Test
+    void resolve_retroactiveEndDate_allowedWhenEnabled_regardlessOfAccrualRank() {
+        // A single lump retroactive cut at the rule's own ends_at, instead of
+        // a periodic one — allowed whenever the axis is enabled at all.
+        SettlementAxes.Resolution r = SettlementAxes.resolve("MONTHLY", "WEEKLY", "END_DATE", null);
+        assertThat(r.retroactiveEnabled()).isTrue();
+        assertThat(r.retroactiveStrategy()).isEqualTo("END_DATE");
+        assertThat(r.retroactiveAnchor()).isNull();
+    }
+
+    @Test
+    void resolve_endDateIsTheCoarsestRank() {
+        assertThat(SettlementAxes.granularityRank("ANNUAL")).isLessThan(SettlementAxes.granularityRank("END_DATE"));
+    }
+
+    @Test
+    void isNoCoarserThanAccrual_ranksAndSpecialCases() {
+        assertThat(SettlementAxes.isNoCoarserThanAccrual("MONTHLY", "WEEKLY")).isTrue();
+        assertThat(SettlementAxes.isNoCoarserThanAccrual("MONTHLY", "MONTHLY")).isTrue();
+        assertThat(SettlementAxes.isNoCoarserThanAccrual("WEEKLY", "MONTHLY")).isFalse();
+        assertThat(SettlementAxes.isNoCoarserThanAccrual("MONTHLY", "END_DATE")).isTrue();
+        assertThat(SettlementAxes.isNoCoarserThanAccrual("CAMPAIGN", "ANNUAL")).isTrue();
+    }
 }
