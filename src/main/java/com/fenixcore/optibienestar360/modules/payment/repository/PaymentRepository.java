@@ -75,4 +75,68 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
             @Param("promoterIds") java.util.Collection<Long> promoterIds,
             @Param("from") java.time.Instant from,
             @Param("to") java.time.Instant to);
+
+    /**
+     * Competitive commission rules (Fase 2a) — {@code SALES_*} candidates: approved inscription
+     * (one-time fee) payments. Widens the window to a match on ANY of the 3 achievement-date-basis
+     * columns ({@code paymentDate}/{@code receivedAt}/{@code reviewedAt}) so no candidate is
+     * missed at the SQL layer; the provider re-filters precisely on the rule's actual basis column
+     * in Java (JPQL can't select a dynamic column).
+     */
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.status = 'APPROVED' AND p.direction = 'IN' AND p.inscription = true
+              AND p.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR p.promoter.system = false)
+              AND (:typeIds IS NULL OR p.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR p.promoter.rank.id IN :rankIds)
+              AND (p.paymentDate BETWEEN :from AND :to
+                   OR p.receivedAt BETWEEN :from AND :to
+                   OR p.reviewedAt BETWEEN :from AND :to)
+            """)
+    java.util.List<Payment> findSalesCandidatesInWindow(@Param("from") java.time.Instant from,
+                                                        @Param("to") java.time.Instant to,
+                                                        @Param("includeSystem") boolean includeSystem,
+                                                        @Param("typeIds") java.util.Collection<Long> typeIds,
+                                                        @Param("rankIds") java.util.Collection<Long> rankIds);
+
+    /** Same as {@link #findSalesCandidatesInWindow}, but {@code COLLECTION_*}: recurring (non-inscription) payments. */
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.status = 'APPROVED' AND p.direction = 'IN' AND p.inscription = false
+              AND p.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR p.promoter.system = false)
+              AND (:typeIds IS NULL OR p.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR p.promoter.rank.id IN :rankIds)
+              AND (p.paymentDate BETWEEN :from AND :to
+                   OR p.receivedAt BETWEEN :from AND :to
+                   OR p.reviewedAt BETWEEN :from AND :to)
+            """)
+    java.util.List<Payment> findCollectionCandidatesInWindow(@Param("from") java.time.Instant from,
+                                                             @Param("to") java.time.Instant to,
+                                                             @Param("includeSystem") boolean includeSystem,
+                                                             @Param("typeIds") java.util.Collection<Long> typeIds,
+                                                             @Param("rankIds") java.util.Collection<Long> rankIds);
+
+    /**
+     * Same as {@link #findSalesCandidatesInWindow}, but {@code ADVANCE_*}: payments that cover
+     * more than one period ahead ({@code coverageThroughPeriod > appliedPeriod}, unblocked by #289).
+     */
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.status = 'APPROVED' AND p.direction = 'IN'
+              AND p.coverageThroughPeriod IS NOT NULL AND p.coverageThroughPeriod > p.appliedPeriod
+              AND p.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR p.promoter.system = false)
+              AND (:typeIds IS NULL OR p.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR p.promoter.rank.id IN :rankIds)
+              AND (p.paymentDate BETWEEN :from AND :to
+                   OR p.receivedAt BETWEEN :from AND :to
+                   OR p.reviewedAt BETWEEN :from AND :to)
+            """)
+    java.util.List<Payment> findAdvanceCandidatesInWindow(@Param("from") java.time.Instant from,
+                                                          @Param("to") java.time.Instant to,
+                                                          @Param("includeSystem") boolean includeSystem,
+                                                          @Param("typeIds") java.util.Collection<Long> typeIds,
+                                                          @Param("rankIds") java.util.Collection<Long> rankIds);
 }
