@@ -49,7 +49,12 @@ public class CompetitiveCommissionEvaluationJobRunner implements ScheduledJobRun
     @Override
     public JobRunResult run() {
         LocalDate today = LocalDate.now(resolveZone());
-        List<CompetitiveCommissionRule> rules = ruleRepository.findByActiveTrue();
+        // D16: within a competition_group, a higher-priority rule (lower group_priority number)
+        // must be evaluated first — its winners feed the group-exclusion check of the next one.
+        List<CompetitiveCommissionRule> rules = ruleRepository.findByActiveTrue().stream()
+                .sorted(java.util.Comparator.comparing(CompetitiveCommissionRule::getGroupPriority,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .toList();
 
         int rulesProcessed = 0, awardsCreated = 0, awardsUpdated = 0, awardsDisplaced = 0, awardsConfirmed = 0;
         List<Map<String, String>> errors = new ArrayList<>();

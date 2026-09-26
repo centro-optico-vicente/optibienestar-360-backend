@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionAward;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionManualDecision;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionManualDecision.Kind;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.AchievementDateBasis;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitionType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitiveMetric;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRulePosition;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRulePosition.RewardType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionTie;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionTieCandidate;
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveMetricProvider;
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRankingEngine;
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRankingEngine.Candidate;
@@ -19,7 +23,9 @@ import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRanking
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRankingEngine.RankingResult;
 import com.fenixcore.optibienestar360.modules.promoter.metric.MetricScope;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionManualDecisionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionRuleRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionTieRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
@@ -69,6 +75,8 @@ public class CompetitiveCommissionEvaluationService {
 
     private final CompetitiveCommissionRuleRepository ruleRepository;
     private final CompetitiveCommissionAwardRepository awardRepository;
+    private final CompetitiveCommissionTieRepository tieRepository;
+    private final CompetitiveCommissionManualDecisionRepository manualDecisionRepository;
     private final PromoterRepository promoterRepository;
     private final List<CompetitiveMetricProvider> providers;
     private final EntityManager entityManager;
@@ -83,7 +91,7 @@ public class CompetitiveCommissionEvaluationService {
     }
 
     public record EvaluationOutcome(LocalDate periodStart, LocalDate periodEnd, int created, int updated,
-                                     int displaced, OpenTie openTie) {
+                                     int displaced, OpenTie openTie, UUID openTieUuid) {
     }
 
     /**
@@ -130,10 +138,18 @@ public class CompetitiveCommissionEvaluationService {
                 pins.put(award.getAwardPosition(), award.getPromoter().getId());
             }
         }
+        Set<Long> exclusions = new java.util.HashSet<>();
+        applyManualDecisions(rule, window.start(), pins, exclusions);
+        applyGroupExclusions(rule, window.start(), exclusions);
 
         CompetitiveRankingEngine.TiePolicy enginePolicy = CompetitiveRankingEngine.TiePolicy.valueOf(rule.getTiePolicy().name());
         RankingResult result = CompetitiveRankingEngine.rank(candidates, positions, countMetric,
-                !firstToReach, firstToReach, enginePolicy, pins, Set.of());
+                !firstToReach, firstToReach, enginePolicy, pins, exclusions);
+
+        UUID openTieUuid = null;
+        if (!dryRun) {
+            openTieUuid = upsertOpenTie(rule, window, result.openTie());
+        }
 
         Set<Long> winningPromoterIds = result.awards().stream()
                 .map(ProjectedAward::promoterId).collect(Collectors.toSet());
@@ -184,7 +200,7 @@ public class CompetitiveCommissionEvaluationService {
             awardRepository.save(award);
         }
 
-        return new EvaluationOutcome(window.start(), window.end(), created, updated, displaced, result.openTie());
+        return new EvaluationOutcome(window.start(), window.end(), created, updated, displaced, result.openTie(), openTieUuid);
     }
 
     /**
@@ -219,6 +235,93 @@ public class CompetitiveCommissionEvaluationService {
         return countMetric ? BigDecimal.valueOf(rule.getThresholdCount()) : rule.getThresholdAmount();
     }
 
+    /**
+     * D16: every non-reverted decision of this rule+period becomes a pin (the winner the
+     * coordinator picked) or an exclusion (a disqualified promoter) — read fresh on every run so
+     * the job is idempotent and never overrides a human's call.
+     */
+    private void applyManualDecisions(CompetitiveCommissionRule rule, LocalDate periodStart,
+                                       Map<Integer, Long> pins, Set<Long> exclusions) {
+        for (CompetitiveCommissionManualDecision decision : manualDecisionRepository
+                .findByRule_IdAndPeriodStartAndActiveTrueAndStatus(rule.getId(), periodStart, "ACTIVE")) {
+            switch (decision.getKind()) {
+                case TIE_RESOLUTION, REDIRECT -> {
+                    if (decision.getAwardPosition() != null) {
+                        pins.put(decision.getAwardPosition(), decision.getPromoter().getId());
+                    }
+                    if (decision.getKind() == Kind.REDIRECT && decision.getReplacedPromoter() != null) {
+                        exclusions.add(decision.getReplacedPromoter().getId());
+                    }
+                }
+                case DISQUALIFY -> exclusions.add(decision.getPromoter().getId());
+            }
+        }
+    }
+
+    /**
+     * D16 competition groups: a promoter who already won a strictly higher-priority sibling rule
+     * (lower {@code group_priority} number) for the same period is excluded here — "at most one
+     * prize per group per period." A group-wide DISQUALIFY ({@code excludeFromGroup}) on ANY
+     * sibling rule (regardless of priority order) excludes that promoter everywhere in the group.
+     */
+    private void applyGroupExclusions(CompetitiveCommissionRule rule, LocalDate periodStart, Set<Long> exclusions) {
+        if (rule.getCompetitionGroup() == null) {
+            return;
+        }
+        List<CompetitiveCommissionRule> siblings = ruleRepository.findByCompetitionGroupAndActiveTrue(rule.getCompetitionGroup());
+        List<Long> siblingIds = siblings.stream().map(CompetitiveCommissionRule::getId).toList();
+
+        for (CompetitiveCommissionRule sibling : siblings) {
+            if (sibling.getId().equals(rule.getId()) || sibling.getGroupPriority() == null
+                    || rule.getGroupPriority() == null || sibling.getGroupPriority() >= rule.getGroupPriority()) {
+                continue;
+            }
+            for (CompetitiveCommissionAward award : awardRepository
+                    .findByRule_IdAndPeriodStartAndActiveTrueAndStatusNot(sibling.getId(), periodStart, "VOIDED")) {
+                exclusions.add(award.getPromoter().getId());
+            }
+        }
+        for (CompetitiveCommissionManualDecision decision : manualDecisionRepository
+                .findByRule_IdInAndPeriodStartAndActiveTrueAndStatusAndExcludeFromGroupTrue(siblingIds, periodStart, "ACTIVE")) {
+            exclusions.add(decision.getPromoter().getId());
+        }
+    }
+
+    /**
+     * Persists the engine's {@link OpenTie} (if any) as a {@code competitive_commission_ties} row
+     * with its candidates, updating an existing OPEN one in place ({@code uq_cct_open}: at most one
+     * per rule/period/position). No open tie this run and one was previously open at that position
+     * means it's now resolved by the automatic criteria alone — left as-is; a coordinator never
+     * needs to act on it and the unique index already prevents it from blocking anything.
+     */
+    private UUID upsertOpenTie(CompetitiveCommissionRule rule, PeriodStrategies.Window window, OpenTie openTie) {
+        if (openTie == null) {
+            return null;
+        }
+        CompetitiveCommissionTie tie = tieRepository
+                .findByRule_IdAndPeriodStartAndPositionFromAndActiveTrueAndStatusIn(
+                        rule.getId(), window.start(), openTie.positionFrom(), List.of("OPEN", "STALE"))
+                .orElseGet(CompetitiveCommissionTie::new);
+        tie.setRule(rule);
+        tie.setPeriodStart(window.start());
+        tie.setPeriodEnd(window.end());
+        tie.setPositionFrom(openTie.positionFrom());
+        tie.setSlots(openTie.slots());
+        tie.setStatus("OPEN");
+        tie.getCandidates().clear();
+        for (Candidate candidate : openTie.candidates()) {
+            CompetitiveCommissionTieCandidate row = new CompetitiveCommissionTieCandidate();
+            row.setTie(tie);
+            row.setPromoter(promoterRepository.getReferenceById(candidate.promoterId()));
+            row.setMetricValue(candidate.value());
+            row.setAchievedAt(candidate.achievedAt());
+            row.setMetricTransactionCount(candidate.transactionCount());
+            tie.getCandidates().add(row);
+        }
+        tieRepository.save(tie);
+        return tie.getUuid();
+    }
+
     private static CompetitiveCommissionRulePosition findPosition(CompetitiveCommissionRule rule, int position) {
         for (CompetitiveCommissionRulePosition candidate : rule.getPositions()) {
             if (position >= candidate.getPositionFrom() && position <= candidate.getPositionTo()) {
@@ -236,6 +339,8 @@ public class CompetitiveCommissionEvaluationService {
         award.setMetricValue(projected.metricValue());
         award.setMetricTransactionCount(projected.transactionCount());
         award.setAchievedAt(projected.achievedAt());
+        award.setSelectionSource(projected.selectionSource() == CompetitiveRankingEngine.SelectionSource.MANUAL
+                ? CompetitiveCommissionAward.SelectionSource.MANUAL : CompetitiveCommissionAward.SelectionSource.AUTO);
         award.setRewardType(position.getRewardType());
         award.setCurrency(position.getRewardCurrency());
 
