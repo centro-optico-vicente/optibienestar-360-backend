@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -17,8 +18,15 @@ public class OptiBienestar360Application {
 		// SpringApplication.run so the Spring context boots with the right
 		// defaults; `spring.web.locale` and `spring.jackson.time-zone` from
 		// application.properties cover the request/response paths on top.
+		//
+		// The timezone is read from AppTimeZone (env TZ, falls back to
+		// America/Caracas) instead of a hardcoded literal (hub plan
+		// competitive-commission-rules, Fase A, H1) — deployment/docker-compose.yaml
+		// already sets TZ on every container from TIME_ZONE, so this makes
+		// the JVM-wide default actually follow that env var instead of
+		// silently staying on Caracas regardless of what TZ says.
 		Locale.setDefault(Locale.forLanguageTag("es-VE"));
-		TimeZone.setDefault(TimeZone.getTimeZone("America/Caracas"));
+		TimeZone.setDefault(TimeZone.getTimeZone(AppTimeZone.ZONE));
 
 		SpringApplication.run(OptiBienestar360Application.class, args);
 	}

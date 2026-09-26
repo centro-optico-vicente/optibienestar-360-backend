@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SettlementAxes;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
@@ -17,6 +18,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierCreateR
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionTierRepository;
@@ -140,6 +142,7 @@ public class CommissionTiersService {
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
+        applySettlementAxesResolution(tier);
 
         return CommissionTierDto.from(repository.save(tier));
     }
@@ -198,6 +201,7 @@ public class CommissionTiersService {
             tier.setCommissionPct(null);
         }
         requireExactlyOneReward(tier.getCommissionPct(), tier.getFlatAmount());
+        applySettlementAxesResolution(tier);
 
         return CommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -294,5 +298,24 @@ public class CommissionTiersService {
 
     private static Specification<CommissionTier> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * D15 (hub plan competitive-commission-rules, Fase A): validates the
+     * partial axis against accrual and normalizes the retroactive axis —
+     * enabled only when {@code partial} is strictly finer than {@code
+     * accrual}; disabled otherwise, in which case it collapses to {@code
+     * partial} with no anchor (a no-op: nothing separate to catch up on).
+     * Called after every axis field is set, so it sees the tier's final
+     * post-request state (create: full set; update: merged patch).
+     */
+    private static void applySettlementAxesResolution(CommissionTier tier) {
+        SettlementAxes.Resolution resolution = SettlementAxes.resolve(
+                tier.getAccrualPeriodStrategy().name(),
+                tier.getPartialSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodStrategy(PeriodStrategy.valueOf(resolution.retroactiveStrategy()));
+        tier.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
     }
 }

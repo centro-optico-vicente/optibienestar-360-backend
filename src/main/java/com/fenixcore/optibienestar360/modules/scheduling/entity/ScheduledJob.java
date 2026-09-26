@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.scheduling.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,8 +59,16 @@ public class ScheduledJob extends BaseEntity {
     @Column(name = "cron_expression", length = 120, nullable = false)
     private String cronExpression;
 
+    /**
+     * Defaults to the app's own timezone ({@link AppTimeZone#ZONE}, env
+     * {@code TZ}, falls back to {@code America/Caracas}) instead of a
+     * hardcoded literal (hub plan competitive-commission-rules, Fase A, H2)
+     * — a job created without specifying this in-code (tests, a new seed
+     * migration) still gets a value consistent with the deployed env
+     * instead of silently pinning to Caracas.
+     */
     @Column(length = 60, nullable = false)
-    private String timezone = "America/Caracas";
+    private String timezone = AppTimeZone.ZONE.getId();
 
     @Column(nullable = false)
     private boolean enabled = true;
