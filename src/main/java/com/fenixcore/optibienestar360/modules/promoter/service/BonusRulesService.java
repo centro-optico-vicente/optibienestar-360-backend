@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.core.util.SettlementAxes;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
@@ -195,9 +196,12 @@ public class BonusRulesService {
 
         // LIFETIME/CAMPAIGN are only ever valid on accrualPeriodStrategy (DB CHECK on
         // the 3 settlement axes) — see CommissionBonusRule.partialSettlementPeriodStrategy Javadoc.
+        // retroactiveSettlementPeriodStrategy is NOT guarded here anymore: it is validated
+        // (and, when disabled, normalized) together with partial/accrual by
+        // applySettlementAxesResolution below (D15, Fase A), which also rejects a
+        // non-periodic value with the same underlying invariant.
         requirePeriodicStrategy(req.partialSettlementPeriodStrategy(), "bonus_rule.partial_settlement_period_strategy.periodic_only");
         requirePeriodicStrategy(req.finalSettlementPeriodStrategy(), "bonus_rule.final_settlement_period_strategy.periodic_only");
-        requirePeriodicStrategy(req.retroactiveSettlementPeriodStrategy(), "bonus_rule.retroactive_settlement_period_strategy.periodic_only");
 
         // Metric-scoped threshold XOR (I-BE, hub plan Part I) — mirrors the
         // requireExactlyOneReward/requireFlatAmountCurrency style already used
@@ -259,6 +263,28 @@ public class BonusRulesService {
         rule.setCampaign(resolveCampaign(req.campaignUuid()));
         rule.setStartsAt(req.startsAt());
         rule.setEndsAt(req.endsAt());
+
+        applySettlementAxesResolution(rule);
+    }
+
+    /**
+     * D15 (hub plan competitive-commission-rules, Fase A) — see
+     * {@code CommissionTiersService.applySettlementAxesResolution} for the
+     * full rationale. Unlike the other 3 rule types, {@code accrual} here can
+     * be the non-periodic legacy {@code LIFETIME}/{@code CAMPAIGN}
+     * ({@link SettlementAxes#resolve} treats those as "always coarser than
+     * any periodic partial", so a campaign/lifetime bonus keeps behaving
+     * exactly as it does today: the retroactive axis stays enabled and
+     * independently configurable).
+     */
+    private static void applySettlementAxesResolution(CommissionBonusRule rule) {
+        SettlementAxes.Resolution resolution = SettlementAxes.resolve(
+                rule.getAccrualPeriodStrategy().name(),
+                rule.getPartialSettlementPeriodStrategy().name(),
+                rule.getRetroactiveSettlementPeriodStrategy().name(),
+                rule.getRetroactiveSettlementPeriodAnchor());
+        rule.setRetroactiveSettlementPeriodStrategy(WindowStrategy.valueOf(resolution.retroactiveStrategy()));
+        rule.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
     }
 
     private Currency resolveCurrency(String code) {

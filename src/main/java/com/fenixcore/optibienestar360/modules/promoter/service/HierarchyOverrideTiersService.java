@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SettlementAxes;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
@@ -15,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyReposi
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierUpdateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
@@ -132,6 +134,7 @@ public class HierarchyOverrideTiersService {
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
+        applySettlementAxesResolution(tier);
 
         return HierarchyOverrideTierDto.from(repository.save(tier));
     }
@@ -189,6 +192,7 @@ public class HierarchyOverrideTiersService {
             tier.setOverridePct(null);
         }
         requireExactlyOneReward(tier.getOverridePct(), tier.getFlatAmount());
+        applySettlementAxesResolution(tier);
 
         return HierarchyOverrideTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -262,5 +266,20 @@ public class HierarchyOverrideTiersService {
 
     private static Specification<HierarchyOverrideTier> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * D15 (hub plan competitive-commission-rules, Fase A) — see
+     * {@code CommissionTiersService.applySettlementAxesResolution} for the
+     * full rationale; identical shape here.
+     */
+    private static void applySettlementAxesResolution(HierarchyOverrideTier tier) {
+        SettlementAxes.Resolution resolution = SettlementAxes.resolve(
+                tier.getAccrualPeriodStrategy().name(),
+                tier.getPartialSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodStrategy(PeriodStrategy.valueOf(resolution.retroactiveStrategy()));
+        tier.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
     }
 }

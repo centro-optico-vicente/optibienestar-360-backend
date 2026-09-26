@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SettlementAxes;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
@@ -15,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionT
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionCommissionTierUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CollectionCommissionTier.Basis;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CollectionCommissionTierRepository;
@@ -134,6 +136,7 @@ public class CollectionCommissionTiersService {
         tier.setCampaign(resolveCampaign(req.campaignUuid()));
         tier.setStartsAt(req.startsAt());
         tier.setEndsAt(req.endsAt());
+        applySettlementAxesResolution(tier);
 
         return CollectionCommissionTierDto.from(repository.save(tier));
     }
@@ -201,6 +204,7 @@ public class CollectionCommissionTiersService {
         }
         requireExactlyOneReward(tier.getCommissionPct(), tier.getFlatAmount());
         requireBasisFieldMatch(tier.getBasis(), tier.getMaxDays(), tier.getMinAmount());
+        applySettlementAxesResolution(tier);
 
         return CollectionCommissionTierDto.from(tier);   // managed → dirty-check on commit
     }
@@ -300,5 +304,21 @@ public class CollectionCommissionTiersService {
 
     private static Specification<CollectionCommissionTier> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * D15 (hub plan competitive-commission-rules, Fase A) — see
+     * {@code CommissionTiersService.applySettlementAxesResolution} for the
+     * full rationale; identical shape here. Before this, {@code
+     * CollectionCommissionTiersService} had no cross-axis validation at all.
+     */
+    private static void applySettlementAxesResolution(CollectionCommissionTier tier) {
+        SettlementAxes.Resolution resolution = SettlementAxes.resolve(
+                tier.getAccrualPeriodStrategy().name(),
+                tier.getPartialSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodStrategy().name(),
+                tier.getRetroactiveSettlementPeriodAnchor());
+        tier.setRetroactiveSettlementPeriodStrategy(PeriodStrategy.valueOf(resolution.retroactiveStrategy()));
+        tier.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
     }
 }

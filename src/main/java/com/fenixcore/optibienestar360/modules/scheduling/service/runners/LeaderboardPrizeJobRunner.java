@@ -70,8 +70,8 @@ public class LeaderboardPrizeJobRunner implements ScheduledJobRunner {
                     try {
                         return ZoneId.of(job.getTimezone());
                     } catch (RuntimeException ex) {
-                        log.warn("Invalid timezone '{}' on {} job row — falling back to America/Caracas",
-                                job.getTimezone(), CODE);
+                        log.warn("Invalid timezone '{}' on {} job row — falling back to {}",
+                                job.getTimezone(), CODE, AppTimeZone.ZONE);
                         return AppTimeZone.ZONE;
                     }
                 })
