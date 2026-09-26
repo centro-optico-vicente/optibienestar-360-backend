@@ -110,6 +110,7 @@ class CompetitiveWinnerDecisionServiceTest {
         Promoter winner = promoter(1L, UUID.randomUUID());
         CompetitiveCommissionTie tie = openTie(rule, 1, winner);
         when(tieRepository.findByUuid(tie.getUuid())).thenReturn(Optional.of(tie));
+        when(promoterRepository.findByUuid(winner.getUuid())).thenReturn(Optional.of(winner));
         when(awardRepository.findByRule_IdAndPeriodStartAndActiveTrueAndStatusNot(any(), any(), any()))
                 .thenReturn(List.of());
 
