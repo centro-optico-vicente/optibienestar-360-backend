@@ -17,4 +17,7 @@ public interface CompetitiveCommissionRuleRepository extends JpaRepository<Compe
 
     /** Every active rule sharing {@code competitionGroup} — used to validate D16's group-mismatch invariant. */
     List<CompetitiveCommissionRule> findByCompetitionGroupAndActiveTrue(String competitionGroup);
+
+    /** The evaluation job's scan target (Fase 2b) — every rule that might have a period to evaluate today. */
+    List<CompetitiveCommissionRule> findByActiveTrue();
 }

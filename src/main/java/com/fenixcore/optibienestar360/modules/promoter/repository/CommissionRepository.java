@@ -248,4 +248,27 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
             @org.springframework.data.repository.query.Param("appliesTo") Commission.AppliesTo appliesTo,
             @org.springframework.data.repository.query.Param("start") LocalDate start,
             @org.springframework.data.repository.query.Param("end") LocalDate end);
+
+    /**
+     * Competitive commission rules (Fase 2a) — {@code COMMISSION_EARNED} candidates: commissions
+     * actually earned (APPROVED or already PAID, never a PENDING simulation, VOIDED/REJECTED/
+     * DISPUTED), keyed by {@code earnedAt} — always this field for this metric; unlike the payment
+     * families, there's no achievement-date-basis choice (a commission has one earned moment).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM Commission c
+            WHERE c.active = true
+              AND c.status IN ('APPROVED', 'PAID')
+              AND c.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR c.promoter.system = false)
+              AND (:typeIds IS NULL OR c.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR c.promoter.rank.id IN :rankIds)
+              AND c.earnedAt BETWEEN :from AND :to
+            """)
+    List<Commission> findEarnedCandidatesInWindow(
+            @org.springframework.data.repository.query.Param("from") java.time.Instant from,
+            @org.springframework.data.repository.query.Param("to") java.time.Instant to,
+            @org.springframework.data.repository.query.Param("includeSystem") boolean includeSystem,
+            @org.springframework.data.repository.query.Param("typeIds") Collection<Long> typeIds,
+            @org.springframework.data.repository.query.Param("rankIds") Collection<Long> rankIds);
 }

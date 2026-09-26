@@ -8,6 +8,8 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CompetitiveRuleListIt
 import com.fenixcore.optibienestar360.modules.promoter.dto.CompetitiveRuleUpdateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitionType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitiveMetric;
+import com.fenixcore.optibienestar360.modules.promoter.service.CompetitiveCommissionEvaluationService;
+import com.fenixcore.optibienestar360.modules.promoter.service.CompetitiveCommissionEvaluationService.EvaluationOutcome;
 import com.fenixcore.optibienestar360.modules.promoter.service.CompetitiveCommissionRulesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +35,11 @@ import java.util.UUID;
 /**
  * Admin CRUD for competitive commission rules (hub plan
  * competitive-commission-rules, Fase 1) — FIRST_TO_REACH / RANKING by
- * position, as opposed to the 4 threshold-based rule tables. The leaderboard
- * and recalculate endpoints (needing the evaluation engine) land in Fase 2,
- * along with the awards controller and {@code …_AWARD_*}/{@code
- * …_WINNER_DECIDE} permissions.
+ * position, as opposed to the 4 threshold-based rule tables, plus (Fase 2b)
+ * a manual {@link #recalculate} entry point into {@link
+ * CompetitiveCommissionEvaluationService}. A dedicated leaderboard preview
+ * endpoint, the awards controller and {@code …_WINNER_DECIDE} (D16) land
+ * later in Fase 2.
  */
 @RestController
 @RequestMapping("/v1/admin/competitive-commission-rules")
@@ -44,6 +47,7 @@ import java.util.UUID;
 public class AdminCompetitiveCommissionRuleController {
 
     private final CompetitiveCommissionRulesService service;
+    private final CompetitiveCommissionEvaluationService evaluationService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COMPETITIVE_COMMISSION_RULE_VIEW_ALL')")
@@ -95,5 +99,22 @@ public class AdminCompetitiveCommissionRuleController {
             @RequestParam(defaultValue = "false") boolean physical) {
         service.delete(uuid, physical);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Preview or apply an evaluation run for one period — {@code dryRun=true} (the default) never
+     * persists. {@code period} is any date inside the accrual window to evaluate; omitted, it
+     * defaults to today. Applying (dryRun=false) additionally requires award-view authority, since
+     * it changes what {@code AdminCompetitiveCommissionAwardController} shows.
+     */
+    @PostMapping("/{uuid}/recalculate")
+    @PreAuthorize("hasAuthority('COMPETITIVE_COMMISSION_RULE_UPDATE') and "
+            + "(#dryRun == true or hasAuthority('COMPETITIVE_COMMISSION_AWARD_VIEW_ALL'))")
+    public ResponseEntity<EvaluationOutcome> recalculate(@PathVariable UUID uuid,
+            @RequestParam(required = false) java.time.LocalDate period,
+            @RequestParam(defaultValue = "true") boolean dryRun) {
+        java.time.LocalDate periodRef = period != null ? period : java.time.LocalDate.now(
+                com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE);
+        return ResponseEntity.ok(evaluationService.evaluateRule(uuid, periodRef, dryRun));
     }
 }

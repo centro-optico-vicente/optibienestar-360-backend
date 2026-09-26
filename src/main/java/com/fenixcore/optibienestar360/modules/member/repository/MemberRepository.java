@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.repository;
 
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterEnrollmentEventRow;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
 import org.springframework.data.domain.Page;
@@ -148,4 +149,51 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
             GROUP BY m.promoter.id
             """)
     List<PromoterMetricCount> countActiveSubscribersByPromoter(@Param("includeSystem") boolean includeSystem);
+
+    /**
+     * Competitive commission rules (hub plan competitive-commission-rules, Fase 2a):
+     * {@code NEW_SUBSCRIBERS} raw enrollment events within a window, scoped to the rule's
+     * promoter types / ranks (either filter {@code null} = "all"). {@code
+     * CompetitiveRankingEngine.firstToReach} folds these per promoter for FIRST_TO_REACH; the
+     * provider groups them itself for a RANKING snapshot — one query serves both.
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterEnrollmentEventRow(
+                m.promoter.id, m.enrolledAt)
+            FROM Member m
+            WHERE m.active = true
+              AND m.promoter.id IS NOT NULL
+              AND m.enrolledAt BETWEEN :start AND :end
+              AND (:includeSystem = true OR m.promoter.system = false)
+              AND (:typeIds IS NULL OR m.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR m.promoter.rank.id IN :rankIds)
+            """)
+    List<PromoterEnrollmentEventRow> findNewSubscriberEvents(@Param("start") LocalDate start,
+                                                             @Param("end") LocalDate end,
+                                                             @Param("includeSystem") boolean includeSystem,
+                                                             @Param("typeIds") Collection<Long> typeIds,
+                                                             @Param("rankIds") Collection<Long> rankIds);
+
+    /**
+     * Competitive commission rules: {@code ACTIVE_SUBSCRIBERS} snapshot (RANKING only — this
+     * metric has no "moment it happened", see {@code ActiveSubscribersMetricProvider}), scoped
+     * the same way as {@link #findNewSubscriberEvents}.
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount(
+                m.promoter.id, COUNT(DISTINCT m.id))
+            FROM Membership ms
+            JOIN ms.member m
+            WHERE ms.active = true
+              AND ms.status = 'ACTIVE'
+              AND m.active = true
+              AND m.promoter.id IS NOT NULL
+              AND (:includeSystem = true OR m.promoter.system = false)
+              AND (:typeIds IS NULL OR m.promoter.promoterType.id IN :typeIds)
+              AND (:rankIds IS NULL OR m.promoter.rank.id IN :rankIds)
+            GROUP BY m.promoter.id
+            """)
+    List<PromoterMetricCount> countActiveSubscribersByPromoterScoped(@Param("includeSystem") boolean includeSystem,
+                                                                     @Param("typeIds") Collection<Long> typeIds,
+                                                                     @Param("rankIds") Collection<Long> rankIds);
 }
