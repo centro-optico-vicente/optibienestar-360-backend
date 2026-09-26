@@ -31,9 +31,9 @@ import java.util.UUID;
 /**
  * Pay/void over {@link CompetitiveCommissionAwardSettlement} cuts — never the award's {@code
  * amount} directly, since what's actually owed at any moment is the sum of its settlements (hub
- * plan competitive-commission-rules, Fase 2b). The rate-snapshot-at-pay pattern mirrors {@code
- * LeaderboardPrizeService.pay} exactly (same official-currency conversion, same graceful
- * no-rate-available fallback).
+ * plan competitive-commission-rules, Fase 2b). The rate-snapshot-at-pay pattern mirrors the
+ * legacy leaderboard's own pay logic exactly (same official-currency conversion, same graceful
+ * no-rate-available fallback) — retired in Fase 3, migrated into this same model.
  */
 @Slf4j
 @Service

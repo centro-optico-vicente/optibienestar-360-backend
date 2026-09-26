@@ -15,7 +15,7 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRep
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
-import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -95,7 +95,7 @@ public class PromotersService {
     private final PromoterMapper mapper;
     private final CommissionRepository commissionRepository;
     private final PromoterBonusAwardRepository promoterBonusAwardRepository;
-    private final LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
+    private final CompetitiveCommissionAwardRepository competitiveCommissionAwardRepository;
     private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     private final PromoterMemberContactRepository promoterMemberContactRepository;
     private final DefaultSortResolver defaultSortResolver;
@@ -189,10 +189,11 @@ public class PromotersService {
      * Counts real FK references to this promoter across every table that
      * carries one: {@code members.promoter_id} (permanent attribution),
      * {@code commissions.promoter_id}, {@code promoter_bonus_awards},
-     * {@code leaderboard_prize_awards}, {@code member_promoter_assignments}
-     * (both as {@code from_promoter_id} and {@code to_promoter_id}), and
-     * {@code promoter_member_contacts} (insert-only outreach log — its rows
-     * are still real FK rows that would violate a hard delete).
+     * {@code competitive_commission_awards} (leaderboard's successor, Fase 3),
+     * {@code member_promoter_assignments} (both as {@code from_promoter_id}
+     * and {@code to_promoter_id}), and {@code promoter_member_contacts}
+     * (insert-only outreach log — its rows are still real FK rows that would
+     * violate a hard delete).
      */
     public long countUsages(UUID uuid) {
         Promoter promoter = findManaged(uuid);
@@ -200,11 +201,11 @@ public class PromotersService {
         long members = memberRepository.countByPromoterId(id);
         long commissions = commissionRepository.countByPromoterId(id);
         long bonusAwards = promoterBonusAwardRepository.countByPromoterId(id);
-        long leaderboardAwards = leaderboardPrizeAwardRepository.countByPromoterId(id);
+        long competitiveAwards = competitiveCommissionAwardRepository.countByPromoter_Id(id);
         long assignmentsFrom = memberPromoterAssignmentRepository.countByFromPromoterId(id);
         long assignmentsTo = memberPromoterAssignmentRepository.countByToPromoterId(id);
         long contacts = promoterMemberContactRepository.countByPromoterId(id);
-        return members + commissions + bonusAwards + leaderboardAwards
+        return members + commissions + bonusAwards + competitiveAwards
                 + assignmentsFrom + assignmentsTo + contacts;
     }
 

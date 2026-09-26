@@ -13,7 +13,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
-import com.fenixcore.optibienestar360.modules.promoter.repository.LeaderboardPrizeAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRankRepository;
@@ -51,7 +51,7 @@ class PromotersServiceReferralCodeTest {
     @Mock private PromoterMapper mapper;
     @Mock private CommissionRepository commissionRepository;
     @Mock private PromoterBonusAwardRepository promoterBonusAwardRepository;
-    @Mock private LeaderboardPrizeAwardRepository leaderboardPrizeAwardRepository;
+    @Mock private CompetitiveCommissionAwardRepository competitiveCommissionAwardRepository;
     @Mock private MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     @Mock private PromoterMemberContactRepository promoterMemberContactRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
@@ -65,7 +65,7 @@ class PromotersServiceReferralCodeTest {
     void setup() {
         service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository,
                 promoterRankRepository, mapper,
-                commissionRepository, promoterBonusAwardRepository, leaderboardPrizeAwardRepository,
+                commissionRepository, promoterBonusAwardRepository, competitiveCommissionAwardRepository,
                 memberPromoterAssignmentRepository, promoterMemberContactRepository, defaultSortResolver);
         PromoterRank baseRank = new PromoterRank();
         baseRank.setUuid(UUID.randomUUID());

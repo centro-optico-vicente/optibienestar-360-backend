@@ -26,4 +26,7 @@ public interface CompetitiveCommissionAwardRepository extends JpaRepository<Comp
 
     /** Usage check for {@code CompetitiveCommissionRulesService.getUsage}/frozen-rule guard. */
     boolean existsByRule_IdAndActiveTrueAndStatusIn(Long ruleId, List<String> statuses);
+
+    /** Delete-usage guard for {@code PromotersService.countUsages} — ALL rows (active + inactive). */
+    long countByPromoter_Id(Long promoterId);
 }
