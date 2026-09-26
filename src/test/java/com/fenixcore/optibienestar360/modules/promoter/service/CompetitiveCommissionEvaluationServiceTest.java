@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionAward;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionManualDecision;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.AchievementDateBasis;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitionType;
@@ -15,7 +16,9 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveMetricProvider;
 import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRankingEngine.Candidate;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionAwardRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionManualDecisionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionRuleRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionTieRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -34,8 +37,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +48,8 @@ class CompetitiveCommissionEvaluationServiceTest {
 
     @Mock private CompetitiveCommissionRuleRepository ruleRepository;
     @Mock private CompetitiveCommissionAwardRepository awardRepository;
+    @Mock private CompetitiveCommissionTieRepository tieRepository;
+    @Mock private CompetitiveCommissionManualDecisionRepository manualDecisionRepository;
     @Mock private PromoterRepository promoterRepository;
     @Mock private CompetitiveMetricProvider provider;
 
@@ -59,7 +66,8 @@ class CompetitiveCommissionEvaluationServiceTest {
         lenient().when(ruleRepository.findByUuid(rule.getUuid())).thenReturn(Optional.of(rule));
 
         CompetitiveCommissionEvaluationService service = new CompetitiveCommissionEvaluationService(
-                ruleRepository, awardRepository, promoterRepository, List.of(provider), entityManager, new ObjectMapper());
+                ruleRepository, awardRepository, tieRepository, manualDecisionRepository, promoterRepository,
+                List.of(provider), entityManager, new ObjectMapper());
         service.indexProviders();
         return service;
     }
@@ -165,6 +173,47 @@ class CompetitiveCommissionEvaluationServiceTest {
         assertThat(pendingAward.getStatus()).isEqualTo("PENDING"); // untouched — pinned
         assertThat(provisionalAward.getStatus()).isEqualTo("VOIDED");
         assertThat(provisionalAward.getVoidReason()).isEqualTo("DISPLACED");
+    }
+
+    @Test
+    void evaluateRule_activeDisqualifyDecision_excludesThatPromoter() {
+        CompetitiveCommissionRule rule = rankingRule(position(1, 1));
+        CompetitiveCommissionManualDecision disqualify = new CompetitiveCommissionManualDecision();
+        disqualify.setKind(CompetitiveCommissionManualDecision.Kind.DISQUALIFY);
+        disqualify.setPromoter(promoter(1L));
+        when(awardRepository.findByRule_IdAndPeriodStartAndActiveTrueAndStatusNot(any(), any(), any()))
+                .thenReturn(List.of());
+        when(manualDecisionRepository.findByRule_IdAndPeriodStartAndActiveTrueAndStatus(any(), any(), any()))
+                .thenReturn(List.of(disqualify));
+        when(provider.snapshot(any(), any(), any())).thenReturn(List.of(
+                new Candidate(1L, new BigDecimal("999.00"), Instant.parse("2026-09-10T00:00:00Z"), 1),
+                new Candidate(2L, new BigDecimal("500.00"), Instant.parse("2026-09-11T00:00:00Z"), 1)));
+
+        var outcome = sut(rule).evaluateRule(rule.getUuid(), LocalDate.of(2026, 9, 15), false);
+
+        assertThat(outcome.created()).isEqualTo(1); // only promoter 2 wins — 1 is excluded
+    }
+
+    @Test
+    void evaluateRule_redirectDecision_pinsReplacementAtGivenPosition() {
+        CompetitiveCommissionRule rule = rankingRule(position(1, 1));
+        CompetitiveCommissionManualDecision redirect = new CompetitiveCommissionManualDecision();
+        redirect.setKind(CompetitiveCommissionManualDecision.Kind.REDIRECT);
+        redirect.setAwardPosition(1);
+        redirect.setPromoter(promoter(2L));
+        redirect.setReplacedPromoter(promoter(1L));
+        when(awardRepository.findByRule_IdAndPeriodStartAndActiveTrueAndStatusNot(any(), any(), any()))
+                .thenReturn(List.of());
+        when(manualDecisionRepository.findByRule_IdAndPeriodStartAndActiveTrueAndStatus(any(), any(), any()))
+                .thenReturn(List.of(redirect));
+        when(provider.snapshot(any(), any(), any())).thenReturn(List.of(
+                new Candidate(1L, new BigDecimal("999.00"), Instant.parse("2026-09-10T00:00:00Z"), 1),
+                new Candidate(2L, new BigDecimal("500.00"), Instant.parse("2026-09-11T00:00:00Z"), 1)));
+
+        var outcome = sut(rule).evaluateRule(rule.getUuid(), LocalDate.of(2026, 9, 15), false);
+
+        assertThat(outcome.created()).isEqualTo(1);
+        verify(awardRepository).save(argThat(a -> a.getPromoter().getId() == 2L && a.getAwardPosition() == 1));
     }
 
     @Test
