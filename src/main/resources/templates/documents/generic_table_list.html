@@ -126,7 +126,7 @@
             </tr>
             <tr th:if="${#lists.isEmpty(model.rows)}">
                 <td th:colspan="${#lists.size(model.headers) > 0 ? #lists.size(model.headers) : 1}" style="text-align: center; padding: 24px; color: #64748b; font-style: italic;" th:text="#{document.table_list.no_data}">
-                    No se encontraron registros para mostrar
+                    No records found to display
                 </td>
             </tr>
         </tbody>

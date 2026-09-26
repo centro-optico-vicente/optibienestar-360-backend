@@ -606,4 +606,34 @@ class GenericRecordReportServiceTest {
         assertEquals("application/pdf", doc.contentType());
         assertTrue(doc.content().length > 0);
     }
+
+    @Test
+    @DisplayName("Should generate empty table XLSX with localized message when MessageSource is provided")
+    void testGenerateEmptyTableXlsxLocalized() {
+        org.springframework.context.MessageSource mockMsg = org.mockito.Mockito.mock(org.springframework.context.MessageSource.class);
+        org.mockito.Mockito.when(mockMsg.getMessage(org.mockito.ArgumentMatchers.eq("document.table_list.no_data"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(java.util.Locale.forLanguageTag("es"))))
+                .thenReturn("No se encontraron registros para mostrar");
+        org.mockito.Mockito.when(mockMsg.getMessage(org.mockito.ArgumentMatchers.eq("document.table_list.no_data"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(java.util.Locale.ENGLISH)))
+                .thenReturn("No records found to display");
+
+        GenericXlsxExporterService exporter = new GenericXlsxExporterService(mockMsg);
+        GenericTableModel emptyModel = new GenericTableModel(
+                "Test Title", "Test Subtitle", "2026-09-25", "Admin", List.of("Col1", "Col2"), List.of(), 0
+        );
+
+        // Under Spanish locale
+        org.springframework.context.i18n.LocaleContextHolder.setLocale(java.util.Locale.forLanguageTag("es"));
+        byte[] esBytes = exporter.generateTableXlsx(emptyModel);
+        assertNotNull(esBytes);
+        assertTrue(esBytes.length > 0);
+
+        // Under English locale
+        org.springframework.context.i18n.LocaleContextHolder.setLocale(java.util.Locale.ENGLISH);
+        byte[] enBytes = exporter.generateTableXlsx(emptyModel);
+        assertNotNull(enBytes);
+        assertTrue(enBytes.length > 0);
+
+        // Reset locale
+        org.springframework.context.i18n.LocaleContextHolder.resetLocaleContext();
+    }
 }

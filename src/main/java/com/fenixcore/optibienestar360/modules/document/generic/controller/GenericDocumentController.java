@@ -108,7 +108,7 @@ public class GenericDocumentController {
                 request.title(),
                 request.subtitle(),
                 safeIdentifier,
-                "Usuario Sistema",
+                resolveGeneratedBy(null),
                 selectedFormat
         );
 
@@ -133,7 +133,7 @@ public class GenericDocumentController {
             @AuthenticationPrincipal CustomUserDetails actor
     ) {
         checkReportAuthorityForEntity(entityOrTable);
-        String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
+        String generatedBy = resolveGeneratedBy(actor);
         Object record = recordResolverService.findRecordByTableAndId(entityOrTable, identifier);
         JasperFormat selectedFormat = "XLSX".equalsIgnoreCase(format) ? JasperFormat.XLSX : JasperFormat.PDF;
 
@@ -174,7 +174,7 @@ public class GenericDocumentController {
     ) {
         checkReportAuthorityForEntity(targetTable);
         java.util.UUID actorUuid = actor != null ? actor.getUuid() : null;
-        String generatedBy = actor != null && actor.getUsername() != null ? actor.getUsername() : "Usuario Sistema";
+        String generatedBy = resolveGeneratedBy(actor);
 
         java.util.List<?> records = recordResolverService.findRecordsByTable(targetTable, limit, actorUuid, q, includeInactive);
         if (records == null || records.isEmpty()) {
@@ -324,7 +324,7 @@ public class GenericDocumentController {
         } catch (NoSuchElementException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Error al generar reporte Jasper (" + reportName + "): " + e.getMessage(), e);
+            throw new RuntimeException("Error generating Jasper report (" + reportName + "): " + e.getMessage(), e);
         }
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
@@ -551,22 +551,36 @@ public class GenericDocumentController {
         LocalDate start = null;
         LocalDate end = null;
         if (startDate != null && !startDate.isBlank()) {
-            start = parseDate(startDate.trim(), "desde");
+            start = parseDate(startDate.trim());
         }
         if (endDate != null && !endDate.isBlank()) {
-            end = parseDate(endDate.trim(), "hacia");
+            end = parseDate(endDate.trim());
         }
         if (start != null && end != null && end.isBefore(start)) {
-            throw new IllegalArgumentException("La fecha hacia (" + endDate.trim() + ") debe ser mayor o igual a la fecha desde (" + startDate.trim() + ").");
+            throw new IllegalArgumentException("report.error.date_range_invalid");
         }
     }
 
-    private LocalDate parseDate(String dateStr, String paramName) {
+    private LocalDate parseDate(String dateStr) {
         try {
             String clean = dateStr.length() >= 10 ? dateStr.substring(0, 10) : dateStr;
             return LocalDate.parse(clean);
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("Formato de fecha inválido para '" + paramName + "': " + dateStr + ". Se esperaba YYYY-MM-DD.");
+            throw new IllegalArgumentException("report.error.invalid_date_format");
         }
+    }
+
+    private String resolveGeneratedBy(CustomUserDetails actor) {
+        if (actor != null && actor.getUsername() != null && !actor.getUsername().isBlank()) {
+            return actor.getUsername();
+        }
+        if (messageSource != null) {
+            Locale locale = LocaleContextHolder.getLocale();
+            try {
+                return messageSource.getMessage("document.meta.system_user", null, locale);
+            } catch (Exception ignored) {
+            }
+        }
+        return "System";
     }
 }
