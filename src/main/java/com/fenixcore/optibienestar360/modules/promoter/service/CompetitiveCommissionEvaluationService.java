@@ -35,7 +35,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,8 +100,8 @@ public class CompetitiveCommissionEvaluationService {
         CompetitiveCommissionRule rule = ruleRepository.findByUuid(ruleUuid)
                 .orElseThrow(() -> new java.util.NoSuchElementException("competitive_commission_rule.not_found"));
         lockRule(rule);
-        PeriodStrategies.Window window = resolveWindow(rule, periodRef);
-        MetricScope scope = buildScope(rule);
+        PeriodStrategies.Window window = CompetitiveRuleWindowResolver.resolveWindow(rule, periodRef);
+        MetricScope scope = CompetitiveRuleWindowResolver.buildScope(rule);
         CompetitiveMetricProvider provider = providerByMetric.get(rule.getMetric());
         if (provider == null) {
             throw new IllegalStateException("competitive_rule.no_provider_for_metric:" + rule.getMetric());
@@ -218,19 +217,6 @@ public class CompetitiveCommissionEvaluationService {
 
     private static BigDecimal threshold(CompetitiveCommissionRule rule, boolean countMetric) {
         return countMetric ? BigDecimal.valueOf(rule.getThresholdCount()) : rule.getThresholdAmount();
-    }
-
-    private static PeriodStrategies.Window resolveWindow(CompetitiveCommissionRule rule, LocalDate periodRef) {
-        if (rule.getAccrualPeriodStrategy() == CompetitiveCommissionRule.PeriodAxisStrategy.END_DATE) {
-            return new PeriodStrategies.Window(rule.getStartsAt().toLocalDate(), rule.getEndsAt().toLocalDate());
-        }
-        return PeriodStrategies.window(rule.getAccrualPeriodStrategy().name(), periodRef, rule.getAccrualPeriodAnchor());
-    }
-
-    private static MetricScope buildScope(CompetitiveCommissionRule rule) {
-        Set<Long> typeIds = rule.getPromoterTypes().stream().map(t -> t.getId()).collect(Collectors.toCollection(HashSet::new));
-        Set<Long> rankIds = rule.getRanks().stream().map(r -> r.getId()).collect(Collectors.toCollection(HashSet::new));
-        return new MetricScope(typeIds, rankIds, rule.isIncludeSystemPromoters());
     }
 
     private static CompetitiveCommissionRulePosition findPosition(CompetitiveCommissionRule rule, int position) {
