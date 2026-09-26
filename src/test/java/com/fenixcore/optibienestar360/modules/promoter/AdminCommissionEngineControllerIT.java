@@ -2,14 +2,10 @@ package com.fenixcore.optibienestar360.modules.promoter;
 
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionTierDto;
-import com.fenixcore.optibienestar360.modules.promoter.dto.LeaderboardDto;
-import com.fenixcore.optibienestar360.modules.promoter.dto.PrizeAwardResult;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionTier.BasisType;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionTiersService;
-import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardPrizeService;
-import com.fenixcore.optibienestar360.modules.promoter.service.LeaderboardService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +29,6 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -42,12 +37,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT covering the authorization of the three new commission-engine admin
- * surfaces (V42), granular per V79: tiers ({@code COMMISSION_TIER_VIEW_ALL} /
- * {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}), leaderboard
- * ({@code LEADERBOARD_VIEW}), prizes ({@code LEADERBOARD_PRIZE_VIEW_ALL} /
- * {@code _CREATE} / {@code _UPDATE} / {@code _DELETE}). Services mocked; one
- * context for all three to keep the suite lean.
+ * IT covering the authorization of the commission-tiers admin surface (V42),
+ * granular per V79 ({@code COMMISSION_TIER_VIEW_ALL} / {@code _CREATE} /
+ * {@code _UPDATE} / {@code _DELETE}). Service mocked. The leaderboard/prizes
+ * surfaces this once also covered were retired in Fase 3 (migrated into
+ * competitive commission rules) — {@code LEADERBOARD_VIEW} below is only
+ * used as a stand-in "some permission the principal holds that isn't a
+ * commission-tier one" for the wrong-permission-is-403 case.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -56,8 +52,6 @@ class AdminCommissionEngineControllerIT {
     @Autowired private WebApplicationContext context;
 
     @MockitoBean private CommissionTiersService tiersService;
-    @MockitoBean private LeaderboardService leaderboardService;
-    @MockitoBean private LeaderboardPrizeService prizeService;
 
     private MockMvc mockMvc;
 
@@ -102,48 +96,6 @@ class AdminCommissionEngineControllerIT {
         mockMvc.perform(post("/v1/admin/commission-tiers").with(principal("COMMISSION_TIER_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated());
-    }
-
-    // ─── leaderboard ──────────────────────────────────────────────────────────
-
-    @Test
-    void leaderboard_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/leaderboard").with(principal("COMMISSION_TIER_VIEW_ALL")))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void leaderboard_withPermission_is200() throws Exception {
-        when(leaderboardService.leaderboard(any(), any(), anyInt())).thenReturn(
-                new LeaderboardDto(PeriodStrategy.MONTHLY, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), List.of()));
-        mockMvc.perform(get("/v1/admin/leaderboard").param("period", "2026-06")
-                        .with(principal("LEADERBOARD_VIEW")))
-                .andExpect(status().isOk());
-    }
-
-    // ─── leaderboard prizes ─────────────────────────────────────────────────────
-
-    @Test
-    void prizes_list_withPermission_is200() throws Exception {
-        when(prizeService.list()).thenReturn(List.of());
-        mockMvc.perform(get("/v1/admin/leaderboard-prizes").with(principal("LEADERBOARD_PRIZE_VIEW_ALL")))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void prizes_award_withPermission_is200() throws Exception {
-        when(prizeService.award(any(), any(), anyBoolean())).thenReturn(
-                new PrizeAwardResult(PeriodStrategy.MONTHLY, LocalDate.of(2026, 6, 1),
-                        LocalDate.of(2026, 6, 30), true, 0, BigDecimal.ZERO, "USD"));
-        mockMvc.perform(post("/v1/admin/leaderboard-prizes/award").param("dryRun", "true")
-                        .with(principal("LEADERBOARD_PRIZE_CREATE")))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void prizes_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/leaderboard-prizes").with(principal("LEADERBOARD_VIEW")))
-                .andExpect(status().isForbidden());
     }
 
     private static CommissionTierDto tierDto() {
