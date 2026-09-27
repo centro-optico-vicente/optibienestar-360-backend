@@ -228,7 +228,7 @@ public class BonusSettlementCutService {
         award.setRewardCurrency(rule.getRewardCurrency());
         award.setRuleNameSnapshot(rule.getName());
         award.setEvaluatedAt(Instant.now());
-        if (award.getStatus() == null) {
+        if (existing == null || award.getStatus() == null) {
             award.setStatus(AwardStatus.PENDING.name());
         }
         awardRepository.save(award);
