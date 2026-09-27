@@ -13,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactive
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionVoidRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.RejectCommissionsRequest;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionApprovalService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionPayoutService;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionReRatingService;
@@ -72,9 +73,10 @@ public class AdminCommissionController {
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @RequestParam(required = false) UUID promoterTypeUuid,
             @RequestParam(required = false) UUID promoterRankUuid,
-            @RequestParam(required = false) UUID campaignUuid) {
+            @RequestParam(required = false) UUID campaignUuid,
+            @RequestParam(required = false) Commission.RuleSource ruleSource) {
         Page<CommissionDto> page = commissionsService.list(pageable, filter, q, includeInactive,
-                promoterTypeUuid, promoterRankUuid, campaignUuid);
+                promoterTypeUuid, promoterRankUuid, campaignUuid, ruleSource);
         return ResponseEntity.ok(new AppliedSortPage<>(page, commissionsService.effectiveSort(pageable)));
     }
 

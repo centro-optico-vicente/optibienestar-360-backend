@@ -14,6 +14,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -211,6 +212,34 @@ public class Commission extends BaseEntity {
 
     public enum AppliesTo {
         INSCRIPTION, MONTHLY
+    }
+
+    /**
+     * Which tier engine priced this row — derived, never persisted.
+     * {@code TIER} = plan/volume {@link #commissionTierId}; {@code
+     * COLLECTION_TIER} = days-late {@link #collectionTierId} (V47).
+     * Orthogonal to {@link #appliesTo}: INSCRIPTION rows are always
+     * {@code TIER}; MONTHLY rows can be either, depending on whether the
+     * collection-commission engine had an applicable bucket.
+     */
+    public enum RuleSource {
+        TIER, COLLECTION_TIER
+    }
+
+    /**
+     * {@code collectionTierId} wins when both are set (the collection
+     * engine took priority when it priced the row); {@code null} for the
+     * rare v1 hardcoded-rate row with neither populated.
+     */
+    @Transient
+    public RuleSource getRuleSource() {
+        if (collectionTierId != null) {
+            return RuleSource.COLLECTION_TIER;
+        }
+        if (commissionTierId != null) {
+            return RuleSource.TIER;
+        }
+        return null;
     }
 
     public enum PeriodStrategy {
