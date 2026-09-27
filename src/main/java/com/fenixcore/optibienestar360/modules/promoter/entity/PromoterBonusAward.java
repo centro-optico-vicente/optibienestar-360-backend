@@ -114,8 +114,50 @@ public class PromoterBonusAward extends BaseEntity {
     @Column(name = "admin_notes", columnDefinition = "text")
     private String adminNotes;
 
+    // ─── Settlement cut (V168, Fase B) ──────────────────────────────────────
+
+    /**
+     * Which settlement axis produced this row — {@code PARTIAL} (mid-window,
+     * FLAT rewards only), {@code RETROACTIVE} (re-nets a {@code PERCENTAGE}
+     * reward's basis, which keeps growing after the metric threshold was first
+     * crossed) or {@code FINAL} (window close, or every evaluation of a
+     * {@code LIFETIME} rule — see {@link BonusSettlementCutService}). Historical
+     * rows were backfilled {@code FINAL}/1.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cut_kind", nullable = false, length = 20)
+    private CutKind cutKind;
+
+    /**
+     * 1-based index of this cut within its {@link #cutKind} axis for this
+     * {@code (rule, promoter, windowStart)} — together the natural key
+     * {@code uq_promoter_bonus_awards_cut} upserts by. For a {@code LIFETIME}
+     * rule (no fixed window close) this increments only once the previous row
+     * for the same key is already {@code PAID} — see
+     * {@link BonusSettlementCutService}.
+     */
+    @Column(name = "cut_sequence", nullable = false)
+    private short cutSequence;
+
+    /** Inclusive start of this specific cut — always equal to {@link #windowStart}. */
+    @Column(name = "cut_start", nullable = false)
+    private LocalDate cutStart;
+
+    /**
+     * Inclusive end this cut's entitlement was computed as of — {@code <=
+     * windowEnd}, equal to it only for a {@code FINAL} cut of a
+     * fixed-close window.
+     */
+    @Column(name = "cut_end", nullable = false)
+    private LocalDate cutEnd;
+
     /** Values for {@link BaseEntity#getStatus()} pinned by the V37 CHECK. */
     public enum AwardStatus {
         PENDING, PAID, VOIDED
+    }
+
+    /** Values for {@link #cutKind} pinned by {@code chk_promoter_bonus_awards_cut_kind} (V168). */
+    public enum CutKind {
+        PARTIAL, RETROACTIVE, FINAL
     }
 }

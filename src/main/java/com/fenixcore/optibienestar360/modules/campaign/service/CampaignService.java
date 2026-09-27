@@ -392,7 +392,7 @@ public class CampaignService {
      * single currency (the campaign's {@code targetAmountCurrency}, or USD
      * when no goal/currency is set) so a multi-currency campaign doesn't add
      * apples and oranges — same conversion pattern as {@code
-     * BonusEvaluationService#evaluateAmountCollectedRule}. A payment with no
+     * BonusSettlementCutService#amountCollectedAsOf}. A payment with no
      * exchange rate available for that pair is excluded from the sum and
      * logged, not blocking.
      */

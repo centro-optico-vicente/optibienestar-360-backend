@@ -279,7 +279,7 @@ public class CommissionService {
      * Picks the highest-threshold {@code basis=AMOUNT} bucket the collected
      * amount reaches or exceeds (V144 minimum-threshold semantics — same
      * degrade-gracefully currency policy as
-     * {@code BonusEvaluationService#evaluateAmountCollectedRule}). Candidates
+     * {@code BonusSettlementCutService#amountCollectedAsOf}). Candidates
      * arrive ordered promoter-type-specific-first, then descending {@code
      * minAmount}; the amount is converted into each candidate's own {@code
      * minAmountCurrency} before comparing (thresholds across tiers may be
@@ -337,7 +337,7 @@ public class CommissionService {
      * instead — summed from their APPROVED {@code direction=IN} payments and
      * converted into the tier's own {@link CommissionTier#getThresholdAmountCurrency()}
      * before comparing, same degrade-gracefully currency policy {@code
-     * BonusEvaluationService#evaluateAmountCollectedRule} uses (a tier whose
+     * BonusSettlementCutService#amountCollectedAsOf} uses (a tier whose
      * currency pair has no exchange rate available is skipped, logged, and
      * never blocks the rest of the selection).</p>
      */
@@ -387,7 +387,7 @@ public class CommissionService {
      * tier.getThresholdAmountCurrency()} payment-by-payment (thresholds
      * across tiers may be denominated differently, so a single blended sum
      * can't be reused across tiers) — same degrade-gracefully policy as
-     * {@code BonusEvaluationService#evaluateAmountCollectedRule}: a payment
+     * {@code BonusSettlementCutService#amountCollectedAsOf}: a payment
      * whose currency pair has no exchange rate available is excluded from
      * the sum and logged, never blocking the rest of the evaluation.
      */
