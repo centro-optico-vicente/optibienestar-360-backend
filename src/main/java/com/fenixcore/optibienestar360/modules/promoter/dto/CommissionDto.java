@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.RuleSource;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -56,6 +57,7 @@ public record CommissionDto(
         String tierNameSnapshot,
 
         // Categorization
+        @Display(Display.Kind.ENUM) RuleSource ruleSource,
         @Display(Display.Kind.ENUM) AppliesTo appliesTo,
         @Display(Display.Kind.ENUM) PeriodStrategy periodStrategy,
         @Display(Display.Kind.DATE) LocalDate periodStart,
@@ -92,7 +94,7 @@ public record CommissionDto(
                 amountConverted, convertedCurrencyCode, exchangeRateUsed, exchangeRateDate,
                 exchangeRateAtEarned, earnedRateDate, exchangeRateAtPaid, paidRateDate, fxVarianceAmountConverted,
                 calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
-                appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
+                ruleSource, appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
                 payoutPayment, payoutReference, paidAt, voidedAt, voidReason, adminNotes,
                 active, status, createdAt, updatedAt);
     }

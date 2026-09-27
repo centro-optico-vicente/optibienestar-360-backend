@@ -140,20 +140,22 @@ public class CommissionsService {
      * liquidation path).
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-        return list(pageable, filter, q, includeInactive, null, null, null);
+        return list(pageable, filter, q, includeInactive, null, null, null, null);
     }
 
     /**
      * Overload backing the "Generar pagos" screen's richer filter set
-     * (promoter type, rank/cargo, campaign) — none of these are reachable
-     * through the generic RSQL {@code filter} (2-level joins have no
-     * precedent in this project's RSQL allowlist), so they come in as
-     * dedicated params with their own {@link Specification}, same pattern
-     * {@code PaymentsService#list} used to pull {@code direction} out of
-     * the generic filter.
+     * (promoter type, rank/cargo, campaign, rule source) — none of these
+     * are reachable through the generic RSQL {@code filter} ({@code
+     * ruleSource} isn't a real JPA path — it's derived from
+     * {@code commissionTierId}/{@code collectionTierId} — and the other
+     * three are 2-level joins, which have no precedent in this project's
+     * RSQL allowlist), so they come in as dedicated params with their own
+     * {@link Specification}, same pattern {@code PaymentsService#list}
+     * used to pull {@code direction} out of the generic filter.
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
-            UUID promoterTypeUuid, UUID promoterRankUuid, UUID campaignUuid) {
+            UUID promoterTypeUuid, UUID promoterRankUuid, UUID campaignUuid, Commission.RuleSource ruleSource) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "commission", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission");
@@ -175,6 +177,9 @@ public class CommissionsService {
         if (campaignUuid != null) {
             spec = spec.and(campaignIs(campaignUuid));
         }
+        if (ruleSource != null) {
+            spec = spec.and(ruleSourceIs(ruleSource));
+        }
         return repository.findAll(spec, resolvedPageable).map(c -> enrich(mapper.toDto(c), c));
     }
 
@@ -189,6 +194,16 @@ public class CommissionsService {
     /** Reaches Campaign through the triggering {@code payment}, not {@code promoter} — Commission has no direct FK to Campaign. */
     private static Specification<Commission> campaignIs(UUID uuid) {
         return (root, query, cb) -> cb.equal(root.get("payment").get("campaign").get("uuid"), uuid);
+    }
+
+    /** Mirrors {@link Commission#getRuleSource()}: {@code collectionTierId} wins when both are set. */
+    private static Specification<Commission> ruleSourceIs(Commission.RuleSource ruleSource) {
+        return switch (ruleSource) {
+            case COLLECTION_TIER -> (root, query, cb) -> cb.isNotNull(root.get("collectionTierId"));
+            case TIER -> (root, query, cb) -> cb.and(
+                    cb.isNotNull(root.get("commissionTierId")),
+                    cb.isNull(root.get("collectionTierId")));
+        };
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
