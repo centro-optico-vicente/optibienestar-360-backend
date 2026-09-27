@@ -186,8 +186,8 @@ public class BonusSettlementCutService {
             var latest = awardRepository.findTopByRule_IdAndPromoter_IdAndWindowStartAndCutKindOrderByCutSequenceDesc(
                     rule.getId(), promoter.getId(), window.start(), cut.kind());
             boolean latestOpen = latest.isPresent() && !AwardStatus.PAID.name().equals(latest.get().getStatus());
-            sequence = latestOpen ? latest.get().getCutSequence()
-                    : (short) (latest.map(a -> a.getCutSequence() + 1).orElse(1));
+            int nextSequence = latest.map(a -> a.getCutSequence() + 1).orElse(1);
+            sequence = latestOpen ? latest.get().getCutSequence() : (short) nextSequence;
             existing = latestOpen ? latest.get() : null;
         }
         if (existing != null && AwardStatus.PAID.name().equals(existing.getStatus())) {
