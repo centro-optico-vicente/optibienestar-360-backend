@@ -30,6 +30,14 @@ public record BenefitUsageRegisterRequest(
         UUID allyServiceUuid,                 // optional — non-catalogued usage is allowed
         UUID allyUserUuid,                    // optional — admin-side registrations have null
 
+        /**
+         * Rubro del consumo. Opcional SOLO cuando viene {@code allyServiceUuid}:
+         * en ese caso el servicio ya trae su categoría y el servidor la copia.
+         * Sin servicio es obligatorio — es la condición que garantiza que todo
+         * consumo entre en el reporte por rubro (V158).
+         */
+        UUID serviceCategoryUuid,
+
         // Defaults to today when null; never accept future dates
         @PastOrPresent LocalDate usageDate,
 
@@ -38,6 +46,13 @@ public record BenefitUsageRegisterRequest(
         BigDecimal copayAmount,
         @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}")
         String copayCurrency,
+
+        // Valor consumido — ambos NULL o ambos con valor (el servicio lo valida,
+        // espeja chk_benefit_usages_consumption_paired de V158)
+        @Digits(integer = 8, fraction = 2) @DecimalMin(value = "0.0", inclusive = true)
+        BigDecimal consumptionAmount,
+        @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}")
+        String consumptionCurrency,
 
         Map<String, Object> metadata,         // per-ally-type free-form payload
         String notes

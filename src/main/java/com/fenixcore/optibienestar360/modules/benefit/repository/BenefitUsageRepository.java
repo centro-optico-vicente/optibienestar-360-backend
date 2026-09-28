@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.benefit.repository;
 
+import com.fenixcore.optibienestar360.modules.benefit.dto.ConsumptionTotalsDto;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -83,4 +85,29 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
                   (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)
             """)
     Page<BenefitUsage> findByMemberUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
+
+    /**
+     * Consumo agregado de una membresía en un período. {@code allyUuid} nulo
+     * agrega todos los aliados — un programa de fidelidad puede ser global o
+     * de un solo comercio.
+     *
+     * <p>{@code COALESCE} sobre el SUM porque un período sin consumos devuelve
+     * null y el llamador compara contra un umbral. Los usos anteriores a V158
+     * no tienen monto y suman 0, pero sí cuentan en {@code count} — por eso el
+     * conteo no se puede derivar de la suma.</p>
+     */
+    @Query("""
+            SELECT new com.fenixcore.optibienestar360.modules.benefit.dto.ConsumptionTotalsDto(
+                       COALESCE(SUM(bu.consumptionAmount), 0), COUNT(bu))
+            FROM BenefitUsage bu
+            WHERE bu.active = true
+              AND bu.status = 'REGISTERED'
+              AND bu.membership.uuid = :membershipUuid
+              AND (:allyUuid IS NULL OR bu.ally.uuid = :allyUuid)
+              AND bu.usageDate BETWEEN :from AND :to
+            """)
+    ConsumptionTotalsDto totalsForMembership(@Param("membershipUuid") UUID membershipUuid,
+                                             @Param("allyUuid") UUID allyUuid,
+                                             @Param("from") LocalDate from,
+                                             @Param("to") LocalDate to);
 }

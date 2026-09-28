@@ -14,6 +14,8 @@ import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage.UsageStatus;
 import com.fenixcore.optibienestar360.modules.benefit.mapper.BenefitUsageMapper;
 import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -55,6 +57,7 @@ public class BenefitUsagesService {
     private final AllyServiceRepository allyServiceRepository;
     private final AllyUserRepository allyUserRepository;
     private final CurrencyRepository currencyRepository;
+    private final ServiceCategoryRepository serviceCategoryRepository;
     private final BenefitUsageMapper mapper;
 
     /**
@@ -113,16 +116,20 @@ public class BenefitUsagesService {
         }
 
         validateCopay(request);
+        validateConsumption(request);
 
         BenefitUsage usage = new BenefitUsage();
         usage.setMembership(membership);
         usage.setAlly(ally);
         usage.setAllyService(allyService);
         usage.setAllyUser(allyUser);
+        usage.setServiceCategory(resolveServiceCategory(request, allyService));
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
         usage.setCopayAmount(request.copayAmount());
-        usage.setCopayCurrency(resolveCopayCurrency(request.copayCurrency()));
+        usage.setCopayCurrency(resolveCurrency(request.copayCurrency()));
+        usage.setConsumptionAmount(request.consumptionAmount());
+        usage.setConsumptionCurrency(resolveCurrency(request.consumptionCurrency()));
         usage.setMetadata(request.metadata());
         usage.setNotes(request.notes());
         usage.setStatus(UsageStatus.REGISTERED.name());
@@ -130,11 +137,29 @@ public class BenefitUsagesService {
         return mapper.toDto(usageRepository.save(usage));
     }
 
-    /** {@code copayCurrency} is nullable (paired with copayAmount, V24 CHECK). */
-    private Currency resolveCopayCurrency(String code) {
+    /** Both money columns are nullable and paired with their amount (V24 / V158 CHECKs). */
+    private Currency resolveCurrency(String code) {
         if (code == null || code.isBlank()) return null;
         return currencyRepository.findByCode(code)
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+    }
+
+    /**
+     * The category is mandatory on the row (V158) but the client only has to
+     * send it when there is no catalogued service: a service already carries
+     * its own category, so copying it avoids asking the operator twice — and
+     * avoids the two disagreeing. An explicit category is ignored when a
+     * service is present, for that same reason.
+     */
+    private ServiceCategory resolveServiceCategory(BenefitUsageRegisterRequest request, AllyService allyService) {
+        if (allyService != null) {
+            return allyService.getServiceCategory();
+        }
+        if (request.serviceCategoryUuid() == null) {
+            throw new IllegalArgumentException("benefit_usage.service_category.required");
+        }
+        return serviceCategoryRepository.findByUuid(request.serviceCategoryUuid())
+                .orElseThrow(() -> new NoSuchElementException("service_category.not_found"));
     }
 
     private static void ensureActiveMembership(Membership membership) {
@@ -158,6 +183,15 @@ public class BenefitUsagesService {
         boolean currencySet = request.copayCurrency() != null && !request.copayCurrency().isBlank();
         if (amountSet ^ currencySet) {
             throw new IllegalArgumentException("benefit_usage.copay.incomplete");
+        }
+    }
+
+    /** Same pairing rule as the co-pay, against V158's own CHECK. */
+    private static void validateConsumption(BenefitUsageRegisterRequest request) {
+        boolean amountSet = request.consumptionAmount() != null;
+        boolean currencySet = request.consumptionCurrency() != null && !request.consumptionCurrency().isBlank();
+        if (amountSet ^ currencySet) {
+            throw new IllegalArgumentException("benefit_usage.consumption.incomplete");
         }
     }
 }
