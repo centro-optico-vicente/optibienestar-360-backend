@@ -83,7 +83,8 @@ public class CompetitiveCommissionRulesService {
     /** Metrics measured by count vs. by amount — decides which of thresholdCount/thresholdAmount is required. */
     private static final Set<CompetitiveMetric> COUNT_METRICS = Set.of(
             CompetitiveMetric.NEW_SUBSCRIBERS, CompetitiveMetric.ACTIVE_SUBSCRIBERS,
-            CompetitiveMetric.SALES_COUNT, CompetitiveMetric.COLLECTION_COUNT, CompetitiveMetric.ADVANCE_COUNT);
+            CompetitiveMetric.SALES_COUNT, CompetitiveMetric.COLLECTION_COUNT, CompetitiveMetric.ADVANCE_COUNT,
+            CompetitiveMetric.OVERDUE_SETTLED_COUNT);
 
     private final CompetitiveCommissionRuleRepository repository;
     private final PromoterTypeRepository promoterTypeRepository;
