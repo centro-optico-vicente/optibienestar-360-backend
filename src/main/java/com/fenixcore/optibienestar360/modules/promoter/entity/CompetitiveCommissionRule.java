@@ -182,8 +182,7 @@ public class CompetitiveCommissionRule extends BaseEntity {
     public enum CompetitiveMetric {
         NEW_SUBSCRIBERS, ACTIVE_SUBSCRIBERS, SALES_COUNT, SALES_AMOUNT,
         COLLECTION_COUNT, COLLECTION_AMOUNT, ADVANCE_COUNT, ADVANCE_AMOUNT,
-        COMMISSION_EARNED
-        // Fase 5 adds OVERDUE_SETTLED_COUNT/AMOUNT.
+        COMMISSION_EARNED, OVERDUE_SETTLED_COUNT, OVERDUE_SETTLED_AMOUNT
     }
 
     /** D2 — only 2 evaluation modes; "top N" and "escalonado" are position configurations, not types. */
