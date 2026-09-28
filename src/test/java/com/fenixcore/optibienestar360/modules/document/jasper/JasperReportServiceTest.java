@@ -2,12 +2,18 @@ package com.fenixcore.optibienestar360.modules.document.jasper;
 
 import com.fenixcore.optibienestar360.modules.document.service.renderers.JasperPdfRenderer;
 import com.fenixcore.optibienestar360.modules.document.service.renderers.JasperXlsxRenderer;
+import com.fenixcore.optibienestar360.support.TestDatabaseConfig;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +21,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class JasperReportServiceTest {
+
+	private static final Logger log = LoggerFactory.getLogger(JasperReportServiceTest.class);
 
     private JasperReportService jasperReportService;
     private JasperPdfRenderer jasperPdfRenderer;
@@ -47,6 +55,11 @@ class JasperReportServiceTest {
                 </title>
             </jasperReport>
             """;
+
+
+	// ------------------------------------------------------------------
+	// Pure tests (no database): always executed
+	// ------------------------------------------------------------------
 
     @Test
     @DisplayName("Should generate a valid PDF with %PDF header from JasperPrint")
@@ -165,53 +178,85 @@ class JasperReportServiceTest {
         }
     }
 
+
+	// ------------------------------------------------------------------
+	// Live tests: require a real database and -Djasper.liveTests=true
+	// ------------------------------------------------------------------
+
     @Test
+	@EnabledIfSystemProperty(named = "jasper.liveTests", matches = "true")
     @DisplayName("Should generate PDF and XLSX for reporte-comisiones with PostgreSQL connection if available")
-    void testLiveConnectionReporteComisiones() {
-        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
-                "jdbc:postgresql://localhost:5413/optibienestar360", "optibienestar360_app", "changeme-dev")) {
-            Map<String, Object> params = new HashMap<>();
-            params.put("P_START_DATE", "2026-07-01");
-            params.put("P_END_DATE", "2026-09-30");
+	void testLiveConnectionReporteComisiones() throws Exception {
+		// The "skip" decision is made BEFORE anything is executed. If the DB doesn't respond,
+		// JUnit marks the test as skipped; it does NOT silence it with a print statement.
+		Assumptions.assumeTrue(TestDatabaseConfig.isAvailable(),
+				() -> "BD not available in " + TestDatabaseConfig.jdbcUrl()
+						+ " (user=" + TestDatabaseConfig.username() + "); Live test omitted.");
 
-            byte[] pdfBytes = jasperReportService.generateReportWithConnection("reports/reporte-comisiones.jrxml", params, conn, JasperFormat.PDF);
+		Map<String, Object> params = new HashMap<>();
+		params.put("P_START_DATE", "2026-07-01");
+		params.put("P_END_DATE", "2026-09-30");
+
+		// From this point on, any exception is a genuine Jasper/SQL failure,
+		// not a reason to skip the test: we do NOT wrap the generation in a try/catch block.
+		try (Connection conn = TestDatabaseConfig.open()) {
+			byte[] pdfBytes = jasperReportService.generateReportWithConnection(
+				"reports/reporte-comisiones.jrxml",
+				params,
+				conn,
+				JasperFormat.PDF
+			);
             assertNotNull(pdfBytes);
             assertTrue(pdfBytes.length > 0);
             assertEquals("%PDF", new String(pdfBytes, 0, 4, StandardCharsets.ISO_8859_1));
 
-            byte[] xlsxBytes = jasperReportService.generateReportWithConnection("reports/reporte-comisiones.jrxml", params, conn, JasperFormat.XLSX);
+			byte[] xlsxBytes = jasperReportService.generateReportWithConnection(
+				"reports/reporte-comisiones.jrxml",
+				params,
+				conn,
+				JasperFormat.XLSX
+			);
             assertNotNull(xlsxBytes);
             assertTrue(xlsxBytes.length > 0);
             assertEquals((byte) 'P', xlsxBytes[0]);
             assertEquals((byte) 'K', xlsxBytes[1]);
-        } catch (Exception e) {
-            // In environments where postgres is not running or unmigrated, skip gracefully
-            System.out.println("Skipping live connection test (database not reachable or unmigrated): " + e.getMessage());
         }
     }
 
     @Test
+	@EnabledIfSystemProperty(named = "jasper.liveTests", matches = "true")
     @DisplayName("Should generate PDF and XLSX for reporte-pagos with PostgreSQL connection if available")
-    void testLiveConnectionReportePagos() {
-        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
-                "jdbc:postgresql://localhost:5413/optibienestar360", "optibienestar360_app", "changeme-dev")) {
-            Map<String, Object> params = new HashMap<>();
-            params.put("P_START_DATE", "2026-07-01");
-            params.put("P_END_DATE", "2026-09-30");
+    void testLiveConnectionReportePagos() throws Exception {
+		Assumptions.assumeTrue(TestDatabaseConfig.isAvailable(),
+				() -> "BD not available in " + TestDatabaseConfig.jdbcUrl()
+						+ " (user=" + TestDatabaseConfig.username() + "); Live test omitted.");
 
-            byte[] pdfBytes = jasperReportService.generateReportWithConnection("reports/reporte-pagos.jrxml", params, conn, JasperFormat.PDF);
+		Map<String, Object> params = new HashMap<>();
+		params.put("P_START_DATE", "2026-07-01");
+		params.put("P_END_DATE", "2026-09-30");
+
+		try (Connection conn = TestDatabaseConfig.open()) {
+			byte[] pdfBytes = jasperReportService.generateReportWithConnection(
+				"reports/reporte-pagos.jrxml",
+				params,
+				conn,
+				JasperFormat.PDF
+			);
             assertNotNull(pdfBytes);
             assertTrue(pdfBytes.length > 0);
             assertEquals("%PDF", new String(pdfBytes, 0, 4, StandardCharsets.ISO_8859_1));
 
-            byte[] xlsxBytes = jasperReportService.generateReportWithConnection("reports/reporte-pagos.jrxml", params, conn, JasperFormat.XLSX);
+			byte[] xlsxBytes = jasperReportService.generateReportWithConnection(
+				"reports/reporte-pagos.jrxml",
+				params,
+				conn,
+				JasperFormat.XLSX
+			);
             assertNotNull(xlsxBytes);
             assertTrue(xlsxBytes.length > 0);
             assertEquals((byte) 'P', xlsxBytes[0]);
             assertEquals((byte) 'K', xlsxBytes[1]);
-        } catch (Exception e) {
-            // In environments where postgres is not running or unmigrated, skip gracefully
-            System.out.println("Skipping live connection test (database not reachable or unmigrated): " + e.getMessage());
         }
     }
+
 }
