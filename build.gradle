@@ -1,9 +1,29 @@
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		// Needed so the custom flywayInfo / flywayValidate tasks can import
+		// org.flywaydb.core.Flyway and the PostgreSQL driver at script level.
+		classpath "org.flywaydb:flyway-core:11.7.2"
+		classpath "org.flywaydb:flyway-database-postgresql:11.7.2"
+		classpath "org.postgresql:postgresql:42.7.11"
+	}
+}
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
 	// id "io.github.uoxx3.project-environment" version "1.0.1"
+	// id 'org.flywaydb.flyway' version '11.7.2'
+	id 'net.ltgt.flyway' version '1.0.0'
 }
+
+import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.MigrationInfo
+
+apply from: 'gradle/env.gradle'
 
 group = 'com.fenixcore'
 version = findProperty("deployVersion") ?: "local-0.0.1"
@@ -32,9 +52,12 @@ dependencies {
 	// spring-boot-flyway module (shipped via spring-boot-starter-flyway). Without this
 	// starter the FlywayAutoConfiguration class is absent from the classpath and the
 	// flywayInitializer bean is never created — migrations silently never run.
-	implementation "org.springframework.boot:spring-boot-starter-flyway"
-	implementation "org.flywaydb:flyway-database-postgresql"
 	runtimeOnly "org.postgresql:postgresql:42.7.11"
+	implementation "org.flywaydb:flyway-database-postgresql"
+	implementation "org.springframework.boot:spring-boot-starter-flyway"
+	flyway "org.flywaydb:flyway-core:11.7.2"
+	flyway "org.flywaydb:flyway-database-postgresql:11.7.2"
+	flyway "org.postgresql:postgresql:42.7.11"
 
 	// Security
 	implementation "org.springframework.boot:spring-boot-starter-security"
@@ -124,4 +147,106 @@ test {
 		exceptionFormat = "full"
 		showStandardStreams = true
 	}
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// Flyway configuration
+// ─────────────────────────────────────────────────────────────────
+
+def dbHost     = env('DATABASE_HOST',     'localhost')
+def dbPort     = env('DATABASE_PORT',     '5432')
+def dbName     = env('DATABASE_NAME',     'optibienestar360')
+def dbSslMode  = env('DATABASE_SSL_MODE', 'disable')
+def dbUser     = env('DATABASE_MIGRATION_USER',     'optibienestar360_migration')
+def dbPassword = env('DATABASE_MIGRATION_PASSWORD', 'changeme-dev')
+
+// Build the JDBC URL lazily — the .env is read only when a Flyway task runs.
+def jdbcUrl = providers.provider {
+	"jdbc:postgresql://${dbHost.get()}:${dbPort.get()}/${dbName.get()}" +
+	"?sslmode=${dbSslMode.get()}&stringtype=unspecified"
+}
+
+flyway {
+	url = jdbcUrl
+	user     = dbUser.get()
+	password = dbPassword.get()
+
+	// The Gradle plugin runs outside the application classpath, so
+	// `classpath:db/migration` cannot be resolved. Point to the filesystem.
+	migrationLocations = files('src/main/resources/db/migration')
+
+	// Everything else goes through the `configuration` map, which is passed
+	// straight to Flyway. Keys are Flyway property names (camelCase).
+	configuration = [
+		schemas           : 'app',
+		baselineOnMigrate : true,
+		baselineVersion   : '0',
+		outOfOrder        : true,
+		validateOnMigrate : true,
+		// ⚠️ WARNING: cleanDisabled=false enables `flywayClean`, which
+		// DROPS all objects in the configured schemas. Only safe against
+		// a local/dev database. Set to true in CI or prod.
+		cleanDisabled     : false,
+		placeholders      : flywayPlaceholders()
+	].collectEntries { k, v -> [k, v?.toString()] }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Custom Flyway tasks — net.ltgt.flyway ships only flywayMigrate,
+// flywayClean and flywayRepair. flywayInfo / flywayValidate are
+// implemented on top of the Flyway Java API.
+//
+// Helper: builds a Flyway instance with the same configuration as the
+// extension above so all tasks stay in sync.
+// ─────────────────────────────────────────────────────────────────
+def buildFlyway = {
+	Flyway.configure()
+		.dataSource(jdbcUrl.get(), dbUser.get(), dbPassword.get())
+		.schemas('app')
+		.locations('filesystem:src/main/resources/db/migration')
+		.baselineOnMigrate(true)
+		.baselineVersion('0')
+		.outOfOrder(true)
+		.validateOnMigrate(true)
+		.cleanDisabled(false)
+		.placeholders(flywayPlaceholders())
+		.load()
+}
+
+tasks.register('flywayInfo') {
+	group       = 'flyway'
+	description = 'Prints the details and status information about all migrations.'
+
+	doLast {
+		def flyway = buildFlyway()
+		def info   = flyway.info()
+
+		println "Schema history table: ${flyway.configuration.defaultSchema ?: 'app'}.flyway_schema_history"
+		println "─" * 80
+
+		info.all().each { MigrationInfo m ->
+			def version     = m.version ? m.version.toString() : '<< repeatable >>'
+			def state       = m.state?.displayName ?: 'UNKNOWN'
+			def type        = m.type?.name() ?: 'UNKNOWN'
+			def description = m.description ?: ''
+			printf("%-12s | %-12s | %-10s | %s%n", version, state, type, description)
+		}
+	}
+}
+
+tasks.register('flywayValidate') {
+	group       = 'flyway'
+	description = 'Validates applied migrations against the local ones; fails on drift.'
+
+	doLast {
+		buildFlyway().validate()
+		println '✔ Flyway validation passed — no drift detected.'
+	}
+}
+
+tasks.register('checkFlywayState') {
+	group       = 'verification'
+	description = 'CI entry point — fails the build when Flyway detects drift.'
+	dependsOn 'flywayValidate'
 }
