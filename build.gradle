@@ -147,6 +147,25 @@ test {
 		exceptionFormat = "full"
 		showStandardStreams = true
 	}
+
+	// Forward the .env DB connection to the test JVM as `test.database.*` system
+	// properties. Without this, TestDatabaseConfig (used by the Jasper live tests)
+	// never sees the real local connection (.env: port 5415, app user/password) and
+	// silently falls back to its own defaults, which don't match any running DB —
+	// so the live tests always report "not available" instead of actually running.
+	doFirst {
+		systemProperty 'test.database.url',
+			"jdbc:postgresql://${env('DATABASE_HOST', 'localhost').get()}:${env('DATABASE_PORT', '5432').get()}/${env('DATABASE_NAME', 'optibienestar360').get()}?sslmode=${env('DATABASE_SSL_MODE', 'disable').get()}&stringtype=unspecified"
+		systemProperty 'test.database.username', env('DATABASE_USER', 'optibienestar360_app').get()
+		systemProperty 'test.database.password', env('DATABASE_PASSWORD', 'changeme-dev').get()
+
+		// Gradle does NOT forward -D flags from the launching JVM into the forked test
+		// JVM by default. Without this, `-Djasper.liveTests=true` never reaches
+		// @EnabledIfSystemProperty and the live report tests are always skipped.
+		if (System.getProperty('jasper.liveTests') != null) {
+			systemProperty 'jasper.liveTests', System.getProperty('jasper.liveTests')
+		}
+	}
 }
 
 
