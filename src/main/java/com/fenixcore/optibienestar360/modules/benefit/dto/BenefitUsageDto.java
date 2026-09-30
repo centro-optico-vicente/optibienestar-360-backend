@@ -33,6 +33,8 @@ public record BenefitUsageDto(
         String allyName,
         UUID allyServiceUuid,
         UUID allyUserUuid,
+        UUID serviceCategoryUuid,
+        String serviceCategoryName,
 
         // When
         @Display(Display.Kind.DATE) LocalDate usageDate,
@@ -41,6 +43,10 @@ public record BenefitUsageDto(
         // Co-pay
         @Display(Display.Kind.MONEY) BigDecimal copayAmount,
         String copayCurrency,
+
+        // Valor consumido
+        @Display(Display.Kind.MONEY) BigDecimal consumptionAmount,
+        String consumptionCurrency,
 
         // Detail
         Map<String, Object> metadata,

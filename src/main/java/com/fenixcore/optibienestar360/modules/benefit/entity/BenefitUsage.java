@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import jakarta.persistence.AttributeOverride;
@@ -81,6 +82,15 @@ public class BenefitUsage extends BaseEntity {
     private AllyService allyService;
 
     /**
+     * Rubro del consumo. Obligatorio aunque {@link #allyService} sea null: es
+     * el eje por el que se agrega el reporte de consumo, y dejarlo opcional
+     * sacaba del reporte a todo consumo no catalogado (V158).
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "service_category_id", nullable = false)
+    private ServiceCategory serviceCategory;
+
+    /**
      * The ally-side operator who registered the row. {@code null} for
      * admin-side or back-fill flows. Distinct from {@code created_by} (the
      * authenticated user that hit the endpoint) — usually the same, but
@@ -106,6 +116,18 @@ public class BenefitUsage extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "copay_currency_id")
     private Currency copayCurrency;
+
+    /**
+     * Valor de lo consumido (precio de lista), distinto del copago. Es la
+     * magnitud que alimenta el reporte de consumo y los umbrales de fidelidad;
+     * el copago solo dice cuánto pagó el afiliado de su bolsillo (V158).
+     */
+    @Column(name = "consumption_amount", precision = 10, scale = 2)
+    private BigDecimal consumptionAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "consumption_currency_id")
+    private Currency consumptionCurrency;
 
     // ─── Detail ────────────────────────────────────────────────────────────
 

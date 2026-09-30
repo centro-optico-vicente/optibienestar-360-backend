@@ -19,6 +19,9 @@ public interface BenefitUsageMapper {
     @Mapping(target = "allyName",         source = "ally.name")
     @Mapping(target = "allyServiceUuid",  source = "allyService.uuid")
     @Mapping(target = "allyUserUuid",     source = "allyUser.uuid")
+    @Mapping(target = "serviceCategoryUuid", source = "serviceCategory.uuid")
+    @Mapping(target = "serviceCategoryName", source = "serviceCategory.name")
     @Mapping(target = "copayCurrency",    source = "copayCurrency.code")
+    @Mapping(target = "consumptionCurrency", source = "consumptionCurrency.code")
     BenefitUsageDto toDto(BenefitUsage usage);
 }
