@@ -159,6 +159,7 @@ public class PaymentsService {
     private final FileValidationService fileValidationService;
     private final MembershipChargeService membershipChargeService;
     private final NotificationChannelResolver notificationChannelResolver;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -194,7 +195,7 @@ public class PaymentsService {
                 currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService,
                 messageSource, validatorCacheService, commissionService, hierarchyOverrideService,
                 corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver);
+                membershipChargeService, notificationChannelResolver, event -> { });
     }
 
     // ─── Read ───────────────────────────────────────────────────────────────
@@ -1084,6 +1085,7 @@ public class PaymentsService {
             attributeCommission(payment);
             confirmMemberOnFirstApprovedPayment(payment);
             applyMembershipCharges(payment);
+            eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
         }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
         notifyPromoterOfDecision(payment, "APPROVED");

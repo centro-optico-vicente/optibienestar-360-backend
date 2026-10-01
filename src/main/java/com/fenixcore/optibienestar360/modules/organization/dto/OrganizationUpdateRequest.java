@@ -22,5 +22,6 @@ public record OrganizationUpdateRequest(
         @Size(max = 255) String instagram,
         @Size(max = 255) String facebook,
         UUID officialCurrencyUuid,
-        UUID referenceCurrencyUuid
+        UUID referenceCurrencyUuid,
+        boolean autoApproveCommissions
 ) {}

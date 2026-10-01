@@ -5,6 +5,8 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
+import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
@@ -59,6 +61,7 @@ class CommissionServiceTest {
     @Mock private CommissionAuditRecorder auditRecorder;
     @Mock private ConversionEnricher conversionEnricher;
     @Mock private com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService;
+    @Mock private OrganizationRepository organizationRepository;
 
     @InjectMocks private CommissionService service;
 
@@ -70,6 +73,15 @@ class CommissionServiceTest {
         humanPromoter = promoter("PROMO123", false);
         institucion = promoter("INSTITUCION", true);
         lenient().when(conversionEnricher.officialRateAt(any(), any())).thenReturn(ConversionEnricher.RateSnapshot.none());
+        // Auto-approval off by default — every pre-existing test keeps exercising the
+        // regular PENDING path unless it explicitly turns the setting on.
+        lenient().when(organizationRepository.findSingleton()).thenReturn(organization(false));
+    }
+
+    private static Organization organization(boolean autoApproveCommissions) {
+        Organization org = new Organization();
+        org.setAutoApproveCommissions(autoApproveCommissions);
+        return org;
     }
 
     // ─── Base tiers reproduce the v1 rates ────────────────────────────────────
@@ -296,6 +308,52 @@ class CommissionServiceTest {
 
         assertThat(service.calculateAndPersistFor(payment)).isEmpty();
         verify(commissionRepository, never()).save(any());
+    }
+
+    // ─── Auto-approval (V172) ───────────────────────────────────────────────────
+
+    @Test
+    void autoApproval_off_leavesRegularCommissionPending() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getStatus()).isEqualTo("PENDING");
+        assertThat(c.isAutoApproved()).isFalse();
+    }
+
+    @Test
+    void autoApproval_on_approvesARegularCommission_withNoCampaign() {
+        when(organizationRepository.findSingleton()).thenReturn(organization(true));
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getStatus()).isEqualTo("APPROVED");
+        assertThat(c.isAutoApproved()).isTrue();
+        assertThat(c.getApprovedAt()).isNotNull();
+        assertThat(c.getApprovedBy()).isNull(); // system auto-approval — no human actor
+    }
+
+    @Test
+    void autoApproval_on_stillLeavesACampaignLinkedCommissionPending() {
+        when(organizationRepository.findSingleton()).thenReturn(organization(true));
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        payment.setCampaign(new com.fenixcore.optibienestar360.modules.campaign.entity.Campaign());
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getStatus()).isEqualTo("PENDING");
+        assertThat(c.isAutoApproved()).isFalse();
     }
 
     // ─── helpers ────────────────────────────────────────────────────────────

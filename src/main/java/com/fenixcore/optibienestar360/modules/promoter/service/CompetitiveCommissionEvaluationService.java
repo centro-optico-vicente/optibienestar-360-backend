@@ -71,7 +71,8 @@ public class CompetitiveCommissionEvaluationService {
 
     private static final Set<CompetitiveMetric> COUNT_METRICS = EnumSet.of(
             CompetitiveMetric.NEW_SUBSCRIBERS, CompetitiveMetric.ACTIVE_SUBSCRIBERS,
-            CompetitiveMetric.SALES_COUNT, CompetitiveMetric.COLLECTION_COUNT, CompetitiveMetric.ADVANCE_COUNT);
+            CompetitiveMetric.SALES_COUNT, CompetitiveMetric.COLLECTION_COUNT, CompetitiveMetric.ADVANCE_COUNT,
+            CompetitiveMetric.OVERDUE_SETTLED_COUNT);
 
     private final CompetitiveCommissionRuleRepository ruleRepository;
     private final CompetitiveCommissionAwardRepository awardRepository;

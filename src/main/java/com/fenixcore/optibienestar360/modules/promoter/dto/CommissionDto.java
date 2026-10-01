@@ -80,6 +80,7 @@ public record CommissionDto(
         // Audit + workflow status
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "commission.status") String status,
+        @Display(Display.Kind.BOOLEAN) boolean autoApproved,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant updatedAt
 ) {
@@ -96,6 +97,6 @@ public record CommissionDto(
                 calculationBasis, commissionPct, flatAmount, tierNameSnapshot,
                 ruleSource, appliesTo, periodStrategy, periodStart, periodEnd, earnedAt,
                 payoutPayment, payoutReference, paidAt, voidedAt, voidReason, adminNotes,
-                active, status, createdAt, updatedAt);
+                active, status, autoApproved, createdAt, updatedAt);
     }
 }

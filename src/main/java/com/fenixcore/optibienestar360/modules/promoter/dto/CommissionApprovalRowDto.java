@@ -32,5 +32,6 @@ public record CommissionApprovalRowDto(
         @Display(Display.Kind.DATETIME) Instant earnedAt,
         @Display(value = Display.Kind.ENUM, enumScope = "commission.status") String status,
         @Display(Display.Kind.BOOLEAN) boolean locked,
-        @Display(Display.Kind.BOOLEAN) boolean checked
+        @Display(Display.Kind.BOOLEAN) boolean checked,
+        @Display(Display.Kind.BOOLEAN) boolean autoApproved
 ) {}

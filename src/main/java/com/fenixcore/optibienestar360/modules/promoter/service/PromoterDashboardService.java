@@ -1,19 +1,30 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.PeriodStrategies;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitionType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.CompetitiveCommissionRule.CompetitiveMetric;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveMetricProvider;
+import com.fenixcore.optibienestar360.modules.promoter.metric.CompetitiveRankingEngine.Candidate;
+import com.fenixcore.optibienestar360.modules.promoter.metric.MetricScope;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionRuleRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -25,12 +36,23 @@ import java.util.UUID;
  *
  * <p>Membership status → collection bucket: {@code ACTIVE} = al día;
  * {@code SUSPENDED}/{@code EXPIRED} = vencida; no active membership = sin
- * membresía. The leaderboard position is left {@code null} — the promoter
- * leaderboard is PDF #5, not built yet.</p>
+ * membresía.</p>
+ *
+ * <p><b>Leaderboard position (Fase 6, hub plan competitive-commission-rules)</b>:
+ * the old per-rank leaderboard (PDF #5) was migrated into a RANKING/{@code
+ * COMMISSION_EARNED} competitive rule per period strategy (V167) — {@link
+ * #computeLeaderboardPosition} picks the first active one it finds (several
+ * can coexist, one per migrated period strategy; a deployment that only
+ * ever had one cadence has exactly one), live-ranks every promoter via its
+ * own {@link CompetitiveMetricProvider#snapshot}, and returns this
+ * promoter's 1-based position — {@code null} when no such rule exists or
+ * the promoter has no activity in the current window (never ranked, same
+ * as the old leaderboard).</p>
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class PromoterDashboardService {
 
     private static final String CURRENCY = "USD";
@@ -38,6 +60,8 @@ public class PromoterDashboardService {
     private final PromoterRepository promoterRepository;
     private final MemberRepository memberRepository;
     private final CommissionRepository commissionRepository;
+    private final CompetitiveCommissionRuleRepository competitiveRuleRepository;
+    private final List<CompetitiveMetricProvider> metricProviders;
 
     public PromoterDashboardDto getMyDashboard(UUID actorUserUuid) {
         Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
@@ -89,7 +113,39 @@ public class PromoterDashboardService {
                 CURRENCY,
                 periodStart,
                 periodEnd,
-                null,   // leaderboardPosition — PDF #5, not built yet
+                computeLeaderboardPosition(promoter),
                 portfolio);
+    }
+
+    private Integer computeLeaderboardPosition(Promoter promoter) {
+        Optional<CompetitiveCommissionRule> rule = competitiveRuleRepository.findByActiveTrue().stream()
+                .filter(r -> r.getCompetitionType() == CompetitionType.RANKING
+                        && r.getMetric() == CompetitiveMetric.COMMISSION_EARNED)
+                .findFirst();
+        if (rule.isEmpty()) {
+            return null;
+        }
+        CompetitiveMetricProvider provider = metricProviders.stream()
+                .filter(p -> p.metric() == CompetitiveMetric.COMMISSION_EARNED)
+                .findFirst().orElse(null);
+        if (provider == null) {
+            return null;
+        }
+        try {
+            PeriodStrategies.Window window = CompetitiveRuleWindowResolver.resolveWindow(rule.get(), LocalDate.now());
+            MetricScope scope = CompetitiveRuleWindowResolver.buildScope(rule.get());
+            List<Candidate> ranked = provider.snapshot(window, rule.get().getAchievementDateBasis(), scope).stream()
+                    .sorted(Comparator.comparing(Candidate::value).reversed())
+                    .toList();
+            for (int i = 0; i < ranked.size(); i++) {
+                if (ranked.get(i).promoterId().equals(promoter.getId())) {
+                    return i + 1;
+                }
+            }
+            return null; // no activity this window — never ranked, same as the old leaderboard
+        } catch (RuntimeException ex) {
+            log.warn("Leaderboard position computation failed for promoter {}: {}", promoter.getUuid(), ex.getMessage(), ex);
+            return null;
+        }
     }
 }
