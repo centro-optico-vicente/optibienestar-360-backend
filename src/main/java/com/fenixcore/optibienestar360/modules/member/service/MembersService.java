@@ -133,6 +133,7 @@ public class MembersService {
     private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     private final PromoterMemberContactRepository promoterMemberContactRepository;
     private final DefaultSortResolver defaultSortResolver;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -199,6 +200,8 @@ public class MembersService {
 
         Member saved = memberRepository.save(buildMember(req, person));
         enqueueWelcome(saved);
+        eventPublisher.publishEvent(
+                new com.fenixcore.optibienestar360.modules.promoter.event.MembershipEnrolledEvent(saved.getId()));
         return toDetailWithCounts(saved);
     }
 

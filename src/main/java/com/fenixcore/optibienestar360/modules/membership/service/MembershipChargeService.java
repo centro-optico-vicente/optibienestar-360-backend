@@ -50,6 +50,7 @@ public class MembershipChargeService {
     private final MembershipRepository membershipRepository;
     private final ScheduledJobRepository jobRepository;
     private final MembershipStatusService membershipStatusService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     // ─── Generation ─────────────────────────────────────────────────────────
 
@@ -155,6 +156,8 @@ public class MembershipChargeService {
             if (!ChargeStatus.COVERED.name().equals(charge.getStatus())) {
                 charge.setStatus(ChargeStatus.COVERED.name());
                 charge.setCoveredByPayment(payment);
+                eventPublisher.publishEvent(
+                        new com.fenixcore.optibienestar360.modules.promoter.event.MembershipChargeCoveredEvent(charge.getId()));
             }
             lastCoveredMonthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
         }

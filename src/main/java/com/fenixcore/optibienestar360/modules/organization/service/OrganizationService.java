@@ -68,6 +68,7 @@ public class OrganizationService {
         if (req.referenceCurrencyUuid() != null) {
             org.setReferenceCurrency(resolveCurrency(req.referenceCurrencyUuid()));
         }
+        org.setAutoApproveCommissions(req.autoApproveCommissions());
         return toDto(repository.save(org));
     }
 
@@ -92,6 +93,7 @@ public class OrganizationService {
                 o.getInstagram(),
                 o.getFacebook(),
                 DisplayRefs.ref(o.getOfficialCurrency()),
-                DisplayRefs.ref(o.getReferenceCurrency()));
+                DisplayRefs.ref(o.getReferenceCurrency()),
+                o.isAutoApproveCommissions());
     }
 }

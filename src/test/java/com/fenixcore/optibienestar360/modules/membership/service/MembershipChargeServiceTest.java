@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -43,12 +44,13 @@ class MembershipChargeServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private ScheduledJobRepository jobRepository;
     @Mock private MembershipStatusService membershipStatusService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private MembershipChargeService service;
 
     @BeforeEach
     void setUp() {
-        service = new MembershipChargeService(chargeRepository, membershipRepository, jobRepository, membershipStatusService);
+        service = new MembershipChargeService(chargeRepository, membershipRepository, jobRepository, membershipStatusService, eventPublisher);
         lenient().when(chargeRepository.save(any(MembershipCharge.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }

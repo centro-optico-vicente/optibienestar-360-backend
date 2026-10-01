@@ -63,4 +63,17 @@ public class Organization extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reference_currency_id", nullable = false)
     private Currency referenceCurrency;
+
+    /**
+     * Skips the gerencia comercial approval queue (V107) for "regular"
+     * commissions — no campaign attribution — auto-approving them straight
+     * to {@code APPROVED} at calculation time instead of leaving them {@code
+     * PENDING} ({@code CommissionService#qualifiesForAutoApproval}, V172).
+     * Defaults {@code false} — opt-in, no behavior change until an admin
+     * turns it on. A campaign-linked commission, or one produced by the
+     * retroactive/re-rating services, always stays manual regardless of
+     * this flag.
+     */
+    @Column(name = "auto_approve_commissions", nullable = false)
+    private boolean autoApproveCommissions;
 }

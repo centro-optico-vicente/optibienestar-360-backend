@@ -208,6 +208,17 @@ public class Commission extends BaseEntity {
     @Column(name = "rejection_reason", columnDefinition = "text")
     private String rejectionReason;
 
+    /**
+     * Set by {@code CommissionService#calculateAndPersistFor} when {@code
+     * organizations.auto_approve_commissions} is on and this row qualifies
+     * (no campaign attribution — {@code payment.campaign != null} always
+     * stays manual-review regardless of the setting). {@code approvedBy}
+     * stays {@code null} for these — there's no human actor to record.
+     * Never set by the retroactive/re-rating paths (always manual).
+     */
+    @Column(name = "auto_approved", nullable = false)
+    private boolean autoApproved;
+
     // ─── Inner enums (V26 CHECK constraint values) ─────────────────────────
 
     public enum AppliesTo {

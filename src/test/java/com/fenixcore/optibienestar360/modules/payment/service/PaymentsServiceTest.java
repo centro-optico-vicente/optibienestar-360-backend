@@ -41,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
 
 import java.math.BigDecimal;
@@ -88,6 +89,7 @@ class PaymentsServiceTest {
     @Mock private DefaultSortResolver defaultSortResolver;
     @Mock private MembershipChargeService membershipChargeService;
     @Mock private NotificationChannelResolver notificationChannelResolver;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
@@ -95,7 +97,7 @@ class PaymentsServiceTest {
                 userRepository, currencyRepository, currencyConversionService, mapper, defaultSortResolver,
                 storageProvider, emailService, messageSource, validatorCacheService, commissionService,
                 hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver);
+                membershipChargeService, notificationChannelResolver, eventPublisher);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();

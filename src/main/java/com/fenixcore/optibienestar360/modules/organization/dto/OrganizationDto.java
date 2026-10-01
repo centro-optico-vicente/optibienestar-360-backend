@@ -22,5 +22,6 @@ public record OrganizationDto(
         String instagram,
         String facebook,
         @Display DisplayRef officialCurrency,
-        @Display DisplayRef referenceCurrency
+        @Display DisplayRef referenceCurrency,
+        @Display(Display.Kind.BOOLEAN) boolean autoApproveCommissions
 ) {}

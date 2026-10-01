@@ -11,6 +11,8 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
+import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
@@ -76,6 +78,17 @@ import java.util.Optional;
  * {@code (payment_id, promoter_id) WHERE status <> 'VOIDED'} for a clean skip.
  * <b>Failure policy</b>: best-effort — a failure here must not roll back the
  * payment approval (the caller wraps this in try/catch).</p>
+ *
+ * <p><b>Auto-approval (V172)</b>: when {@code organizations
+ * .auto_approve_commissions} is on, a "regular" row — no campaign
+ * attribution ({@code payment.campaign == null}) — skips the gerencia
+ * comercial queue and is persisted already {@code APPROVED} ({@link
+ * Commission#isAutoApproved()}, {@code approvedBy} left {@code null} — no
+ * human actor). A campaign-linked payment always stays {@code PENDING}
+ * regardless of the setting, same as every row produced by {@code
+ * CommissionReRatingService}/{@code CommissionRetroactiveTopUpService} —
+ * those retroactive/re-rated adjustments never go through this method, so
+ * they're untouched by the setting and always wait for manual review.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -93,6 +106,7 @@ public class CommissionService {
     private final ConversionEnricher conversionEnricher;
     private final CurrencyConversionService currencyConversionService;
     private final PaymentRepository paymentRepository;
+    private final OrganizationRepository organizationRepository;
 
     /**
      * Computes + persists a commission row for the given approved payment.
@@ -158,7 +172,13 @@ public class CommissionService {
         commission.setCurrency(payment.getCurrency());
         commission.setAppliesTo(appliesTo);
         commission.setEarnedAt(payment.getReviewedAt() != null ? payment.getReviewedAt() : Instant.now());
-        commission.setStatus(CommissionStatus.PENDING.name());
+        if (qualifiesForAutoApproval(payment)) {
+            commission.setStatus(CommissionStatus.APPROVED.name());
+            commission.setAutoApproved(true);
+            commission.setApprovedAt(Instant.now());
+        } else {
+            commission.setStatus(CommissionStatus.PENDING.name());
+        }
 
         ConversionEnricher.RateSnapshot earnedRate =
                 conversionEnricher.officialRateAt(commission.getCurrency(), commission.getEarnedAt());
@@ -409,6 +429,17 @@ public class CommissionService {
             }
         }
         return total;
+    }
+
+    /**
+     * "Regular parameters" eligible for auto-approval (hub plan auto-approve
+     * commissions): the organization has the setting on, and this payment
+     * carries no campaign attribution — a campaign-linked commission always
+     * needs a human look, regardless of the setting.
+     */
+    private boolean qualifiesForAutoApproval(Payment payment) {
+        Organization org = organizationRepository.findSingleton();
+        return org.isAutoApproveCommissions() && payment.getCampaign() == null;
     }
 
     private Optional<Promoter> resolvePromoter(Member member) {

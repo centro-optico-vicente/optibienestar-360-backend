@@ -104,7 +104,7 @@ public class CommissionApprovalService {
                 c.getUuid(), c.getAppliesTo(), c.getAmount(),
                 c.getCurrency() != null ? c.getCurrency().getCode() : null,
                 c.getPeriodStart(), c.getPeriodEnd(), c.getEarnedAt(),
-                c.getStatus(), locked, !excluded);
+                c.getStatus(), locked, !excluded, c.isAutoApproved());
     }
 
     @Transactional
