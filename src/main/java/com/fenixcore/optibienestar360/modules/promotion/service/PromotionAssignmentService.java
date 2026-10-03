@@ -48,12 +48,22 @@ public class PromotionAssignmentService {
     private final PromotionCodeResolver codeResolver;
     private final com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
     private final ReferrerRewardService referrerRewardService;
+    private final com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public MembershipPromotionStatusDto current(UUID membershipUuid) {
         Membership membership = findMembership(membershipUuid);
         return membershipPromotionRepository.findOngoing(membership.getId())
+                .map(mp -> new MembershipPromotionStatusDto(true, toDto(mp)))
+                .orElseGet(() -> new MembershipPromotionStatusDto(false, null));
+    }
+
+    /** The caller's own active membership promotion (affiliate portal); {@code exists=false} when none. */
+    public MembershipPromotionStatusDto currentForUser(UUID userUuid) {
+        return memberRepository.findByUserUuid(userUuid)
+                .flatMap(member -> membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()))
+                .flatMap(membership -> membershipPromotionRepository.findOngoing(membership.getId()))
                 .map(mp -> new MembershipPromotionStatusDto(true, toDto(mp)))
                 .orElseGet(() -> new MembershipPromotionStatusDto(false, null));
     }
