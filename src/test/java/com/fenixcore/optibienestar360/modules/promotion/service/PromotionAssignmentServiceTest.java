@@ -46,10 +46,11 @@ class PromotionAssignmentServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PromotionCodeResolver codeResolver;
     @Mock private com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
+    @Mock private ReferrerRewardService referrerRewardService;
 
     private PromotionAssignmentService service() {
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
-                membershipRepository, planRepository, userRepository, codeResolver, chargeService);
+                membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService);
     }
 
     private Plan plan(long id) {

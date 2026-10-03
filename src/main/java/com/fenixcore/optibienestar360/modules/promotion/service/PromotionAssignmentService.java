@@ -47,6 +47,7 @@ public class PromotionAssignmentService {
     private final UserRepository userRepository;
     private final PromotionCodeResolver codeResolver;
     private final com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
+    private final ReferrerRewardService referrerRewardService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -145,6 +146,9 @@ public class PromotionAssignmentService {
         }
         promotion.setRedemptionsCount(promotion.getRedemptionsCount() + 1);
         MembershipPromotion saved = membershipPromotionRepository.save(mp);
+        if (owner != null && owner.member() != null) {
+            referrerRewardService.registerReferral(saved);
+        }
         if (promotion.getKind() == Kind.RECOVERY) {
             // The overdue months are already billed: discount them too.
             chargeService.repriceOpenCharges(membership);

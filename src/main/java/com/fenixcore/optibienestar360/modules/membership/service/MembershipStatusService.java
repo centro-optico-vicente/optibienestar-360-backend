@@ -50,6 +50,7 @@ public class MembershipStatusService {
 
     private final MembershipRepository repository;
     private final SubsidyResolver subsidyResolver;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionLifecycle promotionLifecycle;
 
     /**
      * Evaluator — no DB writes to the membership, safe to call from read-only
@@ -111,6 +112,7 @@ public class MembershipStatusService {
         membership.setStatus(target.name());
         membership.setLastStatusChangeAt(Instant.now());
         membership.setLastStatusChangeReason(reasonFor(target));
+        promotionLifecycle.onStatusChanged(membership, target);
         return true;
     }
 
@@ -139,6 +141,7 @@ public class MembershipStatusService {
             membership.setStatus(target.name());
             membership.setLastStatusChangeAt(Instant.now());
             membership.setLastStatusChangeReason(reasonFor(target));
+            promotionLifecycle.onStatusChanged(membership, target);
 
             if (target == LifecycleStatus.SUSPENDED) suspended++;
             else if (target == LifecycleStatus.EXPIRED) expired++;
