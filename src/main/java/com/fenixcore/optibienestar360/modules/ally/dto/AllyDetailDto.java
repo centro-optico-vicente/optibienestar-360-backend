@@ -40,6 +40,8 @@ public record AllyDetailDto(
         String address,
         CityDto city,
         String googleMapsUrl,
+        /** Promotion code the ally hands out (V175); attribution only. */
+        String referralCode,
 
         // ─── Branding ──────────────────────────────────────────────────────
         String logoUrl,

@@ -75,6 +75,7 @@ public class MembershipChargeService {
         charge.setPeriodStart(periodStart);
         charge.setPeriodEnd(periodStart.withDayOfMonth(periodStart.lengthOfMonth()));
         charge.setDueDate(scheduledDueDate(membership, periodStart));
+        charge.setGrossAmount(membership.getMonthlyFee());
         charge.setAmount(membership.getMonthlyFee());
         charge.setCurrency(membership.getCurrency());
         charge.setStatus(ChargeStatus.PENDING.name());
