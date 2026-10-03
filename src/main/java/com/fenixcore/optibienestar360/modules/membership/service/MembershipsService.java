@@ -44,6 +44,7 @@ public class MembershipsService {
     private final MembershipRepository membershipRepository;
     private final MembershipMapper mapper;
     private final ConversionEnricher conversionEnricher;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionAssignmentService promotionAssignmentService;
 
     // ─── Listing under a member ─────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ public class MembershipsService {
 
     @Transactional
     @Auditable(entity = "membership", action = AuditAction.CREATE)
-    public MembershipDto enroll(UUID memberUuid, MembershipCreateRequest req) {
+    public MembershipDto enroll(UUID memberUuid, MembershipCreateRequest req, UUID actorUuid) {
         Member member = findMember(memberUuid);
 
         // V21 partial UNIQUE on (member_id) WHERE is_active=TRUE forbids two
@@ -110,7 +111,12 @@ public class MembershipsService {
         membership.setLastStatusChangeAt(Instant.now());
         membership.setLastStatusChangeReason("Enrolled by admin");
 
-        return mapper.toDto(membershipRepository.save(membership));
+        Membership saved = membershipRepository.save(membership);
+        if (req.promotionUuid() != null) {
+            promotionAssignmentService.assign(saved, req.promotionUuid(), req.promotionCode(),
+                    com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Origin.ENROLLMENT, actorUuid);
+        }
+        return mapper.toDto(saved);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

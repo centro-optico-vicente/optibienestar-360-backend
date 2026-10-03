@@ -51,7 +51,7 @@ class MembershipPricingInvariantsTest {
 
     @BeforeEach
     void setup() {
-        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher);
+        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher, null);
     }
 
     @Test
@@ -99,7 +99,7 @@ class MembershipPricingInvariantsTest {
         when(membershipRepository.existsByMemberIdAndActiveTrue(1L)).thenReturn(false);
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
 
-        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null));
+        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null, null, null), null);
 
         ArgumentCaptor<Membership> captor = ArgumentCaptor.forClass(Membership.class);
         verify(membershipRepository, atLeastOnce()).save(captor.capture());
