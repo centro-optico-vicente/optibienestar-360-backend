@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberPromoterAssignmentDto;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.entity.MemberPromoterAssignment;
+import com.fenixcore.optibienestar360.modules.member.event.MemberPromoterReassignedEvent;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -15,8 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,12 +44,13 @@ class MemberPromoterServiceTest {
     @Mock private PromoterRepository promoterRepository;
     @Mock private UserRepository userRepository;
     @Mock private MemberPromoterAssignmentRepository assignmentRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private MemberPromoterService service;
 
     private MemberPromoterService service() {
         return new MemberPromoterService(
-                memberRepository, promoterRepository, userRepository, assignmentRepository);
+                memberRepository, promoterRepository, userRepository, assignmentRepository, eventPublisher);
     }
 
     @Test
@@ -237,6 +242,90 @@ class MemberPromoterServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("member.promoter.unchanged");
         verify(assignmentRepository, never()).save(any());
+    }
+
+    // ─── Portfolio reassignment ──────────────────────────────────────────────
+
+    @Test
+    void bulkAssign_movesEveryMember_skipsOnesAlreadyOnTarget_andNotifies() {
+        service = service();
+        Promoter from = promoter("SALIENTE", false);
+        Promoter target = promoter("NUEVO", true);
+        Member a = member(from);
+        Member b = member(from);
+        Member already = member(target);
+        when(promoterRepository.findByUuid(target.getUuid())).thenReturn(Optional.of(target));
+        when(memberRepository.findByUuid(a.getUuid())).thenReturn(Optional.of(a));
+        when(memberRepository.findByUuid(b.getUuid())).thenReturn(Optional.of(b));
+        when(memberRepository.findByUuid(already.getUuid())).thenReturn(Optional.of(already));
+        stubSaveAssignment();
+
+        List<MemberPromoterAssignmentDto> result = service.bulkAssign(
+                List.of(a.getUuid(), b.getUuid(), already.getUuid()), target.getUuid(), "Baja de SALIENTE", null);
+
+        assertThat(result).hasSize(2);
+        assertThat(a.getPromoter()).isEqualTo(target);
+        assertThat(b.getPromoter()).isEqualTo(target);
+        verify(assignmentRepository, times(2)).save(any());
+        verify(eventPublisher, times(2)).publishEvent(any(MemberPromoterReassignedEvent.class));
+    }
+
+    @Test
+    void bulkAssign_rejectsInactiveTarget() {
+        service = service();
+        Promoter target = promoter("INACTIVO", false);
+        when(promoterRepository.findByUuid(target.getUuid())).thenReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> service.bulkAssign(List.of(UUID.randomUUID()), target.getUuid(), "x", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.inactive");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void portfolioToSupervisor_skipsInactiveSupervisor_rollsUpToNextActive() {
+        service = service();
+        Promoter coordinator = promoter("COORD", true);
+        Promoter supervisor = promoter("SUP", false);
+        supervisor.setSupervisor(coordinator);
+        Promoter source = promoter("SALIENTE", false);
+        source.setSupervisor(supervisor);
+        Member a = member(source);
+        when(promoterRepository.findByUuid(source.getUuid())).thenReturn(Optional.of(source));
+        when(memberRepository.findByPromoter_Id(source.getId())).thenReturn(List.of(a));
+        stubSaveAssignment();
+
+        List<MemberPromoterAssignmentDto> result =
+                service.reassignPortfolioToSupervisor(source.getUuid(), "Baja", null);
+
+        assertThat(result).hasSize(1);
+        assertThat(a.getPromoter()).isEqualTo(coordinator);
+    }
+
+    @Test
+    void portfolioToSupervisor_fallsBackToInstitucion_withoutNotifyingTheMember() {
+        service = service();
+        Promoter institucion = promoter("INSTITUCION", true);
+        institucion.setSystem(true);
+        Promoter source = promoter("SALIENTE", false);
+        Member a = member(source);
+        when(promoterRepository.findByUuid(source.getUuid())).thenReturn(Optional.of(source));
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        when(memberRepository.findByPromoter_Id(source.getId())).thenReturn(List.of(a));
+        stubSaveAssignment();
+
+        service.reassignPortfolioToSupervisor(source.getUuid(), "Baja", null);
+
+        assertThat(a.getPromoter()).isEqualTo(institucion);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    private void stubSaveAssignment() {
+        when(assignmentRepository.save(any())).thenAnswer(inv -> {
+            MemberPromoterAssignment saved = inv.getArgument(0);
+            saved.setUuid(UUID.randomUUID());
+            return saved;
+        });
     }
 
     // ─── Fixtures ────────────────────────────────────────────────────────────

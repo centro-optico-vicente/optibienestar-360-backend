@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.math.BigDecimal;
 
 /**
  * The "cargo" catalog (V101) — an axis independent of {@link
@@ -54,4 +55,13 @@ public class PromoterRank extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_rank_id")
     private PromoterRank parentRank;
+
+    /**
+     * Discount-authority cap (%) — the most a promoter holding this rank may discount a
+     * payment. {@code null} = this axis sets no cap; the effective limit is
+     * the most restrictive of rank and type (neither set = 0%)
+     * ({@code DiscountAuthority}).
+     */
+    @Column(name = "max_discount_pct", precision = 5, scale = 2)
+    private BigDecimal maxDiscountPct;
 }

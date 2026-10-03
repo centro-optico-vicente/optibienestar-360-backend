@@ -51,6 +51,9 @@ import com.fenixcore.optibienestar360.modules.payment.repository.PaymentReposito
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
+import com.fenixcore.optibienestar360.modules.promoter.service.DiscountAuthority;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
+import com.fenixcore.optibienestar360.modules.payment.dto.DiscountAuthorityDto;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import lombok.RequiredArgsConstructor;
@@ -640,7 +643,7 @@ public class PaymentsService {
         payment.setDirection("IN");
         payment.setPaymentType(resolvePaymentCategory(inscription));
         payment.setPerson(membership.getMember().getPerson());
-        payment.setPromoter(membership.getMember().getPromoter());
+        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
 
         // Corporate billing (V38): if the member belongs to an INSTITUTION_BULK
         // contract, bill the payment to the contract (and default the payer to
@@ -1183,6 +1186,14 @@ public class PaymentsService {
         if (request.amount().compareTo(payment.getAmount()) > 0) {
             throw new IllegalArgumentException("payment.discount.exceeds_amount");
         }
+        BigDecimal cap = discountAuthority(actorUserUuid).maxDiscountPct();
+        if (cap != null && payment.getAmount().signum() > 0) {
+            BigDecimal pct = request.amount().multiply(BigDecimal.valueOf(100))
+                    .divide(payment.getAmount(), 2, java.math.RoundingMode.HALF_UP);
+            if (pct.compareTo(cap) > 0) {
+                throw new IllegalArgumentException("payment.discount.exceeds_authority");
+            }
+        }
         User actor = userRepository.findByUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
@@ -1191,6 +1202,16 @@ public class PaymentsService {
         payment.setDiscountedBy(actor);
         payment.setDiscountedAt(Instant.now());
         return mapper.toDto(payment);   // managed → dirty-check on commit
+    }
+
+    /**
+     * The caller's discount-authority cap ({@link DiscountAuthority}): uncapped
+     * ({@code null}) when the caller is not an active promoter.
+     */
+    public DiscountAuthorityDto discountAuthority(UUID actorUserUuid) {
+        return new DiscountAuthorityDto(promoterRepository.findActiveByUserUuid(actorUserUuid)
+                .map(DiscountAuthority::maxDiscountPct)
+                .orElse(null));
     }
 
     /**
@@ -1209,7 +1230,7 @@ public class PaymentsService {
         }
         try {
             var result = currencyConversionService.convert(
-                    payment.getAmount(), payment.getCurrency(), membershipCurrency,
+                    payment.netAmount(), payment.getCurrency(), membershipCurrency,
                     payment.getPaymentDate());
             payment.setExchangeRateUsed(result.rate());
             payment.setExchangeRateDate(result.rateDate());
@@ -1368,7 +1389,7 @@ public class PaymentsService {
         Map<String, Object> vars = new HashMap<>();
         vars.put("fullName", person != null ? Optional.ofNullable(person.getFullName()).orElse("") : "");
         vars.put("planName", payment.getMembership() != null ? payment.getMembership().getPlan().getName() : null);
-        vars.put("amount", payment.getAmount());
+        vars.put("amount", payment.netAmount());
         vars.put("currency", payment.getCurrency().getCode());
         // V117: method/reference moved to payment_lines — first (today, only) line.
         PaymentLine firstLine = payment.getLines().stream().findFirst().orElse(null);

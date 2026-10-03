@@ -32,8 +32,12 @@ import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRe
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
+import com.fenixcore.optibienestar360.modules.promoter.service.DiscountAuthority;
 import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import org.junit.jupiter.api.Test;
@@ -138,6 +142,51 @@ class PaymentsServiceTest {
                 new PaymentDiscountRequest(new BigDecimal("25.00"), "Ajuste"), ACTOR))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("payment.discount.exceeds_amount");
+    }
+
+    @Test
+    void applyDiscount_rejects_whenPromoterExceedsDiscountAuthority() {
+        Payment payment = pending(new BigDecimal("200.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.of(promoterWithCaps("10.00", null)));
+
+        assertThatThrownBy(() -> sut().applyDiscount(payment.getUuid(),
+                new PaymentDiscountRequest(new BigDecimal("50.00"), "Ajuste"), ACTOR))   // 25% > 10%
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.discount.exceeds_authority");
+    }
+
+    @Test
+    void applyDiscount_allows_promoterWithinDiscountAuthority() {
+        Payment payment = pending(new BigDecimal("200.00"));
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.of(promoterWithCaps("30.00", "25.00")));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        sut().applyDiscount(payment.getUuid(), new PaymentDiscountRequest(new BigDecimal("50.00"), "Ajuste"), ACTOR);
+
+        assertThat(payment.getDiscountAmount()).isEqualByComparingTo("50.00");
+        assertThat(payment.netAmount()).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void discountAuthority_isMostRestrictiveOfRankAndType_zeroWhenNone_uncappedForStaff() {
+        assertThat(DiscountAuthority.maxDiscountPct(promoterWithCaps("30.00", "10.00"))).isEqualByComparingTo("10.00");
+        assertThat(DiscountAuthority.maxDiscountPct(promoterWithCaps(null, "15.00"))).isEqualByComparingTo("15.00");
+        assertThat(DiscountAuthority.maxDiscountPct(promoterWithCaps(null, null))).isEqualByComparingTo("0");
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.empty());
+        assertThat(sut().discountAuthority(ACTOR).maxDiscountPct()).isNull();
+    }
+
+    private static Promoter promoterWithCaps(String rankCap, String typeCap) {
+        PromoterRank rank = new PromoterRank();
+        rank.setMaxDiscountPct(rankCap != null ? new BigDecimal(rankCap) : null);
+        PromoterType type = new PromoterType();
+        type.setMaxDiscountPct(typeCap != null ? new BigDecimal(typeCap) : null);
+        Promoter promoter = new Promoter();
+        promoter.setRank(rank);
+        promoter.setPromoterType(type);
+        return promoter;
     }
 
     @Test
@@ -334,6 +383,41 @@ class PaymentsServiceTest {
         var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("75.50");
+    }
+
+    // ─── Promoter snapshot at registration (ADR 0017) ───────────────────────
+
+    @Test
+    void register_snapshotsInstitucion_whenMemberHasNoPromoter() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsFull(membership);
+        Promoter institucion = new Promoter();
+        institucion.setReferralCode("INSTITUCION");
+        institucion.setSystem(true);
+        institucion.setActive(true);
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+
+        sut().register(createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"), List.of(line("10.00"))), null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getPromoter()).isSameAs(institucion);
+    }
+
+    @Test
+    void register_keepsInactivePromoter_asTheSnapshot() {
+        Membership membership = membershipWithMember();
+        Promoter inactive = new Promoter();
+        inactive.setReferralCode("SALIENTE");
+        inactive.setActive(false);
+        membership.getMember().setPromoter(inactive);
+        stubRegisterCollaboratorsFull(membership);
+
+        sut().register(createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"), List.of(line("10.00"))), null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getPromoter()).isSameAs(inactive);
     }
 
     // ─── Auto-approval (V158): requiresApproval=false payment methods ───────

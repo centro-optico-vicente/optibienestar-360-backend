@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.promoter.dto.ApproveCommissionsRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalActionResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionApprovalGroupDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionBulkVoidRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutBySelectionRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionPayoutRequest;
@@ -96,6 +97,13 @@ public class AdminCommissionController {
     public ResponseEntity<CommissionDto> voidCommission(
             @PathVariable UUID uuid, @Valid @RequestBody CommissionVoidRequest request) {
         return ResponseEntity.ok(commissionsService.voidCommission(uuid, request.reason()));
+    }
+
+    /** Voids several PENDING commissions with one reason; rejected whole (400) if any is not PENDING. */
+    @PostMapping("/void-bulk")
+    @PreAuthorize("hasAuthority('COMMISSION_VOID')")
+    public ResponseEntity<List<CommissionDto>> voidBulk(@Valid @RequestBody CommissionBulkVoidRequest request) {
+        return ResponseEntity.ok(commissionsService.voidBulk(request.commissionUuids(), request.reason()));
     }
 
     /**

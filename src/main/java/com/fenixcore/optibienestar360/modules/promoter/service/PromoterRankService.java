@@ -134,6 +134,7 @@ public class PromoterRankService {
         r.setName(req.name());
         r.setHierarchyLevel(level);
         r.setMaxSubordinates(req.maxSubordinates());
+        r.setMaxDiscountPct(req.maxDiscountPct());
         r.setDescription(req.description());
 
         if (req.parentRankUuid() != null) {
@@ -154,6 +155,7 @@ public class PromoterRankService {
         PromoterRank r = find(uuid);
         r.setName(req.name());
         r.setMaxSubordinates(req.maxSubordinates());
+        r.setMaxDiscountPct(req.maxDiscountPct());
         r.setDescription(req.description());
         r.setParentRank(resolveAndValidateParent(r, req.parentRankUuid()));
         return toDto(repository.save(r));
@@ -330,7 +332,7 @@ public class PromoterRankService {
 
     static PromoterRankDto toDto(PromoterRank r) {
         return new PromoterRankDto(r.getUuid(), r.getCode(), r.getName(), r.getHierarchyLevel(),
-                r.getMaxSubordinates(), r.getDescription(),
+                r.getMaxSubordinates(), r.getMaxDiscountPct(), r.getDescription(),
                 r.getParentRank() != null ? r.getParentRank().getUuid() : null,
                 r.isActive());
     }
