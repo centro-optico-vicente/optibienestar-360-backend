@@ -109,6 +109,7 @@ public class PromoterTypeService {
         t.setDescription(req.description());
         t.setGeneratesHierarchyOverride(
                 req.generatesHierarchyOverride() == null || req.generatesHierarchyOverride());
+        t.setMaxDiscountPct(req.maxDiscountPct());
         return toDto(repository.save(t));
     }
 
@@ -122,6 +123,7 @@ public class PromoterTypeService {
         if (req.generatesHierarchyOverride() != null) {
             t.setGeneratesHierarchyOverride(req.generatesHierarchyOverride());
         }
+        t.setMaxDiscountPct(req.maxDiscountPct());
         return toDto(repository.save(t));
     }
 
@@ -141,6 +143,6 @@ public class PromoterTypeService {
 
     static PromoterTypeDto toDto(PromoterType t) {
         return new PromoterTypeDto(t.getUuid(), t.getCode(), t.getName(), t.getDescription(),
-                t.isGeneratesHierarchyOverride(), t.isActive());
+                t.isGeneratesHierarchyOverride(), t.getMaxDiscountPct(), t.isActive());
     }
 }

@@ -50,7 +50,7 @@ abstract class AbstractPaymentMetricProvider implements CompetitiveMetricProvide
             if (achievedAt == null || achievedAt.isBefore(from) || !achievedAt.isBefore(to)) {
                 continue; // outside the window on the rule's ACTUAL basis column
             }
-            BigDecimal value = isCountMetric() ? BigDecimal.ONE : payment.getAmount();
+            BigDecimal value = isCountMetric() ? BigDecimal.ONE : payment.netAmount();
             events.add(new MetricEvent(payment.getPromoter().getId(), value, achievedAt));
         }
         return events;

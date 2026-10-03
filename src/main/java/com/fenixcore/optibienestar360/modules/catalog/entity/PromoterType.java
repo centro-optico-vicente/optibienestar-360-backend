@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -36,4 +37,13 @@ public class PromoterType extends BaseAuditEntity {
      */
     @Column(name = "generates_hierarchy_override", nullable = false)
     private boolean generatesHierarchyOverride = true;
+
+    /**
+     * Discount-authority cap (%) — the most a promoter of this type may discount a
+     * payment. {@code null} = this axis sets no cap; the effective limit is
+     * the most restrictive of rank and type (neither set = 0%)
+     * ({@code DiscountAuthority}).
+     */
+    @Column(name = "max_discount_pct", precision = 5, scale = 2)
+    private BigDecimal maxDiscountPct;
 }

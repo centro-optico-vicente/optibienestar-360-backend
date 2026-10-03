@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMetricCount;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionBonusRule;
@@ -25,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -193,6 +196,47 @@ class BonusSettlementCutServiceTest {
         assertThat(saved.getWindowEnd()).isEqualTo(windowEnd);
         assertThat(saved.getAmount()).isEqualByComparingTo("50.00");
         assertThat(outcome.granted()).isEqualTo(1);
+    }
+
+    @Test
+    void amountCollected_sumsNetAmount_afterOneOffDiscount() {
+        CommissionBonusRule rule = baseRule("10% de lo cobrado sobre $100");
+        rule.setMetric(BonusMetric.AMOUNT_COLLECTED);
+        rule.setAccrual(AccrualMode.THRESHOLD);
+        rule.setAccrualPeriodStrategy(WindowStrategy.MONTHLY);
+        rule.setPartialSettlementPeriodStrategy(WindowStrategy.MONTHLY);
+        rule.setFinalSettlementPeriodStrategy(WindowStrategy.MONTHLY);
+        rule.setRetroactiveSettlementPeriodStrategy(WindowStrategy.MONTHLY);
+        rule.setThresholdAmount(new BigDecimal("100.00"));
+        rule.setThresholdCurrency(usd());
+        rule.setRewardType(RewardType.PERCENTAGE);
+        rule.setRewardPct(new BigDecimal("10.00"));
+        LocalDate windowStart = LocalDate.of(2026, 6, 1);
+        LocalDate windowEnd = LocalDate.of(2026, 6, 30);
+        stubRuleLookup(rule);
+
+        Promoter promoter = promoter(7L);
+        Payment payment = new Payment();
+        payment.setUuid(UUID.randomUUID());
+        payment.setPromoter(promoter);
+        payment.setCurrency(usd());
+        payment.setAmount(new BigDecimal("200.00"));
+        payment.setDiscountAmount(new BigDecimal("50.00"));
+        payment.setPaymentDate(Instant.parse("2026-06-10T12:00:00Z"));
+        when(promoterRepository.findAll()).thenReturn(List.of(promoter));
+        when(promoterRepository.findById(7L)).thenReturn(Optional.of(promoter));
+        when(paymentRepository.findApprovedInForPromoterInWindow(eq(7L), any(), any())).thenReturn(List.of(payment));
+        when(currencyConversionService.convert(any(), any(), any(), any())).thenAnswer(inv ->
+                new CurrencyConversionService.ConversionResult(inv.getArgument(0), inv.getArgument(0), BigDecimal.ONE, null));
+        when(awardRepository.findByRule_IdAndPromoter_IdAndWindowStartAndCutKindAndCutSequence(
+                rule.getId(), 7L, windowStart, CutKind.FINAL, (short) 1)).thenReturn(Optional.empty());
+        when(awardRepository.sumGrantedExcludingCut(rule.getId(), 7L, windowStart, CutKind.FINAL, (short) 1))
+                .thenReturn(BigDecimal.ZERO);
+        when(awardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().executeCutForRule(rule.getUuid(), windowEnd, false);
+
+        assertThat(captureSaved().getAmount()).isEqualByComparingTo("15.00");   // 10% of net 150, not of gross 200
     }
 
     @Test
