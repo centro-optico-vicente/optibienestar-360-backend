@@ -20,6 +20,8 @@ public interface MembershipChargeRepository extends JpaRepository<MembershipChar
     /** Idempotency check behind {@code MembershipChargeService.ensureChargeForPeriod} (V153 unique constraint). */
     Optional<MembershipCharge> findByMembership_IdAndPeriodStart(Long membershipId, LocalDate periodStart);
 
+    List<MembershipCharge> findByMembership_IdAndStatusOrderByPeriodStartAsc(Long membershipId, String status);
+
     boolean existsByMembership_IdAndPeriodStart(Long membershipId, LocalDate periodStart);
 
     /**

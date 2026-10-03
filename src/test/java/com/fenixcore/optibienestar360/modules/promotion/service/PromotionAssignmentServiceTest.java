@@ -45,10 +45,11 @@ class PromotionAssignmentServiceTest {
     @Mock private PlanRepository planRepository;
     @Mock private UserRepository userRepository;
     @Mock private PromotionCodeResolver codeResolver;
+    @Mock private com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
 
     private PromotionAssignmentService service() {
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
-                membershipRepository, planRepository, userRepository, codeResolver);
+                membershipRepository, planRepository, userRepository, codeResolver, chargeService);
     }
 
     private Plan plan(long id) {
@@ -140,8 +141,9 @@ class PromotionAssignmentServiceTest {
                 .hasMessage("promotion.recovery.requires_delayed_membership");
 
         stubSave();
-        assertThat(service().assign(membership(plan(1L), LifecycleStatus.EXPIRED),
-                recovery.getUuid(), null, Origin.ADMIN, null)).isNotNull();
+        Membership expired = membership(plan(1L), LifecycleStatus.EXPIRED);
+        assertThat(service().assign(expired, recovery.getUuid(), null, Origin.ADMIN, null)).isNotNull();
+        verify(chargeService).repriceOpenCharges(expired);
     }
 
     @Test

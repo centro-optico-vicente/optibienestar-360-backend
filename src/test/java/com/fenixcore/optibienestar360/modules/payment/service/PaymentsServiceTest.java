@@ -94,6 +94,7 @@ class PaymentsServiceTest {
     @Mock private MembershipChargeService membershipChargeService;
     @Mock private NotificationChannelResolver notificationChannelResolver;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
@@ -101,7 +102,7 @@ class PaymentsServiceTest {
                 userRepository, currencyRepository, currencyConversionService, mapper, defaultSortResolver,
                 storageProvider, emailService, messageSource, validatorCacheService, commissionService,
                 hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver, eventPublisher);
+                membershipChargeService, notificationChannelResolver, eventPublisher, promotionPricing);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();

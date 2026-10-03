@@ -51,6 +51,7 @@ public class MembershipChargeService {
     private final ScheduledJobRepository jobRepository;
     private final MembershipStatusService membershipStatusService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
 
     // ─── Generation ─────────────────────────────────────────────────────────
 
@@ -75,11 +76,61 @@ public class MembershipChargeService {
         charge.setPeriodStart(periodStart);
         charge.setPeriodEnd(periodStart.withDayOfMonth(periodStart.lengthOfMonth()));
         charge.setDueDate(scheduledDueDate(membership, periodStart));
-        charge.setGrossAmount(membership.getMonthlyFee());
-        charge.setAmount(membership.getMonthlyFee());
         charge.setCurrency(membership.getCurrency());
         charge.setStatus(ChargeStatus.PENDING.name());
-        return chargeRepository.save(charge);
+        applyPrice(charge, promotionPricing.priceMonthly(membership, periodStart));
+        MembershipCharge saved = chargeRepository.save(charge);
+        if (ChargeStatus.WAIVED.name().equals(saved.getStatus())) {
+            advanceIfNextUnpaid(membership, saved);
+        }
+        return saved;
+    }
+
+    /**
+     * Gross / discount / net from the winning promotion or subsidy (hub ADR
+     * 0018). A charge with nothing left to pay is WAIVED.
+     */
+    private static void applyPrice(MembershipCharge charge,
+                                   com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing.MonthlyPrice price) {
+        charge.setGrossAmount(price.gross());
+        charge.setDiscountAmount(price.discount());
+        charge.setDiscountSource(price.source());
+        charge.setMembershipPromotion(price.promotion());
+        charge.setAmount(price.net());
+        if (price.net().signum() == 0) {
+            charge.setStatus(ChargeStatus.WAIVED.name());
+        }
+    }
+
+    /**
+     * Re-prices every still-PENDING charge of {@code membership} — used when a
+     * RECOVERY promotion is applied so the overdue months already billed get
+     * the discount too.
+     */
+    @Transactional
+    public void repriceOpenCharges(Membership membership) {
+        for (MembershipCharge charge : chargeRepository.findByMembership_IdAndStatusOrderByPeriodStartAsc(
+                membership.getId(), ChargeStatus.PENDING.name())) {
+            applyPrice(charge, promotionPricing.priceMonthly(membership, charge.getPeriodStart()));
+            if (ChargeStatus.WAIVED.name().equals(charge.getStatus())) {
+                advanceIfNextUnpaid(membership, charge);
+            }
+        }
+    }
+
+    /**
+     * A WAIVED charge counts as paid: when it is the next unpaid month, move
+     * {@code lastPaidThrough}/{@code nextDueDate} past it (same as a covering
+     * payment) so the membership does not fall behind for a month it owes
+     * nothing on. A waived month further ahead is left for when the gap closes.
+     */
+    private void advanceIfNextUnpaid(Membership membership, MembershipCharge charge) {
+        if (!charge.getPeriodStart().equals(nextChargeablePeriod(membership))) {
+            return;
+        }
+        membership.setLastPaidThrough(charge.getPeriodEnd());
+        membership.setNextDueDate(scheduledDueDate(membership, charge.getPeriodEnd().plusDays(1)));
+        membershipStatusService.applyTransition(membership, LocalDate.now());
     }
 
     /**

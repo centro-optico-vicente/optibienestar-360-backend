@@ -46,6 +46,7 @@ public class PromotionAssignmentService {
     private final PlanRepository planRepository;
     private final UserRepository userRepository;
     private final PromotionCodeResolver codeResolver;
+    private final com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -143,7 +144,12 @@ public class PromotionAssignmentService {
             mp.setCodeOwnerAlly(owner.ally());
         }
         promotion.setRedemptionsCount(promotion.getRedemptionsCount() + 1);
-        return membershipPromotionRepository.save(mp);
+        MembershipPromotion saved = membershipPromotionRepository.save(mp);
+        if (promotion.getKind() == Kind.RECOVERY) {
+            // The overdue months are already billed: discount them too.
+            chargeService.repriceOpenCharges(membership);
+        }
+        return saved;
     }
 
     @Transactional

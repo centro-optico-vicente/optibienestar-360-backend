@@ -141,6 +141,15 @@ ALTER TABLE membership_charges
     ADD CONSTRAINT chk_membership_charges_net
         CHECK (discount_amount >= 0 AND discount_amount <= gross_amount AND amount = gross_amount - discount_amount);
 
+-- ─── 4b. payments: a promotion's inscription discount is system-applied ────
+-- The V41 coherence rule required a human discounted_by; an automatic
+-- promotion discount (e.g. an extra-beneficiary inscription billed with no
+-- reviewer) has none. Reason and timestamp stay mandatory.
+ALTER TABLE payments DROP CONSTRAINT chk_payments_discount_coherence;
+ALTER TABLE payments
+    ADD CONSTRAINT chk_payments_discount_coherence
+        CHECK (discount_amount IS NULL OR (discount_reason IS NOT NULL AND discounted_at IS NOT NULL));
+
 -- ─── 5. allies.referral_code ───────────────────────────────────────────────
 ALTER TABLE allies ADD COLUMN referral_code VARCHAR(20);
 CREATE UNIQUE INDEX uq_allies_referral_code ON allies (referral_code) WHERE referral_code IS NOT NULL;
