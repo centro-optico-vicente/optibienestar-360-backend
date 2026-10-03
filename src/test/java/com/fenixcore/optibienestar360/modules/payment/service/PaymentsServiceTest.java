@@ -385,6 +385,41 @@ class PaymentsServiceTest {
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("75.50");
     }
 
+    // ─── Promoter snapshot at registration (ADR 0017) ───────────────────────
+
+    @Test
+    void register_snapshotsInstitucion_whenMemberHasNoPromoter() {
+        Membership membership = membershipWithMember();
+        stubRegisterCollaboratorsFull(membership);
+        Promoter institucion = new Promoter();
+        institucion.setReferralCode("INSTITUCION");
+        institucion.setSystem(true);
+        institucion.setActive(true);
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+
+        sut().register(createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"), List.of(line("10.00"))), null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getPromoter()).isSameAs(institucion);
+    }
+
+    @Test
+    void register_keepsInactivePromoter_asTheSnapshot() {
+        Membership membership = membershipWithMember();
+        Promoter inactive = new Promoter();
+        inactive.setReferralCode("SALIENTE");
+        inactive.setActive(false);
+        membership.getMember().setPromoter(inactive);
+        stubRegisterCollaboratorsFull(membership);
+
+        sut().register(createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"), List.of(line("10.00"))), null);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getPromoter()).isSameAs(inactive);
+    }
+
     // ─── Auto-approval (V158): requiresApproval=false payment methods ───────
 
     @Test
