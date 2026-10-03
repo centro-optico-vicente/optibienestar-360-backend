@@ -332,7 +332,7 @@ public class BonusSettlementCutService {
             for (Payment p : entry.getValue()) {
                 try {
                     var conversion = currencyConversionService.convert(
-                            p.getAmount(), p.getCurrency(), rule.getThresholdCurrency(), p.getPaymentDate());
+                            p.netAmount(), p.getCurrency(), rule.getThresholdCurrency(), p.getPaymentDate());
                     total = total.add(conversion.convertedAmount());
                 } catch (NoExchangeRateAvailableException ex) {
                     log.warn("Bonus rule {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT_COLLECTED sum",

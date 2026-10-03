@@ -228,7 +228,7 @@ public class HierarchyOverrideService {
         for (Payment p : payments) {
             try {
                 var conversion = currencyConversionService.convert(
-                        p.getAmount(), p.getCurrency(), tier.getThresholdAmountCurrency(), p.getPaymentDate());
+                        p.netAmount(), p.getCurrency(), tier.getThresholdAmountCurrency(), p.getPaymentDate());
                 total = total.add(conversion.convertedAmount());
             } catch (NoExchangeRateAvailableException ex) {
                 log.warn("Hierarchy override tier {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT threshold check",

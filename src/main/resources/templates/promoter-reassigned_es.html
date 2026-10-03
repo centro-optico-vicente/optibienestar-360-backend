@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tienes un nuevo asesor</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box">
+        <p>
+            Desde ahora <strong th:text="${promoterName}"></strong> será tu asesor en
+            OptiBienestar 360 y te acompañará con tu membresía, tus pagos y tus beneficios.
+        </p>
+    </div>
+
+    <div class="field" th:if="${promoterPhone}">
+        <span class="label">Teléfono:</span>
+        <span th:text="${promoterPhone}"></span>
+    </div>
+    <div class="field" th:if="${promoterEmail}">
+        <span class="label">Correo:</span>
+        <span th:text="${promoterEmail}"></span>
+    </div>
+
+    <p>Tu membresía y tus beneficios siguen igual; solo cambia la persona que te atiende.</p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

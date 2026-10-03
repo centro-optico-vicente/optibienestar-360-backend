@@ -1,10 +1,13 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 /**
  * Resolves which {@link Promoter} a newly-enrolled member is attributed to
@@ -37,6 +40,23 @@ public class PromoterResolver {
     public static final String SYSTEM_PROMOTER_CODE = "INSTITUCION";
 
     private final PromoterRepository promoterRepository;
+
+    /**
+     * Who a member's money is attributed to — shared by payment registration
+     * ({@code payments.promoter_id} snapshot) and commission calculation so the
+     * two never diverge: the member's own promoter, <i>even if inactive</i>
+     * (a promoter's book only moves through an explicit portfolio
+     * reassignment), else the {@code INSTITUCION} system row. Static and
+     * repository-parameterized so both callers reuse the repository they
+     * already hold.
+     */
+    public static Optional<Promoter> resolveForAttribution(Member member, PromoterRepository promoterRepository) {
+        Promoter direct = member.getPromoter();
+        if (direct != null) {
+            return Optional.of(direct);
+        }
+        return promoterRepository.findByReferralCode(SYSTEM_PROMOTER_CODE).filter(Promoter::isActive);
+    }
 
     public Promoter resolveForEnrollment(String referralCode) {
         if (referralCode != null && !referralCode.isBlank()) {

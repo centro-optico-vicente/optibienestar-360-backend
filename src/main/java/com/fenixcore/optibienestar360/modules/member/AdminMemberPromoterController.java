@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.member;
 
 import com.fenixcore.optibienestar360.modules.member.dto.AssignPromoterRequest;
+import com.fenixcore.optibienestar360.modules.member.dto.BulkAssignPromoterRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberPromoterAssignmentDto;
+import com.fenixcore.optibienestar360.modules.member.dto.PortfolioToSupervisorRequest;
 import com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -40,6 +42,24 @@ public class AdminMemberPromoterController {
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(memberPromoterService.assign(
                 memberUuid, request.promoterUuid(), request.referralCode(), request.reason(), actor.getUuid()));
+    }
+
+    @PostMapping("/promoter/bulk-assign")
+    @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
+    public ResponseEntity<List<MemberPromoterAssignmentDto>> bulkAssignPromoter(
+            @Valid @RequestBody BulkAssignPromoterRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(memberPromoterService.bulkAssign(
+                request.memberUuids(), request.promoterUuid(), request.reason(), actor.getUuid()));
+    }
+
+    @PostMapping("/promoter/portfolio-to-supervisor")
+    @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
+    public ResponseEntity<List<MemberPromoterAssignmentDto>> portfolioToSupervisor(
+            @Valid @RequestBody PortfolioToSupervisorRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(memberPromoterService.reassignPortfolioToSupervisor(
+                request.sourcePromoterUuid(), request.reason(), actor.getUuid()));
     }
 
     @GetMapping("/{memberUuid}/promoter-history")

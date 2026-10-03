@@ -271,17 +271,64 @@ class CommissionServiceTest {
     }
 
     @Test
-    void inactive_direct_promoter_falls_back_to_institucion() {
+    void inactive_direct_promoter_keeps_the_commission() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         humanPromoter.setActive(false);
-        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
         stubExistsFalseAndSave();
         when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
-        assertThat(c.getPromoter()).isEqualTo(institucion);
+        assertThat(c.getPromoter()).isEqualTo(humanPromoter);
+        verify(promoterRepository, never()).findByReferralCode(any());
+    }
+
+    @Test
+    void payment_promoter_snapshot_wins_over_members_current_promoter() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
+        Promoter original = promoter("ORIGINAL", false);
+        original.setId(3L);
+        payment.setPromoter(original);   // registered before the member was reassigned to humanPromoter
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getPromoter()).isEqualTo(original);
+    }
+
+    // ─── Net basis (one-off discount) ─────────────────────────────────────────
+
+    @Test
+    void volumeTier_commission_uses_net_amount_after_discount() {
+        Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("200.00"), true);
+        payment.setDiscountAmount(new BigDecimal("50.00"));
+        stubExistsFalseAndSave();
+        when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getCalculationBasis()).isEqualByComparingTo("150.00");
+        assertThat(c.getAmount()).isEqualByComparingTo("30.00");   // 20% of 150, not of 200
+    }
+
+    @Test
+    void collectionTier_basis_scales_monthly_fee_by_collected_share() {
+        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        payment.setDiscountAmount(new BigDecimal("5.00"));   // 75% collected
+        payment.getMembership().setBillingStartDay(1);
+        payment.getMembership().setMonthlyFee(new BigDecimal("20.00"));
+        stubExistsFalseAndSave();
+        when(collectionTierRepository.findActiveApplicable(eq(14), any()))
+                .thenReturn(List.of(collectionTier(20, "10.00", "Cobranza hasta 20 días")));
+
+        Commission c = service.calculateAndPersistFor(payment).orElseThrow();
+
+        assertThat(c.getCalculationBasis()).isEqualByComparingTo("15.00");
+        assertThat(c.getAmount()).isEqualByComparingTo("1.50");
     }
 
     // ─── Idempotency + defensive paths ────────────────────────────────────────

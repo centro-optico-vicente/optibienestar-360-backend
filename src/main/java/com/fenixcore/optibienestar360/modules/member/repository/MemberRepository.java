@@ -23,6 +23,9 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
 
     Optional<Member> findByUuid(UUID uuid);
 
+    /** A promoter's whole portfolio — every member currently attributed to them. */
+    List<Member> findByPromoter_Id(Long promoterId);
+
     boolean existsByUuid(UUID uuid);
 
     /** Usage check for {@code PromotersService.countUsages} — ALL rows (active + inactive). */

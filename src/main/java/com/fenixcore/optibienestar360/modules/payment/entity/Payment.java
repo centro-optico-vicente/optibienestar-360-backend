@@ -262,6 +262,15 @@ public class Payment extends BaseEntity {
     @Column(name = "discounted_at")
     private Instant discountedAt;
 
+    /**
+     * What was actually collected: {@link #amount} minus the one-off
+     * {@link #discountAmount}. Commissions, tier thresholds and incentive
+     * metrics are always computed on this, never on the gross amount.
+     */
+    public BigDecimal netAmount() {
+        return discountAmount == null ? amount : amount.subtract(discountAmount);
+    }
+
     // ─── Inner enums (V23 CHECK constraint values) ─────────────────────────
 
     /**

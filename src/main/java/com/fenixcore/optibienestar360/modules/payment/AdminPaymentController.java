@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.payment;
 
+import com.fenixcore.optibienestar360.modules.payment.dto.DiscountAuthorityDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
@@ -225,6 +226,13 @@ public class AdminPaymentController {
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         paymentsService.remove(uuid);
         return ResponseEntity.noContent().build();
+    }
+
+    /** The caller's discount-authority cap (%) — {@code null} = uncapped. Lets the discount popover show the limit. */
+    @GetMapping("/discount-authority")
+    @PreAuthorize("hasAuthority('ALLOWS_DISCOUNT')")
+    public ResponseEntity<DiscountAuthorityDto> discountAuthority(@AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.discountAuthority(actor.getUuid()));
     }
 
     /**

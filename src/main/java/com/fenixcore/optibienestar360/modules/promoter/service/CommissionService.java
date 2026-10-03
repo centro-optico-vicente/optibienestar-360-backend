@@ -70,9 +70,14 @@ import java.util.Optional;
  * {@code CommissionTierRepository}/{@code CollectionCommissionTierRepository}
  * #findActiveApplicable ordering.</p>
  *
- * <p><b>Promoter resolution</b>: walks {@code payment.membership.member.promoter};
- * falls back to the seeded INSTITUCION row when the member has no active promoter
- * (PDF #5 default attribution).</p>
+ * <p><b>Promoter resolution</b>: the payment's own {@code promoter} snapshot
+ * (taken at registration), so a payment registered before a portfolio
+ * reassignment still pays the original promoter. Legacy rows without a
+ * snapshot fall back to {@link PromoterResolver#resolveForAttribution}: the
+ * member's promoter even if inactive, else the seeded INSTITUCION row.</p>
+ *
+ * <p><b>Basis</b>: always the net collected amount ({@link Payment#netAmount()}),
+ * so a one-off discount reduces the commission.</p>
  *
  * <p><b>Idempotency</b>: pre-checks the V26 partial UNIQUE
  * {@code (payment_id, promoter_id) WHERE status <> 'VOIDED'} for a clean skip.
@@ -94,8 +99,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class CommissionService {
-
-    public static final String FALLBACK_PROMOTER_CODE = "INSTITUCION";
 
     private final CommissionRepository commissionRepository;
     private final CommissionTierRepository tierRepository;
@@ -126,7 +129,9 @@ public class CommissionService {
             return Optional.empty();
         }
 
-        Optional<Promoter> promoterOpt = resolvePromoter(member);
+        Optional<Promoter> promoterOpt = payment.getPromoter() != null
+                ? Optional.of(payment.getPromoter())
+                : PromoterResolver.resolveForAttribution(member, promoterRepository);
         if (promoterOpt.isEmpty()) {
             log.error("Commission skipped: no promoter (real or INSTITUCION) for member {} — "
                     + "INSTITUCION seed likely missing or soft-deleted in this environment", member.getUuid());
@@ -199,7 +204,7 @@ public class CommissionService {
                                                  AppliesTo appliesTo, LocalDate anchor) {
         PeriodStrategies.Window window =
                 PeriodStrategies.window(tier.getAccrualPeriodStrategy().name(), anchor, tier.getAccrualPeriodAnchor());
-        BigDecimal basis = payment.getAmount();
+        BigDecimal basis = payment.netAmount();
         BigDecimal pct = tier.getCommissionPct();
         BigDecimal flat = tier.getFlatAmount();
         BigDecimal amount = pct != null
@@ -230,7 +235,7 @@ public class CommissionService {
     private Commission priceByCollectionSpeed(Promoter promoter, Payment payment, LocalDate anchor) {
         Membership membership = payment.getMembership();
         int days = collectionDays(membership, payment, anchor);
-        BigDecimal basis = membership.getMonthlyFee();
+        BigDecimal basis = discountedMonthlyFee(membership.getMonthlyFee(), payment);
         Long promoterTypeId = promoter.getPromoterType() != null ? promoter.getPromoterType().getId() : null;
 
         CollectionCommissionTier tier = selectCollectionTier(
@@ -263,6 +268,19 @@ public class CommissionService {
         commission.setPeriodStart(window.start());
         commission.setPeriodEnd(window.end());
         return commission;
+    }
+
+    /**
+     * The monthly fee scaled by the share of the payment actually collected
+     * (net / gross), so a one-off discount reduces the collection-commission
+     * basis proportionally even when the payment covers several periods.
+     */
+    private static BigDecimal discountedMonthlyFee(BigDecimal monthlyFee, Payment payment) {
+        if (payment.getDiscountAmount() == null || payment.getAmount().signum() == 0) {
+            return monthlyFee;
+        }
+        return monthlyFee.multiply(payment.netAmount())
+                .divide(payment.getAmount(), 2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -421,7 +439,7 @@ public class CommissionService {
         for (Payment p : payments) {
             try {
                 var conversion = currencyConversionService.convert(
-                        p.getAmount(), p.getCurrency(), tier.getThresholdAmountCurrency(), p.getPaymentDate());
+                        p.netAmount(), p.getCurrency(), tier.getThresholdAmountCurrency(), p.getPaymentDate());
                 total = total.add(conversion.convertedAmount());
             } catch (NoExchangeRateAvailableException ex) {
                 log.warn("Commission tier {} — no exchange rate {}→{} for payment {}; excluded from AMOUNT threshold check",
@@ -440,14 +458,6 @@ public class CommissionService {
     private boolean qualifiesForAutoApproval(Payment payment) {
         Organization org = organizationRepository.findSingleton();
         return org.isAutoApproveCommissions() && payment.getCampaign() == null;
-    }
-
-    private Optional<Promoter> resolvePromoter(Member member) {
-        Promoter direct = member.getPromoter();
-        if (direct != null && direct.isActive()) {
-            return Optional.of(direct);
-        }
-        return promoterRepository.findByReferralCode(FALLBACK_PROMOTER_CODE).filter(Promoter::isActive);
     }
 
     /**
