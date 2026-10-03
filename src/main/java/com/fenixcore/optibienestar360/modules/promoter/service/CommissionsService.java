@@ -226,14 +226,35 @@ public class CommissionsService {
     @Transactional
     public CommissionDto voidCommission(UUID uuid, String reason) {
         Commission commission = findManaged(uuid);
+        ensurePending(commission);
+        return doVoid(commission, reason);
+    }
+
+    /**
+     * Voids several PENDING commissions with one shared reason — e.g. the
+     * pending commissions of a promoter leaving on bad terms. All or nothing:
+     * if any row is not PENDING the whole request is rejected and nothing is
+     * voided, same policy as the by-selection payout.
+     */
+    @Transactional
+    public List<CommissionDto> voidBulk(List<UUID> uuids, String reason) {
+        List<Commission> commissions = uuids.stream().map(this::findManaged).toList();
+        commissions.forEach(CommissionsService::ensurePending);
+        return commissions.stream().map(c -> doVoid(c, reason)).toList();
+    }
+
+    private static void ensurePending(Commission commission) {
         if (!Commission.CommissionStatus.PENDING.name().equals(commission.getStatus())) {
             throw new IllegalArgumentException("commission.void.not_pending");
         }
+    }
+
+    private CommissionDto doVoid(Commission commission, String reason) {
         Map<String, Object> before = auditRecorder.snapshot(commission);
         commission.setStatus(Commission.CommissionStatus.VOIDED.name());
         commission.setVoidedAt(Instant.now());
         commission.setVoidReason(reason);
-        auditRecorder.recordUpdate(uuid, before, auditRecorder.snapshot(commission));
+        auditRecorder.recordUpdate(commission.getUuid(), before, auditRecorder.snapshot(commission));
         return enrich(mapper.toDto(commission), commission);
     }
 
