@@ -35,7 +35,7 @@ public record AllyUpdateRequest(
         String address,
         UUID cityUuid,
         @Size(max = 500) String googleMapsUrl,
-        @Pattern(regexp = "^[A-Za-z0-9-]{4,20}$", message = "{validation.referralCode.format}") String referralCode,
+        @Pattern(regexp = "^$|^[A-Za-z0-9-]{4,20}$", message = "{validation.referralCode.format}") String referralCode,
 
         @Size(max = 500) String logoUrl,
         String description,
