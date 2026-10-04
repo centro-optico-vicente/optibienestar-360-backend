@@ -163,43 +163,11 @@ public class PaymentsService {
     private final MembershipChargeService membershipChargeService;
     private final NotificationChannelResolver notificationChannelResolver;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
     private String adminEmail;
-
-    /** Compatibility constructor retained for existing unit tests and integrations. */
-    public PaymentsService(
-		PaymentRepository paymentRepository,
-		PaymentCategoryRepository paymentCategoryRepository,
-		PaymentMethodRepository paymentMethodRepository,
-		PromoterRepository promoterRepository,
-		MembershipRepository membershipRepository,
-		MemberRepository memberRepository,
-		UserRepository userRepository,
-		CurrencyRepository currencyRepository,
-		com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService currencyConversionService,
-		PaymentMapper mapper,
-		DefaultSortResolver defaultSortResolver,
-		ObjectProvider<StorageService> storageProvider,
-		EmailService emailService,
-		MessageSource messageSource,
-		ValidatorCacheService validatorCacheService,
-		CommissionService commissionService,
-		com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService hierarchyOverrideService,
-		CorporateBillingResolver corporateBillingResolver,
-		PresignedUrlPolicy presignedUrlPolicy,
-		FileValidationService fileValidationService,
-		MembershipChargeService membershipChargeService,
-		NotificationChannelResolver notificationChannelResolver
-	) {
-        this(paymentRepository, paymentCategoryRepository, paymentMethodRepository, promoterRepository,
-                null, null, membershipRepository, memberRepository, userRepository, currencyRepository,
-                currencyConversionService, mapper, defaultSortResolver, storageProvider, emailService,
-                messageSource, validatorCacheService, commissionService, hierarchyOverrideService,
-                corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver, event -> { });
-    }
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -644,6 +612,10 @@ public class PaymentsService {
         payment.setPaymentType(resolvePaymentCategory(inscription));
         payment.setPerson(membership.getMember().getPerson());
         payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+        if (inscription) {
+            promotionPricing.applyInscriptionDiscount(payment,
+                    actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null));
+        }
 
         // Corporate billing (V38): if the member belongs to an INSTITUTION_BULK
         // contract, bill the payment to the contract (and default the payer to

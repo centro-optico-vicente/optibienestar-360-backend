@@ -15,6 +15,8 @@ public interface AllyRepository extends JpaRepository<Ally, Long>, JpaSpecificat
 
     Optional<Ally> findByUuid(UUID uuid);
 
+    Optional<Ally> findByReferralCode(String referralCode);
+
     Optional<Ally> findByTaxDocumentTypeAndTaxDocumentNumber(String taxDocumentType,
                                                              String taxDocumentNumber);
 

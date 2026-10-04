@@ -3,9 +3,12 @@ package com.fenixcore.optibienestar360.modules.membership.entity;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -63,8 +66,24 @@ public class MembershipCharge extends BaseEntity {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
+    /** Net amount owed: {@link #grossAmount} minus {@link #discountAmount} (V175 CHECK). */
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal amount;
+
+    /** The membership's monthly fee before any promotion or subsidy. */
+    @Column(name = "gross_amount", precision = 10, scale = 2, nullable = false)
+    private BigDecimal grossAmount;
+
+    @Column(name = "discount_amount", precision = 10, scale = 2, nullable = false)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_source", length = 20)
+    private DiscountSource discountSource;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "membership_promotion_id")
+    private MembershipPromotion membershipPromotion;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "currency_id", nullable = false)
@@ -80,5 +99,10 @@ public class MembershipCharge extends BaseEntity {
      */
     public enum ChargeStatus {
         PENDING, COVERED, OVERDUE, WAIVED
+    }
+
+    /** Which discount won for this charge — promotions and subsidies never stack (hub ADR 0018). */
+    public enum DiscountSource {
+        PROMOTION, SUBSIDY
     }
 }

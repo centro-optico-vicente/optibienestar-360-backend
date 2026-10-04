@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.membership.dto;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -23,5 +24,8 @@ import java.util.UUID;
 public record MembershipCreateRequest(
         @NotNull UUID planUuid,
         LocalDate enrolledAt,
-        LocalDate expiresAt
+        LocalDate expiresAt,
+        /** Optional promotion applied in the same transaction (hub ADR 0018); invalid → the whole enrollment fails. */
+        UUID promotionUuid,
+        @Size(max = 20) String promotionCode
 ) {}

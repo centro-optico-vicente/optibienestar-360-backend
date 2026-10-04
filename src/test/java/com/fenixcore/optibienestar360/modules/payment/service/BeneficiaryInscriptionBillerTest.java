@@ -39,6 +39,7 @@ class BeneficiaryInscriptionBillerTest {
     @Mock private CurrencyRepository currencyRepository;
     @Mock private PaymentCategoryRepository paymentCategoryRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
+    @Mock private com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
     @InjectMocks private BeneficiaryInscriptionBiller biller;
 
     @Test

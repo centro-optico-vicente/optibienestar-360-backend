@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; margin: 12px 0; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tu promoción <span th:text="${promotionName}"></span></h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <div class="info-box" th:if="${keepDiscount}">
+        <p>
+            Tu próximo pago vence el <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
+            Págalo a tiempo para conservar tu descuento del <strong th:text="${discountPct} + '%'"></strong>:
+            si el pago se atrasa, la promoción se pierde.
+        </p>
+    </div>
+
+    <div class="info-box" th:if="${lastCycle}">
+        <p>
+            Tu próximo pago es el último con el descuento de la promoción. Desde el siguiente mes
+            pagarás la cuota regular de tu plan.
+        </p>
+    </div>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

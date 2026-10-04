@@ -105,6 +105,10 @@ public class Ally extends BaseEntity {
     @Column(name = "google_maps_url", length = 500)
     private String googleMapsUrl;
 
+    /** Promotion code the ally hands out (V175, hub ADR 0018); attribution only, stored upper-case. */
+    @Column(name = "referral_code", length = 20)
+    private String referralCode;
+
     // ─── Branding ───────────────────────────────────────────────────────────
 
     @Column(name = "logo_url", length = 500)

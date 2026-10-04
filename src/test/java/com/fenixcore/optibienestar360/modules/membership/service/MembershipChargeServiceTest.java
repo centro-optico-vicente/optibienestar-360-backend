@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.MembershipCharge
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipChargeRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing;
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,14 +46,70 @@ class MembershipChargeServiceTest {
     @Mock private ScheduledJobRepository jobRepository;
     @Mock private MembershipStatusService membershipStatusService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private PromotionPricing promotionPricing;
 
     private MembershipChargeService service;
 
     @BeforeEach
     void setUp() {
-        service = new MembershipChargeService(chargeRepository, membershipRepository, jobRepository, membershipStatusService, eventPublisher);
+        service = new MembershipChargeService(chargeRepository, membershipRepository, jobRepository, membershipStatusService, eventPublisher, promotionPricing);
         lenient().when(chargeRepository.save(any(MembershipCharge.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        // No promotion or subsidy by default: the charge is the full monthly fee.
+        lenient().when(promotionPricing.priceMonthly(any(), any())).thenAnswer(invocation ->
+                new PromotionPricing.MonthlyPrice(((Membership) invocation.getArgument(0)).getMonthlyFee(),
+                        BigDecimal.ZERO, null, null));
+    }
+
+    // ─── Pricing (hub ADR 0018) ─────────────────────────────────────────────
+
+    @Test
+    void createdCharge_carriesGrossDiscountAndNet_fromTheWinningDiscount() {
+        Membership membership = membership(1L, LocalDate.of(2026, 1, 15), null, LifecycleStatus.ACTIVE);
+        when(chargeRepository.findByMembership_IdAndPeriodStart(1L, LocalDate.of(2026, 3, 1))).thenReturn(Optional.empty());
+        when(promotionPricing.priceMonthly(membership, LocalDate.of(2026, 3, 1))).thenReturn(
+                new PromotionPricing.MonthlyPrice(new BigDecimal("25.00"), new BigDecimal("5.00"),
+                        MembershipCharge.DiscountSource.PROMOTION, null));
+
+        MembershipCharge charge = service.ensureChargeForPeriod(membership, LocalDate.of(2026, 3, 1));
+
+        assertThat(charge.getGrossAmount()).isEqualByComparingTo("25.00");
+        assertThat(charge.getDiscountAmount()).isEqualByComparingTo("5.00");
+        assertThat(charge.getAmount()).isEqualByComparingTo("20.00");
+        assertThat(charge.getDiscountSource()).isEqualTo(MembershipCharge.DiscountSource.PROMOTION);
+        assertThat(charge.getStatus()).isEqualTo(ChargeStatus.PENDING.name());
+    }
+
+    @Test
+    void fullyDiscountedCharge_isWaived_andAdvancesTheMembership_whenItIsTheNextUnpaidMonth() {
+        // Enrolled 2026-01-15, nothing paid yet → January is the next unpaid month.
+        Membership membership = membership(1L, LocalDate.of(2026, 1, 15), null, LifecycleStatus.ACTIVE);
+        when(chargeRepository.findByMembership_IdAndPeriodStart(1L, LocalDate.of(2026, 1, 1))).thenReturn(Optional.empty());
+        when(promotionPricing.priceMonthly(membership, LocalDate.of(2026, 1, 1))).thenReturn(
+                new PromotionPricing.MonthlyPrice(new BigDecimal("25.00"), new BigDecimal("25.00"),
+                        MembershipCharge.DiscountSource.PROMOTION, null));
+
+        MembershipCharge charge = service.ensureChargeForPeriod(membership, LocalDate.of(2026, 1, 1));
+
+        assertThat(charge.getStatus()).isEqualTo(ChargeStatus.WAIVED.name());
+        assertThat(charge.getAmount()).isEqualByComparingTo("0.00");
+        assertThat(membership.getLastPaidThrough()).isEqualTo(LocalDate.of(2026, 1, 31));
+        assertThat(membership.getNextDueDate()).isEqualTo(LocalDate.of(2026, 2, 15));
+        verify(membershipStatusService).applyTransition(eq(membership), any());
+    }
+
+    @Test
+    void fullyDiscountedCharge_furtherAhead_doesNotSkipAnUnpaidMonth() {
+        Membership membership = membership(1L, LocalDate.of(2026, 1, 15), null, LifecycleStatus.ACTIVE);
+        when(chargeRepository.findByMembership_IdAndPeriodStart(1L, LocalDate.of(2026, 3, 1))).thenReturn(Optional.empty());
+        when(promotionPricing.priceMonthly(membership, LocalDate.of(2026, 3, 1))).thenReturn(
+                new PromotionPricing.MonthlyPrice(new BigDecimal("25.00"), new BigDecimal("25.00"),
+                        MembershipCharge.DiscountSource.SUBSIDY, null));
+
+        service.ensureChargeForPeriod(membership, LocalDate.of(2026, 3, 1));
+
+        assertThat(membership.getLastPaidThrough()).isNull();
+        verify(membershipStatusService, never()).applyTransition(any(), any());
     }
 
     // ─── ensureChargeForPeriod ──────────────────────────────────────────────

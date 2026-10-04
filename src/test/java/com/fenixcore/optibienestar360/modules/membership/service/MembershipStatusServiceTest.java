@@ -30,6 +30,7 @@ class MembershipStatusServiceTest {
 
     @Mock private MembershipRepository repository;
     @Mock private SubsidyResolver subsidyResolver;
+    @Mock private com.fenixcore.optibienestar360.modules.promotion.service.PromotionLifecycle promotionLifecycle;
 
     private MembershipStatusService service;
 
@@ -38,7 +39,7 @@ class MembershipStatusServiceTest {
         // Default: no subsidy. Declared first so a test's specific stub (declared
         // later in the method body) takes precedence over this catch-all.
         lenient().when(subsidyResolver.fullMonthlyExoneration(anyLong(), any())).thenReturn(false);
-        service = new MembershipStatusService(repository, subsidyResolver);
+        service = new MembershipStatusService(repository, subsidyResolver, promotionLifecycle);
     }
 
     private MembershipStatusService sut() {

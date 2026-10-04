@@ -90,6 +90,8 @@ public class AlliesService {
 	);
 
     private final AllyRepository repository;
+    private final com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository promoterRepository;
+    private final com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
     private final AllyTypeRepository allyTypeRepository;
     private final CityRepository cityRepository;
     private final ProfessionRepository professionRepository;
@@ -234,6 +236,7 @@ public class AlliesService {
         ally.setAddress(req.address());
         ally.setCity(resolveCityOptional(req.cityUuid()));
         ally.setGoogleMapsUrl(req.googleMapsUrl());
+        ally.setReferralCode(normalizeReferralCode(req.referralCode(), null));
         ally.setLogoUrl(req.logoUrl());
         ally.setDescription(req.description());
         ally.setJoinedAt(req.joinedAt());
@@ -282,6 +285,7 @@ public class AlliesService {
         if (req.address()             != null) ally.setAddress(req.address());
         if (req.cityUuid()            != null) ally.setCity(resolveCityOptional(req.cityUuid()));
         if (req.googleMapsUrl()       != null) ally.setGoogleMapsUrl(req.googleMapsUrl());
+        if (req.referralCode()        != null) ally.setReferralCode(normalizeReferralCode(req.referralCode(), ally.getId()));
         if (req.logoUrl()             != null) ally.setLogoUrl(req.logoUrl());
         if (req.description()         != null) ally.setDescription(req.description());
         if (req.joinedAt()            != null) ally.setJoinedAt(req.joinedAt());
@@ -524,6 +528,24 @@ public class AlliesService {
                     .orElseThrow(() -> new NoSuchElementException("ally_type.not_found")));
         }
         return resolved;
+    }
+
+    /**
+     * Upper-cases the ally's promotion code and keeps it unique across the
+     * three code owners (promoters, members, allies) so a code typed at
+     * enrollment always resolves to exactly one issuer. Blank clears it.
+     */
+    private String normalizeReferralCode(String raw, Long currentAllyId) {
+        if (raw == null || raw.isBlank()) return null;
+        String code = raw.trim().toUpperCase();
+        boolean takenByAlly = repository.findByReferralCode(code)
+                .filter(other -> !other.getId().equals(currentAllyId))
+                .isPresent();
+        if (takenByAlly || promoterRepository.existsByReferralCode(code)
+                || memberRepository.findByReferralCode(code).isPresent()) {
+            throw new IllegalArgumentException("ally.referral_code.taken");
+        }
+        return code;
     }
 
     private City resolveCityOptional(UUID cityUuid) {

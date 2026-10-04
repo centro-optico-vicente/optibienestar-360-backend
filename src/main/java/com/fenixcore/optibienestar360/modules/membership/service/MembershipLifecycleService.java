@@ -51,6 +51,7 @@ public class MembershipLifecycleService {
     private final MembershipRepository repository;
     private final MembershipMapper mapper;
     private final com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService validatorCacheService;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionLifecycle promotionLifecycle;
 
     @Transactional
     @Auditable(entity = "membership", action = AuditAction.UPDATE, uuidArgIndex = 0)
@@ -62,6 +63,7 @@ public class MembershipLifecycleService {
         }
 
         membership.setStatus(LifecycleStatus.CANCELED.name());
+        promotionLifecycle.onStatusChanged(membership, LifecycleStatus.CANCELED);
         // Soft-delete frees the partial UNIQUE so the member can be enrolled
         // into a different plan immediately — V21 design intent.
         membership.setActive(false);

@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,8 +53,9 @@ public class AdminMemberMembershipsController {
     @PostMapping
     @PreAuthorize("hasAuthority('MEMBERSHIP_CREATE')")
     public ResponseEntity<MembershipDto> enroll(@PathVariable UUID memberUuid,
-                                                @Valid @RequestBody MembershipCreateRequest request) {
-        MembershipDto created = membershipsService.enroll(memberUuid, request);
+                                                @Valid @RequestBody MembershipCreateRequest request,
+                                                @AuthenticationPrincipal CustomUserDetails actor) {
+        MembershipDto created = membershipsService.enroll(memberUuid, request, actor != null ? actor.getUuid() : null);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())

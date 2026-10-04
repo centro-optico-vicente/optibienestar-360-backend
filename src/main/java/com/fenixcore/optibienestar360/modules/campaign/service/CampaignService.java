@@ -99,6 +99,7 @@ public class CampaignService {
     private final com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository currencyRepository;
     private final CurrencyConversionService currencyConversionService;
     private final DefaultSortResolver defaultSortResolver;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionService promotionService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -194,6 +195,7 @@ public class CampaignService {
         clone.setEvaluateOnlyAtEnd(source.isEvaluateOnlyAtEnd());
         clone.setPayOnlyAtEnd(source.isPayOnlyAtEnd());
         clone.setTargetAmount(source.getTargetAmount());
+        clone.setTargetAmountCurrency(source.getTargetAmountCurrency());
         clone.setTargetCount(source.getTargetCount());
         clone.setExclusivityGroup(source.getExclusivityGroup());
         clone.setPriority(source.getPriority());
@@ -284,6 +286,8 @@ public class CampaignService {
             c.setThresholdAmountCurrency(h.getThresholdAmountCurrency());
             hierarchyOverrideTierRepository.save(c);
         }
+
+        promotionService.cloneInto(source, saved);
 
         return toDto(saved);
     }

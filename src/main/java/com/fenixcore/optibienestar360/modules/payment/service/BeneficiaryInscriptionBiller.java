@@ -43,6 +43,7 @@ public class BeneficiaryInscriptionBiller {
     private final CurrencyRepository currencyRepository;
     private final PaymentCategoryRepository paymentCategoryRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
 
     /**
      * Registers a PENDING extra-beneficiary inscription payment against the
@@ -80,6 +81,7 @@ public class BeneficiaryInscriptionBiller {
         line.setCurrency(usd);
         line.setStatus(Payment.PaymentStatus.PENDING.name());
         payment.getLines().add(line);
+        promotionPricing.applyExtraBeneficiaryDiscount(payment);
 
         return paymentRepository.save(payment).getId();
     }
