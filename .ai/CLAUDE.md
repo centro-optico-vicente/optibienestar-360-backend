@@ -35,12 +35,12 @@ Detalle en [`specs/01-package-structure.md`](specs/01-package-structure.md).
 
 1. **Cada migración Flyway sigue convención**: `V{N}__{snake_case_descripcion}.sql`. Una vez aplicada en prod, es inmutable. Para corregir, crear `V{N+1}__fix_X.sql`.
 2. **JPA en `validate` mode SIEMPRE**. Nunca `update`/`create`/`create-drop`.
-3. **Toda tabla extiende `BaseEntity`** (PK uuid, audit columns, is_active, status). Ver [ADR 0006 cross-stack](../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md).
+3. **Toda tabla extiende `BaseEntity`** (PK dual `BIGINT` interno `{tabla}_id` + `uuid` externo, audit columns, is_active, status — **no** PK UUID simple). Ver [ADR 0006 cross-stack](../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md) y [ADR 0005 local](decisions/0005-table-id-convention.md).
 4. **Soft delete**: nunca `repository.delete()` en datos sensibles — usar `setIsActive(false)`.
 5. **Datos médicos**: `MedicalRecord` con `@PreAuthorize` y audit log obligatorio en cada acceso.
 6. **Pagos siempre manuales** (no integrar Stripe). Ver [ADR 0008 cross-stack](../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md).
 7. **Idioma**: **código en inglés** — identificadores (clases, métodos, variables, paquetes, constantes), **comentarios** (Javadoc, inline, headers SQL), logs y mensajes de excepción técnicos. Solo van en español los **datos visibles al usuario**: textos UI (en el frontend, no acá), plantillas email, y valores del dominio que terminan en la BD como datos (ej. `permission_domains.label = 'Afiliados'`, descripciones de roles). Detalle en [ADR 0009 local (espejo)](decisions/0009-code-conventions.md) y [ADR 0007 naming Java](decisions/0007-java-naming-conventions.md).
-8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en `snake_case`. Errores RFC 7807.
+8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en **`camelCase`** (no `snake_case` — ver [ADR 0019 cross-stack](../../centro-optico-vicente/.ai/decisions/0019-api-json-casing-contract.md)). Errores RFC 7807.
 9. **Mensajes user-facing van vía MessageSource code, nunca string literal.** Excepciones de negocio extienden `LocalizedBusinessException` o reusan JDK/Spring exceptions con el code en `getMessage()`. Validación Jakarta Bean usa `@Pattern(message="{validation.x.y}")`. Texto en español o inglés vive únicamente en `messages_*.properties` / `ValidationMessages_*.properties` y plantillas email `<name>_<lang>.html`. Detalle, naming y patrones en [`specs/14-i18n.md`](specs/14-i18n.md).
 
 ## Convenciones de trabajo con IA

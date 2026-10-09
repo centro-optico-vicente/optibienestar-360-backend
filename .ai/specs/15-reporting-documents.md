@@ -2,6 +2,8 @@
 
 > Implementa [ADR 0012 cross-stack](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0012-reporting-documents-engine.md).
 > Relacionado: [`08-storage-r2.md`](08-storage-r2.md) (R2 + presigned), [`09-smtp.md`](09-smtp.md) (email), [`12-commissions.md`](12-commissions.md) (fuente de cuentas por pagar).
+>
+> **Estado real (2026-10-08):** este diseño todavía no se implementó tal cual para reportes nuevos. Ya existen **4 reportes en producción** (`reporte-pagos`, `reporte-pagos-comisiones`, `reporte-movimientos-pagos`, `reporte-comisiones`) servidos vía **JasperReports** desde `GenericDocumentController` — un camino distinto al `DocumentType`/`ReportDataProvider`/`DocumentRenderer` de este documento — y la persistencia real usa `attached_files` (V52) + `report_audit_log` (V63), no una tabla `generated_documents`. Ver [ADR 0020 — enmienda de realidad](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0020-reporting-engine-reality-amendment.md): el diseño de abajo **sigue vigente para los documentos pendientes** (recibo, cobro, carnet, planilla, cuentas por pagar); no se migran los 4 reportes Jasper existentes a este motor.
 
 ## Alcance
 

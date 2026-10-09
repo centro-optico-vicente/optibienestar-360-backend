@@ -74,19 +74,7 @@ public ResponseEntity<Page<MemberDto>> list(
 
 ### Response shape
 
-```json
-{
-  "content": [...],
-  "page": 0,
-  "size": 20,
-  "total_elements": 1234,
-  "total_pages": 62,
-  "has_next": true,
-  "has_previous": false
-}
-```
-
-(Spring Data devuelve `Page` con propiedades en camelCase por default; Jackson convierte a snake_case por config).
+> **Corrección 2026-10-08:** no hay ninguna `PropertyNamingStrategy` configurada en `JacksonConfig` — el ejemplo de abajo en `snake_case` **nunca fue real**. Los controllers devuelven `Page<Dto>` de Spring Data directamente (ver p. ej. `PublicCatalogsController`/`AdminCatalogsController`), serializado con las keys en **camelCase**. Ver [ADR 0019 cross-stack](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md). La forma exacta que produce Jackson para `Page<T>` (si incluye `pageable`, `sort`, etc.) no quedó verificada en runtime — confirmar contra una respuesta real antes de documentar un ejemplo nuevo acá.
 
 ### Valores presentacionales — sufijo `_Display` ([hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md))
 
