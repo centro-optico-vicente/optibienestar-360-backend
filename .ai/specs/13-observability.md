@@ -33,10 +33,10 @@ management.metrics.tags.environment=${SPRING_PROFILES_ACTIVE}
 | `/actuator/health` | público | Healthcheck Docker/Traefik |
 | `/actuator/health/liveness` | público | K8s liveness (futuro) |
 | `/actuator/health/readiness` | público | K8s readiness |
-| `/actuator/info` | auth ADMIN | Versión, build info |
-| `/actuator/metrics` | auth ADMIN | Métricas |
-| `/actuator/prometheus` | auth ADMIN o IP allowlist | Scrape Prometheus |
-| `/actuator/loggers` | auth ADMIN | Cambiar nivel de log en runtime |
+| `/actuator/info` | auth ADMINISTRADOR | Versión, build info |
+| `/actuator/metrics` | auth ADMINISTRADOR | Métricas |
+| `/actuator/prometheus` | auth ADMINISTRADOR o IP allowlist | Scrape Prometheus |
+| `/actuator/loggers` | auth ADMINISTRADOR | Cambiar nivel de log en runtime |
 
 ## Health checks
 

@@ -198,8 +198,8 @@ public class CorsConfig {
 | `/v1/auth/login`, `/refresh`, `/recover-password`, `/reset-password` | No | — |
 | `/actuator/health/**` | No | — |
 | `/v1/me/*` | Sí (cualquier rol) | varía |
-| `/v1/admin/*` | Sí | `ADMIN` u `OPERADOR` |
-| `/v1/ally/*` | Sí | `ALIADO_USER` |
+| `/v1/admin/*` | Sí | `ADMINISTRADOR` u `OPERADOR` |
+| `/v1/ally/*` | Sí | `ALIADO` |
 | `/v1/promoter/*` | Sí | `PROMOTOR` |
 | `/swagger-ui/**`, `/v3/api-docs/**` | No (en dev) / Basic auth Traefik (en prod) | — |
 

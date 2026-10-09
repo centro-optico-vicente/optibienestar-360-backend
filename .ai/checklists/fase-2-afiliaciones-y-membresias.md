@@ -18,7 +18,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 > Numeración alineada con migraciones reales en disco. V1–V4 son bootstrap Phase 1; V7 es `seed_users` supplementary.
 
 - [x] [P0/C2] `V5__users_and_roles.sql`: users, roles, permissions, user_roles, role_permissions
-- [x] [P0/C2] `V6__seed_roles.sql`: ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR _(+ V7 `seed_users` supplementary)_
+- [x] [P0/C2] `V6__seed_roles.sql`: ADMINISTRADOR, OPERADOR, ALIADO, AFILIADO, PROMOTOR _(+ V7 `seed_users` supplementary)_
 - [x] [P0/C2] `V8__locations.sql`: countries (seed VE + iso_code), states (FK→countries, 24 entidades federales VE), cities (FK→states, seed curado)
 - [x] [P0/C2] `V9__personal_catalogs.sql`: genders, document_types (normaliza el CHECK V/E de users en V5), marital_statuses, occupations
 - [x] [P0/C3] `V10__health_catalogs.sql`: medical_specialties, service_categories, ally_types
