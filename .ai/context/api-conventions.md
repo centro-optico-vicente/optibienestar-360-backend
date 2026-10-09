@@ -11,18 +11,16 @@
 
 ## JSON
 
-- Keys en `snake_case`: `member_id`, `next_due_date`, `is_active`
+> **Corrección 2026-10-08:** `core.config.JacksonConfig` real **no** configura `PropertyNamingStrategies.SNAKE_CASE` — nunca lo hizo. Ver [ADR 0019 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md).
+
+- Keys en **`camelCase`** (default de Jackson, igual que el campo Java/DTO): `memberId`, `nextDueDate`, `isActive`
+- Pares `_Display` (FK: `<rel>_Uuid`/`<rel>_Display`; escalares: `<campo>`/`<campo>_Display`) vía `DisplayBeanSerializerModifier`/`DisplayValueSerializerModifier` — [ADR 0014 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0014-display-value-convention.md)
 - Fechas ISO 8601: `2026-05-18T14:30:00Z`
 - Decimal sin notación científica: `5.00` (no `5E0`)
 - Booleans literal: `true` / `false`
 - UUIDs: `"550e8400-e29b-41d4-a716-446655440000"`
 
-Configuración en `core.config.JacksonConfig`:
-```java
-PropertyNamingStrategies.SNAKE_CASE
-SerializationFeature.WRITE_DATES_AS_TIMESTAMPS = false
-JsonInclude.Include.NON_NULL
-```
+Configuración real en `core.config.JacksonConfig`: registra los módulos `_Display` (Jackson 2 y Jackson 3), `JavaTimeModule`, `WRITE_DATES_AS_TIMESTAMPS=false` y manejo de `BigDecimal` — sin ninguna `PropertyNamingStrategy`.
 
 ## Headers
 

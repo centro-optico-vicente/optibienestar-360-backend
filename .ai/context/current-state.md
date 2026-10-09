@@ -1,8 +1,16 @@
 # Estado actual del backend (snapshot)
 
-> **Actualizado:** 2026-05-31
+> **Actualizado:** 2026-05-31 (ver nota de refresh parcial 2026-10-08 abajo)
 >
 > Qué existe HOY en `optibienestar-360-backend`. Actualizar al cierre de cada sesión productiva.
+
+> **Refresh parcial 2026-10-08** (ver [auditoría hub 2026-09-23](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/notes/2026-09-23_audit.md) hallazgo H-E-1): esta tabla quedó congelada en V1–V10 / "sin tests de integración" desde 2026-05-31, cinco meses desatrás de la realidad. Hechos verificados hoy contra el código:
+> - **175 migraciones Flyway** (V1–V176, última `V176__promotion_notices_job_seed.sql`), no V1–V10.
+> - **795 archivos Java**, **88 controllers REST**, no los ~10 de este snapshot.
+> - Motor de reportes: **4 reportes productivos vía JasperReports** (`GenericDocumentController`, `.jrxml` en `resources/reports/`) + `attached_files`/`report_audit_log` como persistencia — ver [ADR 0020 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0020-reporting-engine-reality-amendment.md).
+> - JSON de la API: camelCase (no se configura ninguna `PropertyNamingStrategy`) — ver [ADR 0019 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md).
+>
+> **No verificado en este refresh** (requiere sesión dedicada, fuera de alcance de esta corrección): cobertura real de tests, inventario completo de módulos/entidades/endpoints por vertical. La tabla de abajo queda tal cual estaba — tratarla como histórica, no como el estado actual completo; para el detalle actualizado por vertical usar `.ai/checklists/vertical-*.md`.
 
 ## Resumen
 
