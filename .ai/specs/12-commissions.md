@@ -183,7 +183,7 @@ public PayoutReportDTO executePayout(LocalDate cycleEnd) {
 | `/v1/admin/promoters` | GET, POST | OPERADOR | CRUD promotores |
 | `/v1/admin/promoters/{id}` | GET, PUT, DELETE | OPERADOR | CRUD |
 | `/v1/admin/commissions` | GET | OPERADOR | Listado con RSQL |
-| `/v1/admin/commissions/payout` | POST | ADMIN | Cierre de ciclo |
+| `/v1/admin/commissions/payout` | POST | ADMINISTRADOR | Cierre de ciclo |
 | `/v1/admin/commissions/export?cycle_end=...` | GET | OPERADOR | CSV/XLSX |
 | `/v1/promoter/dashboard` | GET | PROMOTOR | Vista propia |
 | `/v1/promoter/commissions` | GET | PROMOTOR | Comisiones propias |

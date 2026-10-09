@@ -4,7 +4,7 @@
 
 ## Cuándo
 
-- Necesidad de un perfil de usuario no cubierto por los 5 base (ADMIN, OPERADOR, ALIADO_USER, AFILIADO_USER, PROMOTOR)
+- Necesidad de un perfil de usuario no cubierto por los 5 base (ADMINISTRADOR, OPERADOR, ALIADO, AFILIADO, PROMOTOR)
 - Necesidad de un permiso granular nuevo para una feature
 
 ## Paso 1 — Definir el rol/permiso

@@ -74,7 +74,9 @@ public ResponseEntity<Page<MemberDto>> list(
 
 ### Response shape
 
-> **Corrección 2026-10-08:** no hay ninguna `PropertyNamingStrategy` configurada en `JacksonConfig` — el ejemplo de abajo en `snake_case` **nunca fue real**. Los controllers devuelven `Page<Dto>` de Spring Data directamente (ver p. ej. `PublicCatalogsController`/`AdminCatalogsController`), serializado con las keys en **camelCase**. Ver [ADR 0019 cross-stack](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md). La forma exacta que produce Jackson para `Page<T>` (si incluye `pageable`, `sort`, etc.) no quedó verificada en runtime — confirmar contra una respuesta real antes de documentar un ejemplo nuevo acá.
+> **Corrección 2026-10-08:** no hay ninguna `PropertyNamingStrategy` configurada en `JacksonConfig` — el ejemplo de abajo en `snake_case` **nunca fue real**. Los controllers devuelven `Page<Dto>` de Spring Data directamente (ver p. ej. `PublicCatalogsController`/`AdminCatalogsController`), serializado con las keys en **camelCase**. Ver [ADR 0019 cross-stack](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md).
+>
+> **Actualización 2026-10-09:** forma confirmada contra el contrato TypeScript del frontend (`optibienestar-360-frontend/app/types/admin.ts`, tipo `Page<T>`): `{content, totalElements, totalPages, size, number, numberOfElements, first, last, empty, appliedSort?}`. `appliedSort` (opcional) solo aparece en endpoints respaldados por `core.util.AppliedSortPage` — refleja el sort server-side aplicado por default en catálogos/`entity_config` cuando el cliente no pidió ninguno.
 
 ### Valores presentacionales — sufijo `_Display` ([hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md))
 
