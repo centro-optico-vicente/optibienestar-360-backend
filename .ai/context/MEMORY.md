@@ -9,7 +9,7 @@
 2. [`current-state.md`](current-state.md) — qué existe HOY
 3. [`../specs/01-package-structure.md`](../specs/01-package-structure.md) — estructura paquetes
 4. [`../specs/02-database.md`](../specs/02-database.md) — schema
-5. [`../checklist.md`](../checklist.md) — índice de tareas → [fase-0](../checklists/fase-0-bootstrap.md) · [fase-1](../checklists/fase-1-bootstrap-backend-spring-boot.md) · [fase-2](../checklists/fase-2-afiliaciones-y-membresias.md)
+5. [`../checklist.md`](../checklist.md) — índice de tareas → [fase-0](../checklists/fase-0-bootstrap.md) · [fase-1](../checklists/fase-1-bootstrap-backend-spring-boot.md) · ~~fase-2~~ **desactualizado** — usar `checklists/vertical-N-*.md` (ver nota en `checklist.md`)
 6. [`../checklist.md#dependencias-entre-verticales`](../checklist.md#dependencias-entre-verticales) — orden de ejecución por alcances
 
 ### "Voy a crear una entidad nueva"

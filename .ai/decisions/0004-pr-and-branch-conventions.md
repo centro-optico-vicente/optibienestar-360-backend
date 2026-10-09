@@ -24,11 +24,13 @@ Flujo correcto siempre:
 ```bash
 git checkout main
 git pull origin main
-git checkout -b <tipo>/<descripción-kebab-case>
+git switch -c <tipo>/<descripción-kebab-case> --no-track
 # ... cambios + commits locales ...
 git push -u origin <tipo>/<descripción-kebab-case>
 gh pr create
 ```
+
+> **`--no-track` es obligatorio** (ver `.ai/CLAUDE.md` y [ADR 0011 cross-stack](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0011-pr-and-branch-conventions.md)): sin él, `git checkout -b`/`git switch -c` desde una rama que ya trackea `origin/main` hereda ese upstream y un `git push` sin argumentos puede terminar empujando a `main` por accidente — el bug que originó la regla cero. Este ADR local es un espejo del hub ADR 0011, que es la fuente canónica.
 
 Para hotfixes, usar prefijo `hotfix/...` y PR de aprobación rápida — el costo extra es <1 min y mantiene la disciplina.
 
