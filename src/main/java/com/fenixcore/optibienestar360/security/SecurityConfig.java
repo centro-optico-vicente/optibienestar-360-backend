@@ -57,6 +57,17 @@ public class SecurityConfig {
 						.maxAgeInSeconds(31536000)
 						.includeSubDomains(true))
 					.cacheControl(Customizer.withDefaults())
+					// XSS mitigation for the Swagger UI HTML page (the JSON API itself isn't
+					// affected by CSP). 'unsafe-inline' on style/script is required by
+					// springdoc's bundled swagger-ui assets. See hub ADR 0024.
+					.contentSecurityPolicy(csp -> csp.policyDirectives(
+							"default-src 'self'; "
+							+ "script-src 'self' 'unsafe-inline'; "
+							+ "style-src 'self' 'unsafe-inline'; "
+							+ "img-src 'self' data:; "
+							+ "frame-ancestors 'none'; "
+							+ "base-uri 'self'"
+					))
 			)
 			.sessionManagement(session ->
 					session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)

@@ -1,289 +1,60 @@
 # 12 — Comisiones de promotores + referidos
 
 > Reglas de negocio en [hub `business-rules.md` sección "Comisiones"](../../../centro-optico-vicente/.ai/context/business-rules.md).
+>
+> **Reescrito parcial 2026-10-09** (ver [auditoría 2026-09-23](../../../centro-optico-vicente/.ai/notes/2026-09-23_audit.md)): este documento era enteramente ficticio — `Promoter.commissionRules` (JSONB), `Commission.payment` como UUID directo, `PayoutReportDTO.executePayout()`, y el `Referral`/`ReferralService` de abajo no existen así en el código. Se reescribió a fondo **la parte de pago/liquidación** (verificada contra `CommissionPayoutService.java`, 590 líneas, y `Commission.java`), que es la que integra con el modelo unificado de pagos (ADR 0023). **No se reescribió** el motor de tiers/jerarquía/bonos completo (`commission_tiers` V42, jerarquía de promotores V101-103, bonos V37, reglas competitivas ADR 0016) — eso es un sistema real y mucho más grande que merece su propia sesión de verificación dedicada, no una pasada rápida. La sección "Referrals" de abajo tampoco se verificó — el hub ADR 0013 ya documenta que el motor real usa `referrals` (V27) → `subsidies` (V41), no el `Referral`/`ReferralService` inventados que seguían acá.
 
-## Modelo
+## Modelo real de `Commission` (verificado, `Commission.java`)
 
-### Promoter
+Tabla `commissions` (V26) — "earnings ledger": una fila por evento de comisión generado por un pago. Campos reales:
 
-```java
-@Entity
-@Table(name = "promoters")
-public class Promoter extends BaseEntity {
-    @Id
-    @Column(name = "promoter_id")
-    private UUID id;
+- `promoter` (FK `Promoter`), `payment` (FK `Payment`, real entidad no UUID suelto), `member` (FK denormalizada desde `payment.membership.member` para no tener que hacer join cada vez).
+- `amount` + `currency`.
+- `commissionPct` XOR `flatAmount` (exactamente uno, CHECK `chk_commissions_pct_xor_flat`) — snapshot del cálculo al momento de generarse, no recalculado después si cambian las reglas vigentes.
+- `commissionTierId` es un `Long` suelto (sin FK formal todavía, según el propio comentario del código) — no se verificó el detalle de `commission_tiers` en esta pasada.
+- **Estados reales** (`CommissionStatus`): `PENDING`, `APPROVED`, `REJECTED`, `PAID`, `VOIDED`, `DISPUTED` — 6 valores, no los 3 (`PENDING`/`PAID`/`CANCELLED`) que decía este documento antes.
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+**No existe** `Promoter.commissionRules` (JSONB) ni el `type: PERSONAL/EMPRESARIAL/UNIVERSITARIO/COMUNITARIO` de este documento — el tipo de promotor es un catálogo de BD (`promoter_types`, V43), no un enum fijo con reglas embebidas; ver `domain-glossary.md` del hub para la corrección de taxonomía de planes y comisión.
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", length = 30, nullable = false)
-    private PromoterType type;  // USUARIO_FINAL, EMPRESARIAL, COMUNITARIO
+## Gate de aprobación comercial (verificado, `CommissionPayoutService` Javadoc)
 
-    @Column(name = "zone", length = 100)
-    private String zone;
+Antes de pagar, **gerencia comercial** debe aprobar — administración solo puede desembolsar lo ya aprobado:
 
-    @Column(name = "commission_rules", columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> commissionRules;
+- Las `Commission` deben estar `APPROVED` (una `PENDING` o `REJECTED` nunca entra al payout).
+- Los `PromoterHierarchyOverride` no tienen estado de aprobación propio — heredan: un override solo es pagable si la `Commission` raíz que lo financia (subiendo la cadena `source_override_id` hasta `source_commission_id`) ya está `APPROVED`.
+- Los `CommissionRetroactiveTopUp` no necesitan gate propio — solo se calculan a partir de comisiones/overrides ya `PAID`, así que la aprobación ya quedó satisfecha transitivamente.
+- El re-rating (ajuste de tier) corre **antes** de la revisión comercial, nunca después de `APPROVED` — para no cambiar en silencio un número que alguien ya firmó.
 
-    // ...
-}
-```
+## `CommissionPayoutService` — cierre de período real
 
-### Estructura JSON de `commission_rules`
+Dos operaciones reales, ambas en `AdminCommissionController` (base `/v1/admin/commissions`, permiso `COMMISSION_PAYOUT`):
 
-```json
-{
-  "by_plan_type": {
-    "PERSONAL":     { "type": "PERCENT", "value": 20 },
-    "EMPRESARIAL":  { "type": "PERCENT", "value": 15 },
-    "UNIVERSITARIO":{ "type": "FLAT", "value": 1.50 },
-    "COMUNITARIO":  { "type": "FLAT", "value": 1.50 }
-  }
-}
-```
+| Método | Endpoint | Qué hace |
+|---|---|---|
+| `execute(CommissionPayoutRequest, actorUuid)` | `POST /payout` | Cierra un **rango de fechas**: toma todas las `Commission` `APPROVED` + overrides/top-ups pagables del período, agrupa por promotor, marca todo `PAID`, genera CSV por promotor, envía email. |
+| `executeBySelection(CommissionPayoutBySelectionRequest, actorUuid)` | `POST /payout/by-selection` | Paga un **conjunto puntual** de `Commission` elegidas a mano desde la tabla de aprobación — rechaza la request entera (400) si alguna no está `APPROVED` (todo-o-nada, nunca "pagué algunas"). |
 
-Si falta una clave para algún tipo de plan, default `{ "type": "PERCENT", "value": 0 }` (no genera comisión).
+`CommissionPayoutRequest`: `periodStart`, `periodEnd`, `payoutReference` (obligatorio — referencia bancaria/Zelle que ata el pago a lo que se movió fuera del sistema), `dryRun` (preview sin escribir nada), `paymentMethod` (código de `payment_methods`, default `"OTHER"` si se omite).
 
-### Commission
+**Pagos reales `OUT` generados (V117-V120, no un simple cambio de estado):** por cada promotor, hasta 3 headers `Payment` con `direction=OUT` — uno por `payment_category` (`COMMISSION_REGULAR`, `HIERARCHY_OVERRIDE`, `RETROACTIVE_TOPUP`), porque `payments.payment_type_id` es un solo `PaymentCategory` por header y un batch puede mezclar conceptos. Cada uno con una `PaymentLine` usando el método pedido. El vínculo de vuelta a la comisión es la FK `payoutPayment` (V118); `payoutReference` (texto libre) se mantiene en paralelo, no reemplazado.
 
-```java
-@Entity
-@Table(name = "commissions")
-public class Commission extends BaseEntity {
-    @Id
-    @Column(name = "commission_id")
-    private UUID id;
+**Caso especial `INSTITUCION`:** el promotor-sistema `INSTITUCION` no tiene `Promoter.person` (nullable, V25) — pero `payments.person_id` es `NOT NULL`, así que **no se le puede crear un `Payment` de payout**. Sus filas igual se marcan `PAID` vía `payoutReference`, pero `payoutPayment` queda `null` — el único caso donde el vínculo real es estructuralmente imposible, no solo no implementado.
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "promoter_id", nullable = false)
-    private Promoter promoter;
+**Trade-off conocido de moneda (v1):** el servicio agrupa y suma por promotor asumiendo una sola moneda por batch — un batch mixto (algunas comisiones en USD, otras en VES para el mismo promotor) se suma bajo la primera moneda que aparece. Aceptado porque v1 solo produce comisiones en USD (default V26); si llega multi-moneda en v2, hay que partir por (promotor, moneda).
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id", nullable = false)
-    private Payment payment;
+**Fallos de email no revierten el pago**: los `UPDATE` en BD se confirman antes de mandar los correos; si el email falla, la fila queda igual `PAID`, el fallo se loguea y se refleja en la respuesta (`emailFailure`) — admin puede reenviar a mano.
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "membership_id", nullable = false)
-    private Membership membership;
+## Lo que NO se verificó en esta pasada (pendiente de sesión dedicada)
 
-    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal amount;
-
-    @Column(name = "cycle_end")
-    private LocalDate cycleEnd;
-
-    @Column(name = "paid_at")
-    private Instant paidAt;
-
-    // status: PENDING, PAID, CANCELLED
-}
-```
-
-## CommissionService
-
-```java
-@Service
-@RequiredArgsConstructor
-public class CommissionService {
-
-    private final CommissionRepository commissionRepository;
-    private final PaymentRepository paymentRepository;
-
-    @Transactional
-    public Commission createForInitialPayment(Payment payment) {
-        Member member = payment.getMembership().getMember();
-        Promoter promoter = member.getPromoter();
-        if (promoter == null) return null;
-
-        Plan plan = payment.getMembership().getPlan();
-        Map<String, Object> rules = promoter.getCommissionRules();
-        Map<String, Object> rule = (Map<String, Object>) ((Map) rules.get("by_plan_type")).get(plan.getType().name());
-        if (rule == null) return null;
-
-        BigDecimal amount = calculateAmount(payment.getAmount(), rule);
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) return null;
-
-        Commission c = new Commission();
-        c.setPromoter(promoter);
-        c.setPayment(payment);
-        c.setMembership(payment.getMembership());
-        c.setAmount(amount);
-        c.setStatus("PENDING");
-        return commissionRepository.save(c);
-    }
-
-    private BigDecimal calculateAmount(BigDecimal paymentAmount, Map<String, Object> rule) {
-        String type = (String) rule.get("type");
-        BigDecimal value = new BigDecimal(rule.get("value").toString());
-        return switch (type) {
-            case "PERCENT" -> paymentAmount.multiply(value).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            case "FLAT" -> value;
-            default -> BigDecimal.ZERO;
-        };
-    }
-}
-```
-
-## Cierre de ciclo (payout)
-
-`POST /v1/admin/commissions/payout?cycle_end=2026-05-31`:
-
-```java
-@PostMapping("/payout")
-@PreAuthorize("hasAuthority('COMMISSION_PAYOUT')")
-public PayoutReportDTO payout(@RequestParam @FutureOrPresent LocalDate cycleEnd) {
-    return service.executePayout(cycleEnd);
-}
-```
-
-```java
-@Transactional
-public PayoutReportDTO executePayout(LocalDate cycleEnd) {
-    List<Commission> pending = commissionRepository.findByStatusAndCreatedAtLessThanEqual(
-        "PENDING", cycleEnd.atTime(23, 59, 59).toInstant(ZoneOffset.UTC)
-    );
-
-    Instant now = Instant.now();
-    for (Commission c : pending) {
-        c.setStatus("PAID");
-        c.setCycleEnd(cycleEnd);
-        c.setPaidAt(now);
-    }
-
-    // Generar reporte por promotor
-    Map<Promoter, List<Commission>> byPromoter = pending.stream()
-        .collect(Collectors.groupingBy(Commission::getPromoter));
-
-    List<PayoutReportItem> items = byPromoter.entrySet().stream()
-        .map(e -> new PayoutReportItem(
-            e.getKey().getId(),
-            e.getKey().getUser().getFullName(),
-            e.getValue().stream().map(Commission::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add),
-            e.getValue().size()
-        ))
-        .toList();
-
-    // Enviar emails con resumen a cada promotor
-    for (PayoutReportItem item : items) {
-        notificationService.enqueue(/* template "commission-payout" */);
-    }
-
-    return new PayoutReportDTO(cycleEnd, items, pending.size());
-}
-```
-
-## Endpoints
-
-| Endpoint | Método | Rol | Descripción |
-|---|---|---|---|
-| `/v1/admin/promoters` | GET, POST | OPERADOR | CRUD promotores |
-| `/v1/admin/promoters/{id}` | GET, PUT, DELETE | OPERADOR | CRUD |
-| `/v1/admin/commissions` | GET | OPERADOR | Listado con RSQL |
-| `/v1/admin/commissions/payout` | POST | ADMINISTRADOR | Cierre de ciclo |
-| `/v1/admin/commissions/export?cycle_end=...` | GET | OPERADOR | CSV/XLSX |
-| `/v1/promoter/dashboard` | GET | PROMOTOR | Vista propia |
-| `/v1/promoter/commissions` | GET | PROMOTOR | Comisiones propias |
-| `/v1/promoter/members` | GET | PROMOTOR | Sus afiliados |
-
-## Referrals (códigos de referido)
-
-### Referral entity
-
-```java
-@Entity
-@Table(name = "referrals")
-public class Referral extends BaseEntity {
-    @Id
-    @Column(name = "referral_id")
-    private UUID id;
-
-    @Column(name = "referral_code", nullable = false, unique = true, length = 20)
-    private String referralCode;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "referrer_member_id", nullable = false)
-    private Member referrerMember;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "referred_member_id")
-    private Member referredMember;  // null hasta que se use
-
-    @Column(name = "reward_type", nullable = false, length = 30)
-    private String rewardType;  // DISCOUNT_PERCENT, FLAT_AMOUNT
-
-    @Column(name = "reward_value", nullable = false, precision = 12, scale = 2)
-    private BigDecimal rewardValue;
-
-    @Column(name = "applied")
-    private Boolean applied = false;
-
-    @Column(name = "applied_at")
-    private Instant appliedAt;
-}
-```
-
-### ReferralService
-
-```java
-@Service
-@RequiredArgsConstructor
-public class ReferralService {
-
-    private final ReferralRepository repository;
-
-    public Referral generateCodeForMember(Member member) {
-        String code = generateUniqueCode(member);
-        Referral r = new Referral();
-        r.setReferralCode(code);
-        r.setReferrerMember(member);
-        r.setRewardType("DISCOUNT_PERCENT");
-        r.setRewardValue(BigDecimal.valueOf(10));  // 10% descuento default
-        r.setApplied(false);
-        return repository.save(r);
-    }
-
-    @Transactional
-    public void linkReferralOnSignup(Member newMember, String referralCode) {
-        Referral r = repository.findByReferralCodeAndAppliedFalse(referralCode)
-            .orElseThrow(() -> new BusinessRuleException("Referral code not valid"));
-        r.setReferredMember(newMember);
-    }
-
-    @Transactional
-    public void applyReward(Referral referral) {
-        if (referral.getApplied()) return;
-        // aplicar el premio al referrer:
-        // si DISCOUNT_PERCENT: aplicar descuento en próxima mensualidad
-        // si FLAT_AMOUNT: acreditar saldo o pagar en próximo payout
-        referral.setApplied(true);
-        referral.setAppliedAt(Instant.now());
-
-        notificationService.enqueue(/* template "referral-reward" */);
-    }
-
-    private String generateUniqueCode(Member member) {
-        // ej. primer apellido + 4 dígitos random únicos
-        String prefix = member.getFullName().split(" ")[0].toUpperCase().substring(0, Math.min(5, member.getFullName().length()));
-        for (int i = 0; i < 10; i++) {
-            String candidate = prefix + ThreadLocalRandom.current().nextInt(1000, 9999);
-            if (!repository.existsByReferralCode(candidate)) return candidate;
-        }
-        throw new IllegalStateException("Cannot generate unique referral code");
-    }
-}
-```
-
-## Reportes
-
-- Por promotor: total comisiones (PENDING vs PAID), número de afiliados captados
-- Por mes: total comisiones generadas, total pagado
-- Top 10 promotores del mes
+- El motor completo de `commission_tiers` (V42, bandas por monto), `commission_bonus_rules` (V37, bonos por escala), jerarquía de promotores (`PromoterHierarchyOverride`, V101-103) y reglas competitivas (ADR 0016) — existen y están en uso (confirmado indirectamente por el gate de aprobación de arriba), pero su lógica de cálculo exacta no se leyó línea por línea en esta sesión.
+- `HierarchyOverrideService.cascadeFrom()` — se sabe que existe y que lo dispara `PaymentsService.attributeCommission()` al aprobar un pago `IN`, pero su algoritmo de cascada no se detalla acá.
+- La sección "Referrals" original de este documento (`Referral`/`ReferralService`) — el hub [ADR 0013](../../../centro-optico-vicente/.ai/decisions/0013-incentives-engine-v3.md) ya documenta que el motor real es `referrals` (V27) → `subsidies` (V41), pero la implementación detallada no se verificó acá; se elimina el modelo inventado en vez de dejarlo como si fuera real.
 
 ## Referencias
 
 - [hub `business-rules.md`](../../../centro-optico-vicente/.ai/context/business-rules.md)
-- [11-billing-manual.md](11-billing-manual.md) — cuándo se crea la comisión
+- [hub ADR 0013 — Motor de incentivos v3](../../../centro-optico-vicente/.ai/decisions/0013-incentives-engine-v3.md)
+- [hub ADR 0016 — Reglas de comisión competitivas](../../../centro-optico-vicente/.ai/decisions/0016-competitive-commission-rules.md)
+- [hub ADR 0017 — Base de comisión neta](../../../centro-optico-vicente/.ai/decisions/0017-net-commission-base-and-portfolio-reassignment.md)
+- [hub ADR 0023 — Modelo unificado de pagos](../../../centro-optico-vicente/.ai/decisions/0023-unified-payments-model-reality.md)
+- [11-billing-manual.md](11-billing-manual.md) — cuándo se crea la comisión (`PaymentsService.attributeCommission`)
