@@ -1,5 +1,7 @@
 # Playbook — Agregar nuevo rol o permiso
 
+> **Reescrito 2026-10-10** contra el código real (ver [auditoría 2026-09-23](../notes/2026-09-23_audit.md), recomendación #4) — el SQL de ejemplo usaba `UUID` como PK de `roles`/`permissions`/`role_permissions`; la real es `BIGINT` identity + `uuid` separado (ver `V5__users_and_roles.sql`, `V6__seed_roles.sql`). También se documenta el trigger de auto-grant a `SYSTEM` (V30) que esta versión anterior no mencionaba.
+
 > Para agregar un rol nuevo al sistema o ampliar permisos de uno existente.
 
 ## Cuándo
@@ -23,46 +25,45 @@ Permisos: todos los del rol OPERADOR + MEDICAL_RECORD_VIEW + MEDICAL_RECORD_UPDA
 
 ## Paso 2 — Migración Flyway
 
+Esquema real (`V5__users_and_roles.sql`): `roles`/`permissions` tienen PK `BIGINT` (`roles_id`/`permissions_id`) + `uuid` separado, columna `name` (no `code`), y **no** tienen columna `status` (solo `is_active`). `role_permissions` es una tabla pivot pura — sin `is_active`/`status`, solo audit columns. `permissions.domain_id` es obligatorio (FK a `permission_domains`, ver `new-entity.md` Paso 7). El patrón real completo de agregar permisos nuevos está en `V119__payment_catalogs_permissions_and_audit.sql`.
+
 ```sql
--- V{N}__add_role_OPERADOR_MEDICO.sql
+-- V{N}__add_role_operador_medico.sql
+SET search_path TO app, public;
 
--- Insertar nuevo permiso si no existe
-INSERT INTO permissions (permission_id, code, description, is_active, status, created_at, updated_at)
-VALUES (gen_random_uuid(), 'MEDICAL_RECORD_VIEW', 'View medical records', TRUE, 'ACTIVE', NOW(), NOW())
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO permissions (permission_id, code, description, is_active, status, created_at, updated_at)
-VALUES (gen_random_uuid(), 'MEDICAL_RECORD_UPDATE', 'Update medical records', TRUE, 'ACTIVE', NOW(), NOW())
-ON CONFLICT (code) DO NOTHING;
+-- Insertar permisos nuevos (domain_id resuelto por code del dominio existente)
+INSERT INTO permissions (name, domain_id, description)
+SELECT v.name, pd.permission_domains_id, v.description
+FROM (VALUES
+    ('MEDICAL_RECORD_VIEW',   'MEMBERS', 'Ver antecedentes médicos'),
+    ('MEDICAL_RECORD_UPDATE', 'MEMBERS', 'Actualizar antecedentes médicos')
+) AS v(name, domain_code, description)
+JOIN permission_domains pd ON pd.code = v.domain_code
+ON CONFLICT (name) DO NOTHING;
 
 -- Insertar nuevo rol
-INSERT INTO roles (role_id, code, name, description, is_active, status, created_at, updated_at)
-VALUES (gen_random_uuid(), 'OPERADOR_MEDICO', 'Operador Médico', 'Operador con acceso a antecedentes médicos', TRUE, 'ACTIVE', NOW(), NOW())
-ON CONFLICT (code) DO NOTHING;
+INSERT INTO roles (name, description)
+VALUES ('OPERADOR_MEDICO', 'Operador con acceso a antecedentes médicos')
+ON CONFLICT (name) DO NOTHING;
 
--- Asignar todos los permisos de OPERADOR al nuevo rol
-INSERT INTO role_permissions (role_permission_id, role_id, permission_id, is_active, status, created_at, updated_at)
-SELECT
-    gen_random_uuid(),
-    (SELECT role_id FROM roles WHERE code = 'OPERADOR_MEDICO'),
-    permission_id,
-    TRUE, 'ACTIVE', NOW(), NOW()
+-- Copiar todos los permisos de OPERADOR al nuevo rol
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT (SELECT roles_id FROM roles WHERE name = 'OPERADOR_MEDICO'), rp.permission_id
 FROM role_permissions rp
-JOIN roles r ON rp.role_id = r.role_id
-WHERE r.code = 'OPERADOR'
+JOIN roles r ON rp.role_id = r.roles_id
+WHERE r.name = 'OPERADOR'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- Adicionalmente, los permisos específicos del nuevo rol
-INSERT INTO role_permissions (role_permission_id, role_id, permission_id, is_active, status, created_at, updated_at)
-SELECT
-    gen_random_uuid(),
-    (SELECT role_id FROM roles WHERE code = 'OPERADOR_MEDICO'),
-    p.permission_id,
-    TRUE, 'ACTIVE', NOW(), NOW()
-FROM permissions p
-WHERE p.code IN ('MEDICAL_RECORD_VIEW', 'MEDICAL_RECORD_UPDATE')
+-- Más los permisos específicos del nuevo rol
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.roles_id, p.permissions_id
+FROM roles r CROSS JOIN permissions p
+WHERE r.name = 'OPERADOR_MEDICO'
+  AND p.name IN ('MEDICAL_RECORD_VIEW', 'MEDICAL_RECORD_UPDATE')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 ```
+
+**`SYSTEM` no necesita que se lo mencione acá** — un trigger (`trg_permissions_grant_system`, `V30__system_role_permission_autosync.sql`) le auto-otorga cualquier permiso nuevo insertado, de ahora en más, sin que ninguna migración futura tenga que recordarlo. El nuevo ROL `OPERADOR_MEDICO` sí hay que crearlo y asignarle permisos explícitamente — el trigger solo cubre permisos nuevos hacia `SYSTEM`, no roles nuevos.
 
 ## Paso 3 — Aplicar `@PreAuthorize` en endpoints
 
@@ -81,16 +82,19 @@ public MedicalRecordDTO update(@PathVariable UUID memberId, @Valid @RequestBody 
 }
 ```
 
-## Paso 4 — Audit log obligatorio para acciones sensibles
+## Paso 4 — Audit log para acciones sensibles
 
-Si el rol/permiso afecta datos sensibles (médicos, financieros), agregar audit:
+**Corrección:** `@Auditable` (ver `new-entity.md` Paso 5) solo cubre `AuditAction.CREATE/UPDATE/DELETE` — no existe una anotación `@AuditAction` standalone, y **no hay auditoría automática de lectura (VIEW)** en el mecanismo actual. Prueba real: `MedicalRecordService.getForMember()` (lectura) no tiene ningún `@Auditable`; solo `update()` y `delete()` lo llevan:
 
 ```java
-@AuditAction(action = "MEDICAL_RECORD_VIEW", entity = "MedicalRecord")
-public MedicalRecordDTO findByMemberId(UUID memberId) {
-    // ...
-}
+@Auditable(entity = "medical_record", action = AuditAction.UPDATE)
+public MedicalRecordDto update(UUID memberUuid, MedicalRecordUpsertRequest req) { /* ... */ }
+
+@Auditable(entity = "medical_record", action = AuditAction.DELETE, uuidArgIndex = 0)
+public void delete(UUID memberUuid) { /* ... */ }
 ```
+
+Si el rol/permiso nuevo necesita auditar también el **acceso de lectura** a datos sensibles (no solo mutaciones), hoy no hay un mecanismo genérico para eso — es una decisión de diseño nueva (ej. loguear manualmente en el service, o extender `AuditAction` con un valor `VIEW` y el aspecto que lo intercepta), no algo que se pueda copiar de un ejemplo existente.
 
 ## Paso 5 — Tests
 

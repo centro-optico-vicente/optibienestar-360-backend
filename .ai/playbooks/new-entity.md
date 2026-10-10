@@ -1,161 +1,134 @@
 # Playbook — Nueva entidad backend
 
+> **Reescrito 2026-10-10** contra el código real (ver [auditoría 2026-09-23](../notes/2026-09-23_audit.md), recomendación #4) — la versión anterior enseñaba PK `UUID` simple, `JpaRepository<E, UUID>` y `hasAnyRole(...)`, los tres obsoletos. Patrón de referencia real usado para este rewrite: `modules/payment/entity/PaymentCategory.java` + su repositorio, servicio, controller y DTO, más `core/entity/BaseEntity.java` y la migración `V119__payment_catalogs_permissions_and_audit.sql`.
+
 > Paso a paso para crear una entidad de dominio completa: schema + entity + repo + service + DTO + mapper + controller + tests.
 
 ## Pre-requisitos
 
 - [ ] Confirmar que la entidad pertenece al modelo definido en [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domain-model.md). Si no está, agregarlo al modelo primero.
-- [ ] Identificar el módulo donde va (`modules/{nombre}`). Si es módulo nuevo, crear estructura `entity/repository/service/controller/dto/mapper/`.
-- [ ] Confirmar convenciones cross-stack en [ADR 0006 table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md).
+- [ ] Identificar el módulo donde va (`modules/{nombre}`). Si es módulo nuevo, crear estructura `entity/repository/service/dto/`.
+- [ ] Confirmar convenciones cross-stack en [ADR 0006 table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md) — identificador dual `BIGINT` interno + `uuid` externo, **no** UUID como PK.
 
 ## Paso 1 — Migración Flyway
 
 Ver [`new-migration.md`](new-migration.md).
 
 ```sql
--- V{N}__{module}_{table}.sql
-CREATE TABLE example_things (
-    example_thing_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- specific columns
-    name VARCHAR(200) NOT NULL,
-    code CITEXT NOT NULL UNIQUE,
-    description TEXT,
-    -- audit + status (obligatorios por ADR 0006)
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by UUID NULL REFERENCES users(user_id),
-    updated_by UUID NULL REFERENCES users(user_id),
-    -- constraints
+-- V{N}__{module}_{table}.sql (patrón real: V115__payment_categories_and_methods.sql)
+CREATE TABLE example_things
+(
+    example_things_id BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uuid               UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+
+    name               VARCHAR(200) NOT NULL,
+    code               VARCHAR(40)  NOT NULL UNIQUE,
+    description        VARCHAR(255),
+
+    -- audit + soft-delete (obligatorios por ADR 0006)
+    is_active          BOOLEAN      NOT NULL DEFAULT TRUE,
+    status             VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE', -- omitir esta columna si la entidad no necesita workflow de estados (ver BaseAuditEntity abajo)
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by         UUID,
+    updated_by         UUID,
+
     CONSTRAINT ck_example_things_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
-CREATE INDEX idx_example_things_code ON example_things(code);
-CREATE INDEX idx_example_things_status ON example_things(status) WHERE is_active = TRUE;
+CREATE INDEX idx_example_things_code ON example_things (code);
 
--- Trigger para updated_at (función set_updated_at() ya existe desde V2)
-CREATE TRIGGER trg_example_things_before_update_set_updated_at
+CREATE TRIGGER trg_example_things_updated_at
     BEFORE UPDATE ON example_things
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
+**Nota sobre la PK:** el nombre de la columna PK es el nombre de la tabla completo, en plural (`example_things_id`, no `example_thing_id`) — así lo hacen las 175+ migraciones reales. El `uuid` es una columna aparte, nunca la PK.
+
 ## Paso 2 — Entity JPA
 
-`modules/example/entity/ExampleThing.java`:
+`modules/example/entity/ExampleThing.java` (patrón real: `PaymentCategory.java`):
 
 ```java
-@Entity
-@Table(name = "example_things")
 @Getter
 @Setter
 @NoArgsConstructor
+@Entity
+@Table(name = "example_things")
+@AttributeOverride(name = "id", column = @Column(name = "example_things_id", nullable = false, updatable = false))
 public class ExampleThing extends BaseEntity {
 
-    @Id
-    @Column(name = "example_thing_id", updatable = false, nullable = false)
-    private UUID id;
-
-    @Column(name = "name", nullable = false, length = 200)
-    private String name;
-
-    @Column(name = "code", nullable = false, columnDefinition = "citext")
+    @Column(length = 40, unique = true, nullable = false)
     private String code;
 
-    @Column(name = "description", columnDefinition = "text")
-    private String description;
+    @Column(length = 200, nullable = false)
+    private String name;
 
-    // BaseEntity provee: isActive, status, createdAt, updatedAt, createdBy, updatedBy
+    @Column(length = 255)
+    private String description;
 }
 ```
 
+`BaseEntity` (`core/entity/BaseEntity.java`) ya provee: `id` (`Long`, `@Id @GeneratedValue(IDENTITY)`), `uuid`, `active` (mapea a `is_active`), `status` (default `"ACTIVE"`), `createdAt`/`updatedAt`/`createdBy`/`updatedBy` vía Spring Data JPA Auditing, y auto-asigna el `uuid` en `@PrePersist` como fallback de JVM (en producción lo genera la BD). Si la tabla **no** necesita la columna `status` (es un catálogo sin workflow de estados, solo activo/inactivo), extender `BaseAuditEntity` en vez de `BaseEntity` — es idéntica salvo que no tiene el campo `status` (ver `core/audit/entity/EntityConfig.java` como ejemplo real que no lo necesita).
+
 **Notas:**
-- Usar Lombok (`@Getter`, `@Setter`, etc.) o records si aplica
-- `FetchType.LAZY` default para relaciones (no especificar a menos que cambies a EAGER por buena razón)
-- Para enums: `@Enumerated(EnumType.STRING)` siempre (nunca ORDINAL)
+- `FetchType.LAZY` default para relaciones (no especificar a menos que cambies a EAGER por buena razón).
+- Para enums: `@Enumerated(EnumType.STRING)` siempre (nunca ORDINAL), o preferir `String` + `CHECK` en BD si el set de valores puede crecer sin deploy (patrón real: `PaymentCategory.direction`).
 
 ## Paso 3 — Repository
 
-`modules/example/repository/ExampleThingRepository.java`:
+`modules/example/repository/ExampleThingRepository.java` (patrón real: `PaymentCategoryRepository.java`):
 
 ```java
-public interface ExampleThingRepository
-        extends JpaRepository<ExampleThing, UUID>,
-                JpaSpecificationExecutor<ExampleThing> {
+@Transactional(readOnly = true)
+public interface ExampleThingRepository extends JpaRepository<ExampleThing, Long>, JpaSpecificationExecutor<ExampleThing> {
 
-    Optional<ExampleThing> findByCodeAndIsActiveTrue(String code);
+    Optional<ExampleThing> findByUuid(UUID uuid);
 
-    boolean existsByCode(String code);
+    /** Natural-key lookup — para servicios que resuelven un code hardcodeado a la entidad. */
+    Optional<ExampleThing> findByCode(String code);
 
-    // Métodos custom con @Query si hace falta:
-    // @Query("SELECT e FROM ExampleThing e WHERE ...")
+    List<ExampleThing> findAllByActiveTrueOrderByName();
 }
 ```
+
+**Nunca** `JpaRepository<ExampleThing, UUID>` — el tipo de PK para JPA es siempre `Long`. El `uuid` es solo un campo más de la entidad, resuelto vía `findByUuid`.
 
 ## Paso 4 — DTOs
 
 `modules/example/dto/`:
 
 ```java
-// Para crear
-public record ExampleThingCreateDTO(
-    @NotBlank @Size(max = 200) String name,
-    @NotBlank @Pattern(regexp = "^[A-Z0-9_]{3,50}$") String code,
-    @Size(max = 2000) String description
-) {}
-
-// Para actualizar
-public record ExampleThingUpdateDTO(
-    @Size(max = 200) String name,
-    @Size(max = 2000) String description,
-    String status
-) {}
-
-// Para listar
-public record ExampleThingListItemDTO(
-    UUID id,
-    String name,
+public record ExampleThingDto(
+    UUID uuid,
     String code,
-    String status,
-    Instant createdAt
-) {}
-
-// Para detalle
-public record ExampleThingDetailDTO(
-    UUID id,
     String name,
-    String code,
     String description,
-    String status,
-    Boolean isActive,
-    Instant createdAt,
-    Instant updatedAt,
-    UUID createdBy,
-    UUID updatedBy
+    @Display(Display.Kind.BOOLEAN) boolean active
+) {}
+
+public record ExampleThingCreateRequest(
+    @NotBlank @Size(max = 40) String code,
+    @NotBlank @Size(max = 200) String name,
+    @Size(max = 255) String description
+) {}
+
+public record ExampleThingUpdateRequest(
+    @NotBlank @Size(max = 200) String name,
+    @Size(max = 255) String description,
+    Boolean active
 ) {}
 ```
 
-## Paso 5 — Mapper (MapStruct)
+**Convención `_Display` (hub ADR 0014, implementada en `core/display/`):** cualquier campo FK o valor presentacional que el frontend deba mostrar formateado/traducido se anota `@Display`. Dos formas (ver Javadoc de `core/display/Display.java` para el detalle completo, no copiar sin leerlo):
+- **FK:** el campo es un `DisplayRef` (o lleva `@Display(fk = "...")`) — en el JSON de salida se aplana a `<nombre>_Uuid` + `<nombre>_Display`.
+- **Escalar presentacional** (fecha, monto, enum, boolean): el campo se queda con su tipo real y se agrega `<nombre>_Display` al lado, resuelto por `Locale` en `DisplayFormatter`.
 
-`modules/example/mapper/ExampleThingMapper.java`:
+Las keys JSON van en **camelCase** (no snake_case) — ver [ADR 0019 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md). No hay MapStruct en el código real revisado para este playbook — el mapeo a DTO se hace con un método estático simple en el service (ver Paso 6); usar MapStruct si el módulo ya lo tiene, pero no es obligatorio.
 
-```java
-@Mapper(componentModel = "spring")
-public interface ExampleThingMapper {
+## Paso 5 — Service
 
-    ExampleThing toEntity(ExampleThingCreateDTO dto);
-
-    ExampleThingDetailDTO toDetail(ExampleThing entity);
-
-    ExampleThingListItemDTO toListItem(ExampleThing entity);
-
-    void updateEntity(ExampleThingUpdateDTO dto, @MappingTarget ExampleThing entity);
-}
-```
-
-## Paso 6 — Service
-
-`modules/example/service/ExampleThingService.java`:
+`modules/example/service/ExampleThingService.java` (patrón real: `PaymentCategoryService.java`):
 
 ```java
 @Service
@@ -163,111 +136,192 @@ public interface ExampleThingMapper {
 @Transactional(readOnly = true)
 public class ExampleThingService {
 
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name");
+    private static final String[] SEARCHABLE_FIELDS = {"code", "name"};
+    private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
+            SortFieldValidator.sortableFieldsOf(ExampleThing.class, Map.of());
+
     private final ExampleThingRepository repository;
-    private final ExampleThingMapper mapper;
+    private final DefaultSortResolver defaultSortResolver;
 
-    public Page<ExampleThingListItemDTO> findAll(Specification<ExampleThing> spec, Pageable pageable) {
-        return repository.findAll(spec, pageable).map(mapper::toListItem);
-    }
-
-    public ExampleThingDetailDTO findById(UUID id) {
-        ExampleThing entity = repository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("ExampleThing", id));
-        return mapper.toDetail(entity);
-    }
-
-    @Transactional
-    public ExampleThingDetailDTO create(ExampleThingCreateDTO dto) {
-        if (repository.existsByCode(dto.code())) {
-            throw new BusinessRuleException("Code already exists: " + dto.code());
+    public Page<ExampleThingDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("example_thing", pageable);
+        Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "example_thing");
+        Specification<ExampleThing> spec = includeInactive
+                ? (root, query, cb) -> cb.conjunction()
+                : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
+        if (filter != null && !filter.isBlank()) {
+            RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "example_thing.filter.field_not_allowed");
+            spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
-        ExampleThing entity = mapper.toEntity(dto);
-        entity.setStatus("ACTIVE");
-        ExampleThing saved = repository.save(entity);
-        return mapper.toDetail(saved);
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        return repository.findAll(spec, resolvedPageable).map(ExampleThingService::toDto);
+    }
+
+    /** Lightweight options para selects/dropdowns — ver `OptionsSupport`. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<ExampleThing> spec = ((Specification<ExampleThing>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                ExampleThing::getUuid, ExampleThing::getCode, ExampleThing::getName, ExampleThing::isActive);
+    }
+
+    public ExampleThingDto get(UUID uuid) {
+        return toDto(find(uuid));
     }
 
     @Transactional
-    public ExampleThingDetailDTO update(UUID id, ExampleThingUpdateDTO dto) {
-        ExampleThing entity = repository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("ExampleThing", id));
-        mapper.updateEntity(dto, entity);
-        return mapper.toDetail(entity);
+    @Auditable(entity = "example_thing", action = AuditAction.CREATE)
+    public ExampleThingDto create(ExampleThingCreateRequest req) {
+        ExampleThing e = new ExampleThing();
+        e.setCode(req.code());
+        e.setName(req.name());
+        e.setDescription(req.description());
+        return toDto(repository.save(e));
     }
 
     @Transactional
-    public void softDelete(UUID id) {
-        ExampleThing entity = repository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("ExampleThing", id));
-        entity.setIsActive(false);
-        // Nunca repository.delete()
+    @Auditable(entity = "example_thing", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public ExampleThingDto update(UUID uuid, ExampleThingUpdateRequest req) {
+        ExampleThing e = find(uuid);
+        e.setName(req.name());
+        e.setDescription(req.description());
+        if (req.active() != null) e.setActive(req.active());
+        return toDto(repository.save(e));
+    }
+
+    /** Soft-delete únicamente. Nunca `repository.delete()`. */
+    @Transactional
+    @Auditable(entity = "example_thing", action = AuditAction.DELETE, uuidArgIndex = 0)
+    public void delete(UUID uuid) {
+        ExampleThing e = find(uuid);
+        e.setActive(false);
+        repository.save(e);
+    }
+
+    private ExampleThing find(UUID uuid) {
+        return repository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("ExampleThing not found: " + uuid));
+    }
+
+    static ExampleThingDto toDto(ExampleThing e) {
+        return new ExampleThingDto(e.getUuid(), e.getCode(), e.getName(), e.getDescription(), e.isActive());
     }
 }
 ```
 
-## Paso 7 — Controller
+**`@Auditable`** (`core/audit/Auditable.java`) marca un método de servicio para que `DataChangeAuditAspect` lo intercepte. El `entity` **debe existir** como fila en `entity_config` (ver Paso 7) o el aspecto se salta la auditoría silenciosamente (fail-safe, no bloquea la operación de negocio). `uuidArgIndex` indica qué argumento del método es el UUID de la entidad modificada (`-1`, el default, para CREATE — el UUID se resuelve del DTO devuelto).
 
-`modules/example/controller/ExampleThingController.java`:
+**Sort por defecto configurable:** `DefaultSortResolver` + `entity_config.default_sort` permiten que un admin configure el orden por defecto de un listado sin deploy (sin esto, el default hardcodeado es `createdAt DESC`). Registrar la entidad en `entity_config` (Paso 7) para habilitarlo — si no se registra, el listado simplemente usa el default hardcodeado, no es obligatorio para que la entidad funcione.
+
+## Paso 6 — Controller
+
+`modules/example/controller/AdminExampleThingController.java` (patrón real: `AdminPaymentCategoryController.java`):
 
 ```java
 @RestController
 @RequestMapping("/v1/admin/example-things")
 @RequiredArgsConstructor
-@Tag(name = "ExampleThings")
-@PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
-public class ExampleThingController {
+public class AdminExampleThingController {
+
+    private static final String VIEW   = "hasAuthority('EXAMPLE_THING_VIEW_ALL')";
+    private static final String CREATE = "hasAuthority('EXAMPLE_THING_CREATE')";
+    private static final String UPDATE = "hasAuthority('EXAMPLE_THING_UPDATE')";
+    private static final String DELETE = "hasAuthority('EXAMPLE_THING_DELETE')";
 
     private final ExampleThingService service;
 
     @GetMapping
-    @Operation(summary = "List example things with RSQL filters")
-    public Page<ExampleThingListItemDTO> findAll(
-        @RequestParam(required = false) String filter,
-        @PageableDefault(size = 20) Pageable pageable
-    ) {
-        Specification<ExampleThing> spec = RSQLJPASupport.toSpecification(filter);
-        return service.findAll(spec, pageable);
+    @PreAuthorize(VIEW)
+    public ResponseEntity<AppliedSortPage<ExampleThingDto>> list(
+            @PageableDefault(size = 50) Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        Page<ExampleThingDto> page = service.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 
-    @GetMapping("/{id}")
-    public ExampleThingDetailDTO findById(@PathVariable UUID id) {
-        return service.findById(id);
-    }
-
-    // Obligatorio (ADR 0013) — ver spec 06-rest-api.md § "Endpoint /options para selects"
     @GetMapping("/options")
-    public List<OptionDto> options(
-        @RequestParam(required = false) String q,
-        @RequestParam(required = false, defaultValue = "50") int limit,
-        @RequestParam(required = false) List<UUID> currentValues
-    ) {
-        return service.listOptions(q, limit, currentValues);
+    @PreAuthorize(VIEW)
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
+    }
+
+    @GetMapping("/{uuid}")
+    @PreAuthorize(VIEW)
+    public ResponseEntity<ExampleThingDto> get(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(service.get(uuid));
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('EXAMPLE_THING_CREATE')")
-    public ExampleThingDetailDTO create(@Valid @RequestBody ExampleThingCreateDTO dto) {
-        return service.create(dto);
+    @PreAuthorize(CREATE)
+    public ResponseEntity<ExampleThingDto> create(@Valid @RequestBody ExampleThingCreateRequest req) {
+        ExampleThingDto created = service.create(req);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{uuid}").buildAndExpand(created.uuid()).toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('EXAMPLE_THING_UPDATE')")
-    public ExampleThingDetailDTO update(
-        @PathVariable UUID id,
-        @Valid @RequestBody ExampleThingUpdateDTO dto
-    ) {
-        return service.update(id, dto);
+    @PutMapping("/{uuid}")
+    @PreAuthorize(UPDATE)
+    public ResponseEntity<ExampleThingDto> update(@PathVariable UUID uuid, @Valid @RequestBody ExampleThingUpdateRequest req) {
+        return ResponseEntity.ok(service.update(uuid, req));
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('EXAMPLE_THING_DELETE')")
-    public void delete(@PathVariable UUID id) {
-        service.softDelete(id);
+    @DeleteMapping("/{uuid}")
+    @PreAuthorize(DELETE)
+    public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
+        service.delete(uuid);
+        return ResponseEntity.noContent().build();
     }
 }
 ```
+
+**Nunca** `@PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")` a nivel de clase — siempre `hasAuthority('PERMISO')` por endpoint. Los roles reales son `SYSTEM`, `ADMINISTRADOR`, `OPERADOR`, `OPERADOR_MEDICO`, `ALIADO`, `AFILIADO`, `PROMOTOR` (seed `V6__seed_roles.sql`) — pero el controller nunca referencia un rol directamente, solo permisos.
+
+## Paso 7 — Permisos y `entity_config`
+
+Patrón real completo: `V119__payment_catalogs_permissions_and_audit.sql`. Cada catálogo/entidad con pantalla admin propia recibe el **set estándar de 6 permisos**: `{ENTIDAD}_VIEW_ALL`, `_CREATE`, `_UPDATE`, `_DELETE`, `_RECORD_AUDIT_VIEW` (historial de cambios), `_REPORT_AUDIT_VIEW` (historial de reportes generados). Agregar `_REPORT_GENERATE` solo si la entidad tiene una feature real de generación de reportes (no por defecto).
+
+```sql
+-- V{N}__example_things_permissions.sql
+INSERT INTO entity_config (entity_key, display_name, table_name) VALUES
+    ('example_thing', 'Example Things', 'example_things')
+ON CONFLICT (entity_key) DO NOTHING;
+
+INSERT INTO permissions (name, domain_id, description)
+SELECT v.name, pd.permission_domains_id, v.description
+FROM (VALUES
+    ('EXAMPLE_THING_VIEW_ALL',          'CATALOGS', 'Ver el catálogo de example things'),
+    ('EXAMPLE_THING_CREATE',            'CATALOGS', 'Crear un example thing'),
+    ('EXAMPLE_THING_UPDATE',            'CATALOGS', 'Actualizar un example thing'),
+    ('EXAMPLE_THING_DELETE',            'CATALOGS', 'Desactivar un example thing'),
+    ('EXAMPLE_THING_RECORD_AUDIT_VIEW', 'CATALOGS', 'Ver el historial de cambios de un example thing'),
+    ('EXAMPLE_THING_REPORT_AUDIT_VIEW', 'CATALOGS', 'Ver el historial de reportes generados de example things')
+) AS v(name, domain_code, description)
+JOIN permission_domains pd ON pd.code = v.domain_code;
+
+-- ADMINISTRADOR recibe los permisos explícitamente. SYSTEM los recibe
+-- automáticamente vía el trigger de V30 (trg_permissions_grant_system) — no
+-- hace falta incluirlo acá, aunque hacerlo también es inofensivo (ON CONFLICT).
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.roles_id, p.permissions_id
+FROM roles r CROSS JOIN permissions p
+WHERE r.name = 'ADMINISTRADOR'
+  AND p.name IN ('EXAMPLE_THING_VIEW_ALL', 'EXAMPLE_THING_CREATE', 'EXAMPLE_THING_UPDATE',
+                 'EXAMPLE_THING_DELETE', 'EXAMPLE_THING_RECORD_AUDIT_VIEW', 'EXAMPLE_THING_REPORT_AUDIT_VIEW')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+```
+
+Usar un `domain_id`/`domain_code` de `permission_domains` existente si la entidad encaja en uno (ej. `CATALOGS`), o crear un dominio nuevo (`INSERT INTO permission_domains ...`) si es un área nueva — ver el ejemplo real `PAYMENT_CATALOG` en V119.
+
+Ver [`new-role.md`](new-role.md) para el detalle completo de roles/permisos.
 
 ## Paso 8 — Tests
 
@@ -282,10 +336,12 @@ class ExampleThingRepositoryTest {
     @Autowired ExampleThingRepository repo;
 
     @Test
-    void findByCodeAndIsActiveTrue_excludesInactive() {
-        ExampleThing inactive = ...; // setIsActive(false)
-        repo.save(inactive);
-        assertThat(repo.findByCodeAndIsActiveTrue("CODE")).isEmpty();
+    void findByCode_returnsEntity() {
+        ExampleThing e = new ExampleThing();
+        e.setCode("FOO");
+        e.setName("Foo");
+        repo.save(e);
+        assertThat(repo.findByCode("FOO")).isPresent();
     }
 }
 ```
@@ -296,29 +352,17 @@ class ExampleThingRepositoryTest {
 @ExtendWith(MockitoExtension.class)
 class ExampleThingServiceTest {
     @Mock ExampleThingRepository repo;
-    @Mock ExampleThingMapper mapper;
     @InjectMocks ExampleThingService service;
 
     @Test
-    void create_throwsIfCodeExists() {
-        when(repo.existsByCode("CODE")).thenReturn(true);
-        var dto = new ExampleThingCreateDTO("Name", "CODE", null);
-        assertThatThrownBy(() -> service.create(dto))
-            .isInstanceOf(BusinessRuleException.class);
+    void delete_softDeletesNotHardDeletes() {
+        ExampleThing e = new ExampleThing();
+        e.setActive(true);
+        when(repo.findByUuid(any())).thenReturn(Optional.of(e));
+        service.delete(UUID.randomUUID());
+        assertThat(e.isActive()).isFalse();
+        verify(repo, never()).delete(any());
     }
-}
-```
-
-### Test de `/options` con `currentValues` inactivo
-
-```java
-@Test @WithMockUser(authorities = "EXAMPLE_THING_VIEW_ALL")
-void options_includesInactiveCurrentValue() throws Exception {
-    ExampleThing inactive = ...; // setActive(false), guardado fuera del filtro/límite por defecto
-    mvc.perform(get("/v1/admin/example-things/options")
-            .param("currentValues", inactive.getUuid().toString()))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[?(@.uuid == '" + inactive.getUuid() + "')].active").value(false));
 }
 ```
 
@@ -328,7 +372,7 @@ void options_includesInactiveCurrentValue() throws Exception {
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-class ExampleThingControllerIT {
+class AdminExampleThingControllerIT {
     @Container static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:15");
 
     @Test @WithMockUser(authorities = "EXAMPLE_THING_CREATE")
@@ -336,55 +380,32 @@ class ExampleThingControllerIT {
         mvc.perform(post("/v1/admin/example-things")
                 .contentType(APPLICATION_JSON)
                 .content("""
-                    {"name": "Test", "code": "TEST", "description": null}
+                    {"code": "FOO", "name": "Foo", "description": null}
                 """))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").exists());
+            .andExpect(jsonPath("$.uuid").exists());
     }
 }
 ```
 
-## Paso 9 — Seguridad
+## Paso 9 — Documentación
 
-Si la entidad requiere permisos nuevos:
-1. Agregar permisos al seed (`V6__seed_roles.sql` solo si V6 aún no se aplicó en ningún entorno; si ya está aplicada, crear una migration nueva `V{N}__add_permission_EXAMPLE.sql`).
-2. Asignar a roles relevantes.
-3. Documentar en [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md).
-
-## Paso 10 — Documentación
-
-- [ ] Actualizar [`../context/current-state.md`](../context/current-state.md): "Entidad ExampleThing creada con CRUD completo".
+- [ ] Actualizar [`../context/current-state.md`](../context/current-state.md).
 - [ ] Marcar tarea en [`../checklist.md`](../checklist.md) con fecha.
 - [ ] Si introduce nuevo endpoint público, actualizar [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md).
 - [ ] Si introduce nuevo término del dominio, actualizar [hub `domain-glossary.md`](../../../centro-optico-vicente/.ai/context/domain-glossary.md).
 
-## Paso 11 — Commit
-
-```bash
-git add .
-git commit -m "feat(example): add ExampleThing entity with CRUD endpoints
-
-- Migration V{N}__example_things.sql
-- Entity + Repository + Service + DTOs + Mapper
-- Controller /v1/admin/example-things with RSQL filters
-- Unit tests + integration test
-
-Refs: .ai/checklist.md tarea X.Y"
-```
-
 ## Checklist final
 
-- [ ] Migración Flyway aplicada y validada
-- [ ] Entidad JPA con `@MappedSuperclass BaseEntity`
-- [ ] Repository extiende `JpaRepository + JpaSpecificationExecutor`
-- [ ] DTOs con validación
-- [ ] Mapper MapStruct
-- [ ] Service con `@Transactional` correcto (`readOnly = true` default)
-- [ ] Controller con `@PreAuthorize` + Swagger annotations
-- [ ] Endpoint `/options` implementado (ADR 0013)
-- [ ] Búsqueda libre `?q=` implementada (ADR 0013)
+- [ ] Migración Flyway: PK `BIGINT GENERATED ALWAYS AS IDENTITY` nombrada `{tabla}_id` (plural) + columna `uuid` separada
+- [ ] Entidad JPA extiende `BaseEntity` (o `BaseAuditEntity` si no necesita `status`) con `@AttributeOverride` sobre `id`
+- [ ] Repository extiende `JpaRepository<E, Long>` + `findByUuid(UUID)`
+- [ ] DTOs con `@Display` donde aplique (FK o campo presentacional)
+- [ ] Service con `@Transactional` correcto, RSQL filter validation, `/options` support
+- [ ] Controller con `@PreAuthorize(hasAuthority(...))` por endpoint — nunca `hasAnyRole` a nivel de clase
+- [ ] `entity_config` + 6 permisos estándar (`VIEW_ALL/CREATE/UPDATE/DELETE/RECORD_AUDIT_VIEW/REPORT_AUDIT_VIEW`) registrados
+- [ ] `@Auditable` en create/update/delete del service
 - [ ] Tests unit + integration
 - [ ] Sin `repository.delete()` (siempre soft delete)
-- [ ] Naming inglés en código
-- [ ] Permisos agregados al sistema si necesario
+- [ ] Naming inglés en código; JSON en camelCase
 - [ ] Documentación actualizada
