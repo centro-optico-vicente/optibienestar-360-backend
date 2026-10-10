@@ -1,4 +1,4 @@
-# ADR 0011 — Persons como hub central de identidad
+# ADR LOC-0011 (backend) — Persons como hub central de identidad
 
 **Estado:** Aceptado
 **Fecha:** 2026-06-05

@@ -1,8 +1,8 @@
-# ADR 0007 (local backend) — Convenciones de naming Java
+# ADR LOC-0007 (backend) — Convenciones de naming Java
 
 **Estado:** Aceptado  
 **Fecha:** 2026-05-24  
-**Fuente cross-stack:** [ADR 0009 (espejo local) — Convenciones de código](0009-code-conventions.md) · [original en el hub](../../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md)
+**Fuente cross-stack:** [ADR LOC-0009 (espejo local) — Convenciones de código](loc-0009-code-conventions.md) · [original en el hub](../../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md)
 
 ## Decisión
 

@@ -1,4 +1,4 @@
-# ADR 0012 — Convenciones HTTP para estado vacío (200 con representación vacía vs 404)
+# ADR LOC-0012 (backend) — Convenciones HTTP para estado vacío (200 con representación vacía vs 404)
 
 **Estado:** Aceptado
 **Fecha:** 2026-07-05

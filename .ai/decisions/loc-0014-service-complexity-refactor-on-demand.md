@@ -1,4 +1,4 @@
-# ADR 0014 — Refactor de servicios grandes: bajo demanda, no proactivo
+# ADR LOC-0014 (backend) — Refactor de servicios grandes: bajo demanda, no proactivo
 
 **Estado:** Aceptado
 **Fecha:** 2026-09-22

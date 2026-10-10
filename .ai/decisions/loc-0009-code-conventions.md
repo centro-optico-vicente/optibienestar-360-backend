@@ -1,4 +1,4 @@
-# ADR 0009 — Convenciones de código (idioma, naming, comentarios)
+# ADR LOC-0009 (backend) — Convenciones de código (idioma, naming, comentarios)
 
 > **Espejo local** del [ADR 0009 del hub](../../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md).
 > Se mantiene esta copia dentro del repo backend para que cualquier sesión IA que solo tenga el backend cargado (sin el hub disponible) tenga acceso directo a la convención.

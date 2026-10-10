@@ -1,8 +1,8 @@
-# ADR 0006 (local backend) — Convenciones de búsqueda en repositorios JPA
+# ADR LOC-0006 (backend) — Convenciones de búsqueda en repositorios JPA
 
 **Estado:** Aceptado  
 **Fecha:** 2026-05-23  
-**Relacionado con:** [ADR 0005 — Convención de identificadores](0005-table-id-convention.md)
+**Relacionado con:** [ADR LOC-0005 — Convención de identificadores](loc-0005-table-id-convention.md)
 
 ## Contexto
 

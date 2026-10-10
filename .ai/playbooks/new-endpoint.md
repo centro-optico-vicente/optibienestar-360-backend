@@ -106,7 +106,7 @@ public class FooController {
 
 ## Paso 5 — Endpoint listado con paginación + RSQL + búsqueda libre
 
-> **Regla obligatoria:** todo endpoint de listado debe paginar (`Page<DTO>`) **y** exponer búsqueda libre `?q=` — no es opcional "si aplica", salvo que la entidad no tenga ningún campo de texto buscable ([ADR 0013](../decisions/0013-options-endpoint-conventions.md)). Ver convención completa de params (`page`/`size`/`sort`/`filter`/`q`, `size=-1` o `unpaged=true` para todo, defaults por tipo de recurso) en [`../specs/06-rest-api.md` → Paginación](../specs/06-rest-api.md).
+> **Regla obligatoria:** todo endpoint de listado debe paginar (`Page<DTO>`) **y** exponer búsqueda libre `?q=` — no es opcional "si aplica", salvo que la entidad no tenga ningún campo de texto buscable ([ADR LOC-0013](../decisions/loc-0013-options-endpoint-conventions.md)). Ver convención completa de params (`page`/`size`/`sort`/`filter`/`q`, `size=-1` o `unpaged=true` para todo, defaults por tipo de recurso) en [`../specs/06-rest-api.md` → Paginación](../specs/06-rest-api.md).
 
 ```java
 @GetMapping
@@ -135,7 +135,7 @@ private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
 
 ## Paso 5b — Endpoint `/options`
 
-> **Regla obligatoria** ([ADR 0013](../decisions/0013-options-endpoint-conventions.md)): todo endpoint de listado tiene un hermano `/options` que devuelve `List<OptionDto>` sin paginar, para selects/dropdowns/typeaheads. Detalle completo (contrato, `OptionDto`, helper `OptionsSupport`) en [`../specs/06-rest-api.md` → Endpoint /options para selects](../specs/06-rest-api.md).
+> **Regla obligatoria** ([ADR LOC-0013](../decisions/loc-0013-options-endpoint-conventions.md)): todo endpoint de listado tiene un hermano `/options` que devuelve `List<OptionDto>` sin paginar, para selects/dropdowns/typeaheads. Detalle completo (contrato, `OptionDto`, helper `OptionsSupport`) en [`../specs/06-rest-api.md` → Endpoint /options para selects](../specs/06-rest-api.md).
 
 ```java
 @GetMapping("/options")

@@ -52,7 +52,7 @@ public class MemberController {
 | `sort` | Campo + dirección (`name,asc`) | varía por recurso (ver `@PageableDefault`) |
 | `size=-1` **o** `unpaged=true` | Devuelve TODOS los resultados sin paginar | — |
 | `filter` | Expresión RSQL contra whitelist de campos (ver sección RSQL) | — |
-| `q` | Búsqueda libre case-insensitive + `unaccent` en `name` / `code` / `description` (los que existan en la entidad). **Obligatorio salvo que la entidad no tenga ningún campo de texto buscable** (ver [ADR 0013](../decisions/0013-options-endpoint-conventions.md)) | — |
+| `q` | Búsqueda libre case-insensitive + `unaccent` en `name` / `code` / `description` (los que existan en la entidad). **Obligatorio salvo que la entidad no tenga ningún campo de texto buscable** (ver [ADR LOC-0013](../decisions/loc-0013-options-endpoint-conventions.md)) | — |
 
 `size=-1` y `unpaged=true` son equivalentes y los maneja un `PageableHandlerMethodArgumentResolver` global (en `WebConfig`) que los mapea a `Pageable.unpaged()`. Útil para selects/dropdowns. Nota: si está habilitado el `@Cacheable`, solo se cachea el path **unpaged + sin filter + sin q** (el resto del espacio de combinaciones tiene cardinalidad muy alta).
 
@@ -95,7 +95,7 @@ Los list/detail DTOs exponen etiquetas de FK y escalares presentacionales como s
 
 ## Endpoint `/options` para selects
 
-> **Regla obligatoria** (ver [ADR 0013](../decisions/0013-options-endpoint-conventions.md)). Todo endpoint de listado paginado tiene un hermano `GET /<recurso>/options` que devuelve `List<OptionDto>` **sin paginar** — sin `Page`, sin `total_elements`/`total_pages` — pensado para poblar selects/dropdowns/typeaheads sin pagar el costo del DTO completo.
+> **Regla obligatoria** (ver [ADR LOC-0013](../decisions/loc-0013-options-endpoint-conventions.md)). Todo endpoint de listado paginado tiene un hermano `GET /<recurso>/options` que devuelve `List<OptionDto>` **sin paginar** — sin `Page`, sin `total_elements`/`total_pages` — pensado para poblar selects/dropdowns/typeaheads sin pagar el costo del DTO completo.
 
 ```java
 public record OptionDto(UUID uuid, String code, String label, boolean active) {}

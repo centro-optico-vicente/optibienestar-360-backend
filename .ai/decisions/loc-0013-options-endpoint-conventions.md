@@ -1,8 +1,8 @@
-# ADR 0013 (local backend) — Convención `?q=` obligatorio + endpoint `/options` para selects
+# ADR LOC-0013 (backend) — Convención `?q=` obligatorio + endpoint `/options` para selects
 
 **Estado:** Aceptado
 **Fecha:** 2026-08-05
-**Relacionado con:** [ADR 0006 — Convenciones de búsqueda en repositorios JPA](0006-repository-search-conventions.md), [ADR 0012 — Convenciones HTTP para estado vacío](0012-empty-state-http-conventions.md)
+**Relacionado con:** [ADR LOC-0006 — Convenciones de búsqueda en repositorios JPA](loc-0006-repository-search-conventions.md), [ADR LOC-0012 — Convenciones HTTP para estado vacío](loc-0012-empty-state-http-conventions.md)
 
 ## Contexto
 
@@ -36,7 +36,7 @@ Query params estándar:
 
 `active=true` es un filtro implícito salvo que el uuid venga en `currentValues` — así un valor ya asignado a un registro (ej. un `Plan` desactivado que sigue vigente en una membresía existente) no desaparece silenciosamente del select al editar.
 
-Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` — encapsula: buscar coincidencias respetando `q`/`active`/límite, y garantizar que los uuids de `currentValues` aparezcan siempre (resueltos con el `findByUuid` que cada repositorio ya expone por [ADR 0006](0006-repository-search-conventions.md), sin agregar un `findByUuidIn` nuevo).
+Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` — encapsula: buscar coincidencias respetando `q`/`active`/límite, y garantizar que los uuids de `currentValues` aparezcan siempre (resueltos con el `findByUuid` que cada repositorio ya expone por [ADR LOC-0006](loc-0006-repository-search-conventions.md), sin agregar un `findByUuidIn` nuevo).
 
 ### Regla 3 — `/options` no tiene permiso propio; reutiliza el del listado paginado hermano
 

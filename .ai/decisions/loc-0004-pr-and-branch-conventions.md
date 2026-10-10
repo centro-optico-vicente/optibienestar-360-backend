@@ -1,4 +1,4 @@
-# ADR 0004 (local backend) — Convenciones de Pull Request y ramas (Gitflow)
+# ADR LOC-0004 (backend) — Convenciones de Pull Request y ramas (Gitflow)
 
 **Estado:** Aceptado  
 **Fecha:** 2026-05-21

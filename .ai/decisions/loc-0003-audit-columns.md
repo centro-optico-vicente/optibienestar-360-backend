@@ -1,4 +1,4 @@
-# ADR 0003 (local backend) — Audit columns obligatorias + Spring Data JPA Auditing
+# ADR LOC-0003 (backend) — Audit columns obligatorias + Spring Data JPA Auditing
 
 **Estado:** Aceptado
 **Fecha:** 2026-05-18
