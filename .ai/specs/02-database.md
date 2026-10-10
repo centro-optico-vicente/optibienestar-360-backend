@@ -46,7 +46,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 ### Planeadas
 
 > 📌 **Renumeración del 2026-06:**
-> - 1ª: se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR 0011](../decisions/0011-persons-identity-hub.md).
+> - 1ª: se insertaron `V15__persons.sql` y `V16__refactor_users_persons.sql` (persons hub central + extracción de demográficos de users). Todo lo que era V15+ se bumpeó +2. Ver [ADR LOC-0011](../decisions/loc-0011-persons-identity-hub.md).
 > - 2ª: se insertó `V20__bcrypt_helper.sql` (utilidad para seeds). Todo lo que era V20+ planeado se bumpeó +1. memberships pasó de V20 a V21.
 > - 3ª: se insertó `V22__scheduled_jobs.sql` (framework de tareas programadas — cron config + audit ledger + permisos `JOB_*`). Todo lo que era V22+ planeado se bumpeó +1. payments pasó de V22 a V23.
 

@@ -1,4 +1,4 @@
-# ADR 0001 (local backend) — Jetty embebido sobre Tomcat
+# ADR LOC-0001 (backend) — Jetty embebido sobre Tomcat
 
 **Estado:** Aceptado
 **Fecha:** 2026-05-18 (decisión ya tomada en `build.gradle` inicial)

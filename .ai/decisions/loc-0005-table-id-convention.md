@@ -1,4 +1,4 @@
-# ADR 0005 (local backend) — Convención de identificadores de tabla (BIGINT + UUID)
+# ADR LOC-0005 (backend) — Convención de identificadores de tabla (BIGINT + UUID)
 
 **Estado:** Aceptado  
 **Fecha:** 2026-05-21  

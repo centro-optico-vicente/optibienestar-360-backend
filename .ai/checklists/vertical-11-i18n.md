@@ -1,6 +1,6 @@
 # Alcance 11 — Internacionalización (i18n) y Localización
 
-> Spring i18n + bundles `messages_es` / `messages_en` (sin variantes regionales, principio "base + extends"). Locale resolver híbrido: **claim JWT `locale` gana** sobre `Accept-Language` header; default app `es-VE` ([ADR 0010](../decisions/0010-localization-venezuela.md), mirror del hub).
+> Spring i18n + bundles `messages_es` / `messages_en` (sin variantes regionales, principio "base + extends"). Locale resolver híbrido: **claim JWT `locale` gana** sobre `Accept-Language` header; default app `es-VE` ([ADR LOC-0010](../decisions/loc-0010-localization-venezuela.md), mirror del hub).
 >
 > Cross-cutting: retrofitea ~50 strings hardcoded en `auth`, `catalog`, `core/exception`, `common`. Sin tareas de servicio nuevas — solo se cambia el origen del texto, no la semántica de los endpoints existentes.
 >
@@ -17,7 +17,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ## Fase 1 — Bootstrap Spring i18n (foundation)
 
-- [x] [P1/C1] Espejar [ADR 0010 del hub](../../../centro-optico-vicente/.ai/decisions/0010-localization-venezuela.md) → `.ai/decisions/0010-localization-venezuela.md` con encabezado "Espejo local — fuente canónica en el hub" (mismo patrón que ADR 0009).
+- [x] [P1/C1] Espejar [ADR 0010 del hub](../../../centro-optico-vicente/.ai/decisions/0010-localization-venezuela.md) → `.ai/decisions/loc-0010-localization-venezuela.md` con encabezado "Espejo local — fuente canónica en el hub" (mismo patrón que ADR 0009).
 - [x] [P1/C2] `core/config/I18nConfig.java` — `@Bean LocaleResolver` con `HybridLocaleResolver extends AcceptHeaderLocaleResolver` (placeholder de claim JWT a poblar en Fase 4) configurado con `supportedLocales=[es,en]` + `defaultLocale=es-VE`; `@Bean LocalValidatorFactoryBean` con el `MessageSource` autoconfigurado por Spring Boot vía `spring.messages.basename` — los `@Pattern(message="{code}")` ya resuelven contra los bundles. El `MessageSource` reloadable lo aporta Spring Boot directamente, sin tener que declararlo a mano.
 - [x] [P1/C1] `OptiBienestar360Application.main` — `Locale.setDefault(Locale.forLanguageTag("es-VE"))` + `TimeZone.setDefault(TimeZone.getTimeZone("America/Caracas"))` antes de `SpringApplication.run`. Pinea defaults JVM-wide para que librerías que no consultan locale del request (Hibernate, MessageFormat, java.time sin Locale explícito) se alineen al país operativo.
 - [x] [P1/C1] `application.properties` — agregadas `spring.messages.basename=messages,ValidationMessages`, `spring.messages.encoding=UTF-8`, `spring.messages.fallback-to-system-locale=false`, `spring.web.locale=es-VE`, `spring.jackson.time-zone=America/Caracas`.

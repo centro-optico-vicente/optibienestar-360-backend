@@ -205,7 +205,7 @@ public class CorsConfig {
 
 ## Audit log
 
-Ver [ADR 0003 audit columns](../decisions/0003-audit-columns.md) + tabla `audit_log` en [02-database.md](02-database.md).
+Ver [ADR LOC-0003 audit columns](../decisions/loc-0003-audit-columns.md) + tabla `audit_log` en [02-database.md](02-database.md).
 
 Eventos críticos a auditar:
 - Login (success/fail)
@@ -232,4 +232,4 @@ JWT_REFRESH_EXPIRATION_DAYS=30
 
 - [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md)
 - [05-roles-permissions.md](05-roles-permissions.md)
-- [`../decisions/0003-audit-columns.md`](../decisions/0003-audit-columns.md)
+- [`../decisions/loc-0003-audit-columns.md`](../decisions/loc-0003-audit-columns.md)

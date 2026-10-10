@@ -1,4 +1,4 @@
-# ADR 0002 (local backend) — Soft delete pattern obligatorio
+# ADR LOC-0002 (backend) — Soft delete pattern obligatorio
 
 **Estado:** Aceptado
 **Fecha:** 2026-05-18
