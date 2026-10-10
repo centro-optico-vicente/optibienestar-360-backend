@@ -19,11 +19,11 @@
 	"java.debug.settings.hotCodeReplace": "auto",
 	"java.debug.settings.onBuildFailureProceed": true,
 	"java.import.gradle.wrapper.enabled": true,
-	// Delegate compilation to Gradle via the Build Server so MapStruct + Lombok
-	// annotation processing runs the same way as `./gradlew build`. With the
-	// default Buildship/ECJ path, ECJ fails to apply Lombok before MapStruct and
-	// no *MapperImpl classes are generated ("No implementation was created for ...").
-	"java.gradle.buildServer.enabled": "on",
+	// Keep Buildship (NOT the Gradle Build Server) as the importer: only Buildship
+	// writes a .factorypath, which is what lets the JDT language server run the
+	// Lombok + MapStruct annotation processors and generate the *MapperImpl classes.
+	// The Build Server importer skips APT config, so mappers resolve to no bean.
+	"java.gradle.buildServer.enabled": "off",
   	"java.jdt.ls.java.home": "/usr/lib/jvm/temurin-25-jdk-amd64",
 	"java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx8G -Xms512m -Xlog:disable",
 	"java.settings.url": ".vscode/java-settings.prefs",
