@@ -1,5 +1,7 @@
 # Playbook — Nueva migración Flyway
 
+> **Reescrito 2026-10-10** contra el código real (ver [auditoría 2026-09-23](../notes/2026-09-23_audit.md), recomendación #4) — la versión anterior enseñaba PK `UUID` simple; la real es `BIGINT` interno + `uuid` externo. Ver [`new-entity.md`](new-entity.md) para el patrón JPA correspondiente.
+
 > Decisión implementada: [ADR 0005 cross-stack](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md).
 
 ## Cuándo crear una migración
@@ -20,9 +22,10 @@ Verificar la última migración existente:
 
 ```bash
 ls -1 src/main/resources/db/migration/ | sort -V | tail
-# Ej: V14__allies.sql
+# Devuelve la última migración real del repo (a esta fecha, V176+) — no asumir
+# un número fijo, siempre correr el comando.
 
-# Próximo: V15
+# Próximo: el que sigue a la última que devolvió el comando de arriba.
 ```
 
 ### 2. Crear el archivo
@@ -44,34 +47,41 @@ Reglas:
 
 ```sql
 -- ====================================================
--- V15__ally_users.sql
+-- V{N}__ally_users.sql
 -- Tabla de usuarios operadores de aliados (recepcionistas, etc.)
+-- Patrón real: V115__payment_categories_and_methods.sql
 -- ====================================================
 
-CREATE TABLE ally_users (
-    ally_user_id    UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    ally_id         UUID            NOT NULL REFERENCES allies(ally_id),
-    user_id         UUID            NOT NULL REFERENCES users(user_id),
+SET search_path TO app, public;
+
+CREATE TABLE ally_users
+(
+    ally_users_id    BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uuid             UUID         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+
+    ally_id          BIGINT       NOT NULL REFERENCES allies (allies_id),
+    user_id          BIGINT       NOT NULL REFERENCES users (users_id),
     -- specific fields...
-    role_within_ally VARCHAR(50)    NOT NULL DEFAULT 'OPERATOR',
+    role_within_ally VARCHAR(50)  NOT NULL DEFAULT 'OPERATOR',
+
     -- audit + status (obligatorios por ADR 0006)
-    is_active        BOOLEAN        NOT NULL DEFAULT TRUE,
-    status           VARCHAR(50)    NOT NULL DEFAULT 'ACTIVE',
-    created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by       UUID           NULL REFERENCES users(user_id),
-    updated_by       UUID           NULL REFERENCES users(user_id),
-    -- constraints
+    is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
+    status           VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE',
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by       UUID,
+    updated_by       UUID,
+
     CONSTRAINT uq_ally_users_ally_user UNIQUE (ally_id, user_id),
     CONSTRAINT ck_ally_users_status CHECK (status IN ('ACTIVE', 'SUSPENDED'))
 );
 
 -- índices
-CREATE INDEX idx_ally_users_ally ON ally_users(ally_id) WHERE is_active = TRUE;
-CREATE INDEX idx_ally_users_user ON ally_users(user_id) WHERE is_active = TRUE;
+CREATE INDEX idx_ally_users_ally ON ally_users (ally_id) WHERE is_active = TRUE;
+CREATE INDEX idx_ally_users_user ON ally_users (user_id) WHERE is_active = TRUE;
 
 -- trigger updated_at
-CREATE TRIGGER trg_ally_users_before_update_set_updated_at
+CREATE TRIGGER trg_ally_users_updated_at
     BEFORE UPDATE ON ally_users
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
@@ -79,6 +89,8 @@ CREATE TRIGGER trg_ally_users_before_update_set_updated_at
 COMMENT ON TABLE ally_users IS 'Usuarios operadores que actúan en nombre de un aliado';
 COMMENT ON COLUMN ally_users.role_within_ally IS 'Rol del usuario dentro del aliado (no rol del sistema)';
 ```
+
+**PK y FK, regla real:** la PK siempre es el nombre de tabla completo en plural + `_id` (`ally_users_id`, no `ally_user_id`). Las FK usan el nombre de la entidad referenciada en **singular** + `_id` (`ally_id` referencia `allies(allies_id)`, `user_id` referencia `users(users_id)`) — son dos reglas distintas, no confundirlas (ver [ADR 0006 del hub](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md), corregido 2026-10-09 con esta misma distinción).
 
 #### Template para agregar columna
 
@@ -138,7 +150,7 @@ psql -d optibienestar360 -c "SELECT version, description, success FROM flyway_sc
 - [ ] La migración corre sin errores en DB limpia
 - [ ] La migración corre sin errores en DB existente (con datos previos)
 - [ ] Hibernate `validate` no falla al arrancar
-- [ ] Si agrega tabla: tiene PK uuid, audit columns, is_active, status, trigger updated_at
+- [ ] Si agrega tabla: tiene PK `BIGINT` (nombre de tabla en plural + `_id`) + columna `uuid` separada, audit columns, is_active, status, trigger updated_at
 - [ ] Si agrega FK: tiene índice asociado
 - [ ] Naming sigue convención (`V{N}__snake_case.sql`)
 - [ ] Comentarios opcionales en columnas/tablas no triviales
@@ -181,7 +193,7 @@ CREATE TYPE payment_method AS ENUM ('ZELLE', 'TRANSFERENCIA', 'EFECTIVO');
 ALTER TABLE payments ADD COLUMN method payment_method NOT NULL DEFAULT 'ZELLE';
 ```
 
-> En JPA: `@Enumerated(EnumType.STRING)` + `@JdbcType(PostgreSQLEnumJdbcType.class)` o usar `VARCHAR + CHECK constraint` (más flexible para agregar valores sin migración).
+> En JPA: `@Enumerated(EnumType.STRING)` + `@JdbcType(PostgreSQLEnumJdbcType.class)` o usar `VARCHAR + CHECK constraint` (más flexible para agregar valores sin migración). **Dato real:** el propio catálogo de métodos de pago terminó siendo una **tabla** (`payment_methods`, V115), no un `ENUM` ni un `CHECK` fijo — administrable sin deploy. Preferir tabla-catálogo sobre `ENUM`/`CHECK` cuando el negocio pueda querer agregar valores sin esperar un release (ver `new-entity.md` para el patrón de catálogo completo).
 
 ### Crear extensión
 
@@ -216,21 +228,24 @@ CREATE TRIGGER trg_{table}_before_update_set_updated_at
 ### Crear vista (cuando es estable)
 
 ```sql
--- V28__digital_cards_view.sql
+-- V{N}__digital_cards_view.sql
 CREATE OR REPLACE VIEW digital_cards_v AS
 SELECT
-    m.member_id,
+    m.members_id,
+    m.uuid AS member_uuid,
     m.full_name,
     m.document_number,
-    ms.membership_id,
+    ms.memberships_id,
     ms.status AS membership_status,
     p.name AS plan_name,
     ms.next_due_date
 FROM members m
-JOIN memberships ms ON m.member_id = ms.member_id
-JOIN plans p ON ms.plan_id = p.plan_id
+JOIN memberships ms ON ms.member_id = m.members_id
+JOIN plans p ON ms.plan_id = p.plans_id
 WHERE m.is_active = TRUE AND ms.is_active = TRUE;
 ```
+
+Nota: la PK de cada tabla es plural (`members_id`, `memberships_id`, `plans_id`); el FK que las referencia es singular (`memberships.member_id`, `memberships.plan_id`) — mismo patrón del Paso 3.
 
 ### Migración repeatable (raras)
 
