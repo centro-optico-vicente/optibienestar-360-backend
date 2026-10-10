@@ -36,6 +36,9 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class StorageService {
 
+    /** Uploads up to this size are buffered in memory so SDK retries can replay the body. */
+    private static final long MAX_BUFFERED_BYTES = 25L * 1024 * 1024;
+
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
 
@@ -63,7 +66,20 @@ public class StorageService {
                 .contentType(contentType)
                 .contentLength(contentLength)
                 .build();
-        s3Client.putObject(request, RequestBody.fromInputStream(data, contentLength));
+        // A multipart stream can't be re-read, so the SDK's automatic retry used to
+        // fail with "does not support mark/reset" and mask the real error. Files
+        // within the upload policies (≤ 20 MB) are buffered so retries can replay them.
+        RequestBody body;
+        if (contentLength <= MAX_BUFFERED_BYTES) {
+            try {
+                body = RequestBody.fromBytes(data.readAllBytes());
+            } catch (java.io.IOException ex) {
+                throw new java.io.UncheckedIOException(ex);
+            }
+        } else {
+            body = RequestBody.fromInputStream(data, contentLength);
+        }
+        s3Client.putObject(request, body);
         log.debug("Uploaded {}/{}", targetBucket, key);
     }
 

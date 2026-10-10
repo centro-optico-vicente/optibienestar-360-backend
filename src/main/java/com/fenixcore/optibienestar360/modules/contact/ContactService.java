@@ -33,7 +33,7 @@ public class ContactService {
         entity.setPhone(dto.phone());
         entity.setSubject(dto.subject());
         entity.setMessage(dto.message());
-        entity.setStatus("NEW");
+        entity.setStatus("new"); // matches contact_messages_status_check (V4: new|read|archived)
         repository.save(entity);
 
         log.info("Contact message saved from {}", dto.email());
