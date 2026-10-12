@@ -26,6 +26,8 @@ docker run -d --name redis-dev -p 6379:6379 redis:7-alpine
 
 ## Paso 2 — Variables de entorno
 
+> Si vas a usar `./start.sh` (ver Paso 3), podés saltar este paso — ya exporta estos mismos defaults por vos. Hacelo a mano solo si corrés `./gradlew bootRun` directo, o si querés confirmarlos en tu shell antes de arrancar.
+
 `application-dev.properties` ya trae defaults razonables (ver tabla completa en `README.md`). Con el camino rápido del Paso 1, **sobreescribir** el usuario/password para apuntar al superusuario del contenedor (igual que hace `ci.yaml`):
 
 ```bash
@@ -40,7 +42,11 @@ Sin este override, la app intenta loguear como `optibienestar360_app`/`changeme-
 
 ## Paso 3 — Levantar la app
 
+**Atajo:** `./start.sh` ya hace esto — exporta `SPRING_PROFILES_ACTIVE=dev` y las credenciales del camino rápido (`postgres`/`postgres`) **solo si no las tenés exportadas vos** (`${VAR:=default}`, nunca pisa un setup propio), y corre `./gradlew bootRun` con el perfil. Si ya hiciste el Paso 2 a mano, `./start.sh` es redundante pero inofensivo.
+
 ```bash
+./start.sh
+# equivalente manual:
 ./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
