@@ -71,6 +71,7 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 
 | Tarea | Playbook |
 |---|---|
+| Correr el backend en local (primera vez) | [`playbooks/local-build.md`](playbooks/local-build.md) |
 | Crear nueva entidad + CRUD completo | [`playbooks/new-entity.md`](playbooks/new-entity.md) |
 | Crear nueva migración Flyway | [`playbooks/new-migration.md`](playbooks/new-migration.md) |
 | Crear nuevo endpoint REST | [`playbooks/new-endpoint.md`](playbooks/new-endpoint.md) |
