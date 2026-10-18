@@ -1,11 +1,16 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
+import com.fenixcore.optibienestar360.core.validation.MinimumAge;
+import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -26,6 +31,13 @@ import java.util.UUID;
  * that collide with an existing {@code promoters}/{@code members.referral_code}
  * (cross-table uniqueness, service-side per V27 design). The {@code ^$} branch
  * lets a blank value through validation so the service can auto-generate.</p>
+ *
+ * <p><b>Dossier (V182):</b> registration/executive-profile fields land on the
+ * promoter row; {@code joinedAt} defaults to today when omitted. The identity
+ * fields are optional and, when present, are written onto the linked user's
+ * {@code persons} row (same delegation {@code MembersService.update} uses) —
+ * the person is the shared identity hub, so the same data shows on the
+ * user/member surfaces too.</p>
  */
 public record PromoterCreateRequest(
         @NotBlank @Size(max = 120) String displayName,
@@ -39,5 +51,29 @@ public record PromoterCreateRequest(
         @Email @Size(max = 320) String email,
         @Size(max = 30) String phone,
 
-        UUID promoterTypeUuid
+        UUID promoterTypeUuid,
+
+        // ─── Dossier: registration + executive profile (V182) ──────────────
+        LocalDate joinedAt,
+        @Size(max = 120) String assignedZone,
+        @Pattern(regexp = "^(PRIMARY|SECONDARY|TECHNICAL|UNIVERSITY|POSTGRADUATE)$",
+                 message = "{validation.education_level.allowed}")
+        String educationLevel,
+        @Size(max = 120) String profession,
+        @PositiveOrZero @Max(80) Short yearsOfExperience,
+        @Size(max = 150) String lastCompany,
+        @Size(max = 100) String lastPosition,
+        @Size(max = 120) String vehicle,
+
+        // ─── Dossier: identity, applied to the linked person (V15/V29) ─────
+        @Size(max = 50) String firstName,
+        @Size(max = 50) String lastName,
+        @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}")
+        String documentType,
+        @Size(max = 20) @VenezuelanDocumentNumber String documentNumber,
+        @MinimumAge LocalDate birthDate,
+        UUID maritalStatusUuid,
+        @Size(max = 30) String landlinePhone,
+        String address,
+        UUID cityUuid
 ) {}

@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,11 @@ import java.util.UUID;
  * (the live pointer, {@code null} = top of the chain) are read-only here;
  * changing them goes through the dedicated hierarchy endpoints ({@code
  * POST /v1/admin/promoters/{uuid}/assign-supervisor}).</p>
+ *
+ * <p>Dossier fields (V182): {@code joinedAt}/{@code assignedZone}
+ * (registration) and the executive profile ({@code educationLevel} +
+ * {@code educationLevel_Display}, profession, experience, last job,
+ * vehicle). {@code identity} is filled only by the detail endpoint.</p>
  */
 public record PromoterDto(
         UUID uuid,
@@ -38,11 +44,24 @@ public record PromoterDto(
         String email,
         String phone,
 
+        // ─── Dossier (V182) ────────────────────────────────────────────────
+        @Display(Display.Kind.DATE) LocalDate joinedAt,
+        String assignedZone,
+        @Display(Display.Kind.ENUM) String educationLevel,
+        String profession,
+        Short yearsOfExperience,
+        String lastCompany,
+        String lastPosition,
+        String vehicle,
+
         int totalReferrals,
         @Display(Display.Kind.MONEY) BigDecimal totalCommissionPaid,
 
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "promoter.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
-        @Display(Display.Kind.DATETIME) Instant updatedAt
+        @Display(Display.Kind.DATETIME) Instant updatedAt,
+
+        /** Linked person's identity — detail only, {@code null} on the list. */
+        PromoterIdentityDto identity
 ) {}
