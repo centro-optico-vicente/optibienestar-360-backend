@@ -3,11 +3,14 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
@@ -55,6 +58,9 @@ class PromotersServiceReferralCodeTest {
     @Mock private MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     @Mock private PromoterMemberContactRepository promoterMemberContactRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
+    @Mock private PersonRepository personRepository;
+    @Mock private MaritalStatusRepository maritalStatusRepository;
+    @Mock private CityRepository cityRepository;
 
     private PromotersService service;
 
@@ -66,7 +72,8 @@ class PromotersServiceReferralCodeTest {
         service = new PromotersService(repository, userRepository, memberRepository, promoterTypeRepository,
                 promoterRankRepository, mapper,
                 commissionRepository, promoterBonusAwardRepository, competitiveCommissionAwardRepository,
-                memberPromoterAssignmentRepository, promoterMemberContactRepository, defaultSortResolver);
+                memberPromoterAssignmentRepository, promoterMemberContactRepository, defaultSortResolver,
+                personRepository, maritalStatusRepository, cityRepository);
         PromoterRank baseRank = new PromoterRank();
         baseRank.setUuid(UUID.randomUUID());
         baseRank.setCode("PROMOTOR");
@@ -87,7 +94,9 @@ class PromotersServiceReferralCodeTest {
 
     private PromoterCreateRequest request(String referralCode) {
         return new PromoterCreateRequest("Ana Ventas", null, referralCode,
-                userUuid, "ana@example.com", "+58 412 5550100", null);
+                userUuid, "ana@example.com", "+58 412 5550100", null,
+                null, null, null, null, null, null, null, null,          // dossier
+                null, null, null, null, null, null, null, null, null);   // identity
     }
 
     @Test
@@ -139,6 +148,17 @@ class PromotersServiceReferralCodeTest {
         assertThatThrownBy(() -> service.create(request(null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("promoter.referral_code.generation_exhausted");
+    }
+
+    @Test
+    void defaultsJoinedAtToToday_whenOmitted() {
+        when(repository.existsByReferralCode(anyString())).thenReturn(false);
+        when(memberRepository.findByReferralCode(anyString())).thenReturn(Optional.empty());
+
+        service.create(request(null));
+
+        assertThat(capturePromoter().getJoinedAt())
+                .isEqualTo(java.time.LocalDate.now(java.time.ZoneId.of("America/Caracas")));
     }
 
     private Promoter capturePromoter() {

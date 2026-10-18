@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterPayoutProfileDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutProfileService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +26,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class PromoterMeController {
 
     private final PromoterDashboardService dashboardService;
+    private final PromoterPayoutProfileService payoutProfileService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_OWN')")
     public ResponseEntity<PromoterDashboardDto> dashboard(@AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(dashboardService.getMyDashboard(actor.getUuid()));
+    }
+
+    /**
+     * Read-only view of the advisor's own payout profile (V180). Same
+     * empty-state contract as the admin endpoint ({@code exists=false} when
+     * not filled yet); edits stay admin-only.
+     */
+    @GetMapping("/payout-profile")
+    @PreAuthorize("hasAuthority('PROMOTER_VIEW_OWN')")
+    public ResponseEntity<PromoterPayoutProfileDto> myPayoutProfile(@AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(payoutProfileService.getMine(actor.getUuid()));
     }
 }

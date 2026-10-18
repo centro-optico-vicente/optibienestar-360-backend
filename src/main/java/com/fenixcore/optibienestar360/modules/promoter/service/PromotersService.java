@@ -11,6 +11,8 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
+import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
@@ -19,6 +21,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCom
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterMemberContactRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest;
@@ -37,6 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -87,6 +92,9 @@ public class PromotersService {
     /** Base rank every new promoter starts at — same one V101 backfilled onto pre-existing rows. */
     private static final String BASE_RANK_CODE = "PROMOTOR";
 
+    /** Business timezone (ADR 0010) — default {@code joinedAt} is "today" there, not in UTC. */
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Caracas");
+
     private final PromoterRepository repository;
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
@@ -99,12 +107,16 @@ public class PromotersService {
     private final MemberPromoterAssignmentRepository memberPromoterAssignmentRepository;
     private final PromoterMemberContactRepository promoterMemberContactRepository;
     private final DefaultSortResolver defaultSortResolver;
+    private final PersonRepository personRepository;
+    private final MaritalStatusRepository maritalStatusRepository;
+    private final CityRepository cityRepository;
     private final SecureRandom random = new SecureRandom();
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
+    /** Detail — the only shape that carries the linked person's {@code identity} block. */
     public PromoterDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        return mapper.toDetailDto(findManaged(uuid));
     }
 
     public Page<PromoterDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
@@ -161,7 +173,15 @@ public class PromotersService {
         promoter.setRank(resolveBaseRank());
         promoter.setStatus(PromoterStatus.ACTIVE.name());
 
-        return mapper.toDto(repository.save(promoter));
+        applyDossier(promoter, req.joinedAt(), req.assignedZone(), req.educationLevel(), req.profession(),
+                req.yearsOfExperience(), req.lastCompany(), req.lastPosition(), req.vehicle());
+        if (promoter.getJoinedAt() == null) {
+            promoter.setJoinedAt(LocalDate.now(BUSINESS_ZONE));
+        }
+        applyIdentity(person, req.firstName(), req.lastName(), req.documentType(), req.documentNumber(),
+                req.birthDate(), req.maritalStatusUuid(), req.landlinePhone(), req.address(), req.cityUuid());
+
+        return mapper.toDetailDto(repository.save(promoter));
     }
 
     // ─── Update ─────────────────────────────────────────────────────────────
@@ -180,7 +200,13 @@ public class PromotersService {
         if (req.active() != null)      promoter.setActive(req.active());
         if (req.status() != null)      promoter.setStatus(req.status());
 
-        return mapper.toDto(promoter);  // dirty-check flushes on commit
+        applyDossier(promoter, req.joinedAt(), req.assignedZone(), req.educationLevel(), req.profession(),
+                req.yearsOfExperience(), req.lastCompany(), req.lastPosition(), req.vehicle());
+        applyIdentity(promoter.getPerson(), req.firstName(), req.lastName(), req.documentType(),
+                req.documentNumber(), req.birthDate(), req.maritalStatusUuid(), req.landlinePhone(),
+                req.address(), req.cityUuid());
+
+        return mapper.toDetailDto(promoter);  // dirty-check flushes on commit
     }
 
     // ─── Delete (soft) ──────────────────────────────────────────────────────
@@ -238,6 +264,54 @@ public class PromotersService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /** PATCH-style: non-null values are applied, nulls keep the current value. */
+    private static void applyDossier(Promoter promoter, LocalDate joinedAt, String assignedZone,
+                                     String educationLevel, String profession, Short yearsOfExperience,
+                                     String lastCompany, String lastPosition, String vehicle) {
+        if (joinedAt != null)          promoter.setJoinedAt(joinedAt);
+        if (assignedZone != null)      promoter.setAssignedZone(assignedZone);
+        if (educationLevel != null)    promoter.setEducationLevel(educationLevel);
+        if (profession != null)        promoter.setProfession(profession);
+        if (yearsOfExperience != null) promoter.setYearsOfExperience(yearsOfExperience);
+        if (lastCompany != null)       promoter.setLastCompany(lastCompany);
+        if (lastPosition != null)      promoter.setLastPosition(lastPosition);
+        if (vehicle != null)           promoter.setVehicle(vehicle);
+    }
+
+    /**
+     * Writes the dossier identity fields onto the linked {@code persons} row
+     * (PATCH-style, same delegation as {@code MembersService.update}). A
+     * cédula change is pre-checked against the {@code persons} UNIQUE
+     * (document_type, document_number) for a clean 422 instead of a 409 from
+     * the constraint. A promoter without a person (only the system row, which
+     * is rejected earlier) silently has nothing to update.
+     */
+    private void applyIdentity(Person person, String firstName, String lastName, String documentType,
+                               String documentNumber, LocalDate birthDate, UUID maritalStatusUuid,
+                               String landlinePhone, String address, UUID cityUuid) {
+        if (person == null) return;
+        if (documentType != null || documentNumber != null) {
+            String newType = documentType != null ? documentType : person.getDocumentType();
+            String newNumber = documentNumber != null ? documentNumber : person.getDocumentNumber();
+            personRepository.findByDocumentTypeAndDocumentNumber(newType, newNumber)
+                    .filter(other -> !other.getId().equals(person.getId()))
+                    .ifPresent(other -> {
+                        throw new IllegalArgumentException("promoter.person.document_duplicate");
+                    });
+            person.setDocumentType(newType);
+            person.setDocumentNumber(newNumber);
+        }
+        if (firstName != null)         person.setFirstName(firstName);
+        if (lastName != null)          person.setLastName(lastName);
+        if (birthDate != null)         person.setBirthDate(birthDate);
+        if (maritalStatusUuid != null) person.setMaritalStatus(maritalStatusRepository.findByUuid(maritalStatusUuid)
+                .orElseThrow(() -> new NoSuchElementException("marital_status.not_found")));
+        if (landlinePhone != null)     person.setLandlinePhone(landlinePhone);
+        if (address != null)           person.setAddress(address);
+        if (cityUuid != null)          person.setCity(cityRepository.findByUuid(cityUuid)
+                .orElseThrow(() -> new NoSuchElementException("city.not_found")));
+    }
 
     private Promoter findManaged(UUID uuid) {
         return repository.findByUuid(uuid)

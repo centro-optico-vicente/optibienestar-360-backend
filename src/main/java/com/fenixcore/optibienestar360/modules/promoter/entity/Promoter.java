@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * Sales network entity (V25). Each row is either a HUMAN promoter
@@ -107,6 +108,37 @@ public class Promoter extends BaseEntity {
     @Column(length = 30)
     private String phone;
 
+    // ─── Dossier: registration (V180) ──────────────────────────────────────
+
+    /** "Fecha de ingreso" — backfilled from {@code created_at} for pre-V180 rows. */
+    @Column(name = "joined_at")
+    private LocalDate joinedAt;
+
+    /** "Región/zona asignada" — free text. */
+    @Column(name = "assigned_zone", length = 120)
+    private String assignedZone;
+
+    // ─── Dossier: executive profile (V180) ─────────────────────────────────
+
+    /** One of {@link EducationLevel}; stored as a String pinned by the V180 CHECK. */
+    @Column(name = "education_level", length = 20)
+    private String educationLevel;
+
+    @Column(length = 120)
+    private String profession;
+
+    @Column(name = "years_of_experience")
+    private Short yearsOfExperience;
+
+    @Column(name = "last_company", length = 150)
+    private String lastCompany;
+
+    @Column(name = "last_position", length = 100)
+    private String lastPosition;
+
+    @Column(length = 120)
+    private String vehicle;
+
     // ─── Snapshot counters (cache only) ────────────────────────────────────
 
     @Column(name = "total_referrals", nullable = false)
@@ -118,5 +150,10 @@ public class Promoter extends BaseEntity {
     /** Values for {@link BaseEntity#getStatus()} pinned by the V25 CHECK. */
     public enum PromoterStatus {
         ACTIVE, INACTIVE, SUSPENDED
+    }
+
+    /** Values for {@link #educationLevel} pinned by the V180 CHECK. */
+    public enum EducationLevel {
+        PRIMARY, SECONDARY, TECHNICAL, UNIVERSITY, POSTGRADUATE
     }
 }
