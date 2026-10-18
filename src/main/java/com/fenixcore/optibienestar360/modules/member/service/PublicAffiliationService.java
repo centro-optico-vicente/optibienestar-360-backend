@@ -15,7 +15,10 @@ import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
+import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipsService;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -45,6 +48,9 @@ import java.util.Locale;
  *   <li>acceptance of the current AFILIADO T&amp;C ({@code termsVersionUuid}),
  *       channel {@code SELF_SERVICE}, linked to that membership.</li>
  * </ol>
+ * Only individually sold plans are accepted: the plan must be active and
+ * published, and group plans (CORPORATIVO, or any plan with a minimum headcount
+ * above one) are rejected — those are sold through a corporate contract.
  * A cédula or email that already exists is rejected: attaching a new login to
  * an existing Person would hand a stranger that person's data.
  */
@@ -58,6 +64,7 @@ public class PublicAffiliationService {
     private final RoleRepository roleRepository;
     private final PromoterRepository promoterRepository;
     private final MembershipRepository membershipRepository;
+    private final PlanRepository planRepository;
     private final UserService userService;
     private final MembersService membersService;
     private final MembershipsService membershipsService;
@@ -78,6 +85,8 @@ public class PublicAffiliationService {
                 ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
         Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
+
+        requireSelfServicePlan(planRepository.findByUuid(req.planUuid()).orElse(null));
 
         TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.AFILIADO, req.termsVersionUuid());
 
@@ -108,6 +117,21 @@ public class PublicAffiliationService {
 
         log.info("Public affiliation created for member {} (referral {})", member.uuid(), code);
         return new PublicAffiliationResponse(member.uuid(), email, promoter != null ? promoter.getDisplayName() : null);
+    }
+
+    /**
+     * Rejects plans a single person can't self-enroll in: missing, inactive or
+     * unpublished plans (the same visibility rule as {@code GET /v1/public/plans}),
+     * and group plans — CORPORATIVO or {@code minMembers > 1}.
+     */
+    static void requireSelfServicePlan(Plan plan) {
+        if (plan == null || !plan.isActive() || !plan.isPublished()) {
+            throw new IllegalArgumentException("affiliation.plan.not_available");
+        }
+        if (plan.getType() == PlanType.CORPORATIVO
+                || (plan.getMinMembers() != null && plan.getMinMembers() > 1)) {
+            throw new IllegalArgumentException("affiliation.plan.group_only");
+        }
     }
 
     private static String blankToNull(String s) {
