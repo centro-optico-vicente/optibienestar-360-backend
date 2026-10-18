@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally;
 
+import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
@@ -46,7 +47,8 @@ public class PublicAllyController {
             @RequestParam(required = false) UUID professionUuid,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(alliesService.publicDirectory(cityUuid, professionUuid, q, pageable));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(alliesService.publicDirectory(cityUuid, professionUuid, q, pageable));
     }
 
     /**
@@ -58,7 +60,8 @@ public class PublicAllyController {
      */
     @GetMapping("/{uuid}")
     public ResponseEntity<PublicAllyDetailDto> detail(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(alliesService.publicGetByUuid(uuid));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(alliesService.publicGetByUuid(uuid));
     }
 
     /**
@@ -75,6 +78,7 @@ public class PublicAllyController {
             @RequestParam(required = false) UUID categoryUuid,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(publicServicesService.listByAlly(uuid, categoryUuid, q, pageable));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(publicServicesService.listByAlly(uuid, categoryUuid, q, pageable));
     }
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.membership;
 
+import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.service.PlansService;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,8 @@ public class PublicPlanController {
     @GetMapping
     public ResponseEntity<Page<PublicPlanDto>> list(
             @PageableDefault(size = 50, sort = "monthlyFee", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(plansService.publicList(pageable));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(plansService.publicList(pageable));
     }
 
     /**
@@ -48,6 +50,7 @@ public class PublicPlanController {
      */
     @GetMapping("/{uuid}")
     public ResponseEntity<PublicPlanDto> detail(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(plansService.publicGetByUuid(uuid));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(plansService.publicGetByUuid(uuid));
     }
 }
