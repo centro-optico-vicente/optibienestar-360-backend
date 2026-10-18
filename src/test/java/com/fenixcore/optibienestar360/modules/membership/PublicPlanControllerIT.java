@@ -7,13 +7,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.filter.ShallowEtagHeaderFilter;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -26,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,6 +57,9 @@ class PublicPlanControllerIT {
     @Autowired
     private WebApplicationContext context;
 
+    @Autowired
+    private FilterRegistrationBean<ShallowEtagHeaderFilter> publicCatalogEtagFilter;
+
     @MockitoBean
     private PlansService plansService;
 
@@ -62,6 +69,11 @@ class PublicPlanControllerIT {
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(springSecurity())
+                // The manual MockMvc doesn't pick up servlet filter beans: register the
+                // real ETag filter with its own URL patterns, after the security chain
+                // (same order as in the servlet container).
+                .addFilter(publicCatalogEtagFilter.getFilter(),
+                        publicCatalogEtagFilter.getUrlPatterns().toArray(String[]::new))
                 .build();
     }
 
@@ -88,6 +100,28 @@ class PublicPlanControllerIT {
                 // silently fell back to VES even though plan pricing is USD (ADR 0008).
                 .andExpect(jsonPath("$.content[0].monthlyFee_Display", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("VES"))))
                 .andExpect(jsonPath("$.content[0].monthlyFee_Display", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Bs"))));
+    }
+
+    @Test
+    void list_isBrieflyCacheable_andRevalidatesWithEtag() throws Exception {
+        // Same instance on both calls: identical bodies are what yield the same ETag.
+        PublicPlanDto dto = familiarDto();
+        when(plansService.publicList(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(dto)));
+
+        MvcResult first = mockMvc.perform(get("/v1/public/plans"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "max-age=60, public, stale-while-revalidate=300"))
+                // Spring Security's no-cache writer must back off, not pile on Pragma/Expires.
+                .andExpect(header().doesNotExist("Pragma"))
+                .andExpect(header().doesNotExist("Expires"))
+                .andExpect(header().exists("ETag"))
+                .andReturn();
+
+        // Unchanged data -> bodiless 304 on revalidation.
+        mockMvc.perform(get("/v1/public/plans")
+                        .header("If-None-Match", first.getResponse().getHeader("ETag")))
+                .andExpect(status().isNotModified());
     }
 
     @Test
