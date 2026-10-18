@@ -16,6 +16,13 @@ import java.util.UUID;
  * documents / medical record are exposed via their dedicated sub-resources
  * (own bullets) — only their active counts are surfaced here so the UI can
  * show "3 beneficiaries" badges without querying.
+ *
+ * <p>Family-nucleus slot summary (V178): {@code baseSlotsUsed} /
+ * {@code extraSlotsUsed} count active beneficiaries per slot type;
+ * {@code baseSlotsTotal} ({@code included_beneficiaries}) and
+ * {@code extraSlotsTotal} ({@code max - included}) come from the plan of the
+ * active membership — both {@code null} without one, and
+ * {@code extraSlotsTotal} {@code null} when the plan has no cap.</p>
  */
 public record MemberDetailDto(
         UUID uuid,
@@ -61,6 +68,12 @@ public record MemberDetailDto(
         int activeBeneficiariesCount,
         int activeDocumentsCount,
         boolean hasMedicalRecord,
+
+        // ─── Family-nucleus slots (V178) ───────────────────────────────────
+        int baseSlotsUsed,
+        Integer baseSlotsTotal,
+        int extraSlotsUsed,
+        Integer extraSlotsTotal,
 
         // ─── Promoter attribution — null when unlinked ─────────────────────
         UUID currentPromoterUuid,
