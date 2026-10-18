@@ -39,6 +39,7 @@ public record PlanCreateRequest(
         @PositiveOrZero Integer maxBeneficiaries,         // null = no cap
         @Digits(integer = 8, fraction = 2) @DecimalMin(value = "0.0", inclusive = true)
         BigDecimal extraBeneficiaryInscriptionFee,        // null = plan disallows extras
+        @Min(1) Integer minMembers,                       // null = no minimum (20 for CORPORATIVO)
 
         @Min(0) Integer gracePeriodDays,                  // default 7 server-side
 

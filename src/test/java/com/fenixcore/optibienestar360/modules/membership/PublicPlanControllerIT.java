@@ -70,7 +70,7 @@ class PublicPlanControllerIT {
                 UUID.randomUUID(), "FAMILIAR", "Plan Familiar",
                 "Cobertura para el titular y su grupo familiar", PlanType.FAMILIAR,
                 new BigDecimal("20.00"), new BigDecimal("5.00"), "USD",
-                3, 5, new BigDecimal("5.00"), 7);
+                3, 5, new BigDecimal("5.00"), null, 7);
     }
 
     @Test

@@ -40,6 +40,7 @@ public record PlanDto(
         int includedBeneficiaries,
         Integer maxBeneficiaries,
         @Display(Display.Kind.MONEY) BigDecimal extraBeneficiaryInscriptionFee,
+        Integer minMembers,
 
         int gracePeriodDays,
 
@@ -59,7 +60,7 @@ public record PlanDto(
         return new PlanDto(uuid, code, name, description, type,
                 inscriptionFee, monthlyFee, currency_Code, currency, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate,
-                includedBeneficiaries, maxBeneficiaries, extraBeneficiaryInscriptionFee,
+                includedBeneficiaries, maxBeneficiaries, extraBeneficiaryInscriptionFee, minMembers,
                 gracePeriodDays, published, publishedAt,
                 active, status, createdAt, updatedAt);
     }
