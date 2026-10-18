@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutAccountsService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +51,9 @@ class PromoterMeControllerIT {
 
     @MockitoBean
     private PromoterDashboardService dashboardService;
+
+    @MockitoBean
+    private PromoterPayoutAccountsService payoutAccountsService;
 
     private MockMvc mockMvc;
 
@@ -113,5 +118,27 @@ class PromoterMeControllerIT {
 
         mockMvc.perform(get("/v1/promoter/me").with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isNotFound());
+    }
+
+    // ─── GET /v1/promoter/me/payout-accounts (V184) ──────────────────────────
+
+    @Test
+    void myPayoutAccounts_requiresItsOwnPermission_notPromoterViewOwn() throws Exception {
+        mockMvc.perform(get("/v1/promoter/me/payout-accounts").with(principal("PROMOTER_VIEW_OWN")))
+                .andExpect(status().isForbidden());
+        verify(payoutAccountsService, never()).listMine(any());
+    }
+
+    @Test
+    void myPayoutAccounts_resolvesTheCallerFromTheJwt() throws Exception {
+        CustomUserDetails p = CustomUserDetails.fromJwt(UUID.randomUUID(), "jti", "es",
+                List.of(new SimpleGrantedAuthority("PROMOTER_PAYOUT_ACCOUNT_VIEW_OWN")));
+        when(payoutAccountsService.listMine(p.getUuid())).thenReturn(List.of());
+
+        mockMvc.perform(get("/v1/promoter/me/payout-accounts")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        verify(payoutAccountsService).listMine(eq(p.getUuid()));
     }
 }

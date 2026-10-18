@@ -1,9 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
-import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterPayoutProfileDto;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterPayoutAccountDto;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
-import com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutProfileService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutAccountsService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +12,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Promoter self-service surface at {@code /v1/promoter/me} (v2 PDF #4). The
@@ -26,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PromoterMeController {
 
     private final PromoterDashboardService dashboardService;
-    private final PromoterPayoutProfileService payoutProfileService;
+    private final PromoterPayoutAccountsService payoutAccountsService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_OWN')")
@@ -35,13 +37,13 @@ public class PromoterMeController {
     }
 
     /**
-     * Read-only view of the advisor's own payout profile (V182). Same
-     * empty-state contract as the admin endpoint ({@code exists=false} when
-     * not filled yet); edits stay admin-only.
+     * Read-only list of the advisor's own payout accounts (V184) — only the
+     * caller's, resolved from the JWT user. Gated on its own
+     * {@code PROMOTER_PAYOUT_ACCOUNT_VIEW_OWN}; edits stay admin-only.
      */
-    @GetMapping("/payout-profile")
-    @PreAuthorize("hasAuthority('PROMOTER_VIEW_OWN')")
-    public ResponseEntity<PromoterPayoutProfileDto> myPayoutProfile(@AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(payoutProfileService.getMine(actor.getUuid()));
+    @GetMapping("/payout-accounts")
+    @PreAuthorize("hasAuthority('PROMOTER_PAYOUT_ACCOUNT_VIEW_OWN')")
+    public ResponseEntity<List<PromoterPayoutAccountDto>> myPayoutAccounts(@AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(payoutAccountsService.listMine(actor.getUuid()));
     }
 }
