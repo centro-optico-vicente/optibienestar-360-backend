@@ -27,6 +27,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
@@ -66,7 +67,7 @@ import java.util.UUID;
 public class AlliesService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "email", "phone", "website",
+            "name", "allyNumber", "email", "phone", "website",
             "taxDocumentType", "taxDocumentNumber",
             "published", "publishedAt", "joinedAt",
             "createdAt", "updatedAt", "active", "status"
@@ -243,6 +244,11 @@ public class AlliesService {
         if (req.published() != null) ally.setPublished(req.published());
         ally.setPublishedAt(req.publishedAt());
         ally.setProfessions(resolveProfessions(req.professionUuids()));
+        // allyNumber is assigned by the DB sequence (V179) — never from the request.
+        ally.setCapturedByPromoter(resolvePromoterOptional(req.capturedByPromoterUuid()));
+        ally.setRepresentativeName(req.representativeName());
+        ally.setRepresentativeDocumentType(req.representativeDocumentType());
+        ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
 
         Ally saved = repository.save(ally);
         return mapper.toDetail(saved);
@@ -293,6 +299,10 @@ public class AlliesService {
         if (req.publishedAt()         != null) ally.setPublishedAt(req.publishedAt());
         if (req.active()              != null) ally.setActive(req.active());
         if (req.status()              != null) ally.setStatus(req.status());
+        if (req.capturedByPromoterUuid() != null) ally.setCapturedByPromoter(resolvePromoterOptional(req.capturedByPromoterUuid()));
+        if (req.representativeName()  != null) ally.setRepresentativeName(req.representativeName());
+        if (req.representativeDocumentType()   != null) ally.setRepresentativeDocumentType(req.representativeDocumentType());
+        if (req.representativeDocumentNumber() != null) ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
 
         // professionUuids: null = leave untouched; non-null = replace.
         // Reuse the existing collection instance (clear + addAll) instead of
@@ -552,6 +562,12 @@ public class AlliesService {
         if (cityUuid == null) return null;
         return cityRepository.findByUuid(cityUuid)
                 .orElseThrow(() -> new NoSuchElementException("city.not_found"));
+    }
+
+    private Promoter resolvePromoterOptional(UUID promoterUuid) {
+        if (promoterUuid == null) return null;
+        return promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
     }
 
     private Set<Profession> resolveProfessions(List<UUID> uuids) {

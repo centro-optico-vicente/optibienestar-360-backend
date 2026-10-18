@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -52,6 +53,19 @@ public class AllyAgreement extends BaseEntity {
 
     @Column(name = "signed_pdf_url", length = 500)
     private String signedPdfUrl;
+
+    /** Standard ALIADO terms version the agreement was signed under (V179); optional. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "terms_version_id")
+    private TermsVersion termsVersion;
+
+    /** Renews automatically when the validity period ends (V179, default true). */
+    @Column(name = "auto_renew", nullable = false)
+    private boolean autoRenew = true;
+
+    /** Days of notice required to rescind the agreement (V179, default 30). */
+    @Column(name = "notice_days", nullable = false)
+    private int noticeDays = 30;
 
     public enum AgreementType {
         COMMERCIAL, MEDICAL, EXCLUSIVITY, SUPPLY

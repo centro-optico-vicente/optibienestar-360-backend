@@ -84,6 +84,7 @@ public class AllyServicesProposeService {
                     .orElseThrow(() -> new IllegalStateException("currency.usd_not_seeded")));
         }
         service.setDiscountPct(req.discountPct());
+        service.setExclusions(req.exclusions() == null || req.exclusions().isBlank() ? null : req.exclusions().trim());
         if (req.requiresAppointment() != null) {
             service.setRequiresAppointment(req.requiresAppointment());
         }

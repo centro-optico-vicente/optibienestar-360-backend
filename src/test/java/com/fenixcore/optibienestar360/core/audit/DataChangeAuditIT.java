@@ -84,7 +84,7 @@ class DataChangeAuditIT {
     void createIsAudited() {
         String suffix = String.valueOf(System.nanoTime());
         AllyTypeDto created = allyTypeService.create(
-                new AllyTypeCreateRequest("AUDIT_IT_" + suffix, "Audit IT ally type " + suffix, null));
+                new AllyTypeCreateRequest("AUDIT_IT_" + suffix, "Audit IT ally type " + suffix, null, null, null));
 
         try {
             Optional<DataChangeAuditLog> entry = findAuditEntry(created.uuid(), AuditAction.CREATE);
@@ -100,10 +100,10 @@ class DataChangeAuditIT {
     void updateIsAuditedWithBeforeAndAfterSnapshots() {
         String suffix = String.valueOf(System.nanoTime());
         AllyTypeDto created = allyTypeService.create(
-                new AllyTypeCreateRequest("AUDIT_IT_U_" + suffix, "Before update " + suffix, null));
+                new AllyTypeCreateRequest("AUDIT_IT_U_" + suffix, "Before update " + suffix, null, null, null));
 
         AllyTypeDto updated = allyTypeService.update(created.uuid(),
-                new AllyTypeUpdateRequest("After update " + suffix, null, null));
+                new AllyTypeUpdateRequest("After update " + suffix, null, null, null, null));
 
         try {
             Optional<DataChangeAuditLog> entry = findAuditEntry(updated.uuid(), AuditAction.UPDATE);
@@ -121,7 +121,7 @@ class DataChangeAuditIT {
         String suffix = String.valueOf(System.nanoTime());
         Instant before = Instant.now().minus(1, ChronoUnit.MINUTES);
         AllyTypeDto created = allyTypeService.create(
-                new AllyTypeCreateRequest("AUDIT_IT_Q_" + suffix, "Query IT ally type " + suffix, null));
+                new AllyTypeCreateRequest("AUDIT_IT_Q_" + suffix, "Query IT ally type " + suffix, null, null, null));
 
         try {
             // entityKey + entityUuid: "history of one record" use case.
@@ -172,9 +172,9 @@ class DataChangeAuditIT {
     void dtoCarriesDisplayValuesAndFirstChangeIsPinnable() {
         String suffix = String.valueOf(System.nanoTime());
         AllyTypeDto created = allyTypeService.create(
-                new AllyTypeCreateRequest("AUDIT_IT_D_" + suffix, "Display IT ally type " + suffix, null));
+                new AllyTypeCreateRequest("AUDIT_IT_D_" + suffix, "Display IT ally type " + suffix, null, null, null));
         AllyTypeDto updated = allyTypeService.update(created.uuid(),
-                new AllyTypeUpdateRequest("Display IT renamed " + suffix, null, null));
+                new AllyTypeUpdateRequest("Display IT renamed " + suffix, null, null, null, null));
 
         try {
             DataChangeAuditLogPageDto page = dataChangeAuditQueryService.list(

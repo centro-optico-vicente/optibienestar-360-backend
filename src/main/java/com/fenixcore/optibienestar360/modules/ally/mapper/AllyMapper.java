@@ -27,10 +27,14 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -54,6 +58,7 @@ public interface AllyMapper {
 
     /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */
     @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
+    @Mapping(target = "allySegments",  expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",      source = "city.name")
     PublicAllyListItemDto toPublicListItem(Ally ally);
 
@@ -64,6 +69,7 @@ public interface AllyMapper {
      * ({@code active AND published AND reviewStatus=APPROVED}).
      */
     @Mapping(target = "allyTypeNames",   expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
+    @Mapping(target = "allySegments",   expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",       source = "city.name")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
     @Mapping(target = "services",       expression = "java(extractPublicServices(ally.getServices()))")
@@ -93,11 +99,14 @@ public interface AllyMapper {
     @Mapping(target = "activeUsersCount",      expression = "java(countActive(ally.getUsers()))")
     @Mapping(target = "activeServicesCount",   expression = "java(countActive(ally.getServices()))")
     @Mapping(target = "activeAgreementsCount", expression = "java(countActive(ally.getAgreements()))")
+    @Mapping(target = "capturedByPromoter",    expression = "java(promoterRef(ally.getCapturedByPromoter()))")
+    @Mapping(target = "fileNumber",            expression = "java(fileNumber(ally))")
     AllyDetailDto toDetail(Ally ally);
 
     // ─── AllyAgreement → DTO ───────────────────────────────────────────────
 
-    @Mapping(target = "allyUuid", source = "ally.uuid")
+    @Mapping(target = "allyUuid",     source = "ally.uuid")
+    @Mapping(target = "termsVersion", expression = "java(termsVersionRef(agreement.getTermsVersion()))")
     AllyAgreementDto toAgreementDto(AllyAgreement agreement);
 
     // ─── AllyService → DTO ─────────────────────────────────────────────────
@@ -146,7 +155,8 @@ public interface AllyMapper {
     default AllyTypeDto toAllyTypeDto(AllyType allyType) {
         if (allyType == null) return null;
         return new AllyTypeDto(allyType.getUuid(), allyType.getCode(),
-                allyType.getName(), allyType.getDescription(), allyType.isActive());
+                allyType.getName(), allyType.getDescription(),
+                allyType.getSegment(), allyType.getProfessionalArea(), allyType.isActive());
     }
 
     default CityDto toCityDto(City city) {
@@ -182,6 +192,45 @@ public interface AllyMapper {
         return set.stream().map(this::toAllyTypeDto).toList();
     }
 
+    // ─── Agreement file + FK refs (V179) ────────────────────────────────────
+
+    /** Zero-padding width of the "Nº DE ALIADO" half of the file number. */
+    int FILE_NUMBER_PAD = 4;
+
+    /** Display date of a terms version's {@code validFrom} (ADR 0010 zone, ADR 0022 format). */
+    DateTimeFormatter TERMS_VERSION_DATE = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+            .withZone(ZoneId.of("America/Caracas"));
+
+    /**
+     * Agreement file number "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]": the
+     * capturing promoter's referral code + {@code "-"} + the ally number
+     * zero-padded to {@link #FILE_NUMBER_PAD} digits ({@code "ABC123-0007"}).
+     * Without a capturing promoter (or one without a referral code) it is
+     * just the padded number ({@code "0007"}); {@code null} while the ally
+     * has no number yet (not persisted).
+     */
+    default String fileNumber(Ally ally) {
+        if (ally == null || ally.getAllyNumber() == null) return null;
+        String number = String.format("%0" + FILE_NUMBER_PAD + "d", ally.getAllyNumber());
+        Promoter promoter = ally.getCapturedByPromoter();
+        String advisorCode = promoter == null ? null : promoter.getReferralCode();
+        return advisorCode == null || advisorCode.isBlank() ? number : advisorCode + "-" + number;
+    }
+
+    /** {@code capturedByPromoter_Code} carries the referral code (Promoter has no generic {@code getCode()}). */
+    default DisplayRef promoterRef(Promoter promoter) {
+        return promoter == null ? null
+                : DisplayRef.of(promoter.getUuid(), promoter.getReferralCode(), promoter.getDisplayName());
+    }
+
+    /** Labelled "&lt;title&gt; (&lt;valid-from dd-MM-yyyy&gt;)" so two versions with the same title stay distinguishable. */
+    default DisplayRef termsVersionRef(TermsVersion version) {
+        if (version == null) return null;
+        String label = version.getValidFrom() == null ? version.getTitle()
+                : version.getTitle() + " (" + TERMS_VERSION_DATE.format(version.getValidFrom()) + ")";
+        return DisplayRef.of(version.getUuid(), null, label);
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────────
 
     /**
@@ -206,6 +255,19 @@ public interface AllyMapper {
         return professions.stream()
                 .filter(Profession::isActive)
                 .map(Profession::getName)
+                .toList();
+    }
+
+    /** Distinct segment codes ({@code B2B} / {@code B2P}) of the active types, in a stable order. */
+    default List<String> extractAllySegments(Set<AllyType> allyTypes) {
+        if (allyTypes == null) return List.of();
+        return allyTypes.stream()
+                .filter(AllyType::isActive)
+                .map(AllyType::getSegment)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .map(Enum::name)
                 .toList();
     }
 
