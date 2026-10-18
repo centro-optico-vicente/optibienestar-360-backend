@@ -32,6 +32,12 @@ import lombok.Setter;
  * FK constraint to {@code payments} was wired by V23 once that table existed.
  * The entity still exposes the reference as a plain Long (no {@code @ManyToOne})
  * to keep the member module from depending on the payment module.</p>
+ *
+ * <p>{@code slotType} (V178) records which family-nucleus slot the row
+ * occupies: {@link SlotType#BASE} (within {@code plan.included_beneficiaries})
+ * or {@link SlotType#EXTRA} (between included and
+ * {@code plan.max_beneficiaries}, billed with the extra inscription fee). It is
+ * assigned when the beneficiary is added or reactivated.</p>
  */
 @Getter
 @Setter
@@ -65,7 +71,16 @@ public class Beneficiary extends BaseEntity {
     @Column(name = "inscription_payment_id")
     private Long inscriptionPaymentId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "slot_type", length = 10, nullable = false)
+    private SlotType slotType = SlotType.BASE;
+
     public enum Relationship {
         SPOUSE, CHILD, PARENT, SIBLING, OTHER
+    }
+
+    /** Family-nucleus slot: BASE = included in the plan, EXTRA = paid extension. */
+    public enum SlotType {
+        BASE, EXTRA
     }
 }
