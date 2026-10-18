@@ -12,6 +12,8 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
+import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class AllyAgreementsService {
 
     private final AllyRepository allyRepository;
     private final AllyAgreementRepository agreementRepository;
+    private final TermsVersionRepository termsVersionRepository;
     private final AllyMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -66,6 +69,9 @@ public class AllyAgreementsService {
         agreement.setTerms(req.terms());
         agreement.setSignedPdfUrl(req.signedPdfUrl());
         agreement.setStatus(req.status() != null ? req.status() : "ACTIVE");
+        agreement.setTermsVersion(resolveAllyTermsVersion(req.termsVersionUuid()));
+        if (req.autoRenew() != null)  agreement.setAutoRenew(req.autoRenew());
+        if (req.noticeDays() != null) agreement.setNoticeDays(req.noticeDays());
         return mapper.toAgreementDto(agreementRepository.save(agreement));
     }
 
@@ -80,6 +86,9 @@ public class AllyAgreementsService {
         if (req.signedPdfUrl() != null)  agreement.setSignedPdfUrl(req.signedPdfUrl());
         if (req.status() != null)        agreement.setStatus(req.status());
         if (req.active() != null)        agreement.setActive(req.active());
+        if (req.termsVersionUuid() != null) agreement.setTermsVersion(resolveAllyTermsVersion(req.termsVersionUuid()));
+        if (req.autoRenew() != null)     agreement.setAutoRenew(req.autoRenew());
+        if (req.noticeDays() != null)    agreement.setNoticeDays(req.noticeDays());
         return mapper.toAgreementDto(agreement);
     }
 
@@ -95,6 +104,23 @@ public class AllyAgreementsService {
     private Ally findAlly(UUID uuid) {
         return allyRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
+    }
+
+    /**
+     * Resolves the standard agreement version an ally agreement is signed
+     * under. Only {@link TermsVersion.TermType#ALIADO} versions qualify — an
+     * affiliate or promoter T&amp;C is not an ally agreement (422
+     * {@code ally_agreement.terms_version.invalid_type}). {@code null} in,
+     * {@code null} out (the link is optional).
+     */
+    TermsVersion resolveAllyTermsVersion(UUID termsVersionUuid) {
+        if (termsVersionUuid == null) return null;
+        TermsVersion version = termsVersionRepository.findByUuid(termsVersionUuid)
+                .orElseThrow(() -> new NoSuchElementException("terms_version.not_found"));
+        if (version.getTermType() != TermsVersion.TermType.ALIADO) {
+            throw new IllegalArgumentException("ally_agreement.terms_version.invalid_type");
+        }
+        return version;
     }
 
     private AllyAgreement findAgreementUnderAlly(UUID allyUuid, UUID agreementUuid) {

@@ -32,6 +32,8 @@ public record AllyServiceDto(
         String description,
         @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        /** Operational exclusions of the preferential rate (V179). */
+        String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
 
         @Display(Display.Kind.ENUM) ReviewStatus reviewStatus,

@@ -64,7 +64,7 @@ class AllyServicesRemovalControllerIT {
 
     private AllyServiceDto removedDto() {
         return new AllyServiceDto(UUID.randomUUID(), UUID.randomUUID(), null,
-                "Consulta", null, null, null, false,
+                "Consulta", null, null, null, null, false,
                 ReviewStatus.REMOVED, null, null, "Retirado por el aliado", false, null, null, true, null, null, null);
     }
 

@@ -26,6 +26,8 @@ public record PublicAllyDetailDto(
         UUID uuid,
         String name,
         List<String> allyTypeNames,
+        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). */
+        List<String> allySegments,
 
         // Location
         String address,

@@ -90,6 +90,7 @@ public class AllyServicesAdminService {
         // multi-currency ally pricing) — mirrors the V91 backfill.
         service.setPriceCurrency(req.priceAmount() != null ? usdCurrency() : null);
         service.setDiscountPct(req.discountPct());
+        service.setExclusions(blankToNull(req.exclusions()));
         if (req.requiresAppointment() != null) {
             service.setRequiresAppointment(req.requiresAppointment());
         }
@@ -115,6 +116,8 @@ public class AllyServicesAdminService {
             service.setPriceCurrency(usdCurrency());
         }
         if (req.discountPct() != null)         service.setDiscountPct(req.discountPct());
+        // exclusions: null = unchanged, blank = cleared.
+        if (req.exclusions() != null)          service.setExclusions(blankToNull(req.exclusions()));
         if (req.requiresAppointment() != null) service.setRequiresAppointment(req.requiresAppointment());
         if (req.published() != null)           service.setPublished(req.published());
         if (req.active() != null)              service.setActive(req.active());
@@ -155,5 +158,9 @@ public class AllyServicesAdminService {
             throw new NoSuchElementException("ally_service.not_found");
         }
         return service;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

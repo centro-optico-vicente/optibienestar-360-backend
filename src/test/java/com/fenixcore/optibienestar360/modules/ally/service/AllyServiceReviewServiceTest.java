@@ -67,7 +67,7 @@ class AllyServiceReviewServiceTest {
     @Test
     void pendingQueue_withQ_composesSpecAndDelegatesToRepository() {
         AllyServiceDto dto = new AllyServiceDto(UUID.randomUUID(), UUID.randomUUID(), null,
-                "Consulta oftalmológica", null, null, null, false,
+                "Consulta oftalmológica", null, null, null, null, false,
                 ReviewStatus.PROPOSED, null, null, null, false, null, null, true, null, null, null);
         AllyService service = allyService(ReviewStatus.PROPOSED);
         Pageable pageable = PageRequest.of(0, 20);

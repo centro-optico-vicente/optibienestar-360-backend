@@ -38,5 +38,8 @@ public record ProposeAllyServiceRequest(
         @DecimalMax(value = "100.0", inclusive = true)
         BigDecimal discountPct,
 
+        /** Operational exclusions of the preferential rate, free text (V179). */
+        String exclusions,
+
         Boolean requiresAppointment
 ) {}

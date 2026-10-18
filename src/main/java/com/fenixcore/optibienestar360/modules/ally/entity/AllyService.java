@@ -65,6 +65,10 @@ public class AllyService extends BaseEntity {
     @Column(name = "discount_pct", precision = 5, scale = 2)
     private BigDecimal discountPct;
 
+    /** Operational exclusions of the preferential rate, free text (V179). */
+    @Column(columnDefinition = "text")
+    private String exclusions;
+
     @Column(name = "requires_appointment", nullable = false)
     private boolean requiresAppointment = false;
 

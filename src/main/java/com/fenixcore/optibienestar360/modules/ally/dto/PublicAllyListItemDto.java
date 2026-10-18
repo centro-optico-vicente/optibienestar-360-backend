@@ -24,6 +24,8 @@ public record PublicAllyListItemDto(
         String name,
 
         List<String> allyTypeNames,
+        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). */
+        List<String> allySegments,
         String cityName,
 
         String logoUrl,

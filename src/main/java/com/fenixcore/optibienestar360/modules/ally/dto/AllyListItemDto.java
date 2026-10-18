@@ -22,6 +22,8 @@ import java.util.UUID;
 public record AllyListItemDto(
         UUID uuid,
         String name,
+        /** Sequential "Nº DE ALIADO" (V179). */
+        Integer allyNumber,
 
         List<String> allyTypeNames,
         @Display DisplayRef city,

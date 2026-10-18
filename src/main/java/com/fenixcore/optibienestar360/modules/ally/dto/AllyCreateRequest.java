@@ -54,5 +54,13 @@ public record AllyCreateRequest(
         Boolean published,
         Instant publishedAt,
 
+        // ─── Agreement file + representative (V179) — allyNumber is never accepted ─
+        /** Advisor (promoter) who captured the ally; null = none (create) / unchanged (update). */
+        UUID capturedByPromoterUuid,
+        @Size(max = 210) String representativeName,
+        @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
+        String representativeDocumentType,
+        @Size(max = 20) String representativeDocumentNumber,
+
         List<UUID> professionUuids
 ) {}

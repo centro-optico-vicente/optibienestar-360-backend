@@ -40,7 +40,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AllyTypeService {
 
-    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "description");
+    private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of("code", "name", "description", "segment", "professionalArea");
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
         SortFieldValidator.sortableFieldsOf(AllyType.class, Map.of());
     private static final String[] SEARCHABLE_FIELDS = {"code", "name", "description"};
@@ -109,6 +109,9 @@ public class AllyTypeService {
         a.setCode(req.code());
         a.setName(req.name());
         a.setDescription(req.description());
+        a.setSegment(req.segment() != null ? req.segment() : AllyType.Segment.B2B);
+        a.setProfessionalArea(req.professionalArea());
+        validateSegment(a);
         return toDto(repository.save(a));
     }
 
@@ -122,6 +125,15 @@ public class AllyTypeService {
         if (req.active() != null) {
             a.setActive(req.active());
         }
+        // segment present → segment + area replaced together; absent → only a
+        // non-null area is applied (keeps clients unaware of segments working).
+        if (req.segment() != null) {
+            a.setSegment(req.segment());
+            a.setProfessionalArea(req.professionalArea());
+        } else if (req.professionalArea() != null) {
+            a.setProfessionalArea(req.professionalArea());
+        }
+        validateSegment(a);
         return toDto(repository.save(a));
     }
 
@@ -151,7 +163,19 @@ public class AllyTypeService {
                 .orElseThrow(() -> new NoSuchElementException("AllyType not found: " + uuid));
     }
 
+    /**
+     * A professional area only makes sense for professional (B2P) allies —
+     * mirrors {@code chk_ally_types_professional_area_requires_b2p} (V179) so
+     * the client gets a localized 422 instead of a generic 409.
+     */
+    private static void validateSegment(AllyType a) {
+        if (a.getProfessionalArea() != null && a.getSegment() != AllyType.Segment.B2P) {
+            throw new IllegalArgumentException("ally_type.professional_area.requires_b2p");
+        }
+    }
+
     static AllyTypeDto toDto(AllyType a) {
-        return new AllyTypeDto(a.getUuid(), a.getCode(), a.getName(), a.getDescription(), a.isActive());
+        return new AllyTypeDto(a.getUuid(), a.getCode(), a.getName(), a.getDescription(),
+                a.getSegment(), a.getProfessionalArea(), a.isActive());
     }
 }
