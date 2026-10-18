@@ -36,8 +36,9 @@ import java.util.UUID;
  *       payment method's {@code is_mandatory_*} flags, never from hardcoded
  *       method codes, so a new method added to the catalog works without a
  *       code change.</li>
- *   <li><b>Single default</b> — the first account of an advisor becomes the
- *       default; setting a new default unsets the previous one in the same
+ *   <li><b>Single default</b> — a new account becomes the default whenever the
+ *       advisor has no active default (first account, or after the default was
+ *       deleted); setting a new default unsets the previous one in the same
  *       transaction (flushed first so the V184 partial unique index never
  *       sees two defaults).</li>
  *   <li>The INSTITUCION system promoter is not writable (422).</li>
@@ -84,8 +85,8 @@ public class PromoterPayoutAccountsService {
         apply(account, req);
         validate(account);
 
-        boolean first = !accountRepository.existsByPromoterIdAndActiveTrue(promoter.getId());
-        boolean makeDefault = first || Boolean.TRUE.equals(req.isDefault());
+        boolean noDefaultYet = !accountRepository.existsByPromoterIdAndActiveTrueAndDefaultAccountTrue(promoter.getId());
+        boolean makeDefault = noDefaultYet || Boolean.TRUE.equals(req.isDefault());
         if (makeDefault) {
             unsetCurrentDefaults(promoter.getId(), null);
         }

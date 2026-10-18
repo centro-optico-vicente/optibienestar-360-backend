@@ -19,5 +19,5 @@ public interface PromoterPayoutAccountRepository extends JpaRepository<PromoterP
     /** Current default(s) — at most one per V184 partial unique index. */
     List<PromoterPayoutAccount> findByPromoterIdAndActiveTrueAndDefaultAccountTrue(Long promoterId);
 
-    boolean existsByPromoterIdAndActiveTrue(Long promoterId);
+    boolean existsByPromoterIdAndActiveTrueAndDefaultAccountTrue(Long promoterId);
 }

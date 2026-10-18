@@ -196,14 +196,22 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_firstAccount_becomesDefault() {
-        when(accountRepository.existsByPromoterIdAndActiveTrue(7L)).thenReturn(false);
+        when(accountRepository.existsByPromoterIdAndActiveTrueAndDefaultAccountTrue(7L)).thenReturn(false);
 
         assertThat(service.create(promoter.getUuid(), transferRequest("01020123450000012345")).isDefault()).isTrue();
     }
 
     @Test
-    void create_secondAccount_isNotDefaultUnlessAsked() {
-        when(accountRepository.existsByPromoterIdAndActiveTrue(7L)).thenReturn(true);
+    void create_whenAccountsExistButNoneIsDefault_becomesDefault() {
+        // e.g. the previous default was deleted and no other account was promoted
+        when(accountRepository.existsByPromoterIdAndActiveTrueAndDefaultAccountTrue(7L)).thenReturn(false);
+
+        assertThat(service.create(promoter.getUuid(), transferRequest("01020123450000012345")).isDefault()).isTrue();
+    }
+
+    @Test
+    void create_whenADefaultExists_isNotDefaultUnlessAsked() {
+        when(accountRepository.existsByPromoterIdAndActiveTrueAndDefaultAccountTrue(7L)).thenReturn(true);
 
         assertThat(service.create(promoter.getUuid(), transferRequest("01020123450000012345")).isDefault()).isFalse();
         verify(accountRepository, never()).saveAllAndFlush(anyList());
