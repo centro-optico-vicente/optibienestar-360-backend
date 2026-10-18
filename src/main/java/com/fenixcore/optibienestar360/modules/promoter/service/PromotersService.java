@@ -265,18 +265,21 @@ public class PromotersService {
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    /** PATCH-style: non-null values are applied, nulls keep the current value. */
+    /**
+     * PATCH-style: non-null values are applied, nulls keep the current value;
+     * a blank string clears an optional text field (stored as {@code NULL}).
+     */
     private static void applyDossier(Promoter promoter, LocalDate joinedAt, String assignedZone,
                                      String educationLevel, String profession, Short yearsOfExperience,
                                      String lastCompany, String lastPosition, String vehicle) {
         if (joinedAt != null)          promoter.setJoinedAt(joinedAt);
-        if (assignedZone != null)      promoter.setAssignedZone(assignedZone);
+        if (assignedZone != null)      promoter.setAssignedZone(blankToNull(assignedZone));
         if (educationLevel != null)    promoter.setEducationLevel(educationLevel);
-        if (profession != null)        promoter.setProfession(profession);
+        if (profession != null)        promoter.setProfession(blankToNull(profession));
         if (yearsOfExperience != null) promoter.setYearsOfExperience(yearsOfExperience);
-        if (lastCompany != null)       promoter.setLastCompany(lastCompany);
-        if (lastPosition != null)      promoter.setLastPosition(lastPosition);
-        if (vehicle != null)           promoter.setVehicle(vehicle);
+        if (lastCompany != null)       promoter.setLastCompany(blankToNull(lastCompany));
+        if (lastPosition != null)      promoter.setLastPosition(blankToNull(lastPosition));
+        if (vehicle != null)           promoter.setVehicle(blankToNull(vehicle));
     }
 
     /**
@@ -302,13 +305,14 @@ public class PromotersService {
             person.setDocumentType(newType);
             person.setDocumentNumber(newNumber);
         }
-        if (firstName != null)         person.setFirstName(firstName);
-        if (lastName != null)          person.setLastName(lastName);
+        // first/last name are NOT NULL on persons — a blank value is ignored, never cleared.
+        if (firstName != null && !firstName.isBlank()) person.setFirstName(firstName.trim());
+        if (lastName != null && !lastName.isBlank())   person.setLastName(lastName.trim());
         if (birthDate != null)         person.setBirthDate(birthDate);
         if (maritalStatusUuid != null) person.setMaritalStatus(maritalStatusRepository.findByUuid(maritalStatusUuid)
                 .orElseThrow(() -> new NoSuchElementException("marital_status.not_found")));
-        if (landlinePhone != null)     person.setLandlinePhone(landlinePhone);
-        if (address != null)           person.setAddress(address);
+        if (landlinePhone != null)     person.setLandlinePhone(blankToNull(landlinePhone));
+        if (address != null)           person.setAddress(blankToNull(address));
         if (cityUuid != null)          person.setCity(cityRepository.findByUuid(cityUuid)
                 .orElseThrow(() -> new NoSuchElementException("city.not_found")));
     }
@@ -379,6 +383,11 @@ public class PromotersService {
             sb.append(ReferralCodeService.ALPHABET.charAt(random.nextInt(ReferralCodeService.ALPHABET.length())));
         }
         return sb.toString();
+    }
+
+    private static String blankToNull(String value) {
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private static String normalize(String code) {
