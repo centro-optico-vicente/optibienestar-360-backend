@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.member.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.Relationship;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.SlotType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -20,6 +21,10 @@ import java.util.UUID;
  * {@code inscriptionPaymentUuid} references the payment that settles it — the
  * PENDING charge auto-generated when the beneficiary exceeds the included cap,
  * or {@code null} for included beneficiaries (no extra fee due).</p>
+ *
+ * <p>{@code slotType} (V178) is the family-nucleus slot the beneficiary
+ * occupies — {@code BASE} or {@code EXTRA} — with its localized
+ * {@code slotType_Display} label (ADR 0014).</p>
  */
 public record BeneficiaryDto(
         UUID uuid,
@@ -41,6 +46,7 @@ public record BeneficiaryDto(
         @Display(Display.Kind.ENUM) Relationship relationship,
         @Display(Display.Kind.BOOLEAN) boolean extraInscriptionPaid,
         UUID inscriptionPaymentUuid,
+        @Display(Display.Kind.ENUM) SlotType slotType,
 
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "beneficiary.status") String status,

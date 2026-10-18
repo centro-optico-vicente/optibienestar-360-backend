@@ -1,10 +1,13 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
+import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance.Channel;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsAcceptanceRepository;
@@ -36,6 +39,7 @@ public class TermsAcceptanceService {
     private final UserRepository userRepository;
     private final TermsVersionRepository termsVersionRepository;
     private final TermsAcceptanceRepository termsAcceptanceRepository;
+    private final TermsTemplateRenderer renderer;
 
     /**
      * The current, public version of each {@link TermType} matching one of
@@ -60,7 +64,8 @@ public class TermsAcceptanceService {
                         .orElse(null))
                 .filter(v -> v != null && v.isPublic())
                 .filter(v -> !termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), v.getId()))
-                .map(v -> new PendingTermDto(v.getUuid(), v.getTermType(), v.getTitle(), v.getContentMarkdown()))
+                .map(v -> new PendingTermDto(v.getUuid(), v.getTermType(), v.getTitle(),
+                        renderer.render(v.getContentMarkdown())))
                 .toList();
     }
 
@@ -70,9 +75,11 @@ public class TermsAcceptanceService {
      * {@code terms_acceptances} absorbs a duplicate submit). Each UUID is
      * re-validated as an actually-pending version for this user, so a caller
      * can't blindly accept an arbitrary/superseded version by guessing a UUID.
+     * Recorded with channel {@code PORTAL} plus the caller's IP/User-Agent as
+     * evidence.
      */
     @Transactional
-    public void accept(UUID userUuid, List<UUID> termsVersionUuids) {
+    public void accept(UUID userUuid, List<UUID> termsVersionUuids, ClientRequestMetadata client) {
         User user = userRepository.findByUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
@@ -89,12 +96,37 @@ public class TermsAcceptanceService {
             if (termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), version.getId())) {
                 continue;
             }
-            TermsAcceptance acceptance = new TermsAcceptance();
-            acceptance.setUser(user);
-            acceptance.setTermsVersion(version);
-            acceptance.setAcceptedAt(Instant.now());
-            termsAcceptanceRepository.save(acceptance);
+            save(user, version, Channel.PORTAL, client, null);
         }
+    }
+
+    /**
+     * Records the acceptance given on the public affiliation form, right after
+     * the AFILIADO user and its membership are created (same transaction).
+     * The caller has already validated {@code version} as the current public
+     * AFILIADO version ({@code TermsVersionService.requireCurrentPublic}).
+     */
+    @Transactional
+    public void recordSelfServiceAcceptance(User user, TermsVersion version, Membership membership,
+                                            ClientRequestMetadata client) {
+        if (termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), version.getId())) {
+            return;
+        }
+        save(user, version, Channel.SELF_SERVICE, client, membership);
+    }
+
+    private void save(User user, TermsVersion version, Channel channel, ClientRequestMetadata client,
+                      Membership membership) {
+        ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
+        TermsAcceptance acceptance = new TermsAcceptance();
+        acceptance.setUser(user);
+        acceptance.setTermsVersion(version);
+        acceptance.setAcceptedAt(Instant.now());
+        acceptance.setChannel(channel);
+        acceptance.setIpAddress(evidence.ipAddress());
+        acceptance.setUserAgent(evidence.userAgent());
+        acceptance.setMembership(membership);
+        termsAcceptanceRepository.save(acceptance);
     }
 
     private boolean isEffective(UserRole ur) {

@@ -24,9 +24,9 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract of the 1:1 payout-profile sub-resource (V180): empty state is a
+ * Contract of the 1:1 payout-profile sub-resource (V182): empty state is a
  * 200 DTO with {@code exists=false} (never 404), 404 only for an unknown
- * promoter, and the service-side mirrors of the V180 CHECKs.
+ * promoter, and the service-side mirrors of the V182 CHECKs.
  */
 @ExtendWith(MockitoExtension.class)
 class PromoterPayoutProfileServiceTest {

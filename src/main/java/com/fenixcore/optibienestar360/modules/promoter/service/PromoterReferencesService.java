@@ -19,7 +19,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
- * Admin CRUD for an advisor's personal references (V180, dossier section IV),
+ * Admin CRUD for an advisor's personal references (V182, dossier section IV),
  * mounted at {@code /v1/admin/promoters/{promoterUuid}/references}. Same
  * shape as the member beneficiaries sub-resource: every read/write resolves
  * the parent from the path and verifies the child belongs to it (404 on URL
@@ -112,7 +112,7 @@ public class PromoterReferencesService {
         }
     }
 
-    /** Mirrors the V180 CHECK (both or neither) for a clean 422 instead of a constraint violation. */
+    /** Mirrors the V182 CHECK (both or neither) for a clean 422 instead of a constraint violation. */
     private static void ensureDocumentPair(PromoterReference reference) {
         if ((reference.getDocumentType() == null) != (reference.getDocumentNumber() == null)) {
             throw new IllegalArgumentException("promoter_reference.document.incomplete");

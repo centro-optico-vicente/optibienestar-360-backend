@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.member;
 
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.Relationship;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.SlotType;
 import com.fenixcore.optibienestar360.modules.member.service.BeneficiariesService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +65,7 @@ class AdminMemberBeneficiariesControllerIT {
     private BeneficiaryDto dto() {
         return new BeneficiaryDto(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 "Ana", null, "Pérez", null, "Ana Pérez", "V", "12345678",
-                LocalDate.of(2015, 5, 20), null, null, Relationship.CHILD, false, null,
+                LocalDate.of(2015, 5, 20), null, null, Relationship.CHILD, false, null, SlotType.BASE,
                 true, null, null, null);
     }
 

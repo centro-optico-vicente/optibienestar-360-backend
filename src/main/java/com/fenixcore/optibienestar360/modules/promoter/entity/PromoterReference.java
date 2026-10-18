@@ -13,10 +13,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Personal reference of an advisor (V180, dossier section IV). Plain contact
+ * Personal reference of an advisor (V182, dossier section IV). Plain contact
  * data — intentionally NOT a {@code persons} row: a reference is not a
  * participant of the system, just a name and a phone number to call.
- * The cédula pair is optional (both or neither, V180 CHECK).
+ * The cédula pair is optional (both or neither, V182 CHECK).
  */
 @Getter
 @Setter

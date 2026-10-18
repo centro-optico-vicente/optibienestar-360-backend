@@ -33,7 +33,7 @@ public class GenericEntityExtractorService {
             "passwordhash", "refreshtoken", "accesstoken", "uuid"
     );
 
-    // Advisor dossier fields (V180), ranked last in flat table reports.
+    // Advisor dossier fields (V182), ranked last in flat table reports.
     private static final Set<String> PROMOTER_DOSSIER_FIELDS = Set.of(
             "joinedat", "assignedzone", "educationlevel", "profession",
             "yearsofexperience", "lastcompany", "lastposition", "vehicle"
@@ -297,7 +297,7 @@ public class GenericEntityExtractorService {
         if (key == null || key.isBlank()) return 500;
         String lower = key.toLowerCase().replace("_", "");
 
-        // 0. Advisor dossier details (V180) belong to the detail view, not to list columns:
+        // 0. Advisor dossier details (V182) belong to the detail view, not to list columns:
         //    rank them after status/active so they never push those out of the 10-column cap.
         if (PROMOTER_DOSSIER_FIELDS.contains(lower)) {
             return 960;

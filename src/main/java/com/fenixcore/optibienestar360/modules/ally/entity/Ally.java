@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,6 +17,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcType;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -52,6 +54,31 @@ public class Ally extends BaseEntity {
 
     @Column(length = 200, nullable = false)
     private String name;
+
+    /**
+     * Sequential "Nº DE ALIADO" (V179) — assigned by the DB sequence
+     * {@code allies_ally_number_seq} on INSERT and read back by Hibernate;
+     * never written by the application.
+     */
+    @Generated
+    @Column(name = "ally_number", nullable = false, insertable = false, updatable = false)
+    private Integer allyNumber;
+
+    /** Advisor (promoter) who captured the ally; its referral code prefixes the agreement file number (V179). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "captured_by_promoter_id")
+    private Promoter capturedByPromoter;
+
+    // ─── Legal representative / physician who signs the agreement (V179) ───
+
+    @Column(name = "representative_name", length = 210)
+    private String representativeName;
+
+    @Column(name = "representative_document_type", length = 1)
+    private String representativeDocumentType;
+
+    @Column(name = "representative_document_number", length = 20)
+    private String representativeDocumentNumber;
 
     // ─── Ally types (ally_ally_types pivot) — at least 1 required, ─────────
     // enforced in AlliesService, not at the DB level (M:N has no NOT NULL).

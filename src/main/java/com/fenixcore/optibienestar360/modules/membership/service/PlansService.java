@@ -52,7 +52,7 @@ public class PlansService {
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "code", "name", "type",
             "inscriptionFee", "monthlyFee",
-            "includedBeneficiaries", "maxBeneficiaries",
+            "includedBeneficiaries", "maxBeneficiaries", "minMembers",
             "gracePeriodDays",
             "published", "publishedAt",
             "createdAt", "updatedAt", "active", "status"
@@ -165,6 +165,7 @@ public class PlansService {
         if (req.includedBeneficiaries() != null) plan.setIncludedBeneficiaries(req.includedBeneficiaries());
         plan.setMaxBeneficiaries(req.maxBeneficiaries());
         plan.setExtraBeneficiaryInscriptionFee(req.extraBeneficiaryInscriptionFee());
+        plan.setMinMembers(req.minMembers());
         if (req.gracePeriodDays() != null) plan.setGracePeriodDays(req.gracePeriodDays());
         if (req.published() != null) plan.setPublished(req.published());
         plan.setPublishedAt(req.publishedAt());
@@ -199,6 +200,7 @@ public class PlansService {
         if (req.includedBeneficiaries()             != null) plan.setIncludedBeneficiaries(req.includedBeneficiaries());
         if (req.maxBeneficiaries()                  != null) plan.setMaxBeneficiaries(req.maxBeneficiaries());
         if (req.extraBeneficiaryInscriptionFee()    != null) plan.setExtraBeneficiaryInscriptionFee(req.extraBeneficiaryInscriptionFee());
+        if (req.minMembers()                        != null) plan.setMinMembers(req.minMembers());
         if (req.gracePeriodDays()                   != null) plan.setGracePeriodDays(req.gracePeriodDays());
         if (req.published()                         != null) plan.setPublished(req.published());
         if (req.publishedAt()                       != null) plan.setPublishedAt(req.publishedAt());

@@ -35,7 +35,7 @@ public class PromoterMeController {
     }
 
     /**
-     * Read-only view of the advisor's own payout profile (V180). Same
+     * Read-only view of the advisor's own payout profile (V182). Same
      * empty-state contract as the admin endpoint ({@code exists=false} when
      * not filled yet); edits stay admin-only.
      */

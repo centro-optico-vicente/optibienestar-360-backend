@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Advisor payout destination (V180, dossier section V "Datos financieros
+ * Advisor payout destination (V182, dossier section V "Datos financieros
  * para liquidación"). 1:1 with {@link Promoter} via UNIQUE(promoter_id).
  * Used as the default source to prefill OUT payouts (commission payouts)
  * instead of re-typing the bank data on every payment — the payment lines
@@ -39,7 +39,7 @@ public class PromoterPayoutProfile extends BaseEntity {
     @JoinColumn(name = "bank_id")
     private Bank bank;
 
-    /** 20-digit Venezuelan account number (V180 CHECK {@code ^[0-9]{20}$}). */
+    /** 20-digit Venezuelan account number (V182 CHECK {@code ^[0-9]{20}$}). */
     @Column(name = "account_number", length = 20)
     private String accountNumber;
 

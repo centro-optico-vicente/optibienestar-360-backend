@@ -1,6 +1,9 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
@@ -17,6 +20,10 @@ import com.fenixcore.optibienestar360.modules.membership.service.MembershipsServ
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,7 +41,9 @@ import java.util.Locale;
  *       reads the lifecycle status, so an ACTIVE membership here would grant
  *       benefits before paying. Approving the first payment re-evaluates it
  *       ({@code MembershipChargeService.applyPayment}) and staff can always
- *       reactivate it.</li>
+ *       reactivate it;</li>
+ *   <li>acceptance of the current AFILIADO T&amp;C ({@code termsVersionUuid}),
+ *       channel {@code SELF_SERVICE}, linked to that membership.</li>
  * </ol>
  * A cédula or email that already exists is rejected: attaching a new login to
  * an existing Person would hand a stranger that person's data.
@@ -52,9 +61,11 @@ public class PublicAffiliationService {
     private final UserService userService;
     private final MembersService membersService;
     private final MembershipsService membershipsService;
+    private final TermsVersionService termsVersionService;
+    private final TermsAcceptanceService termsAcceptanceService;
 
     @Transactional
-    public PublicAffiliationResponse create(PublicAffiliationRequest req) {
+    public PublicAffiliationResponse create(PublicAffiliationRequest req, ClientRequestMetadata client) {
         String email = req.email().trim().toLowerCase(Locale.ROOT);
         if (personRepository.existsByDocumentTypeAndDocumentNumber(req.documentType(), req.documentNumber())) {
             throw new IllegalArgumentException("affiliation.document.exists");
@@ -68,10 +79,12 @@ public class PublicAffiliationService {
         Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
 
+        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.AFILIADO, req.termsVersionUuid());
+
         Role afiliado = roleRepository.findByName("AFILIADO")
                 .orElseThrow(() -> new IllegalStateException("role AFILIADO missing"));
 
-        userService.createUser(new AdminCreateUserRequest(
+        UserDto createdUser = userService.createUser(new AdminCreateUserRequest(
                 email, req.firstName().trim(), null, req.lastName().trim(), null, req.password(),
                 req.documentType(), req.documentNumber(), null, null, blankToNull(req.phone()),
                 List.of(afiliado.getUuid()), afiliado.getUuid()), null);
@@ -88,6 +101,10 @@ public class PublicAffiliationService {
         Membership membership = membershipRepository.findByUuid(enrolled.uuid())
                 .orElseThrow(() -> new IllegalStateException("membership just created not found"));
         membership.setStatus(Membership.LifecycleStatus.SUSPENDED.name());
+
+        User user = userRepository.findByUuid(createdUser.uuid())
+                .orElseThrow(() -> new IllegalStateException("user just created not found"));
+        termsAcceptanceService.recordSelfServiceAcceptance(user, terms, membership, client);
 
         log.info("Public affiliation created for member {} (referral {})", member.uuid(), code);
         return new PublicAffiliationResponse(member.uuid(), email, promoter != null ? promoter.getDisplayName() : null);

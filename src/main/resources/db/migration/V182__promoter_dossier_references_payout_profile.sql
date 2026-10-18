@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ============================================================================
--- V180: advisor dossier ("Contrato de Mandato y Representación Comercial
+-- V182: advisor dossier ("Contrato de Mandato y Representación Comercial
 -- Independiente", OB360) — the client's advisor (internally `promoter`) file
 -- has five sections; this migration covers the parts that had no home yet:
 --
@@ -168,13 +168,13 @@ ON CONFLICT (entity_key) DO NOTHING;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM payment_methods WHERE code = 'UBII') THEN
-        RAISE EXCEPTION 'V180: UBII payment method was not created';
+        RAISE EXCEPTION 'V182: UBII payment method was not created';
     END IF;
 
     IF EXISTS (
         SELECT 1 FROM (VALUES ('promoter_reference'), ('promoter_payout_profile')) AS want(entity_key)
         WHERE NOT EXISTS (SELECT 1 FROM entity_config c WHERE c.entity_key = want.entity_key)
     ) THEN
-        RAISE EXCEPTION 'V180: one or more entity_config rows were not created';
+        RAISE EXCEPTION 'V182: one or more entity_config rows were not created';
     END IF;
 END $$;

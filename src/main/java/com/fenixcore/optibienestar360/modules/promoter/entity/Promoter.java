@@ -108,9 +108,9 @@ public class Promoter extends BaseEntity {
     @Column(length = 30)
     private String phone;
 
-    // ─── Dossier: registration (V180) ──────────────────────────────────────
+    // ─── Dossier: registration (V182) ──────────────────────────────────────
 
-    /** "Fecha de ingreso" — backfilled from {@code created_at} for pre-V180 rows. */
+    /** "Fecha de ingreso" — backfilled from {@code created_at} for pre-V182 rows. */
     @Column(name = "joined_at")
     private LocalDate joinedAt;
 
@@ -118,9 +118,9 @@ public class Promoter extends BaseEntity {
     @Column(name = "assigned_zone", length = 120)
     private String assignedZone;
 
-    // ─── Dossier: executive profile (V180) ─────────────────────────────────
+    // ─── Dossier: executive profile (V182) ─────────────────────────────────
 
-    /** One of {@link EducationLevel}; stored as a String pinned by the V180 CHECK. */
+    /** One of {@link EducationLevel}; stored as a String pinned by the V182 CHECK. */
     @Column(name = "education_level", length = 20)
     private String educationLevel;
 
@@ -152,7 +152,7 @@ public class Promoter extends BaseEntity {
         ACTIVE, INACTIVE, SUSPENDED
     }
 
-    /** Values for {@link #educationLevel} pinned by the V180 CHECK. */
+    /** Values for {@link #educationLevel} pinned by the V182 CHECK. */
     public enum EducationLevel {
         PRIMARY, SECONDARY, TECHNICAL, UNIVERSITY, POSTGRADUATE
     }

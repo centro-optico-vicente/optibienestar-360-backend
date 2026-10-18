@@ -25,6 +25,9 @@ public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long>,
 
     long countByMemberIdAndActiveTrue(Long memberId);
 
+    /** Family-nucleus slot usage (V178) for the member detail summary. */
+    long countByMemberIdAndActiveTrueAndSlotType(Long memberId, Beneficiary.SlotType slotType);
+
     /**
      * Usage check for {@code MembersService.countUsages} — ALL rows (active +
      * inactive). {@code Member.beneficiaries} has NO {@code cascade}/{@code

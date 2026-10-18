@@ -62,6 +62,10 @@ public interface MemberMapper {
     @Mapping(target = "activeBeneficiariesCount", ignore = true)
     @Mapping(target = "activeDocumentsCount",     ignore = true)
     @Mapping(target = "hasMedicalRecord",         ignore = true)
+    @Mapping(target = "baseSlotsUsed",            ignore = true)
+    @Mapping(target = "baseSlotsTotal",           ignore = true)
+    @Mapping(target = "extraSlotsUsed",           ignore = true)
+    @Mapping(target = "extraSlotsTotal",          ignore = true)
     @Mapping(target = "currentPromoterUuid",      source = "promoter.uuid")
     @Mapping(target = "currentPromoterName",      source = "promoter.displayName")
     MemberDetailDto toDetail(Member member);

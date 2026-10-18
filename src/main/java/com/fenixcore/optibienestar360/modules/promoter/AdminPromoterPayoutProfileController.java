@@ -19,7 +19,7 @@ import java.util.UUID;
 
 /**
  * Sub-resource {@code /v1/admin/promoters/{promoterUuid}/payout-profile} —
- * 1:1 advisor payout destination (V180, dossier section V).
+ * 1:1 advisor payout destination (V182, dossier section V).
  *
  * <ul>
  *   <li>{@code GET} — always 200 when the promoter exists; {@code exists}

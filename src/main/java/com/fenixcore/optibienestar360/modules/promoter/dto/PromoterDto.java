@@ -23,7 +23,7 @@ import java.util.UUID;
  * changing them goes through the dedicated hierarchy endpoints ({@code
  * POST /v1/admin/promoters/{uuid}/assign-supervisor}).</p>
  *
- * <p>Dossier fields (V180): {@code joinedAt}/{@code assignedZone}
+ * <p>Dossier fields (V182): {@code joinedAt}/{@code assignedZone}
  * (registration) and the executive profile ({@code educationLevel} +
  * {@code educationLevel_Display}, profession, experience, last job,
  * vehicle). {@code identity} is filled only by the detail endpoint.</p>
@@ -44,7 +44,7 @@ public record PromoterDto(
         String email,
         String phone,
 
-        // ─── Dossier (V180) ────────────────────────────────────────────────
+        // ─── Dossier (V182) ────────────────────────────────────────────────
         @Display(Display.Kind.DATE) LocalDate joinedAt,
         String assignedZone,
         @Display(Display.Kind.ENUM) String educationLevel,

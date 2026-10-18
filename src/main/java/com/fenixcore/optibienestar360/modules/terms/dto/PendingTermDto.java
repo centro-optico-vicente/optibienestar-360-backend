@@ -8,7 +8,8 @@ import java.util.UUID;
  * One T&C the caller has not yet accepted — {@code GET /v1/me/terms/pending}.
  * Carries {@code contentMarkdown} directly (unlike {@code TermsVersionDto}'s
  * admin shape) so {@code TermsAcceptanceModal} can render it without a
- * follow-up call.
+ * follow-up call. {@code contentMarkdown} is already rendered (placeholders
+ * resolved, see {@code TermsTemplateRenderer}).
  */
 public record PendingTermDto(
         UUID termsVersionUuid,

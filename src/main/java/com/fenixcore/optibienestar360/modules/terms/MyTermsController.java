@@ -1,9 +1,11 @@
 package com.fenixcore.optibienestar360.modules.terms;
 
+import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsAcceptRequest;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -37,8 +39,9 @@ public class MyTermsController {
 
     @PostMapping("/accept")
     public ResponseEntity<Void> accept(@AuthenticationPrincipal CustomUserDetails actor,
-                                       @Valid @RequestBody TermsAcceptRequest request) {
-        service.accept(actor.getUuid(), request.termsVersionUuids());
+                                       @Valid @RequestBody TermsAcceptRequest request,
+                                       HttpServletRequest httpRequest) {
+        service.accept(actor.getUuid(), request.termsVersionUuids(), ClientRequestMetadata.from(httpRequest));
         return ResponseEntity.noContent().build();
     }
 }

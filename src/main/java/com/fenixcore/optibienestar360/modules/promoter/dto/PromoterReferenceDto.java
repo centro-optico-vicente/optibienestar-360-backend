@@ -5,7 +5,7 @@ import com.fenixcore.optibienestar360.core.display.Display;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Output DTO for {@code /v1/admin/promoters/{promoterUuid}/references} (V180, dossier section IV). */
+/** Output DTO for {@code /v1/admin/promoters/{promoterUuid}/references} (V182, dossier section IV). */
 public record PromoterReferenceDto(
         UUID uuid,
         UUID promoterUuid,

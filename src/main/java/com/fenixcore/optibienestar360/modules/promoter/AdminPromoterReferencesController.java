@@ -24,7 +24,7 @@ import java.util.UUID;
 
 /**
  * Sub-resource {@code /v1/admin/promoters/{promoterUuid}/references} —
- * advisor personal references (V180, dossier section IV).
+ * advisor personal references (V182, dossier section IV).
  *
  * <p>Auth reuses {@code PROMOTER_*} permissions (no dedicated
  * {@code PROMOTER_REFERENCE_*} set — managing the dossier is part of

@@ -24,5 +24,7 @@ public record PublicAllyServiceDto(
         String description,
         @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        /** Where the preferential rate does NOT apply (V179) — affiliates must see it. */
+        String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment
 ) {}

@@ -123,6 +123,32 @@ class CorporateContractsServiceTest {
     }
 
     @Test
+    void create_rejectsExpectedCountBelowPlanMinimum() {
+        Plan plan = plan(PlanType.CORPORATIVO);
+        plan.setMinMembers(20);
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+
+        assertThatThrownBy(() -> sut().create(new CorporateContractCreateRequest(
+                plan.getUuid(), "X", "J-1", null, PayerMode.INSTITUTION_BULK, 19)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("corporate_contract.expected_member_count.below_plan_minimum");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_acceptsExpectedCountAtPlanMinimum() {
+        Plan plan = plan(PlanType.CORPORATIVO);
+        plan.setMinMembers(20);
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        sut().create(new CorporateContractCreateRequest(
+                plan.getUuid(), "X", "J-1", null, PayerMode.INSTITUTION_BULK, 20));
+
+        assertThat(capture().getExpectedMemberCount()).isEqualTo(20);
+    }
+
+    @Test
     void create_404_whenPlanUnknown() {
         UUID planUuid = UUID.randomUUID();
         when(planRepository.findByUuid(planUuid)).thenReturn(Optional.empty());
@@ -175,6 +201,31 @@ class CorporateContractsServiceTest {
                 individual.getUuid(), null, null, null, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("corporate_contract.plan.not_corporate");
+    }
+
+    @Test
+    void update_rejectsExpectedCountBelowPlanMinimum() {
+        CorporateContract contract = contractEntity(PayerMode.INSTITUTION_BULK);
+        contract.getPlan().setMinMembers(20);
+        when(repository.findByUuid(contract.getUuid())).thenReturn(Optional.of(contract));
+
+        assertThatThrownBy(() -> sut().update(contract.getUuid(), new CorporateContractUpdateRequest(
+                null, null, null, null, null, 5, null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("corporate_contract.expected_member_count.below_plan_minimum");
+    }
+
+    @Test
+    void update_allowsUnrelatedChanges_onLegacyContractBelowPlanMinimum() {
+        CorporateContract contract = contractEntity(PayerMode.INSTITUTION_BULK);
+        contract.getPlan().setMinMembers(20);
+        contract.setExpectedMemberCount(5);
+        when(repository.findByUuid(contract.getUuid())).thenReturn(Optional.of(contract));
+
+        sut().update(contract.getUuid(), new CorporateContractUpdateRequest(
+                null, "Renamed", null, null, null, null, null, null));
+
+        assertThat(contract.getInstitutionName()).isEqualTo("Renamed");
     }
 
     @Test

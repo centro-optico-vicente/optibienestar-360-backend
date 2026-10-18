@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryCreateReques
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryDto;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryUpdateRequest;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.SlotType;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
@@ -59,6 +60,12 @@ import java.util.UUID;
  *       beneficiary lands beyond {@code plan.included_beneficiaries}. The
  *       charge is a PENDING inscription payment linked to the beneficiary; the
  *       monthly fee never depends on the beneficiary count.</li>
+ *   <li><b>Family-nucleus slots (V178)</b> — every add / reactivation that
+ *       consumes a new active slot records it: {@link SlotType#BASE} while the
+ *       active count is below {@code included_beneficiaries} ("Núcleo Familiar
+ *       Base"), {@link SlotType#EXTRA} up to {@code max_beneficiaries}
+ *       ("Extensión de Blindaje"). Beyond the cap the family needs another
+ *       membership — same 422 {@code member.beneficiary.cap_exceeded}.</li>
  * </ol>
  */
 @Service
@@ -155,10 +162,9 @@ public class BeneficiariesService {
 
         long activeCount = beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId());
 
-        // Hard cap (max_beneficiaries NULL = no cap, e.g. Corporativo).
-        if (consumesNewSlot && plan.getMaxBeneficiaries() != null
-                && activeCount >= plan.getMaxBeneficiaries()) {
-            throw new IllegalArgumentException("member.beneficiary.cap_exceeded");
+        // Hard cap + slot assignment. An idempotent re-add keeps its slot.
+        if (consumesNewSlot) {
+            beneficiary.setSlotType(assignSlot(plan, activeCount));
         }
 
         beneficiary.setMember(member);
@@ -212,8 +218,20 @@ public class BeneficiariesService {
 
         if (req.relationship()           != null) beneficiary.setRelationship(req.relationship());
         if (req.extraInscriptionPaid()   != null) beneficiary.setExtraInscriptionPaid(req.extraInscriptionPaid());
-        if (req.active()                 != null) beneficiary.setActive(req.active());
         if (req.status()                 != null) beneficiary.setStatus(req.status());
+
+        if (req.active() != null) {
+            // Reactivating a soft-deleted beneficiary consumes a new active slot:
+            // same cap + slot rule as add(). Billing stays with add().
+            if (req.active() && !beneficiary.isActive()) {
+                Membership membership = membershipRepository
+                        .findFirstByMemberIdAndActiveTrue(beneficiary.getMember().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("member.beneficiary.no_active_membership"));
+                long activeCount = beneficiaryRepository.countByMemberIdAndActiveTrue(beneficiary.getMember().getId());
+                beneficiary.setSlotType(assignSlot(membership.getPlan(), activeCount));
+            }
+            beneficiary.setActive(req.active());
+        }
 
         return toDto(beneficiary);  // managed → dirty-check on commit
     }
@@ -226,6 +244,20 @@ public class BeneficiariesService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Slot for a beneficiary about to become the {@code activeCount + 1}-th
+     * active one under {@code plan}: BASE below {@code included_beneficiaries},
+     * EXTRA up to {@code max_beneficiaries} ({@code null} = no cap, e.g.
+     * Corporativo). Reaching the cap means the family needs another
+     * membership, so it is rejected with {@code member.beneficiary.cap_exceeded}.
+     */
+    static SlotType assignSlot(Plan plan, long activeCount) {
+        if (plan.getMaxBeneficiaries() != null && activeCount >= plan.getMaxBeneficiaries()) {
+            throw new IllegalArgumentException("member.beneficiary.cap_exceeded");
+        }
+        return activeCount < plan.getIncludedBeneficiaries() ? SlotType.BASE : SlotType.EXTRA;
+    }
 
     /** Maps a beneficiary, resolving its linked inscription payment id to the external UUID. */
     private BeneficiaryDto toDto(Beneficiary beneficiary) {

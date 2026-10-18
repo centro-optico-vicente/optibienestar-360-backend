@@ -19,7 +19,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
- * 1:1 payout profile of an advisor (V180, dossier section V), mounted at
+ * 1:1 payout profile of an advisor (V182, dossier section V), mounted at
  * {@code /v1/admin/promoters/{promoterUuid}/payout-profile} plus the
  * read-only self-service {@code GET /v1/promoter/me/payout-profile}.
  *
@@ -78,7 +78,7 @@ public class PromoterPayoutProfileService {
         profile.setUbiiAccount(blankToNull(req.ubiiAccount()));
         profile.setUbiiHolderName(blankToNull(req.ubiiHolderName()));
 
-        // Mirrors the V180 CHECKs for a clean 422 before the constraint fires.
+        // Mirrors the V182 CHECKs for a clean 422 before the constraint fires.
         if (profile.getAccountNumber() != null && !profile.getAccountNumber().matches("^[0-9]{20}$")) {
             throw new IllegalArgumentException("promoter_payout_profile.account_number.format");
         }

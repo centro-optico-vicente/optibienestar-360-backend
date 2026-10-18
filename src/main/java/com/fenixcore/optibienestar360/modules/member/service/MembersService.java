@@ -23,6 +23,7 @@ import com.fenixcore.optibienestar360.modules.member.dto.MemberCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberListItemDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberUpdateRequest;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
@@ -30,6 +31,8 @@ import com.fenixcore.optibienestar360.modules.member.repository.MedicalRecordRep
 import com.fenixcore.optibienestar360.modules.member.repository.MemberDocumentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.notification.dto.NotificationEnqueueCommand;
 import com.fenixcore.optibienestar360.modules.notification.service.NotificationService;
@@ -423,7 +426,7 @@ public class MembersService {
     }
 
     /**
-     * Wraps {@link MemberMapper#toDetail} with the three count fields the
+     * Wraps {@link MemberMapper#toDetail} with the count / slot fields the
      * mapper ignores. Kept here (not in the mapper) so the repos can stay
      * out of the mapper's dependency graph.
      */
@@ -431,6 +434,19 @@ public class MembersService {
         int beneficiariesCount = (int) beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId());
         int documentsCount     = (int) documentRepository.countByMemberIdAndActiveTrue(member.getId());
         boolean hasMedicalRecord = medicalRecordRepository.existsByPersonId(member.getPerson().getId());
+
+        // Family-nucleus slot summary (V178) — totals from the active membership's plan.
+        int baseSlotsUsed  = (int) beneficiaryRepository.countByMemberIdAndActiveTrueAndSlotType(
+                member.getId(), Beneficiary.SlotType.BASE);
+        int extraSlotsUsed = (int) beneficiaryRepository.countByMemberIdAndActiveTrueAndSlotType(
+                member.getId(), Beneficiary.SlotType.EXTRA);
+        Plan plan = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
+                .map(Membership::getPlan)
+                .orElse(null);
+        Integer baseSlotsTotal  = plan != null ? plan.getIncludedBeneficiaries() : null;
+        Integer extraSlotsTotal = plan != null && plan.getMaxBeneficiaries() != null
+                ? Math.max(0, plan.getMaxBeneficiaries() - plan.getIncludedBeneficiaries())
+                : null;
 
         MemberDetailDto base = mapper.toDetail(member);
         return new MemberDetailDto(
@@ -446,6 +462,7 @@ public class MembersService {
                 base.occupation(), base.employerName(), base.jobPosition(), base.employerAddress(),
                 base.enrolledAt(), base.notes(),
                 beneficiariesCount, documentsCount, hasMedicalRecord,
+                baseSlotsUsed, baseSlotsTotal, extraSlotsUsed, extraSlotsTotal,
                 base.currentPromoterUuid(), base.currentPromoterName(),
                 base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt()
         );

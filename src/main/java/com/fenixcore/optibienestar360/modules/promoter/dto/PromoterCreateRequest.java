@@ -32,7 +32,7 @@ import java.util.UUID;
  * (cross-table uniqueness, service-side per V27 design). The {@code ^$} branch
  * lets a blank value through validation so the service can auto-generate.</p>
  *
- * <p><b>Dossier (V180):</b> registration/executive-profile fields land on the
+ * <p><b>Dossier (V182):</b> registration/executive-profile fields land on the
  * promoter row; {@code joinedAt} defaults to today when omitted. The identity
  * fields are optional and, when present, are written onto the linked user's
  * {@code persons} row (same delegation {@code MembersService.update} uses) —
@@ -53,7 +53,7 @@ public record PromoterCreateRequest(
 
         UUID promoterTypeUuid,
 
-        // ─── Dossier: registration + executive profile (V180) ──────────────
+        // ─── Dossier: registration + executive profile (V182) ──────────────
         LocalDate joinedAt,
         @Size(max = 120) String assignedZone,
         @Pattern(regexp = "^(PRIMARY|SECONDARY|TECHNICAL|UNIVERSITY|POSTGRADUATE)$",

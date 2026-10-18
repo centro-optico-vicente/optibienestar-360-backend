@@ -29,7 +29,7 @@ import java.util.UUID;
  *       the commission engine, not by admin edits.</li>
  * </ul>
  *
- * <p>Dossier fields (V180) follow the same PATCH semantics; identity fields
+ * <p>Dossier fields (V182) follow the same PATCH semantics; identity fields
  * are written onto the linked {@code persons} row (shared identity hub).</p>
  */
 public record PromoterUpdateRequest(
@@ -46,7 +46,7 @@ public record PromoterUpdateRequest(
                  message = "{promoter.status.allowed_values}")
         String status,
 
-        // ─── Dossier: registration + executive profile (V180) ──────────────
+        // ─── Dossier: registration + executive profile (V182) ──────────────
         LocalDate joinedAt,
         @Size(max = 120) String assignedZone,
         @Pattern(regexp = "^(PRIMARY|SECONDARY|TECHNICAL|UNIVERSITY|POSTGRADUATE)$",

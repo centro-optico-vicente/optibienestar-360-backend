@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement.AgreementType;
 
 import java.time.Instant;
@@ -15,7 +16,9 @@ import java.util.UUID;
  * EXPIRED / TERMINATED) — stored in the shared {@code status} column of
  * {@link com.fenixcore.optibienestar360.core.entity.BaseEntity}.</p>
  *
- * <p>Scalars carry a localized {@code _Display} sibling (ADR 0014).</p>
+ * <p>Scalars carry a localized {@code _Display} sibling (ADR 0014).
+ * {@code termsVersion} serializes as {@code termsVersion_Uuid} +
+ * {@code termsVersion_Display} ("&lt;title&gt; (&lt;valid-from dd-MM-yyyy&gt;)").</p>
  */
 public record AllyAgreementDto(
         UUID uuid,
@@ -25,6 +28,9 @@ public record AllyAgreementDto(
         @Display(Display.Kind.DATE) LocalDate endDate,
         String terms,
         String signedPdfUrl,
+        @Display DisplayRef termsVersion,
+        @Display(Display.Kind.BOOLEAN) boolean autoRenew,
+        @Display(Display.Kind.NUMBER) int noticeDays,
         @Display(value = Display.Kind.ENUM, enumScope = "ally_agreement.status") String status,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant createdAt,

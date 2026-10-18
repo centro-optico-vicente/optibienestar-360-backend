@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Output DTO for {@code GET /v1/admin/promoters/{promoterUuid}/payout-profile}
- * and {@code GET /v1/promoter/me/payout-profile} (V180, dossier section V).
+ * and {@code GET /v1/promoter/me/payout-profile} (V182, dossier section V).
  *
  * <p><b>Empty-state contract</b> (1:1 sub-resource, hub ADR 0012): always
  * 200 when the promoter exists. With no row (or a soft-deleted one) the

@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.member.service;
 import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.Relationship;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary.SlotType;
+import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryUpdateRequest;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.mapper.MemberMapper;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
@@ -85,6 +87,7 @@ class BeneficiariesServiceTest {
         Beneficiary saved = captureSaved();
         assertThat(saved.isExtraInscriptionPaid()).isFalse();
         assertThat(saved.getInscriptionPaymentId()).isNull();
+        assertThat(saved.getSlotType()).isEqualTo(SlotType.BASE);
         verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
     }
 
@@ -99,6 +102,7 @@ class BeneficiariesServiceTest {
         Beneficiary saved = captureSaved();
         assertThat(saved.getInscriptionPaymentId()).isEqualTo(77L);
         assertThat(saved.isExtraInscriptionPaid()).isFalse();   // PENDING until approved
+        assertThat(saved.getSlotType()).isEqualTo(SlotType.EXTRA);
         verify(inscriptionBiller).chargeExtraInscription(ms, FEE);
     }
 
@@ -173,6 +177,64 @@ class BeneficiariesServiceTest {
         verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
     }
 
+    // ─── family-nucleus slots (V178) ──────────────────────────────────────────
+
+    @Test
+    void assignSlot_familiar_baseThenExtraThenRejected() {
+        Plan familiar = plan(4, 6, FEE);   // 4 base + 2 extra
+
+        assertThat(BeneficiariesService.assignSlot(familiar, 0L)).isEqualTo(SlotType.BASE);
+        assertThat(BeneficiariesService.assignSlot(familiar, 3L)).isEqualTo(SlotType.BASE);
+        assertThat(BeneficiariesService.assignSlot(familiar, 4L)).isEqualTo(SlotType.EXTRA);
+        assertThat(BeneficiariesService.assignSlot(familiar, 5L)).isEqualTo(SlotType.EXTRA);
+        assertThatThrownBy(() -> BeneficiariesService.assignSlot(familiar, 6L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("member.beneficiary.cap_exceeded");
+    }
+
+    @Test
+    void assignSlot_noCap_isExtraBeyondIncluded() {
+        assertThat(BeneficiariesService.assignSlot(plan(0, null, FEE), 50L)).isEqualTo(SlotType.EXTRA);
+    }
+
+    @Test
+    void add_idempotentReAddOfActive_keepsSlot() {
+        Member member = member();
+        Beneficiary existing = new Beneficiary();
+        existing.setUuid(UUID.randomUUID());
+        existing.setActive(true);
+        existing.setSlotType(SlotType.EXTRA);
+        stubEnrollment(member, plan(4, 6, FEE), 6L, person(), Optional.of(existing));   // full nucleus
+
+        sut().add(member.getUuid(), req(null));   // no throw: it does not consume a new slot
+
+        assertThat(existing.getSlotType()).isEqualTo(SlotType.EXTRA);
+    }
+
+    @Test
+    void update_reactivation_assignsSlot() {
+        Member member = member();
+        Beneficiary b = inactiveUnder(member);
+        stubPlanAndCount(member, plan(4, 6, FEE), 4L);
+
+        sut().update(member.getUuid(), b.getUuid(), activate());
+
+        assertThat(b.isActive()).isTrue();
+        assertThat(b.getSlotType()).isEqualTo(SlotType.EXTRA);
+    }
+
+    @Test
+    void update_reactivation_capExceeded_is422() {
+        Member member = member();
+        Beneficiary b = inactiveUnder(member);
+        stubPlanAndCount(member, plan(4, 6, FEE), 6L);
+
+        assertThatThrownBy(() -> sut().update(member.getUuid(), b.getUuid(), activate()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("member.beneficiary.cap_exceeded");
+        assertThat(b.isActive()).isFalse();
+    }
+
     @Test
     void delete_softDeletes_withoutRefund() {
         Member member = member();
@@ -229,6 +291,27 @@ class BeneficiariesServiceTest {
         // lenient: the cap-exceeded path throws before reaching save().
         lenient().when(beneficiaryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         return ms;
+    }
+
+    private Beneficiary inactiveUnder(Member member) {
+        Beneficiary b = new Beneficiary();
+        b.setUuid(UUID.randomUUID());
+        b.setMember(member);
+        b.setPerson(person());
+        b.setActive(false);
+        when(beneficiaryRepository.findByUuid(b.getUuid())).thenReturn(Optional.of(b));
+        return b;
+    }
+
+    private void stubPlanAndCount(Member member, Plan plan, long activeCount) {
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()))
+                .thenReturn(Optional.of(membership(member, plan)));
+        when(beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId())).thenReturn(activeCount);
+    }
+
+    private BeneficiaryUpdateRequest activate() {
+        return new BeneficiaryUpdateRequest(null, null, null, null, null, null, null, null, null,
+                null, null, true, null);
     }
 
     private Beneficiary captureSaved() {

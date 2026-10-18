@@ -12,6 +12,6 @@ public interface PromoterPayoutProfileRepository extends JpaRepository<PromoterP
 
     Optional<PromoterPayoutProfile> findByUuid(UUID uuid);
 
-    /** 1:1 per V180 UNIQUE(promoter_id) — at most one row. */
+    /** 1:1 per V182 UNIQUE(promoter_id) — at most one row. */
     Optional<PromoterPayoutProfile> findByPromoterId(Long promoterId);
 }

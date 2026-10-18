@@ -12,7 +12,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Bean-validation of the payout account number (V180): empty or exactly 20 digits. */
+/** Bean-validation of the payout account number (V182): empty or exactly 20 digits. */
 class PromoterPayoutProfileUpsertRequestValidationTest {
 
     private static ValidatorFactory factory;
