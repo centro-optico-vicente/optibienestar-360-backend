@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement.Agreemen
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapperImpl;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
@@ -35,7 +36,9 @@ import static org.mockito.Mockito.when;
 /**
  * V179: an ally agreement may only reference the standard {@code ALIADO}
  * terms version — affiliate / promoter T&amp;C are rejected with 422
- * {@code ally_agreement.terms_version.invalid_type}. Also covers the
+ * {@code ally_agreement.terms_version.invalid_type}. V183: the template's
+ * scope must match the ally (422
+ * {@code ally_agreement.terms_version.not_applicable}). Also covers the
  * auto-renew / notice-days defaults and overrides.
  */
 @ExtendWith(MockitoExtension.class)
@@ -125,6 +128,80 @@ class AllyAgreementsServiceTermsVersionTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("ally_agreement.terms_version.invalid_type");
         assertThat(agreement.getTermsVersion()).isNull();
+    }
+
+    @Test
+    void create_withTemplateScopedToAnotherSegment_isNotApplicable() {
+        ally.getAllyTypes().add(allyType(AllyType.Segment.B2B));
+        TermsVersion version = version(TermType.ALIADO);
+        version.setSegment(AllyType.Segment.B2P);
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
+
+        assertThatThrownBy(() -> service.create(ally.getUuid(), createRequest(version.getUuid(), null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_agreement.terms_version.not_applicable");
+        verify(agreementRepository, never()).save(any());
+    }
+
+    @Test
+    void create_withTemplateMadeForAnotherAlly_isNotApplicable() {
+        Ally other = new Ally();
+        other.setId(2L);
+        other.setUuid(UUID.randomUUID());
+        TermsVersion version = version(TermType.ALIADO);
+        version.setAlly(other);
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
+
+        assertThatThrownBy(() -> service.create(ally.getUuid(), createRequest(version.getUuid(), null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_agreement.terms_version.not_applicable");
+    }
+
+    @Test
+    void create_withTemplateScopedToTheAllysSegment_linksIt() {
+        ally.getAllyTypes().add(allyType(AllyType.Segment.B2P));
+        TermsVersion version = version(TermType.ALIADO);
+        version.setSegment(AllyType.Segment.B2P);
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
+        when(agreementRepository.save(any(AllyAgreement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AllyAgreementDto dto = service.create(ally.getUuid(), createRequest(version.getUuid(), null, null));
+
+        assertThat(dto.termsVersion().uuid()).isEqualTo(version.getUuid());
+    }
+
+    @Test
+    void update_resendingTheLinkedVersion_skipsTheApplicabilityCheck() {
+        TermsVersion version = version(TermType.ALIADO);
+        version.setSegment(AllyType.Segment.B2P); // no longer matches: the ally has no types now
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setId(5L);
+        agreement.setUuid(UUID.randomUUID());
+        agreement.setAlly(ally);
+        agreement.setTermsVersion(version);
+        when(agreementRepository.findByUuid(agreement.getUuid())).thenReturn(Optional.of(agreement));
+
+        AllyAgreementUpdateRequest req = new AllyAgreementUpdateRequest(
+                null, null, null, "Nuevo anexo", null, null, null, version.getUuid(), null, null);
+
+        AllyAgreementDto dto = service.update(ally.getUuid(), agreement.getUuid(), req);
+
+        assertThat(dto.terms()).isEqualTo("Nuevo anexo");
+        assertThat(dto.termsVersion().uuid()).isEqualTo(version.getUuid());
+        verify(termsVersionRepository, never()).findByUuid(any());
+    }
+
+    private static AllyType allyType(AllyType.Segment segment) {
+        AllyType type = new AllyType();
+        type.setId(9L);
+        type.setUuid(UUID.randomUUID());
+        type.setCode("TIPO_" + segment.name());
+        type.setName("Tipo " + segment.name());
+        type.setSegment(segment);
+        return type;
     }
 
     private static AllyAgreementCreateRequest createRequest(UUID termsVersionUuid, Boolean autoRenew, Integer noticeDays) {

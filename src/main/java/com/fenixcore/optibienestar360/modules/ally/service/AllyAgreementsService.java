@@ -14,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepos
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionScopes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -69,7 +70,7 @@ public class AllyAgreementsService {
         agreement.setTerms(req.terms());
         agreement.setSignedPdfUrl(req.signedPdfUrl());
         agreement.setStatus(req.status() != null ? req.status() : "ACTIVE");
-        agreement.setTermsVersion(resolveAllyTermsVersion(req.termsVersionUuid()));
+        agreement.setTermsVersion(resolveAllyTermsVersion(ally, req.termsVersionUuid()));
         if (req.autoRenew() != null)  agreement.setAutoRenew(req.autoRenew());
         if (req.noticeDays() != null) agreement.setNoticeDays(req.noticeDays());
         return mapper.toAgreementDto(agreementRepository.save(agreement));
@@ -86,7 +87,9 @@ public class AllyAgreementsService {
         if (req.signedPdfUrl() != null)  agreement.setSignedPdfUrl(req.signedPdfUrl());
         if (req.status() != null)        agreement.setStatus(req.status());
         if (req.active() != null)        agreement.setActive(req.active());
-        if (req.termsVersionUuid() != null) agreement.setTermsVersion(resolveAllyTermsVersion(req.termsVersionUuid()));
+        if (req.termsVersionUuid() != null && !isLinkedVersion(agreement, req.termsVersionUuid())) {
+            agreement.setTermsVersion(resolveAllyTermsVersion(agreement.getAlly(), req.termsVersionUuid()));
+        }
         if (req.autoRenew() != null)     agreement.setAutoRenew(req.autoRenew());
         if (req.noticeDays() != null)    agreement.setNoticeDays(req.noticeDays());
         return mapper.toAgreementDto(agreement);
@@ -110,17 +113,33 @@ public class AllyAgreementsService {
      * Resolves the standard agreement version an ally agreement is signed
      * under. Only {@link TermsVersion.TermType#ALIADO} versions qualify — an
      * affiliate or promoter T&amp;C is not an ally agreement (422
-     * {@code ally_agreement.terms_version.invalid_type}). {@code null} in,
+     * {@code ally_agreement.terms_version.invalid_type}) — and only templates
+     * whose scope (V183) matches the ally (422
+     * {@code ally_agreement.terms_version.not_applicable}, see
+     * {@link TermsVersionScopes#isApplicableTo}). {@code null} in,
      * {@code null} out (the link is optional).
      */
-    TermsVersion resolveAllyTermsVersion(UUID termsVersionUuid) {
+    TermsVersion resolveAllyTermsVersion(Ally ally, UUID termsVersionUuid) {
         if (termsVersionUuid == null) return null;
         TermsVersion version = termsVersionRepository.findByUuid(termsVersionUuid)
                 .orElseThrow(() -> new NoSuchElementException("terms_version.not_found"));
         if (version.getTermType() != TermsVersion.TermType.ALIADO) {
             throw new IllegalArgumentException("ally_agreement.terms_version.invalid_type");
         }
+        if (!TermsVersionScopes.isApplicableTo(version, ally)) {
+            throw new IllegalArgumentException("ally_agreement.terms_version.not_applicable");
+        }
         return version;
+    }
+
+    /**
+     * Re-sending the version the agreement already links is a no-op, so an
+     * edit of other fields never fails because the ally's types changed since
+     * the agreement was signed.
+     */
+    private static boolean isLinkedVersion(AllyAgreement agreement, UUID termsVersionUuid) {
+        TermsVersion linked = agreement.getTermsVersion();
+        return linked != null && termsVersionUuid.equals(linked.getUuid());
     }
 
     private AllyAgreement findAgreementUnderAlly(UUID allyUuid, UUID agreementUuid) {

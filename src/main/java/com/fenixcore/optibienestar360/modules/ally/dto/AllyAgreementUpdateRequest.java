@@ -19,7 +19,7 @@ public record AllyAgreementUpdateRequest(
         @Size(max = 500) String signedPdfUrl,
         String status,
         Boolean active,
-        /** Must reference an {@code ALIADO} terms version (V179). */
+        /** Must reference an {@code ALIADO} template applicable to the ally (V179, V183). */
         UUID termsVersionUuid,
         Boolean autoRenew,
         @Min(0) Integer noticeDays
