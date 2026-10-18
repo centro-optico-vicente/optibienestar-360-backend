@@ -17,6 +17,7 @@ import java.util.UUID;
  * {@code DRAFT}.</p>
  *
  * <p>{@code termsVersionUuid} must reference an {@code ALIADO} terms version
+ * applicable to the ally (V183 scope, see {@code GET .../applicable-terms})
  * (the standard "Convenio de Alianza Estratégica"); {@code autoRenew} and
  * {@code noticeDays} default to {@code true} / {@code 30} when omitted (V179).</p>
  */
