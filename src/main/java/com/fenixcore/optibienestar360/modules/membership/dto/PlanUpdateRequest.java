@@ -37,6 +37,7 @@ public record PlanUpdateRequest(
         @PositiveOrZero Integer maxBeneficiaries,
         @Digits(integer = 8, fraction = 2) @DecimalMin(value = "0.0", inclusive = true)
         BigDecimal extraBeneficiaryInscriptionFee,
+        @Min(1) Integer minMembers,
 
         @Min(0) Integer gracePeriodDays,
 

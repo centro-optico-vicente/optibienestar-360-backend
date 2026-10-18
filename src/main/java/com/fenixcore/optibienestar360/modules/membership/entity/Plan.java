@@ -37,6 +37,8 @@ import java.time.Instant;
  *   <li>{@code extraBeneficiaryInscriptionFee} — one-time per beneficiary
  *       added beyond {@code includedBeneficiaries}; {@code null} means the
  *       plan does not allow extras (e.g. Individual with max = 0).</li>
+ *   <li>{@code minMembers} — minimum number of people the plan requires
+ *       ({@code null} = no minimum; 20 for Corporativo).</li>
  * </ul>
  *
  * <p>Publishing flag controls public-directory visibility independently of
@@ -86,6 +88,16 @@ public class Plan extends BaseEntity {
 
     @Column(name = "extra_beneficiary_inscription_fee", precision = 10, scale = 2)
     private BigDecimal extraBeneficiaryInscriptionFee;
+
+    // ─── Membership size (V177) ─────────────────────────────────────────────
+
+    /**
+     * Minimum number of people the plan requires; {@code null} = no minimum.
+     * Used by Corporativo (20 per the OptiBienestar 360 client documents) and
+     * enforced against a corporate contract's expected member count.
+     */
+    @Column(name = "min_members")
+    private Integer minMembers;
 
     // ─── Lifecycle ──────────────────────────────────────────────────────────
 

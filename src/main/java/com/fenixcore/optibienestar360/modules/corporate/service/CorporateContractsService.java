@@ -147,6 +147,7 @@ public class CorporateContractsService {
         contract.setPayerMode(req.payerMode());
         contract.setExpectedMemberCount(req.expectedMemberCount());
         // actualMemberCount defaults to 0 until members are enrolled.
+        requirePlanMinimum(contract);
 
         return CorporateContractDto.from(repository.save(contract));
     }
@@ -170,6 +171,10 @@ public class CorporateContractsService {
         if (req.expectedMemberCount() != null) contract.setExpectedMemberCount(req.expectedMemberCount());
         if (req.active()             != null) contract.setActive(req.active());
         if (req.status()             != null) contract.setStatus(req.status());
+
+        // Only re-checked when the plan or the expected count changes, so legacy
+        // contracts below the V177 minimum can still be edited otherwise.
+        if (req.planUuid() != null || req.expectedMemberCount() != null) requirePlanMinimum(contract);
 
         return CorporateContractDto.from(contract);   // managed → dirty-check on commit
     }
@@ -245,6 +250,19 @@ public class CorporateContractsService {
     private static void requireCorporatePlan(Plan plan) {
         if (plan.getType() != Plan.PlanType.CORPORATIVO) {
             throw new IllegalArgumentException("corporate_contract.plan.not_corporate");
+        }
+    }
+
+    /**
+     * A contract's expected member count must reach the plan's minimum
+     * ({@code plans.min_members}, V177 — 20 for Corporativo). Skipped when the
+     * plan has no minimum or the expected count is not declared yet.
+     */
+    private static void requirePlanMinimum(CorporateContract contract) {
+        Integer minMembers = contract.getPlan().getMinMembers();
+        Integer expected = contract.getExpectedMemberCount();
+        if (minMembers != null && expected != null && expected < minMembers) {
+            throw new IllegalArgumentException("corporate_contract.expected_member_count.below_plan_minimum");
         }
     }
 

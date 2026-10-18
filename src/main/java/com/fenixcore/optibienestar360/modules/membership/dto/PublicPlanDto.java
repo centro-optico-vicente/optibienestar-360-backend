@@ -27,7 +27,8 @@ import java.util.UUID;
  * (INDIVIDUAL / FAMILIAR / CORPORATIVO) — public-facing by nature, useful for
  * per-tier styling. Beneficiary fields are selling points straight off the
  * flyer ("incluye 3 beneficiarios, hasta 5, +$5 por adicional"), so they stay
- * in. {@code currency_Code} rides along solely so the {@code MONEY} fields
+ * in, and so is {@code minMembers} ("mínimo 20 personas" for Corporativo).
+ * {@code currency_Code} rides along solely so the {@code MONEY} fields
  * format in the plan's real currency (ADR 0008: plan pricing is USD today)
  * instead of {@link com.fenixcore.optibienestar360.core.display.DisplayFormatter}'s
  * VES fallback.</p>
@@ -48,6 +49,7 @@ public record PublicPlanDto(
         int includedBeneficiaries,
         Integer maxBeneficiaries,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal extraBeneficiaryInscriptionFee,
+        Integer minMembers,
 
         int gracePeriodDays
 ) {}
