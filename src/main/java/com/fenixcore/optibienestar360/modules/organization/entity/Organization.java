@@ -42,6 +42,20 @@ public class Organization extends BaseEntity {
     @Column(name = "tax_identifier", length = 20)
     private String taxIdentifier;
 
+    // ─── Contract header values (V181) — resolved into the T&C templates ───
+
+    /** State of the Registro Mercantil the company is registered in ({@code {{org.registryState}}}). */
+    @Column(name = "registry_state", length = 80)
+    private String registryState;
+
+    /** City where contracts are signed ({@code {{org.city}}}). */
+    @Column(name = "signing_city", length = 80)
+    private String signingCity;
+
+    /** Coverage area of the allies network ({@code {{org.serviceArea}}}). */
+    @Column(name = "service_area", length = 150)
+    private String serviceArea;
+
     @Column(name = "logo_key", length = 255)
     private String logoKey;
 

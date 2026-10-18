@@ -1,7 +1,6 @@
 package com.fenixcore.optibienestar360.modules.terms;
 
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
-import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +26,6 @@ public class PublicTermsController {
     /** 404 if the current version of {@code type} exists but isn't marked public. */
     @GetMapping("/{type}")
     public ResponseEntity<PublicTermsDto> current(@PathVariable TermType type) {
-        TermsVersion version = service.getCurrentPublic(type);
-        return ResponseEntity.ok(new PublicTermsDto(
-                version.getTermType(), version.getTitle(), version.getContentMarkdown(), version.getValidFrom()));
+        return ResponseEntity.ok(service.getCurrentPublicRendered(type));
     }
 }

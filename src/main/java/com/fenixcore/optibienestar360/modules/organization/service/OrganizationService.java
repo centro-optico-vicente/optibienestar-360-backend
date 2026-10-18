@@ -69,6 +69,9 @@ public class OrganizationService {
             org.setReferenceCurrency(resolveCurrency(req.referenceCurrencyUuid()));
         }
         org.setAutoApproveCommissions(req.autoApproveCommissions());
+        org.setRegistryState(req.registryState());
+        org.setSigningCity(req.signingCity());
+        org.setServiceArea(req.serviceArea());
         return toDto(repository.save(org));
     }
 
@@ -94,6 +97,9 @@ public class OrganizationService {
                 o.getFacebook(),
                 DisplayRefs.ref(o.getOfficialCurrency()),
                 DisplayRefs.ref(o.getReferenceCurrency()),
-                o.isAutoApproveCommissions());
+                o.isAutoApproveCommissions(),
+                o.getRegistryState(),
+                o.getSigningCity(),
+                o.getServiceArea());
     }
 }
