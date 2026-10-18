@@ -11,6 +11,15 @@
 			"env": {
 				"SPRING_PROFILES_ACTIVE": "dev"
 			}
+		},
+		{
+			"//": "Fallback that bypasses the JDT/ECJ build: run `./gradlew bootRun --debug-jvm` in a terminal (listens on 5005, suspended), then start this config to attach the debugger. Use when 'Launch OptiBienestar 360' fails with missing MapStruct *MapperImpl beans because the editor build didn't run annotation processing.",
+			"type": "java",
+			"name": "Attach to bootRun (5005)",
+			"request": "attach",
+			"hostName": "localhost",
+			"port": 5005,
+			"projectName": "optibienestar360-optibienestar-360-backend"
 		}
 	]
 }
