@@ -23,5 +23,8 @@ public record OrganizationUpdateRequest(
         @Size(max = 255) String facebook,
         UUID officialCurrencyUuid,
         UUID referenceCurrencyUuid,
-        boolean autoApproveCommissions
+        boolean autoApproveCommissions,
+        @Size(max = 80) String registryState,
+        @Size(max = 80) String signingCity,
+        @Size(max = 150) String serviceArea
 ) {}

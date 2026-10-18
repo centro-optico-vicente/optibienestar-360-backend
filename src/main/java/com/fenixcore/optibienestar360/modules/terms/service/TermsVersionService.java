@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionCreateRequest;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionUpdateRequest;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class TermsVersionService {
 
     private final TermsVersionRepository repository;
+    private final TermsTemplateRenderer renderer;
 
     public List<TermsVersionDto> listByType(TermType termType) {
         return repository.findByTermTypeOrderByValidFromDesc(termType).stream().map(this::toDto).toList();
@@ -56,6 +58,30 @@ public class TermsVersionService {
             throw new NoSuchElementException("terms_version.not_found");
         }
         return current;
+    }
+
+    /** {@link #getCurrentPublic} projected for anonymous callers, placeholders resolved. */
+    public PublicTermsDto getCurrentPublicRendered(TermType termType) {
+        TermsVersion version = getCurrentPublic(termType);
+        return new PublicTermsDto(
+                version.getUuid(),
+                version.getTermType(),
+                version.getTitle(),
+                renderer.render(version.getContentMarkdown()),
+                version.getValidFrom());
+    }
+
+    /**
+     * The version a public self-affiliation must have accepted: {@code uuid}
+     * has to be the current, public version of {@code termType} — a stale or
+     * arbitrary UUID (e.g. the form was open while a new version went live)
+     * is rejected so the applicant re-reads the vigente text.
+     */
+    public TermsVersion requireCurrentPublic(TermType termType, UUID uuid) {
+        return repository.findFirstByTermTypeAndValidFromLessThanEqualOrderByValidFromDesc(termType, Instant.now())
+                .filter(TermsVersion::isPublic)
+                .filter(current -> current.getUuid().equals(uuid))
+                .orElseThrow(() -> new IllegalArgumentException("affiliation.terms.not_current"));
     }
 
     @Transactional
@@ -117,12 +143,14 @@ public class TermsVersionService {
                 .orElseThrow(() -> new NoSuchElementException("terms_version.not_found"));
     }
 
+    // Resolves the organization once per row; the admin list is a handful of versions.
     private TermsVersionDto toDto(TermsVersion v) {
         return new TermsVersionDto(
                 v.getUuid(),
                 v.getTermType(),
                 v.getTitle(),
                 v.getContentMarkdown(),
+                renderer.render(v.getContentMarkdown()),
                 v.isPublic(),
                 v.getValidFrom(),
                 !v.getValidFrom().isAfter(Instant.now()),

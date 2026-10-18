@@ -23,5 +23,8 @@ public record OrganizationDto(
         String facebook,
         @Display DisplayRef officialCurrency,
         @Display DisplayRef referenceCurrency,
-        @Display(Display.Kind.BOOLEAN) boolean autoApproveCommissions
+        @Display(Display.Kind.BOOLEAN) boolean autoApproveCommissions,
+        String registryState,
+        String signingCity,
+        String serviceArea
 ) {}

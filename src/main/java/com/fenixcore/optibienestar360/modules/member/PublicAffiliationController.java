@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.member;
 
 import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
+import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.member.service.PublicAffiliationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,9 @@ import java.util.UUID;
  * Creates the AFILIADO login, the member attributed to the referral code's
  * promoter, and the chosen plan's membership — SUSPENDED until the first
  * payment is approved (see {@link PublicAffiliationService}).
+ * {@code termsVersionUuid} is the current AFILIADO T&C the applicant accepted
+ * ({@code GET /v1/public/terms/AFILIADO}); the acceptance is recorded with
+ * channel {@code SELF_SERVICE} and the request IP/User-Agent as evidence.
  */
 @RestController
 @RequestMapping("/v1/public/affiliations")
@@ -34,14 +39,16 @@ public class PublicAffiliationController {
             @Size(max = 30) String phone,
             @NotBlank @Size(min = 8, max = 128) String password,
             @NotNull UUID planUuid,
-            @Size(max = 20) String referralCode
+            @Size(max = 20) String referralCode,
+            @NotNull UUID termsVersionUuid
     ) {}
 
     public record PublicAffiliationResponse(UUID memberUuid, String email, String promoterName) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public PublicAffiliationResponse create(@Valid @RequestBody PublicAffiliationRequest request) {
-        return service.create(request);
+    public PublicAffiliationResponse create(@Valid @RequestBody PublicAffiliationRequest request,
+                                            HttpServletRequest httpRequest) {
+        return service.create(request, ClientRequestMetadata.from(httpRequest));
     }
 }
