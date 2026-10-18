@@ -19,6 +19,10 @@
 | 11 | [Billing manual](11-billing-manual.md) | Workflow pagos manuales con aprobación |
 | 12 | [Commissions](12-commissions.md) | Cálculo comisiones + ciclos + referidos |
 | 13 | [Observability](13-observability.md) | Actuator + logs estructurados + métricas |
+| 14 | [i18n](14-i18n.md) | Internacionalización y locale en runtime |
+| 15 | [Reportes y documentos](15-reporting-documents.md) | Motor de reportes (Jasper + HTML→PDF + XLSX/CSV) |
+| 16 | [Auditoría](16-audit.md) | Login, cambios de datos, reportes |
+| 17 | [Marca en documentos](17-brand-documents.md) | Logo, fuentes, colores y pie en reportes/PDF/emails, con defaults del classpath si la organización no configuró |
 
 ## Specs cross-stack relevantes (hub)
 
@@ -28,6 +32,7 @@
 | 03 | [Seguridad](../../../centro-optico-vicente/.ai/specs/03-security.md) | TLS, CORS, secretos, audit |
 | 05 | [Domain model](../../../centro-optico-vicente/.ai/specs/05-domain-model.md) | Modelo conceptual |
 | 06 | [Integración REST](../../../centro-optico-vicente/.ai/specs/06-integration.md) | Contracts REST con frontend/landing |
+| 11 | [Identidad visual de marca](../../../centro-optico-vicente/.ai/specs/11-brand-visual-identity.md) | Paleta, tipografía y logo que aplican reportes, PDF y emails (ver spec 17) |
 
 ## Cómo crear una spec nueva
 
