@@ -12,6 +12,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.mapper.PromoterMapper;
@@ -76,10 +77,10 @@ class PromotersServiceReferralCodeTest {
                 personRepository, maritalStatusRepository, cityRepository);
         PromoterRank baseRank = new PromoterRank();
         baseRank.setUuid(UUID.randomUUID());
-        baseRank.setCode("PROMOTOR");
+        baseRank.setCode(AdvisorRankCodes.ADVISOR);
         baseRank.setName("Promotor");
         baseRank.setHierarchyLevel(1);
-        lenient().when(promoterRankRepository.findByCode("PROMOTOR")).thenReturn(Optional.of(baseRank));
+        lenient().when(promoterRankRepository.findByCode(AdvisorRankCodes.ADVISOR)).thenReturn(Optional.of(baseRank));
         Person person = new Person();
         person.setId(1L);
         person.setUuid(personUuid);

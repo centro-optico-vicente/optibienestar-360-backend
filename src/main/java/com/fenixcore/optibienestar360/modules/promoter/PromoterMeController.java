@@ -19,7 +19,7 @@ import java.util.List;
  * Promoter self-service surface at {@code /v1/promoter/me} (v2 PDF #4). The
  * dashboard resolves the promoter from the JWT-authenticated user, so no
  * promoter id travels in the URL. Gated on {@code PROMOTER_VIEW_OWN} (granted to
- * PROMOTOR + ADMINISTRADOR + SYSTEM in V35); a user who holds the permission but
+ * ASESOR + ADMINISTRADOR + SYSTEM in V35); a user who holds the permission but
  * has no promoter row gets a 404 ({@code me.promoter.not_found}).
  */
 @RestController

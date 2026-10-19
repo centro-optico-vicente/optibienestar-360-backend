@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 /**
  * The "cargo" catalog (V101) — an axis independent of {@link
  * com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType}
- * (Independiente/Empleado/Aliado). Seed: PROMOTOR(1)/SUPERVISOR(2)/
+ * (Independiente/Empleado/Aliado). Seed: ASESOR(1)/SUPERVISOR(2)/
  * COORDINADOR(3), but the engine is N-level-capable — every comparison
  * ("is this candidate supervisor's rank strictly above the subordinate's?")
  * reads {@link #hierarchyLevel}, never {@link #code}/{@link #name}.

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fenixcore.optibienestar360.core.entity.CodedEnum;
 import org.springframework.context.i18n.LocaleContextHolder;
 
 import java.math.BigDecimal;
@@ -157,7 +158,7 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 			case MONEY -> formatter.money(asBigDecimal(value), currencyCode, locale);
 			case NUMBER -> value instanceof Number n ? formatter.number(n, locale) : null;
 			case PERCENT -> value instanceof Number n ? formatter.number(n, locale) + "%" : null;
-			case ENUM -> formatter.enumLabel(scope(display, field), String.valueOf(value), locale);
+			case ENUM -> formatter.enumLabel(scope(display, field), enumToken(value), locale);
 			case BOOLEAN -> value instanceof Boolean b ? formatter.bool(b, locale) : null;
 			case AUTO -> null;
 		};
@@ -182,7 +183,17 @@ public class DisplayBeanSerializerModifier extends BeanSerializerModifier {
 		}
 	}
 
-	private static Display.Kind infer(Object value) {
+	/**
+	 * The token an enum is labelled by: a {@link CodedEnum}'s code (the value the
+	 * API exposes, e.g. {@code FAMILIAR} for {@code PlanType.FAMILY}) so the
+	 * {@code display.enum.*} / {@code audit.enum.common.*} keys stay keyed by it;
+	 * otherwise {@code String.valueOf}.
+	 */
+	private static String enumToken(Object value) {
+		return value instanceof CodedEnum coded ? coded.code() : String.valueOf(value);
+	}
+
+		private static Display.Kind infer(Object value) {
 		if (value instanceof Instant || value instanceof OffsetDateTime || value instanceof ZonedDateTime) {
 			return Display.Kind.DATETIME;
 		}

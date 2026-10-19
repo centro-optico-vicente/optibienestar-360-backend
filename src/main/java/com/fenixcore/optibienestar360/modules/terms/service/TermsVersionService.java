@@ -32,7 +32,7 @@ import java.util.UUID;
  * <p>ALIADO templates carry an optional scope (V183); each scope combination
  * is its own stream with its own current/scheduled version. The "current"
  * lookups by type ({@link #getCurrent}, the public endpoint) resolve the
- * unscoped stream — the only one for AFILIADO / PROMOTOR, the general
+ * unscoped stream — the only one for AFILIADO / ASESOR, the general
  * template for ALIADO.</p>
  */
 @Service
@@ -70,7 +70,7 @@ public class TermsVersionService {
         Ally ally = allyRepository.findByUuid(allyUuid)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
         return TermsVersionScopes.currentApplicableTo(
-                        repository.findByTermTypeOrderByValidFromDesc(TermType.ALIADO), ally, Instant.now())
+                        repository.findByTermTypeOrderByValidFromDesc(TermType.ALLY), ally, Instant.now())
                 .stream().map(this::toDto).toList();
     }
 
@@ -188,7 +188,7 @@ public class TermsVersionService {
      */
     private void applyScope(TermsVersion version, UUID allyTypeUuid, AllyType.Segment segment, UUID allyUuid) {
         boolean scoped = allyTypeUuid != null || segment != null || allyUuid != null;
-        if (scoped && version.getTermType() != TermType.ALIADO) {
+        if (scoped && version.getTermType() != TermType.ALLY) {
             throw new IllegalArgumentException("terms_version.scope.only_aliado");
         }
         AllyType allyType = allyTypeUuid == null ? null : allyTypeRepository.findByUuid(allyTypeUuid)

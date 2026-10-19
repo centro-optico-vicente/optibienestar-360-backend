@@ -248,7 +248,7 @@ public class CorporateContractsService {
      * CHECK can't reach across to {@code plans.type}, so it is enforced here.
      */
     private static void requireCorporatePlan(Plan plan) {
-        if (plan.getType() != Plan.PlanType.CORPORATIVO) {
+        if (plan.getType() != Plan.PlanType.CORPORATE) {
             throw new IllegalArgumentException("corporate_contract.plan.not_corporate");
         }
     }

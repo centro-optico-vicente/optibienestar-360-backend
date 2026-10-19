@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Admin CRUD for T&C versions (AFILIADO / PROMOTOR / ALIADO). No delete —
+ * Admin CRUD for T&C versions (AFILIADO / ASESOR / ALIADO). No delete —
  * a version is either not-yet-vigente (editable, see {@code TermsVersionService.update})
  * or already vigente (immutable, permanent history).
  */

@@ -56,7 +56,7 @@ import java.util.UUID;
  * gated by their own granular permissions ({@code PAYMENT_CREATE_DOWNLINE},
  * {@code PAYMENT_DELETE_DOWNLINE}, {@code PAYMENT_APPROVE_DOWNLINE},
  * {@code PAYMENT_REJECT_DOWNLINE}) — approve/reject exist so an admin can
- * grant them later, but are NOT granted to PROMOTOR by default (see V121
+ * grant them later, but are NOT granted to ASESOR by default (see V121
  * header comment): today only staff with bank access does the manual
  * review. The service layer verifies the target member/payment belongs to
  * the caller's own downline on every write.</p>

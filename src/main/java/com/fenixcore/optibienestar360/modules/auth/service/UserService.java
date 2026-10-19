@@ -25,6 +25,7 @@ import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -68,7 +69,6 @@ public class UserService {
                     "documentNumber", "person.documentNumber"
             ));
 
-    private static final String SYSTEM_ROLE_NAME = "SYSTEM";
     private static final String ACTIVE_STATUS = "ACTIVE";
 
     private final UserRepository userRepository;
@@ -386,7 +386,7 @@ public class UserService {
     private boolean hasSystemRole(User user) {
         return user.getUserRoles().stream()
                 .filter(UserRole::isActive)
-                .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()));
+                .anyMatch(ur -> RoleNames.SYSTEM.equals(ur.getRole().getName()));
     }
 
     /**
@@ -412,7 +412,7 @@ public class UserService {
         if (roleIds == null || roleIds.isEmpty()) {
             return false;
         }
-        return roleRepository.findByName(SYSTEM_ROLE_NAME)
+        return roleRepository.findByName(RoleNames.SYSTEM)
                 .map(systemRole -> roleIds.contains(systemRole.getUuid()))
                 .orElse(false);
     }
@@ -430,7 +430,7 @@ public class UserService {
             sub.select(urRoot.get("id")).where(
                     cb.equal(urRoot.get("user"), root),
                     cb.isTrue(urRoot.get("active")),
-                    cb.equal(urRoot.get("role").get("name"), SYSTEM_ROLE_NAME));
+                    cb.equal(urRoot.get("role").get("name"), RoleNames.SYSTEM));
             return cb.not(cb.exists(sub));
         };
     }
@@ -447,7 +447,7 @@ public class UserService {
     private void setDefaultRole(User user, UUID roleUuid, UUID actorUuid, boolean actorIsSystem) {
         Role role = roleRepository.findByUuid(roleUuid)
                 .orElseThrow(() -> new NoSuchElementException("role.not_found"));
-        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !actorIsSystem) {
+        if (RoleNames.SYSTEM.equals(role.getName()) && !actorIsSystem) {
             throw new AccessDeniedException("user.system.role_not_assignable");
         }
         ensureUserRoleAssigned(user, role, actorUuid);

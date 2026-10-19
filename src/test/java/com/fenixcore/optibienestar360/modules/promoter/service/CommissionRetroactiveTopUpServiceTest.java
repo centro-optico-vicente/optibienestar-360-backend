@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionRetroactiveTopUpResponse;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promoter.entity.CommissionRetroactiveTopUp;
@@ -186,7 +187,7 @@ class CommissionRetroactiveTopUpServiceTest {
         PromoterRank supervisorRank = new PromoterRank();
         supervisorRank.setId(2L);
         supervisorRank.setUuid(UUID.randomUUID());
-        supervisorRank.setCode("SUPERVISOR");
+        supervisorRank.setCode(AdvisorRankCodes.SUPERVISOR);
         Promoter sup = promoter(2L, "sup");
         sup.setRank(supervisorRank);
 

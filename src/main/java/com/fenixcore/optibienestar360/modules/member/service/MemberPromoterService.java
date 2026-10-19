@@ -117,7 +117,7 @@ public class MemberPromoterService {
         Promoter source = promoterRepository.findByUuid(sourcePromoterUuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
         Promoter target = nearestActiveSupervisor(source)
-                .or(() -> promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_PROMOTER_CODE)
+                .or(() -> promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE)
                         .filter(Promoter::isActive))
                 .orElseThrow(() -> new NoSuchElementException("promoter.supervisor.not_found"));
         User actor = resolveActor(actorUserUuid);

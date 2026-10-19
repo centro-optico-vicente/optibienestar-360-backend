@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
@@ -91,11 +92,11 @@ class HierarchyOverrideServiceTest {
 
     @Test
     void cascadesTwoLevelsFundingEachOverrideFromTheOneBelow() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2);
-        PromoterRank coordRank = rank("COORDINADOR", 3);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3);
 
-        Promoter ase = promoter(1L, "ase", promotorRank);
+        Promoter ase = promoter(1L, "ase", advisorRank);
         Promoter sup = promoter(2L, "sup", supervisorRank);
         Promoter coord = promoter(3L, "coord", coordRank);
 
@@ -149,8 +150,8 @@ class HierarchyOverrideServiceTest {
 
     @Test
     void stopsWhenEarnerHasNoSupervisor() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1);
-        Promoter ase = promoter(1L, "ase", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1);
+        Promoter ase = promoter(1L, "ase", advisorRank);
 
         Commission commission = new Commission();
         commission.setPromoter(ase);
@@ -168,9 +169,9 @@ class HierarchyOverrideServiceTest {
 
     @Test
     void skipsWhenNoTierConfiguredForSupervisorRank() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2);
-        Promoter ase = promoter(1L, "ase", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2);
+        Promoter ase = promoter(1L, "ase", advisorRank);
         Promoter sup = promoter(2L, "sup", supervisorRank);
 
         Commission commission = new Commission();
@@ -191,8 +192,8 @@ class HierarchyOverrideServiceTest {
 
     @Test
     void skipsEntirelyWhenEarnerPromoterTypeDoesNotGenerateOverrides() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1);
-        Promoter ase = promoter(1L, "ase", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1);
+        Promoter ase = promoter(1L, "ase", advisorRank);
         com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType independiente =
                 new com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType();
         independiente.setCode("INDEPENDIENTE");

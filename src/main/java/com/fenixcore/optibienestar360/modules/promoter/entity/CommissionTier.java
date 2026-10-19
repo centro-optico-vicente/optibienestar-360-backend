@@ -5,9 +5,11 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.catalog.entity.PromoterType;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
+import com.fenixcore.optibienestar360.modules.membership.entity.PlanTypeConverter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -59,7 +61,7 @@ public class CommissionTier extends BaseEntity {
     private String description;
 
     /** Optional plan scope. {@code null} = applies to every plan type. */
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = PlanTypeConverter.class)
     @Column(name = "plan_type", length = 20)
     private PlanType planType;
 

@@ -99,7 +99,7 @@ class AdminCommissionEngineControllerIT {
     }
 
     private static CommissionTierDto tierDto() {
-        return new CommissionTierDto(UUID.randomUUID(), "Gold", null, PlanType.FAMILIAR, null, 10,
+        return new CommissionTierDto(UUID.randomUUID(), "Gold", null, PlanType.FAMILY, null, 10,
                 new BigDecimal("25"), null, null, null,
                 PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
                 null, null, null, null,

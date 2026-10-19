@@ -29,8 +29,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PermissionResolver {
 
-    private static final String SYSTEM_ROLE_NAME = "SYSTEM";
-
     private final PermissionRepository permissionRepository;
 
     /**
@@ -73,7 +71,7 @@ public class PermissionResolver {
             .orElseThrow(() -> new IllegalArgumentException("role.not_assigned_or_expired"))
         ;
 
-        if (SYSTEM_ROLE_NAME.equals(match.getRole().getName())) {
+        if (RoleNames.SYSTEM.equals(match.getRole().getName())) {
             return permissionRepository.findAll().stream()
                 .map(Permission::getName)
                 .distinct()
@@ -121,7 +119,7 @@ public class PermissionResolver {
     private boolean hasSystemRole(User user) {
         return user.getUserRoles().stream()
             .filter(UserRole::isEffective)
-            .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName()))
+            .anyMatch(ur -> RoleNames.SYSTEM.equals(ur.getRole().getName()))
         ;
     }
 }

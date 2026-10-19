@@ -27,6 +27,7 @@ import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -88,15 +89,15 @@ public class PublicAffiliationService {
 
         requireSelfServicePlan(planRepository.findByUuid(req.planUuid()).orElse(null));
 
-        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.AFILIADO, req.termsVersionUuid());
+        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.MEMBER, req.termsVersionUuid());
 
-        Role afiliado = roleRepository.findByName("AFILIADO")
-                .orElseThrow(() -> new IllegalStateException("role AFILIADO missing"));
+        Role memberRole = roleRepository.findByName(RoleNames.MEMBER)
+                .orElseThrow(() -> new IllegalStateException("role " + RoleNames.MEMBER + " missing"));
 
         UserDto createdUser = userService.createUser(new AdminCreateUserRequest(
                 email, req.firstName().trim(), null, req.lastName().trim(), null, req.password(),
                 req.documentType(), req.documentNumber(), null, null, blankToNull(req.phone()),
-                List.of(afiliado.getUuid()), afiliado.getUuid()), null);
+                List.of(memberRole.getUuid()), memberRole.getUuid()), null);
 
         MemberDetailDto member = membersService.create(new MemberCreateRequest(
                 req.firstName().trim(), null, req.lastName().trim(), null,
@@ -128,7 +129,7 @@ public class PublicAffiliationService {
         if (plan == null || !plan.isActive() || !plan.isPublished()) {
             throw new IllegalArgumentException("affiliation.plan.not_available");
         }
-        if (plan.getType() == PlanType.CORPORATIVO
+        if (plan.getType() == PlanType.CORPORATE
                 || (plan.getMinMembers() != null && plan.getMinMembers() > 1)) {
             throw new IllegalArgumentException("affiliation.plan.group_only");
         }

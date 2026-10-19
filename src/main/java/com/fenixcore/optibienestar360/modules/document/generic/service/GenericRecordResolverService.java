@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.document.generic.service;
 
+import com.fenixcore.optibienestar360.security.RoleNames;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Table;
 import jakarta.persistence.metamodel.EntityType;
@@ -135,14 +136,14 @@ public class GenericRecordResolverService {
         // 3. Security for 'users' table: Hide users with SYSTEM role if actor is not SYSTEM
         if (simpleClassName.equalsIgnoreCase("User")) {
             if (!actorIsSystem) {
-                hql.append(" AND NOT EXISTS (SELECT ur FROM UserRole ur WHERE ur.user = e AND ur.active = true AND ur.role.name = 'SYSTEM')");
+                hql.append(" AND NOT EXISTS (SELECT ur FROM UserRole ur WHERE ur.user = e AND ur.active = true AND ur.role.name = :systemRole)");
             }
         }
 
         // 4. Security for 'roles' table: Hide SYSTEM role if actor is not SYSTEM
         if (simpleClassName.equalsIgnoreCase("Role")) {
             if (!actorIsSystem) {
-                hql.append(" AND e.name != 'SYSTEM'");
+                hql.append(" AND e.name != :systemRole");
             }
         }
 
@@ -150,6 +151,9 @@ public class GenericRecordResolverService {
                 .setMaxResults(maxResults);
         if (trimmedQ != null && hasAttribute(matchingEntityType, "name")) {
             typedQuery.setParameter("q", "%" + trimmedQ + "%");
+        }
+        if (!actorIsSystem && (simpleClassName.equalsIgnoreCase("User") || simpleClassName.equalsIgnoreCase("Role"))) {
+            typedQuery.setParameter("systemRole", RoleNames.SYSTEM);
         }
 
         return typedQuery.getResultList();
@@ -159,9 +163,10 @@ public class GenericRecordResolverService {
         if (actorUuid == null) return false;
         try {
             List<?> results = entityManager.createQuery(
-                    "SELECT ur FROM UserRole ur WHERE ur.user.uuid = :uuid AND ur.active = true AND ur.role.name = 'SYSTEM'"
+                    "SELECT ur FROM UserRole ur WHERE ur.user.uuid = :uuid AND ur.active = true AND ur.role.name = :systemRole"
             )
             .setParameter("uuid", actorUuid)
+            .setParameter("systemRole", RoleNames.SYSTEM)
             .setMaxResults(1)
             .getResultList();
 

@@ -16,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsAcceptanceRepository;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,12 +36,12 @@ import java.util.stream.Collectors;
  * Self-service acceptance flow — resolves which contracts the caller must
  * accept, and records their acceptance. The audience of each kind:
  * <ul>
- *   <li><b>AFILIADO</b> (membership agreement): every user, whatever their
+ *   <li><b>MEMBER</b> (membership agreement): every user, whatever their
  *   roles — the current version of the type.</li>
- *   <li><b>PROMOTOR</b> (advisor mandate): users holding an effective
- *   {@code PROMOTOR} role — same active, non-expired filter
+ *   <li><b>ADVISOR</b> (advisor mandate): users holding an effective
+ *   {@link RoleNames#ADVISOR} role — same active, non-expired filter
  *   {@code PermissionResolver} uses.</li>
- *   <li><b>ALIADO</b> (ally agreement): for every ally the user operates on
+ *   <li><b>ALLY</b> (ally agreement): for every ally the user operates on
  *   ({@code ally_users}), the template linked to that ally's active
  *   agreements ({@code is_active} and status {@code ACTIVE}); an agreement
  *   without a linked version asks for nothing.</li>
@@ -52,9 +53,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TermsAcceptanceService {
-
-    /** Role whose holders must accept the PROMOTOR mandate (V6 roles). */
-    static final String PROMOTOR_ROLE = "PROMOTOR";
 
     /** {@code ally_agreements.status} of an agreement in force (V11 CHECK). */
     static final String ACTIVE_AGREEMENT_STATUS = "ACTIVE";
@@ -68,8 +66,8 @@ public class TermsAcceptanceService {
 
     /**
      * The versions the caller must accept (see the class javadoc for each
-     * kind's audience) that they have not accepted yet, AFILIADO first, then
-     * PROMOTOR, then ALIADO. Empty list = nothing pending.
+     * kind's audience) that they have not accepted yet, MEMBER first, then
+     * ADVISOR, then ALLY. Empty list = nothing pending.
      */
     public List<PendingTermDto> pendingForUser(UUID userUuid) {
         User user = userRepository.findByUuid(userUuid)
@@ -81,11 +79,11 @@ public class TermsAcceptanceService {
                 .collect(Collectors.toSet());
 
         Instant now = Instant.now();
-        // Keyed by version id: one ALIADO template shared by two of the user's allies is accepted once.
+        // Keyed by version id: one ALLY template shared by two of the user's allies is accepted once.
         Map<Long, TermsVersion> required = new LinkedHashMap<>();
-        currentOf(TermType.AFILIADO, now).ifPresent(v -> required.put(v.getId(), v));
-        if (effectiveRoleNames.contains(PROMOTOR_ROLE)) {
-            currentOf(TermType.PROMOTOR, now).ifPresent(v -> required.put(v.getId(), v));
+        currentOf(TermType.MEMBER, now).ifPresent(v -> required.put(v.getId(), v));
+        if (effectiveRoleNames.contains(RoleNames.ADVISOR)) {
+            currentOf(TermType.ADVISOR, now).ifPresent(v -> required.put(v.getId(), v));
         }
         for (TermsVersion v : allyAgreementVersions(userUuid, now)) {
             required.putIfAbsent(v.getId(), v);
@@ -105,7 +103,7 @@ public class TermsAcceptanceService {
     }
 
     /**
-     * ALIADO templates linked to the active agreements of the allies the user
+     * ALLY templates linked to the active agreements of the allies the user
      * operates on. A linked version not yet vigente is skipped until it is.
      */
     private List<TermsVersion> allyAgreementVersions(UUID userUuid, Instant now) {

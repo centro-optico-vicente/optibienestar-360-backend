@@ -71,7 +71,7 @@ class CommissionServiceTest {
     @BeforeEach
     void setUp() {
         humanPromoter = promoter("PROMO123", false);
-        institucion = promoter("INSTITUCION", true);
+        institucion = promoter(PromoterResolver.SYSTEM_ADVISOR_CODE, true);
         lenient().when(conversionEnricher.officialRateAt(any(), any())).thenReturn(ConversionEnricher.RateSnapshot.none());
         // Auto-approval off by default — every pre-existing test keeps exercising the
         // regular PENDING path unless it explicitly turns the setting on.
@@ -105,10 +105,10 @@ class CommissionServiceTest {
 
     @Test
     void familiar_monthly_appliesBaseTier_25_percent() {
-        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        Payment payment = paymentFor(PlanType.FAMILY, new BigDecimal("20.00"), false);
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any(), any()))
-                .thenReturn(List.of(baseTier(PlanType.FAMILIAR, "25.00", null, "Familiar base 25%")));
+        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILY), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.FAMILY, "25.00", null, "Familiar base 25%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
@@ -119,10 +119,10 @@ class CommissionServiceTest {
 
     @Test
     void corporativo_appliesBaseTier_flat_5() {
-        Payment payment = paymentFor(PlanType.CORPORATIVO, new BigDecimal("500.00"), false);
+        Payment payment = paymentFor(PlanType.CORPORATE, new BigDecimal("500.00"), false);
         stubExistsFalseAndSave();
-        when(tierRepository.findActiveApplicable(eq(PlanType.CORPORATIVO), any(), any(), any()))
-                .thenReturn(List.of(baseTier(PlanType.CORPORATIVO, null, "5.00", "Corporativo base $5")));
+        when(tierRepository.findActiveApplicable(eq(PlanType.CORPORATE), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.CORPORATE, null, "5.00", "Corporativo base $5")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
@@ -182,7 +182,7 @@ class CommissionServiceTest {
 
     @Test
     void monthly_prefersCollectionTier_overVolumeTier() {
-        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        Payment payment = paymentFor(PlanType.FAMILY, new BigDecimal("20.00"), false);
         payment.getMembership().setBillingStartDay(1);
         payment.getMembership().setMonthlyFee(new BigDecimal("8.75"));
         stubExistsFalseAndSave();
@@ -202,11 +202,11 @@ class CommissionServiceTest {
 
     @Test
     void monthly_fallsBackToVolumeTier_whenNoCollectionTierApplicable() {
-        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        Payment payment = paymentFor(PlanType.FAMILY, new BigDecimal("20.00"), false);
         stubExistsFalseAndSave();
         when(collectionTierRepository.findActiveApplicable(anyInt(), any())).thenReturn(List.of());
-        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILIAR), any(), any(), any()))
-                .thenReturn(List.of(baseTier(PlanType.FAMILIAR, "25.00", null, "Familiar base 25%")));
+        when(tierRepository.findActiveApplicable(eq(PlanType.FAMILY), any(), any(), any()))
+                .thenReturn(List.of(baseTier(PlanType.FAMILY, "25.00", null, "Familiar base 25%")));
 
         Commission c = service.calculateAndPersistFor(payment).orElseThrow();
 
@@ -249,7 +249,7 @@ class CommissionServiceTest {
     void member_without_promoter_falls_back_to_institucion() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         payment.getMembership().getMember().setPromoter(null);
-        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        when(promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE)).thenReturn(Optional.of(institucion));
         stubExistsFalseAndSave();
         when(tierRepository.findActiveApplicable(eq(PlanType.INDIVIDUAL), any(), any(), any()))
                 .thenReturn(List.of(baseTier(PlanType.INDIVIDUAL, "20.00", null, "Individual base 20%")));
@@ -264,7 +264,7 @@ class CommissionServiceTest {
     void no_promoter_and_no_institucion_seed_skips_silently() {
         Payment payment = paymentFor(PlanType.INDIVIDUAL, new BigDecimal("10.00"), true);
         payment.getMembership().getMember().setPromoter(null);
-        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.empty());
+        when(promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE)).thenReturn(Optional.empty());
 
         assertThat(service.calculateAndPersistFor(payment)).isEmpty();
         verify(commissionRepository, never()).save(any());
@@ -317,7 +317,7 @@ class CommissionServiceTest {
 
     @Test
     void collectionTier_basis_scales_monthly_fee_by_collected_share() {
-        Payment payment = paymentFor(PlanType.FAMILIAR, new BigDecimal("20.00"), false);
+        Payment payment = paymentFor(PlanType.FAMILY, new BigDecimal("20.00"), false);
         payment.setDiscountAmount(new BigDecimal("5.00"));   // 75% collected
         payment.getMembership().setBillingStartDay(1);
         payment.getMembership().setMonthlyFee(new BigDecimal("20.00"));
@@ -493,7 +493,7 @@ class CommissionServiceTest {
 
     private static Promoter promoter(String code, boolean system) {
         Promoter p = new Promoter();
-        p.setId(code.equals("INSTITUCION") ? 1L : 2L);
+        p.setId(code.equals(PromoterResolver.SYSTEM_ADVISOR_CODE) ? 1L : 2L);
         p.setUuid(UUID.randomUUID());
         p.setReferralCode(code);
         p.setDisplayName(code);

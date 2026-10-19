@@ -123,7 +123,7 @@ public class AllyAgreementsService {
         if (termsVersionUuid == null) return null;
         TermsVersion version = termsVersionRepository.findByUuid(termsVersionUuid)
                 .orElseThrow(() -> new NoSuchElementException("terms_version.not_found"));
-        if (version.getTermType() != TermsVersion.TermType.ALIADO) {
+        if (version.getTermType() != TermsVersion.TermType.ALLY) {
             throw new IllegalArgumentException("ally_agreement.terms_version.invalid_type");
         }
         if (!TermsVersionScopes.isApplicableTo(version, ally)) {

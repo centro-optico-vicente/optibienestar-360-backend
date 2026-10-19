@@ -65,7 +65,7 @@ public class Promoter extends BaseEntity {
 
     /**
      * The "cargo" — independent of {@link #promoterType}. NOT NULL at the DB
-     * level (every promoter is backfilled to PROMOTOR); mapped nullable here
+     * level (every promoter is backfilled to ASESOR); mapped nullable here
      * only because a brand-new transient instance may not have it set yet.
      */
     @ManyToOne(fetch = FetchType.LAZY)

@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -164,7 +165,7 @@ class RoleUsersServiceTest {
         Role r = new Role();
         r.setId(id);
         r.setUuid(UUID.randomUUID());
-        r.setName("ADMINISTRADOR");
+        r.setName(RoleNames.ADMINISTRATOR);
         return r;
     }
 

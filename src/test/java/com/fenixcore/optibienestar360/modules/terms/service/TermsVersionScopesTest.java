@@ -73,7 +73,7 @@ class TermsVersionScopesTest {
     @Test
     void nonAllyTerms_neverApply() {
         TermsVersion afiliado = template(1L, null, null, null, 10);
-        afiliado.setTermType(TermType.AFILIADO);
+        afiliado.setTermType(TermType.MEMBER);
 
         assertThat(TermsVersionScopes.isApplicableTo(afiliado, ally)).isFalse();
     }
@@ -102,7 +102,7 @@ class TermsVersionScopesTest {
         TermsVersion version = new TermsVersion();
         version.setId(id);
         version.setUuid(UUID.randomUUID());
-        version.setTermType(TermType.ALIADO);
+        version.setTermType(TermType.ALLY);
         version.setTitle("Convenio " + id);
         version.setValidFrom(now.minus(daysAgo, ChronoUnit.DAYS));
         version.setAllyType(allyType);

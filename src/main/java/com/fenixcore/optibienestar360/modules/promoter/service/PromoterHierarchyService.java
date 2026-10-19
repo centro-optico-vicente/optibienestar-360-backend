@@ -245,7 +245,7 @@ public class PromoterHierarchyService {
     /**
      * Candidates for {@code newSupervisorUuid} in {@link #changeRank}. By
      * default ({@code allSuperiors = false}) scoped to just the <b>immediate</b>
-     * next rank above {@code targetRankUuid} (e.g. targeting PROMOTOR lists
+     * next rank above {@code targetRankUuid} (e.g. targeting ASESOR lists
      * only active SUPERVISOR promoters, not COORDINADOR ones too) — the
      * common case, since {@code changeRank} itself still accepts any
      * strictly-higher rank if the admin insists on skipping a level.
