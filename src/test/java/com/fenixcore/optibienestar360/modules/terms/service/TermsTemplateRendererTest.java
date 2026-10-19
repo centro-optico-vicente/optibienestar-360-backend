@@ -62,7 +62,7 @@ class TermsTemplateRendererTest {
 
     @Test
     void nullOrganizationStillResolvesTheBrand() {
-        String rendered = TermsTemplateRenderer.render("{{brand.name}} / {{org.city}}", null);
+        String rendered = TermsTemplateRenderer.render("{{brand.name}} / {{org.city}}", (Organization) null);
 
         assertThat(rendered).isEqualTo("OPTIBIENESTAR 360 / [Ciudad de firma pendiente]");
     }
