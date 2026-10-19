@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.terms;
 
+import com.fenixcore.optibienestar360.modules.terms.dto.TermsVariableDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionCreateRequest;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionUpdateRequest;
@@ -39,6 +40,17 @@ public class AdminTermsController {
     @PreAuthorize("hasAuthority('TERMS_VIEW_ALL')")
     public ResponseEntity<List<TermsVersionDto>> list(@RequestParam(required = false) TermType type) {
         return ResponseEntity.ok(type != null ? service.listByType(type) : service.listAll());
+    }
+
+    /**
+     * The variables a template of {@code type} may use (wire code
+     * {@code AFILIADO} / {@code ASESOR} / {@code ALIADO}), for the editor's
+     * insert list. Saving a template with any other placeholder is a 422.
+     */
+    @GetMapping("/variables")
+    @PreAuthorize("hasAuthority('TERMS_VIEW_ALL')")
+    public ResponseEntity<List<TermsVariableDto>> variables(@RequestParam TermType type) {
+        return ResponseEntity.ok(service.listVariables(type));
     }
 
     @GetMapping("/{uuid}")

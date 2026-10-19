@@ -6,9 +6,10 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
-import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance.Channel;
@@ -16,7 +17,6 @@ import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsAcceptanceRepository;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
-import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,28 +26,31 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Self-service acceptance flow — resolves which contracts the caller must
- * accept, and records their acceptance. The audience of each kind:
+ * accept, and records their acceptance. The audience of each kind is decided
+ * by the entity the user is linked to, never by role name:
  * <ul>
  *   <li><b>MEMBER</b> (membership agreement): every user, whatever their
  *   roles — the current version of the type.</li>
- *   <li><b>ADVISOR</b> (advisor mandate): users holding an effective
- *   {@link RoleNames#ADVISOR} role — same active, non-expired filter
- *   {@code PermissionResolver} uses.</li>
+ *   <li><b>ADVISOR</b> (advisor mandate): users with an active, non-system
+ *   advisor record ({@code promoters.user_id}, {@code is_active}, not
+ *   {@code is_system} — so never the INSTITUCION advisor), whatever their
+ *   rank (asesor, supervisor, coordinador).</li>
  *   <li><b>ALLY</b> (ally agreement): for every ally the user operates on
  *   ({@code ally_users}), the template linked to that ally's active
  *   agreements ({@code is_active} and status {@code ACTIVE}); an agreement
  *   without a linked version asks for nothing.</li>
  * </ul>
  * {@code is_public} plays no part here — it only controls the public web
- * endpoint.
+ * endpoint. Each pending text is rendered with the variables of the entity
+ * that made it due ({@link TermsVariableResolver}).
  */
 @Service
 @RequiredArgsConstructor
@@ -62,7 +65,9 @@ public class TermsAcceptanceService {
     private final TermsAcceptanceRepository termsAcceptanceRepository;
     private final AllyUserRepository allyUserRepository;
     private final AllyAgreementRepository allyAgreementRepository;
+    private final PromoterRepository promoterRepository;
     private final TermsTemplateRenderer renderer;
+    private final TermsVariableResolver variableResolver;
 
     /**
      * The versions the caller must accept (see the class javadoc for each
@@ -73,27 +78,29 @@ public class TermsAcceptanceService {
         User user = userRepository.findByUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
 
-        Set<String> effectiveRoleNames = user.getUserRoles().stream()
-                .filter(this::isEffective)
-                .map(ur -> ur.getRole().getName())
-                .collect(Collectors.toSet());
-
         Instant now = Instant.now();
-        // Keyed by version id: one ALLY template shared by two of the user's allies is accepted once.
-        Map<Long, TermsVersion> required = new LinkedHashMap<>();
-        currentOf(TermType.MEMBER, now).ifPresent(v -> required.put(v.getId(), v));
-        if (effectiveRoleNames.contains(RoleNames.ADVISOR)) {
-            currentOf(TermType.ADVISOR, now).ifPresent(v -> required.put(v.getId(), v));
-        }
-        for (TermsVersion v : allyAgreementVersions(userUuid, now)) {
-            required.putIfAbsent(v.getId(), v);
+        // Keyed by version id: one ALLY template shared by two of the user's allies is accepted once
+        // (rendered with the first agreement's data).
+        Map<Long, Due> required = new LinkedHashMap<>();
+        currentOf(TermType.MEMBER, now)
+                .ifPresent(v -> required.put(v.getId(), new Due(v, () -> variableResolver.forMember(user))));
+        activeAdvisor(userUuid).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
+                .ifPresent(v -> required.put(v.getId(), new Due(v, () -> variableResolver.forAdvisor(advisor)))));
+        for (AllyAgreement agreement : allyAgreementsWithVigentTemplate(userUuid, now)) {
+            TermsVersion v = agreement.getTermsVersion();
+            required.putIfAbsent(v.getId(), new Due(v, () -> variableResolver.forAlly(agreement)));
         }
 
         return required.values().stream()
-                .filter(v -> !termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), v.getId()))
-                .map(v -> new PendingTermDto(v.getUuid(), v.getTermType(), v.getTitle(),
-                        renderer.render(v.getContentMarkdown())))
+                .filter(due -> !termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), due.version().getId()))
+                .map(due -> new PendingTermDto(due.version().getUuid(), due.version().getTermType(),
+                        due.version().getTitle(),
+                        renderer.render(due.version().getContentMarkdown(), due.values().get())))
                 .toList();
+    }
+
+    /** A version the user must accept, plus the (lazily built) variables it is rendered with. */
+    private record Due(TermsVersion version, Supplier<Map<String, String>> values) {
     }
 
     private Optional<TermsVersion> currentOf(TermType type, Instant now) {
@@ -102,11 +109,17 @@ public class TermsAcceptanceService {
                         type, now);
     }
 
+    /** The user's active advisor record, unless it is a system advisor (INSTITUCION). */
+    private Optional<Promoter> activeAdvisor(UUID userUuid) {
+        return promoterRepository.findActiveByUserUuid(userUuid).filter(p -> !p.isSystem());
+    }
+
     /**
-     * ALLY templates linked to the active agreements of the allies the user
-     * operates on. A linked version not yet vigente is skipped until it is.
+     * Active agreements of the allies the user operates on that link an
+     * already-vigente template. A linked version not yet vigente is skipped
+     * until it is.
      */
-    private List<TermsVersion> allyAgreementVersions(UUID userUuid, Instant now) {
+    private List<AllyAgreement> allyAgreementsWithVigentTemplate(UUID userUuid, Instant now) {
         List<Long> allyIds = allyUserRepository.findActiveByUserUuid(userUuid).stream()
                 .map(AllyUser::getAlly)
                 .map(ally -> ally.getId())
@@ -114,9 +127,8 @@ public class TermsAcceptanceService {
                 .toList();
         if (allyIds.isEmpty()) return List.of();
         return allyAgreementRepository.findInForceWithTermsVersionByAllyIds(allyIds, ACTIVE_AGREEMENT_STATUS).stream()
-                .map(AllyAgreement::getTermsVersion)
-                .filter(Objects::nonNull)
-                .filter(v -> !v.getValidFrom().isAfter(now))
+                .filter(a -> a.getTermsVersion() != null)
+                .filter(a -> !a.getTermsVersion().getValidFrom().isAfter(now))
                 .toList();
     }
 
@@ -178,9 +190,5 @@ public class TermsAcceptanceService {
         acceptance.setUserAgent(evidence.userAgent());
         acceptance.setMembership(membership);
         termsAcceptanceRepository.save(acceptance);
-    }
-
-    private boolean isEffective(UserRole ur) {
-        return ur.isActive() && (ur.getExpiresAt() == null || ur.getExpiresAt().isAfter(Instant.now()));
     }
 }

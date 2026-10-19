@@ -12,7 +12,8 @@ import java.util.UUID;
  * Full admin view of a version — {@code GET /v1/admin/terms} / {@code /{uuid}} / {@code /current/{type}}
  * and {@code GET /v1/admin/allies/{allyUuid}/applicable-terms}.
  * {@code contentMarkdown} is the raw stored template (what the editor edits);
- * {@code contentRendered} is the same text with placeholders resolved, for preview.
+ * {@code contentRendered} is the same text with placeholders resolved, for preview: the
+ * organization values are real, the per-entity ones (member, advisor, ally) are samples.
  *
  * <p>ALIADO scope (V183, all {@code null} = general template) follows ADR 0014:
  * {@code allyType_Uuid} + {@code allyType_Display}, {@code segment} +
