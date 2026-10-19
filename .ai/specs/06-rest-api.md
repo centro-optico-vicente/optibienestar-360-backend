@@ -1,6 +1,6 @@
 # 06 — Convenciones REST API (detalle backend)
 
-> Resumen aplicado en backend. Convenciones cross-stack en [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md). Detalle base en [`../context/api-conventions.md`](../context/api-conventions.md).
+> Resumen aplicado en backend. Convenciones cross-stack en [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md). Detalle base en [`../context/api-conventions.md`](../context/api-conventions.md).
 
 ## Estructura de controllers
 
@@ -78,7 +78,7 @@ public ResponseEntity<Page<MemberDto>> list(
 >
 > **Actualización 2026-10-09:** forma confirmada contra el contrato TypeScript del frontend (`optibienestar-360-frontend/app/types/admin.ts`, tipo `Page<T>`): `{content, totalElements, totalPages, size, number, numberOfElements, first, last, empty, appliedSort?}`. `appliedSort` (opcional) solo aparece en endpoints respaldados por `core.util.AppliedSortPage` — refleja el sort server-side aplicado por default en catálogos/`entity_config` cuando el cliente no pidió ninguno.
 
-### Valores presentacionales — sufijo `_Display` ([hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md))
+### Valores presentacionales — sufijo `_Display` ([hub ADR 0014](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0014-display-value-convention.md))
 
 Los list/detail DTOs exponen etiquetas de FK y escalares presentacionales como siblings
 `_Display` **resueltos/formateados en el servidor por `Locale`** — el front no re-formatea:
@@ -324,7 +324,7 @@ Configurado en [04-security.md](04-security.md). El controller no necesita anota
 
 ## Referencias
 
-- [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md)
+- [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md)
 - [`../context/api-conventions.md`](../context/api-conventions.md)
 - [04-security.md](04-security.md)
 - [`../playbooks/new-endpoint.md`](../playbooks/new-endpoint.md)

@@ -60,4 +60,4 @@ int hardDeleteExpiredTokens(Instant now);
 
 ## Referencias
 
-- [ADR 0006 cross-stack Table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+- [ADR 0006 cross-stack Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)

@@ -126,6 +126,6 @@ Cada alcance entrega migraciones Flyway + entidades JPA + servicios + endpoints 
 
 ## Referencias
 
-- [Hub `ROADMAP.md`](../../centro-optico-vicente/.ai/ROADMAP.md) — visión estratégica cross-stack (este repo no tiene ROADMAP propio)
+- [Hub `ROADMAP.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/ROADMAP.md) — visión estratégica cross-stack (este repo no tiene ROADMAP propio)
 - [`context/current-state.md`](context/current-state.md) — estado real del código hoy
-- [Hub maestro checklist](../../centro-optico-vicente/.ai/checklist.md) — tag `[B]`
+- [Hub maestro checklist](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/checklist.md) — tag `[B]`

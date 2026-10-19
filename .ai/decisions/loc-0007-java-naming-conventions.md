@@ -2,7 +2,7 @@
 
 **Estado:** Aceptado  
 **Fecha:** 2026-05-24  
-**Fuente cross-stack:** [ADR LOC-0009 (espejo local) — Convenciones de código](loc-0009-code-conventions.md) · [original en el hub](../../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md)
+**Fuente cross-stack:** [ADR LOC-0009 (espejo local) — Convenciones de código](loc-0009-code-conventions.md) · [original en el hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0009-code-conventions.md)
 
 ## Decisión
 

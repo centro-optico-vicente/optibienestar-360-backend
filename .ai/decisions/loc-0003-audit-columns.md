@@ -109,5 +109,5 @@ Implementación: AOP aspect `@AuditAction` + service que inserta en `audit_log` 
 
 ## Referencias
 
-- [ADR 0006 cross-stack Table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+- [ADR 0006 cross-stack Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
 - Spring Data JPA Auditing: https://docs.spring.io/spring-data/jpa/reference/auditing.html

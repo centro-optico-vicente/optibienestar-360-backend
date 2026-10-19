@@ -1,6 +1,6 @@
 # `.ai/` — Brief para asistencia IA (backend)
 
-> Brief específico del repo `optibienestar-360-backend`. Para visión cross-stack y decisiones globales, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](../../centro-optico-vicente/.ai/).
+> Brief específico del repo `optibienestar-360-backend`. Para visión cross-stack y decisiones globales, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/).
 
 ## Qué es este repo
 
@@ -35,12 +35,12 @@ Detalle en [`specs/01-package-structure.md`](specs/01-package-structure.md).
 
 1. **Cada migración Flyway sigue convención**: `V{N}__{snake_case_descripcion}.sql`. Una vez aplicada en prod, es inmutable. Para corregir, crear `V{N+1}__fix_X.sql`.
 2. **JPA en `validate` mode SIEMPRE**. Nunca `update`/`create`/`create-drop`.
-3. **Toda tabla extiende `BaseEntity`** (PK dual `BIGINT` interno `{tabla}_id` + `uuid` externo, audit columns, is_active, status — **no** PK UUID simple). Ver [ADR 0006 cross-stack](../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md) y [ADR LOC-0005 local](decisions/loc-0005-table-id-convention.md).
+3. **Toda tabla extiende `BaseEntity`** (PK dual `BIGINT` interno `{tabla}_id` + `uuid` externo, audit columns, is_active, status — **no** PK UUID simple). Ver [ADR 0006 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md) y [ADR LOC-0005 local](decisions/loc-0005-table-id-convention.md).
 4. **Soft delete**: nunca `repository.delete()` en datos sensibles — usar `setIsActive(false)`.
 5. **Datos médicos**: `MedicalRecord` con `@PreAuthorize` y audit log obligatorio en cada acceso.
-6. **Pagos siempre manuales** (no integrar Stripe). Ver [ADR 0008 cross-stack](../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md).
+6. **Pagos siempre manuales** (no integrar Stripe). Ver [ADR 0008 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md).
 7. **Idioma**: **código en inglés** — identificadores (clases, métodos, variables, paquetes, constantes), **comentarios** (Javadoc, inline, headers SQL), logs y mensajes de excepción técnicos. Solo van en español los **datos visibles al usuario**: textos UI (en el frontend, no acá), plantillas email, y valores del dominio que terminan en la BD como datos (ej. `permission_domains.label = 'Afiliados'`, descripciones de roles). Detalle en [ADR LOC-0009 local (espejo)](decisions/loc-0009-code-conventions.md) y [ADR LOC-0007 naming Java](decisions/loc-0007-java-naming-conventions.md).
-8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en **`camelCase`** (no `snake_case` — ver [ADR 0019 cross-stack](../../centro-optico-vicente/.ai/decisions/0019-api-json-casing-contract.md)). Errores RFC 7807.
+8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en **`camelCase`** (no `snake_case` — ver [ADR 0019 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md)). Errores RFC 7807.
 9. **Mensajes user-facing van vía MessageSource code, nunca string literal.** Excepciones de negocio extienden `LocalizedBusinessException` o reusan JDK/Spring exceptions con el code en `getMessage()`. Validación Jakarta Bean usa `@Pattern(message="{validation.x.y}")`. Texto en español o inglés vive únicamente en `messages_*.properties` / `ValidationMessages_*.properties` y plantillas email `<name>_<lang>.html`. Detalle, naming y patrones en [`specs/14-i18n.md`](specs/14-i18n.md).
 
 ## Convenciones de trabajo con IA
@@ -62,8 +62,8 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 2. [`README.md`](README.md) — estructura local detallada
 3. [`context/current-state.md`](context/current-state.md) — qué existe HOY
 4. [`checklist.md`](checklist.md) — qué hacer
-5. Hub: [`../../centro-optico-vicente/.ai/context/business-rules.md`](../../centro-optico-vicente/.ai/context/business-rules.md)
-6. Hub: [`../../centro-optico-vicente/.ai/specs/05-domain-model.md`](../../centro-optico-vicente/.ai/specs/05-domain-model.md)
+5. Hub: [`../../centro-optico-vicente/.ai/context/business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
+6. Hub: [`../../centro-optico-vicente/.ai/specs/05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md)
 7. [`specs/02-database.md`](specs/02-database.md) — schema completo
 8. [`specs/04-security.md`](specs/04-security.md) — Spring Security config
 
@@ -80,13 +80,13 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 ## Decisiones congeladas relevantes
 
 **Cross-stack (en el hub):**
-- [ADR 0001 Stack](../../centro-optico-vicente/.ai/decisions/0001-stack.md)
-- [ADR 0004 Only free tools](../../centro-optico-vicente/.ai/decisions/0004-only-free-tools.md)
-- [ADR 0005 Flyway + JPA validate](../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md)
-- [ADR 0006 Table conventions](../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
-- [ADR 0007 R2 as S3](../../centro-optico-vicente/.ai/decisions/0007-r2-as-s3.md)
-- [ADR 0008 Manual payments](../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md)
-- [ADR 0009 Code conventions](../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md)
+- [ADR 0001 Stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0001-stack.md)
+- [ADR 0004 Only free tools](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0004-only-free-tools.md)
+- [ADR 0005 Flyway + JPA validate](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
+- [ADR 0006 Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
+- [ADR 0007 R2 as S3](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0007-r2-as-s3.md)
+- [ADR 0008 Manual payments](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md)
+- [ADR 0009 Code conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0009-code-conventions.md)
 
 **Locales (en este repo, prefijo `LOC-` desde 2026-10-10 para no confundirlas con las del hub):**
 - [ADR LOC-0001 Jetty over Tomcat](decisions/loc-0001-jetty-over-tomcat.md)

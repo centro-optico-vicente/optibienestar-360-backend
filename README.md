@@ -15,7 +15,7 @@ This enables the `pre-push` hook that blocks direct pushes to `main` per the
 all changes must enter `main` via a Pull Request from a `feature/`, `fix/`,
 `refactor/`, `chore/` or `hotfix/` branch. Server-side branch protection is
 paid-only on private GitHub repos and would violate
-[ADR 0004 — Only free tools](../centro-optico-vicente/.ai/decisions/0004-only-free-tools.md),
+[ADR 0004 — Only free tools](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0004-only-free-tools.md),
 so the hook is the free, client-side fallback. Bypass is `git push --no-verify`
 (reserve for genuine emergencies). See [`.githooks/README.md`](.githooks/README.md) for details.
 

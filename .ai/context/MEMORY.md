@@ -1,6 +1,6 @@
 # Memoria navegable (backend)
 
-> Índice por situación. Para visión cross-stack, ver [hub maestro](../../../centro-optico-vicente/.ai/context/MEMORY.md).
+> Índice por situación. Para visión cross-stack, ver [hub maestro](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/MEMORY.md).
 
 ## Situaciones comunes
 
@@ -15,25 +15,25 @@
 ### "Voy a crear una entidad nueva"
 1. [`../playbooks/new-entity.md`](../playbooks/new-entity.md)
 2. Para schema: [`../specs/02-database.md`](../specs/02-database.md)
-3. Para naming de tablas/columnas: [ADR 0006 cross-stack](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+3. Para naming de tablas/columnas: [ADR 0006 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
 4. Para naming Java (camelCase, PascalCase, UPPER_SNAKE_CASE): [`../decisions/loc-0007-java-naming-conventions.md`](../decisions/loc-0007-java-naming-conventions.md)
 5. Para búsquedas en repositorios (uuid, código, FK compuesta): [`../decisions/loc-0006-repository-search-conventions.md`](../decisions/loc-0006-repository-search-conventions.md)
 
 ### "Voy a crear una migración Flyway"
 1. [`../playbooks/new-migration.md`](../playbooks/new-migration.md)
 2. [`../specs/03-jpa-flyway.md`](../specs/03-jpa-flyway.md)
-3. [ADR 0005 cross-stack](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md)
+3. [ADR 0005 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
 
 ### "Voy a crear un endpoint REST"
 1. [`../playbooks/new-endpoint.md`](../playbooks/new-endpoint.md)
 2. [`api-conventions.md`](api-conventions.md)
 3. [`../specs/06-rest-api.md`](../specs/06-rest-api.md)
-4. Para integración: [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md)
+4. Para integración: [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md)
 
 ### "Voy a tocar algo de auth/security"
 1. [`../specs/04-security.md`](../specs/04-security.md)
 2. [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md)
-3. Cross-stack: [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md)
+3. Cross-stack: [hub `03-security.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md)
 
 ### "Voy a trabajar en cache Redis"
 1. [`../specs/07-cache.md`](../specs/07-cache.md)
@@ -41,20 +41,20 @@
 
 ### "Voy a tocar storage de archivos (R2)"
 1. [`../specs/08-storage-r2.md`](../specs/08-storage-r2.md)
-2. [ADR 0007 cross-stack](../../../centro-optico-vicente/.ai/decisions/0007-r2-as-s3.md)
+2. [ADR 0007 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0007-r2-as-s3.md)
 
 ### "Voy a implementar el validador en tiempo real"
 1. [`../specs/10-validators.md`](../specs/10-validators.md)
-2. Reglas: [hub `business-rules.md` sección "Validador"](../../../centro-optico-vicente/.ai/context/business-rules.md)
+2. Reglas: [hub `business-rules.md` sección "Validador"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
 
 ### "Voy a implementar el workflow de pagos"
 1. [`../specs/11-billing-manual.md`](../specs/11-billing-manual.md)
-2. Reglas: [hub `business-rules.md` sección "Workflow"](../../../centro-optico-vicente/.ai/context/business-rules.md)
-3. [ADR 0008 cross-stack](../../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md)
+2. Reglas: [hub `business-rules.md` sección "Workflow"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
+3. [ADR 0008 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md)
 
 ### "Voy a calcular comisiones"
 1. [`../specs/12-commissions.md`](../specs/12-commissions.md)
-2. Reglas: [hub `business-rules.md` sección "Comisiones"](../../../centro-optico-vicente/.ai/context/business-rules.md)
+2. Reglas: [hub `business-rules.md` sección "Comisiones"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
 
 ### "Voy a configurar SMTP"
 1. [`../specs/09-smtp.md`](../specs/09-smtp.md)

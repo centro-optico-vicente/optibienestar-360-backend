@@ -59,7 +59,7 @@ curl -s http://localhost:8080/actuator/health | jq
 
 ## Paso 4 — Probar un endpoint autenticado
 
-Ver la sección "Locale in dev requests" del `README.md` para el header `Accept-Language`. Para login, usar los usuarios sembrados en `V7__seed_users.sql` (ver [`deploy-rollout.md`](../../../centro-optico-vicente/.ai/playbooks/deploy-rollout.md) sección "Primer deploy: rotar contraseñas seed" para los emails/roles y el password placeholder — **válido también en dev**, no hace falta rotarlo localmente).
+Ver la sección "Locale in dev requests" del `README.md` para el header `Accept-Language`. Para login, usar los usuarios sembrados en `V7__seed_users.sql` (ver [`deploy-rollout.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/playbooks/deploy-rollout.md) sección "Primer deploy: rotar contraseñas seed" para los emails/roles y el password placeholder — **válido también en dev**, no hace falta rotarlo localmente).
 
 ## Qué valida CI (`ci.yaml`) — para saber qué vas a romper antes de hacer push
 

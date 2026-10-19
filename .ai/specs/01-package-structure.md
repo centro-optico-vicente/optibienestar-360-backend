@@ -242,7 +242,7 @@ com.fenixcore.optibienestar360/
 - **Constantes:** `UPPER_SNAKE_CASE`
 - **Enum values:** `UPPER_SNAKE_CASE`
 
-Ver [ADR 0009 cross-stack](../../../centro-optico-vicente/.ai/decisions/0009-code-conventions.md).
+Ver [ADR 0009 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0009-code-conventions.md).
 
 ## Convenciones específicas por capa
 
