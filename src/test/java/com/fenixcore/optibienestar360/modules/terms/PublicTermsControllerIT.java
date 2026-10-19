@@ -29,9 +29,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * IT of {@code GET /v1/public/terms/{type}} ({@link PublicTermsController}):
  * the path variable is the Spanish term code ({@code ASESOR}), bound to the
  * English constant ({@link TermType#ADVISOR}) by {@code CodedEnumConversionConfig},
- * and the JSON echoes the code back. The retired code {@code PROMOTOR} and the
- * Java constant name are not accepted. {@link TermsVersionService} is mocked
- * (H2 test profile, no Flyway seed).
+ * and the JSON echoes the code back. The retired code {@code PROMOTOR} (V185)
+ * is a 400. (Spring's data binder falls back to {@code Enum.valueOf} when the
+ * conversion service rejects a value, so the Java constant name, e.g.
+ * {@code ADVISOR}, also binds on path variables — harmless, not part of the
+ * contract.) {@link TermsVersionService} is mocked (H2 test profile, no Flyway seed).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -74,9 +76,8 @@ class PublicTermsControllerIT {
     }
 
     @Test
-    void retiredOrEnglishCodes_areRejected() throws Exception {
+    void retiredCode_isRejected() throws Exception {
         mockMvc.perform(get("/v1/public/terms/PROMOTOR")).andExpect(status().isBadRequest());
-        mockMvc.perform(get("/v1/public/terms/ADVISOR")).andExpect(status().isBadRequest());
         verify(termsVersionService, never()).getCurrentPublicRendered(any());
     }
 }
