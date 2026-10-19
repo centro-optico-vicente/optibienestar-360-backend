@@ -135,6 +135,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
+    // 422 — domain rule violation that names the rejected values (e.g. unknown T&C variables)
+    @ExceptionHandler(UnprocessableDetailsException.class)
+    public ResponseEntity<ProblemDetail> handleUnprocessableDetails(UnprocessableDetailsException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        HttpStatusCode status = HttpStatusCode.valueOf(422);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                status, messageSource.getMessage(ex.getMessage(), ex.getArgs(), ex.getMessage(), locale));
+        problem.setType(URI.create(problemsBase + "/unprocessable"));
+        problem.setTitle(resolve("error.title.unprocessable", locale));
+        ex.getProperties().forEach(problem::setProperty);
+        return ResponseEntity.status(status).body(problem);
+    }
+
     // 422 — domain rule violations (illegal state / bad argument from business logic)
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ProblemDetail> handleUnprocessable(IllegalArgumentException ex) {

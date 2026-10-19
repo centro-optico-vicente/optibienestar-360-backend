@@ -3,11 +3,13 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.exception.UnprocessableDetailsException;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
+import com.fenixcore.optibienestar360.modules.terms.dto.TermsVariableDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionCreateRequest;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsVersionUpdateRequest;
@@ -15,11 +17,15 @@ import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.repository.TermsVersionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +40,10 @@ import java.util.UUID;
  * lookups by type ({@link #getCurrent}, the public endpoint) resolve the
  * unscoped stream — the only one for AFILIADO / ASESOR, the general
  * template for ALIADO.</p>
+ *
+ * <p>Templates may only use the variables of their kind
+ * ({@link TermsVariables}); an unknown one is a 422 on create/update. The
+ * admin {@code contentRendered} preview resolves them with sample values.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -44,9 +54,23 @@ public class TermsVersionService {
     private final TermsTemplateRenderer renderer;
     private final AllyTypeRepository allyTypeRepository;
     private final AllyRepository allyRepository;
+    private final MessageSource messageSource;
 
     public List<TermsVersionDto> listByType(TermType termType) {
         return repository.findByTermTypeOrderByValidFromDesc(termType).stream().map(this::toDto).toList();
+    }
+
+    /**
+     * {@code GET /v1/admin/terms/variables?type=} — the variables a template
+     * of {@code termType} may use (common ones first), each with its
+     * description in the request locale.
+     */
+    public List<TermsVariableDto> listVariables(TermType termType) {
+        Locale locale = LocaleContextHolder.getLocale();
+        return TermsVariables.forType(termType).stream()
+                .map(v -> new TermsVariableDto(v.key(),
+                        messageSource.getMessage(TermsVariables.descriptionCode(v.key()), null, v.key(), locale)))
+                .toList();
     }
 
     public List<TermsVersionDto> listAll() {
@@ -114,6 +138,7 @@ public class TermsVersionService {
     @Transactional
     @Auditable(entity = "terms_version", action = AuditAction.CREATE)
     public TermsVersionDto create(TermsVersionCreateRequest req) {
+        requireKnownVariables(req.contentMarkdown(), req.termType());
         TermsVersion version = new TermsVersion();
         version.setTermType(req.termType());
         version.setTitle(req.title());
@@ -143,7 +168,10 @@ public class TermsVersionService {
         }
 
         if (req.title() != null) version.setTitle(req.title());
-        if (req.contentMarkdown() != null) version.setContentMarkdown(req.contentMarkdown());
+        if (req.contentMarkdown() != null) {
+            requireKnownVariables(req.contentMarkdown(), version.getTermType());
+            version.setContentMarkdown(req.contentMarkdown());
+        }
         if (req.isPublic() != null) version.setPublic(req.isPublic());
         if (req.validFrom() != null) {
             if (!req.validFrom().isAfter(Instant.now())) {
@@ -164,6 +192,20 @@ public class TermsVersionService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * 422 {@code terms_version.unknown_variables} when {@code content} uses a
+     * placeholder that is not a variable of {@code termType}; the rejected
+     * keys travel in the message and in the {@code invalidVariables} property.
+     */
+    static void requireKnownVariables(String content, TermType termType) {
+        List<String> unknown = TermsVariables.unknownIn(content, termType);
+        if (!unknown.isEmpty()) {
+            throw new UnprocessableDetailsException("terms_version.unknown_variables",
+                    new Object[]{String.join(", ", unknown)},
+                    Map.of("invalidVariables", unknown));
+        }
+    }
 
     private TermsVersion findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
@@ -222,6 +264,7 @@ public class TermsVersionService {
     }
 
     // Resolves the organization once per row; the admin list is a handful of versions.
+    // contentRendered is a preview: per-entity variables show sample values.
     private TermsVersionDto toDto(TermsVersion v) {
         AllyType allyType = v.getAllyType();
         Ally ally = v.getAlly();
@@ -230,7 +273,7 @@ public class TermsVersionService {
                 v.getTermType(),
                 v.getTitle(),
                 v.getContentMarkdown(),
-                renderer.render(v.getContentMarkdown()),
+                renderer.renderSample(v.getContentMarkdown(), v.getTermType()),
                 v.isPublic(),
                 v.getValidFrom(),
                 !v.getValidFrom().isAfter(Instant.now()),

@@ -18,6 +18,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
@@ -194,27 +195,13 @@ public interface AllyMapper {
 
     // ─── Agreement file + FK refs (V179) ────────────────────────────────────
 
-    /** Zero-padding width of the "Nº DE ALIADO" half of the file number. */
-    int FILE_NUMBER_PAD = 4;
-
     /** Display date of a terms version's {@code validFrom} (ADR 0010 zone, ADR 0022 format). */
     DateTimeFormatter TERMS_VERSION_DATE = DateTimeFormatter.ofPattern("dd-MM-yyyy")
             .withZone(ZoneId.of("America/Caracas"));
 
-    /**
-     * Agreement file number "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]": the
-     * capturing promoter's referral code + {@code "-"} + the ally number
-     * zero-padded to {@link #FILE_NUMBER_PAD} digits ({@code "ABC123-0007"}).
-     * Without a capturing promoter (or one without a referral code) it is
-     * just the padded number ({@code "0007"}); {@code null} while the ally
-     * has no number yet (not persisted).
-     */
+    /** Agreement file number "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]" — see {@link AllyFileNumbers#of}. */
     default String fileNumber(Ally ally) {
-        if (ally == null || ally.getAllyNumber() == null) return null;
-        String number = String.format("%0" + FILE_NUMBER_PAD + "d", ally.getAllyNumber());
-        Promoter promoter = ally.getCapturedByPromoter();
-        String advisorCode = promoter == null ? null : promoter.getReferralCode();
-        return advisorCode == null || advisorCode.isBlank() ? number : advisorCode + "-" + number;
+        return AllyFileNumbers.of(ally);
     }
 
     /** {@code capturedByPromoter_Code} carries the referral code (Promoter has no generic {@code getCode()}). */

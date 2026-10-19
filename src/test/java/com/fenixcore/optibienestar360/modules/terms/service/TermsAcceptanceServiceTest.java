@@ -9,6 +9,11 @@ import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
@@ -25,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -42,9 +49,10 @@ import static org.mockito.Mockito.when;
 
 /**
  * Audience rules of {@link TermsAcceptanceService#pendingForUser}: MEMBER
- * for every user, ADVISOR only for users with the ASESOR role, ALLY from the
- * active agreements of the user's allies — and {@code is_public} no longer
- * gates any of them.
+ * for every user, ADVISOR for users with an active, non-system advisor record
+ * (any rank, whatever their roles), ALLY from the active agreements of the
+ * user's allies — and {@code is_public} gates none of them. Each pending text
+ * is rendered with the variables of the entity that made it due.
  */
 @ExtendWith(MockitoExtension.class)
 class TermsAcceptanceServiceTest {
@@ -54,7 +62,9 @@ class TermsAcceptanceServiceTest {
     @Mock private TermsAcceptanceRepository termsAcceptanceRepository;
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private AllyAgreementRepository allyAgreementRepository;
+    @Mock private PromoterRepository promoterRepository;
     @Mock private TermsTemplateRenderer renderer;
+    @Mock private TermsVariableResolver variableResolver;
 
     private TermsAcceptanceService service;
     private User user;
@@ -66,12 +76,16 @@ class TermsAcceptanceServiceTest {
     @BeforeEach
     void setup() {
         service = new TermsAcceptanceService(userRepository, termsVersionRepository, termsAcceptanceRepository,
-                allyUserRepository, allyAgreementRepository, renderer);
+                allyUserRepository, allyAgreementRepository, promoterRepository, renderer, variableResolver);
         user = new User();
         user.setId(1L);
         user.setUuid(UUID.randomUUID());
         lenient().when(userRepository.findByUuid(user.getUuid())).thenReturn(Optional.of(user));
-        lenient().when(renderer.render(anyString())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(renderer.render(anyString(), anyMap())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(promoterRepository.findActiveByUserUuid(user.getUuid())).thenReturn(Optional.empty());
+        lenient().when(variableResolver.forMember(any())).thenReturn(Map.of());
+        lenient().when(variableResolver.forAdvisor(any())).thenReturn(Map.of());
+        lenient().when(variableResolver.forAlly(any())).thenReturn(Map.of());
         lenient().when(termsAcceptanceRepository.existsByUserIdAndTermsVersionId(anyLong(), anyLong())).thenReturn(false);
         lenient().when(allyUserRepository.findActiveByUserUuid(user.getUuid())).thenReturn(memberships);
         stubCurrent(TermType.MEMBER, memberTerms);
@@ -92,7 +106,7 @@ class TermsAcceptanceServiceTest {
 
     @Test
     void nonPublicVersions_areStillPending() {
-        grantRole(RoleNames.ADVISOR);
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
 
         List<PendingTermDto> pending = service.pendingForUser(user.getUuid());
 
@@ -102,20 +116,60 @@ class TermsAcceptanceServiceTest {
     }
 
     @Test
-    void advisor_isPendingOnlyWithAnEffectiveAdvisorRole() {
-        grantRole(RoleNames.ADMINISTRATOR);
-        assertThat(pendingTypes()).doesNotContain(TermType.ADVISOR);
+    void advisor_isPendingForAnActiveAdvisorRecordOfAnyRank() {
+        for (String rank : List.of(AdvisorRankCodes.ADVISOR, AdvisorRankCodes.SUPERVISOR, AdvisorRankCodes.COORDINATOR)) {
+            beAdvisor(rank, false);
 
-        grantRole(RoleNames.ADVISOR);
+            assertThat(pendingTypes()).as("rank %s", rank).containsExactly(TermType.MEMBER, TermType.ADVISOR);
+        }
+    }
+
+    @Test
+    void advisor_isPendingEvenWithoutTheAdvisorRole() {
+        grantRole(RoleNames.ADMINISTRATOR);
+        beAdvisor(AdvisorRankCodes.SUPERVISOR, false);
+
         assertThat(pendingTypes()).containsExactly(TermType.MEMBER, TermType.ADVISOR);
     }
 
     @Test
-    void advisor_isNotPendingWhenTheRoleExpired() {
-        UserRole expired = grantRole(RoleNames.ADVISOR);
-        expired.setExpiresAt(Instant.now().minus(1, ChronoUnit.DAYS));
+    void advisor_isNotPendingForTheSystemAdvisor() {
+        Promoter institution = beAdvisor(AdvisorRankCodes.ADVISOR, true);
+        institution.setReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE);
 
         assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+    }
+
+    @Test
+    void advisor_isNotPendingWithTheRoleButNoAdvisorRecord() {
+        grantRole(RoleNames.ADVISOR);
+
+        assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+    }
+
+    @Test
+    void eachPendingText_isRenderedWithItsEntityVariables() {
+        Promoter advisor = beAdvisor(AdvisorRankCodes.COORDINATOR, false);
+        Map<String, String> memberValues = Map.of("member.fullName", "Ana");
+        Map<String, String> advisorValues = Map.of("advisor.code", "ASE001");
+        when(variableResolver.forMember(user)).thenReturn(memberValues);
+        when(variableResolver.forAdvisor(advisor)).thenReturn(advisorValues);
+
+        service.pendingForUser(user.getUuid());
+
+        verify(renderer).render(memberTerms.getContentMarkdown(), memberValues);
+        verify(renderer).render(advisorTerms.getContentMarkdown(), advisorValues);
+    }
+
+    @Test
+    void acceptedVersions_skipTheVariableLookup() {
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
+        when(termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), memberTerms.getId())).thenReturn(true);
+        when(termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), advisorTerms.getId())).thenReturn(true);
+
+        assertThat(service.pendingForUser(user.getUuid())).isEmpty();
+        verify(variableResolver, never()).forMember(any());
+        verify(variableResolver, never()).forAdvisor(any());
     }
 
     @Test
@@ -132,10 +186,17 @@ class TermsAcceptanceServiceTest {
         when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(List.of(ally.getId()), "ACTIVE"))
                 .thenReturn(List.of(agreement(ally, template), agreement(ally, null)));
 
+        AllyAgreement linked = agreement(ally, template);
+        when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(List.of(ally.getId()), "ACTIVE"))
+                .thenReturn(List.of(linked, agreement(ally, null)));
+        Map<String, String> allyValues = Map.of("ally.name", "Clínica");
+        when(variableResolver.forAlly(linked)).thenReturn(allyValues);
+
         List<PendingTermDto> pending = service.pendingForUser(user.getUuid());
 
         assertThat(pending).extracting(PendingTermDto::termsVersionUuid)
                 .containsExactly(memberTerms.getUuid(), template.getUuid());
+        verify(renderer).render(template.getContentMarkdown(), allyValues);
     }
 
     @Test
@@ -197,6 +258,20 @@ class TermsAcceptanceServiceTest {
         userRole.setRole(role);
         user.getUserRoles().add(userRole);
         return userRole;
+    }
+
+    /** Gives the user an active advisor record of {@code rankCode} ({@code system} = the INSTITUCION kind). */
+    private Promoter beAdvisor(String rankCode, boolean system) {
+        PromoterRank rank = new PromoterRank();
+        rank.setCode(rankCode);
+        Promoter advisor = new Promoter();
+        advisor.setId(70L);
+        advisor.setUser(user);
+        advisor.setRank(rank);
+        advisor.setSystem(system);
+        advisor.setReferralCode("ASE001");
+        when(promoterRepository.findActiveByUserUuid(user.getUuid())).thenReturn(Optional.of(advisor));
+        return advisor;
     }
 
     private Ally belongToAlly(long allyId) {
