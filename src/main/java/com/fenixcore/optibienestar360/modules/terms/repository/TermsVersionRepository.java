@@ -18,7 +18,7 @@ public interface TermsVersionRepository extends JpaRepository<TermsVersion, Long
 
     /**
      * "Current version" of a type's unscoped stream — latest {@code validFrom <= at}
-     * with no ALIADO scope (V183). For AFILIADO / PROMOTOR that is the only stream;
+     * with no ALIADO scope (V183). For AFILIADO / ASESOR that is the only stream;
      * for ALIADO it is the general template.
      */
     Optional<TermsVersion> findFirstByTermTypeAndAllyTypeIsNullAndSegmentIsNullAndAllyIsNullAndValidFromLessThanEqualOrderByValidFromDesc(

@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideReRatingRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideReRatingResponse;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideReRatingResponse.BeneficiaryReRatingOutcome;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.OverrideCategory;
@@ -104,7 +105,7 @@ class HierarchyOverrideReRatingServiceTest {
 
     @Test
     void resyncsBasisWhenSourceCommissionWasRerated() {
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2);
         Promoter sup = promoter(2L, "sup", supervisorRank);
         HierarchyOverrideTier baseTier = tier(1L, supervisorRank, 0, "10.00");
 
@@ -129,7 +130,7 @@ class HierarchyOverrideReRatingServiceTest {
 
     @Test
     void reRatesToHigherBandWhenTeamVolumeCrossesThreshold() {
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2);
         Promoter sup = promoter(2L, "sup", supervisorRank);
         HierarchyOverrideTier baseTier = tier(1L, supervisorRank, 0, "10.00");
         HierarchyOverrideTier premiumTier = tier(2L, supervisorRank, 100, "20.00");
@@ -160,7 +161,7 @@ class HierarchyOverrideReRatingServiceTest {
 
     @Test
     void dryRunComputesDeltasWithoutMutating() {
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2);
         Promoter sup = promoter(2L, "sup", supervisorRank);
         HierarchyOverrideTier baseTier = tier(1L, supervisorRank, 0, "10.00");
 

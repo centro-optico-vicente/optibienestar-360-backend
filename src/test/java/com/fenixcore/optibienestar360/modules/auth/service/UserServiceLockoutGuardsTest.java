@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,11 +73,11 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_rejectsWhenNonSystemActorEditsSystemUser() {
-        User systemUser = userWithRole(targetUuid, "SYSTEM");
+        User systemUser = userWithRole(targetUuid, RoleNames.SYSTEM);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemUser));
         // The actor is a non-SYSTEM admin → the guard fires.
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.ADMINISTRATOR)));
 
         AdminUpdateUserRequest request = minimalUpdateFirstName("Renamed");
 
@@ -90,10 +91,10 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_allowsSystemActorToEditSystemUser() {
-        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        User systemTarget = userWithRole(targetUuid, RoleNames.SYSTEM);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "SYSTEM")));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.SYSTEM)));
 
         AdminUpdateUserRequest request = updateProfileFields("Renamed", null);
 
@@ -105,7 +106,7 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void deleteUser_rejectsWhenTargetIsSystemUser() {
-        User systemUser = userWithRole(targetUuid, "SYSTEM");
+        User systemUser = userWithRole(targetUuid, RoleNames.SYSTEM);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemUser));
 
         assertThatThrownBy(() -> userService.deleteUser(targetUuid, otherActorUuid, false))
@@ -120,7 +121,7 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_rejectsSelfDeactivation() {
-        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        User target = userWithRole(targetUuid, RoleNames.ADMINISTRATOR);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
         AdminUpdateUserRequest request = updateWithActive(false);
@@ -133,7 +134,7 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_rejectsSelfSuspensionViaStatus() {
-        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        User target = userWithRole(targetUuid, RoleNames.ADMINISTRATOR);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
         AdminUpdateUserRequest request = updateWithStatus("SUSPENDED");
@@ -145,7 +146,7 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_rejectsSelfRoleReassignment() {
-        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        User target = userWithRole(targetUuid, RoleNames.ADMINISTRATOR);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
 
         AdminUpdateUserRequest request = updateWithRoleIds(List.of(UUID.randomUUID()));
@@ -170,7 +171,7 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_allowsSelfProfileEditWhenNotTouchingSecurityFields() {
-        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        User target = userWithRole(targetUuid, RoleNames.ADMINISTRATOR);
         // findWithRolesByUuid is called twice — once at entry, once for the
         // toDto call at the end. Stub a default return for both.
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
@@ -189,10 +190,10 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void getUser_rejectsNonSystemActorViewingSystemUser() {
-        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        User systemTarget = userWithRole(targetUuid, RoleNames.SYSTEM);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.ADMINISTRATOR)));
 
         assertThatThrownBy(() -> userService.getUser(targetUuid, otherActorUuid))
                 .isInstanceOf(AccessDeniedException.class)
@@ -201,10 +202,10 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void getUser_allowsSystemActorToViewSystemUser() {
-        User systemTarget = userWithRole(targetUuid, "SYSTEM");
+        User systemTarget = userWithRole(targetUuid, RoleNames.SYSTEM);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(systemTarget));
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "SYSTEM")));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.SYSTEM)));
 
         // Should NOT throw — a SYSTEM actor may view a SYSTEM user.
         userService.getUser(targetUuid, otherActorUuid);
@@ -216,11 +217,11 @@ class UserServiceLockoutGuardsTest {
 
     @Test
     void updateUser_rejectsSystemRoleAssignmentByNonSystemActor() {
-        User target = userWithRole(targetUuid, "ADMINISTRADOR");
+        User target = userWithRole(targetUuid, RoleNames.ADMINISTRATOR);
         when(userRepository.findWithRolesByUuid(targetUuid)).thenReturn(Optional.of(target));
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
-        when(roleRepository.findByName("SYSTEM")).thenReturn(Optional.of(systemRole()));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.ADMINISTRATOR)));
+        when(roleRepository.findByName(RoleNames.SYSTEM)).thenReturn(Optional.of(systemRole()));
 
         AdminUpdateUserRequest request = updateWithRoleIds(List.of(SYSTEM_ROLE_UUID));
 
@@ -234,9 +235,9 @@ class UserServiceLockoutGuardsTest {
     @Test
     void createUser_rejectsSystemRoleAssignmentByNonSystemActor() {
         when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
-        when(roleRepository.findByName("SYSTEM")).thenReturn(Optional.of(systemRole()));
+        when(roleRepository.findByName(RoleNames.SYSTEM)).thenReturn(Optional.of(systemRole()));
         when(userRepository.findWithRolesByUuid(otherActorUuid))
-                .thenReturn(Optional.of(userWithRole(otherActorUuid, "ADMINISTRADOR")));
+                .thenReturn(Optional.of(userWithRole(otherActorUuid, RoleNames.ADMINISTRATOR)));
 
         AdminCreateUserRequest request = new AdminCreateUserRequest(
                 "new@example.com", "First", null, "Last", null, "password1",
@@ -275,7 +276,7 @@ class UserServiceLockoutGuardsTest {
     /** A Role entity standing in for the seeded SYSTEM role (name + uuid only). */
     private Role systemRole() {
         Role role = new Role();
-        role.setName("SYSTEM");
+        role.setName(RoleNames.SYSTEM);
         role.setUuid(SYSTEM_ROLE_UUID);
         return role;
     }

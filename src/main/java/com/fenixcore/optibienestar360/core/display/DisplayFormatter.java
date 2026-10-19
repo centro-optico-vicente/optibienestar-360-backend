@@ -158,7 +158,7 @@ public class DisplayFormatter {
 	public String enumLabel(String field, String value, Locale locale) {
 		// "code" is always a natural key (UPPER_SNAKE_CASE by convention), never an enum
 		// value — even when it happens to collide with an unrelated enum constant (e.g. a
-		// plan's code "CORPORATIVO" matching PlanType.CORPORATIVO). See fix #195.
+		// plan's code "CORPORATIVO" matching the code of PlanType.CORPORATE). See fix #195.
 		if ("code".equals(field)) {
 			return null;
 		}

@@ -88,7 +88,7 @@ class CommissionTiersServiceTest {
     @Test
     void create_persists_validPct() {
         CommissionTierCreateRequest req = new CommissionTierCreateRequest(
-                "Gold 25%", null, PlanType.FAMILIAR, null, 10, new BigDecimal("25"), null,
+                "Gold 25%", null, PlanType.FAMILY, null, 10, new BigDecimal("25"), null,
                 null,
                 PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY, PeriodStrategy.MONTHLY,
                 null, null, null, null,

@@ -74,7 +74,7 @@ class PlansServicePublicTest {
         assertThat(dto.uuid()).isEqualTo(plan.getUuid());
         assertThat(dto.code()).isEqualTo("FAMILIAR");
         assertThat(dto.name()).isEqualTo("Plan Familiar");
-        assertThat(dto.type()).isEqualTo(PlanType.FAMILIAR);
+        assertThat(dto.type()).isEqualTo(PlanType.FAMILY);
         assertThat(dto.inscriptionFee()).isEqualByComparingTo("20.00");
         assertThat(dto.monthlyFee()).isEqualByComparingTo("5.00");
         assertThat(dto.includedBeneficiaries()).isEqualTo(3);
@@ -142,7 +142,7 @@ class PlansServicePublicTest {
         p.setCode("FAMILIAR");
         p.setName("Plan Familiar");
         p.setDescription("Cobertura para el titular y su grupo familiar");
-        p.setType(PlanType.FAMILIAR);
+        p.setType(PlanType.FAMILY);
         p.setInscriptionFee(new BigDecimal("20.00"));
         p.setMonthlyFee(new BigDecimal("5.00"));
         p.setIncludedBeneficiaries(3);

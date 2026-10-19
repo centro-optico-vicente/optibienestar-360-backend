@@ -41,7 +41,7 @@ class PermissionResolverTest {
     void systemUser_getsFullCatalog_beyondItsOwnRolePermissions() {
         // The SYSTEM role row grants only one permission, but the catalog has
         // three (incl. a "brand new" one never granted to the role).
-        User system = userWith(role("SYSTEM", perm("USER_VIEW_ALL")));
+        User system = userWith(role(RoleNames.SYSTEM, perm("USER_VIEW_ALL")));
         when(permissionRepository.findAll()).thenReturn(List.of(
                 perm("USER_VIEW_ALL"), perm("PAYMENT_APPROVE"), perm("BRAND_NEW_PERMISSION")));
 
@@ -53,7 +53,7 @@ class PermissionResolverTest {
 
     @Test
     void nonSystemUser_getsUnionOfActiveRolePermissions() {
-        User admin = userWith(role("ADMINISTRADOR", perm("USER_VIEW_ALL"), perm("PAYMENT_APPROVE")));
+        User admin = userWith(role(RoleNames.ADMINISTRATOR, perm("USER_VIEW_ALL"), perm("PAYMENT_APPROVE")));
 
         List<String> names = resolver.resolvePermissionNames(admin);
 
@@ -65,7 +65,7 @@ class PermissionResolverTest {
     @Test
     void inactiveSystemAssignment_isNotTreatedAsSuperuser() {
         User u = new User();
-        UserRole ur = assignment(role("SYSTEM", perm("USER_VIEW_ALL")), false, null);
+        UserRole ur = assignment(role(RoleNames.SYSTEM, perm("USER_VIEW_ALL")), false, null);
         u.setUserRoles(new ArrayList<>(List.of(ur)));
 
         List<String> names = resolver.resolvePermissionNames(u);
@@ -79,7 +79,7 @@ class PermissionResolverTest {
     @Test
     void expiredSystemAssignment_isNotTreatedAsSuperuser() {
         User u = new User();
-        UserRole ur = assignment(role("SYSTEM", perm("USER_VIEW_ALL")), true,
+        UserRole ur = assignment(role(RoleNames.SYSTEM, perm("USER_VIEW_ALL")), true,
                 Instant.now().minus(1, ChronoUnit.DAYS));
         u.setUserRoles(new ArrayList<>(List.of(ur)));
 
@@ -93,7 +93,7 @@ class PermissionResolverTest {
 
     @Test
     void activeRole_system_getsFullCatalogRegardlessOfOwnPermissions() {
-        Role system = role("SYSTEM", perm("USER_VIEW_ALL"));
+        Role system = role(RoleNames.SYSTEM, perm("USER_VIEW_ALL"));
         User u = userWith(system);
         when(permissionRepository.findAll()).thenReturn(List.of(
                 perm("USER_VIEW_ALL"), perm("PAYMENT_APPROVE")));
@@ -105,8 +105,8 @@ class PermissionResolverTest {
 
     @Test
     void activeRole_normalRole_yieldsOnlyThatRolesPermissions_notTheUnion() {
-        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
-        Role operador = role("OPERADOR", perm("PAYMENT_APPROVE"));
+        Role admin = role(RoleNames.ADMINISTRATOR, perm("USER_VIEW_ALL"));
+        Role operador = role(RoleNames.OPERATOR, perm("PAYMENT_APPROVE"));
         User u = new User();
         u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, null), assignment(operador, true, null))));
 
@@ -118,7 +118,7 @@ class PermissionResolverTest {
 
     @Test
     void activeRole_notAnEffectiveAssignment_throws() {
-        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
+        Role admin = role(RoleNames.ADMINISTRATOR, perm("USER_VIEW_ALL"));
         User u = userWith(admin);
 
         assertThatThrownBy(() -> resolver.resolvePermissionNamesForActiveRole(u, UUID.randomUUID()))
@@ -127,7 +127,7 @@ class PermissionResolverTest {
 
     @Test
     void activeRole_expiredAssignment_throws() {
-        Role admin = role("ADMINISTRADOR", perm("USER_VIEW_ALL"));
+        Role admin = role(RoleNames.ADMINISTRATOR, perm("USER_VIEW_ALL"));
         User u = new User();
         u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, Instant.now().minus(1, ChronoUnit.DAYS)))));
 
@@ -139,8 +139,8 @@ class PermissionResolverTest {
 
     @Test
     void defaultActiveRole_usesUsersDefaultRole_whenItIsEffective() {
-        Role admin = role("ADMINISTRADOR");
-        Role operador = role("OPERADOR");
+        Role admin = role(RoleNames.ADMINISTRATOR);
+        Role operador = role(RoleNames.OPERATOR);
         User u = new User();
         u.setDefaultRole(operador);
         u.setUserRoles(new ArrayList<>(List.of(assignment(admin, true, null), assignment(operador, true, null))));
@@ -152,8 +152,8 @@ class PermissionResolverTest {
 
     @Test
     void defaultActiveRole_fallsBackToOldestEffectiveAssignment_whenDefaultIsNotEffective() {
-        Role admin = role("ADMINISTRADOR");
-        Role operador = role("OPERADOR");
+        Role admin = role(RoleNames.ADMINISTRATOR);
+        Role operador = role(RoleNames.OPERATOR);
         User u = new User();
         u.setDefaultRole(operador); // assigned but inactive below → not effective
 

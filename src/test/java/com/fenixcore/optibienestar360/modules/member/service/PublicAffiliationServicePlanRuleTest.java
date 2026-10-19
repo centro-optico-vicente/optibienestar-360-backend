@@ -25,7 +25,7 @@ class PublicAffiliationServicePlanRuleTest {
     void acceptsPublishedIndividualAndFamilyPlans() {
         assertThatCode(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.INDIVIDUAL, null, true, true)))
                 .doesNotThrowAnyException();
-        assertThatCode(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILIAR, 1, true, true)))
+        assertThatCode(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILY, 1, true, true)))
                 .doesNotThrowAnyException();
     }
 
@@ -34,20 +34,20 @@ class PublicAffiliationServicePlanRuleTest {
         assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("affiliation.plan.not_available");
-        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILIAR, null, false, true)))
+        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILY, null, false, true)))
                 .hasMessage("affiliation.plan.not_available");
-        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILIAR, null, true, false)))
+        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILY, null, true, false)))
                 .hasMessage("affiliation.plan.not_available");
     }
 
     @Test
     void rejectsCorporateAndMinimumHeadcountPlans() {
-        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.CORPORATIVO, 20, true, true)))
+        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.CORPORATE, 20, true, true)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("affiliation.plan.group_only");
-        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.CORPORATIVO, null, true, true)))
+        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.CORPORATE, null, true, true)))
                 .hasMessage("affiliation.plan.group_only");
-        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILIAR, 5, true, true)))
+        assertThatThrownBy(() -> PublicAffiliationService.requireSelfServicePlan(plan(PlanType.FAMILY, 5, true, true)))
                 .hasMessage("affiliation.plan.group_only");
     }
 }

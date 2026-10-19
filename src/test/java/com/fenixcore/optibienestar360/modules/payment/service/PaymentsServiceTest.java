@@ -39,6 +39,7 @@ import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterReposi
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionService;
 import com.fenixcore.optibienestar360.modules.promoter.service.DiscountAuthority;
 import com.fenixcore.optibienestar360.modules.promoter.service.HierarchyOverrideService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -393,10 +394,10 @@ class PaymentsServiceTest {
         Membership membership = membershipWithMember();
         stubRegisterCollaboratorsFull(membership);
         Promoter institucion = new Promoter();
-        institucion.setReferralCode("INSTITUCION");
+        institucion.setReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE);
         institucion.setSystem(true);
         institucion.setActive(true);
-        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        when(promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE)).thenReturn(Optional.of(institucion));
 
         sut().register(createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"), List.of(line("10.00"))), null);
 

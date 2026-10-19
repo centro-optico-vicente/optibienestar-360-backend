@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promoter.service;
 
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterSupervisorAssignmentDto;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterSupervisorAssignment;
@@ -78,9 +79,9 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void assignSupervisorSavesLivePointerAndAuditRow() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, 10);
-        Promoter subordinate = promoter(1L, "Ana", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, 10);
+        Promoter subordinate = promoter(1L, "Ana", advisorRank);
         Promoter supervisor = promoter(2L, "Beto", supervisorRank);
 
         when(promoterRepository.findByUuid(subordinate.getUuid())).thenReturn(Optional.of(subordinate));
@@ -103,8 +104,8 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void assignSupervisorRejectsSelfSupervision() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        Promoter p = promoter(1L, "Ana", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        Promoter p = promoter(1L, "Ana", advisorRank);
         when(promoterRepository.findByUuid(p.getUuid())).thenReturn(Optional.of(p));
 
         assertThatThrownBy(() -> service().assignSupervisor(p.getUuid(), p.getUuid(), "x", null))
@@ -114,9 +115,9 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void assignSupervisorRejectsWhenCandidateRankNotHigher() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        Promoter subordinate = promoter(1L, "Ana", promotorRank);
-        Promoter samelevel = promoter(2L, "Beto", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        Promoter subordinate = promoter(1L, "Ana", advisorRank);
+        Promoter samelevel = promoter(2L, "Beto", advisorRank);
 
         when(promoterRepository.findByUuid(subordinate.getUuid())).thenReturn(Optional.of(subordinate));
         when(promoterRepository.findByUuid(samelevel.getUuid())).thenReturn(Optional.of(samelevel));
@@ -131,11 +132,11 @@ class PromoterHierarchyServiceTest {
         // Coordinador (id=3) is already inside Promotor(id=1)'s own subtree
         // (id=1 supervises id=2, id=2 supervises id=3) — making id=3 the
         // supervisor of id=1 would close the loop.
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, 10);
-        PromoterRank coordRank = rank("COORDINADOR", 3, 5);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, 10);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, 5);
 
-        Promoter p1 = promoter(1L, "P1", promotorRank);
+        Promoter p1 = promoter(1L, "P1", advisorRank);
         Promoter p2 = promoter(2L, "P2", supervisorRank);
         Promoter p3 = promoter(3L, "P3", coordRank);
 
@@ -172,12 +173,12 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void assignSupervisorRejectsWhenCandidateAtCapacity() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, 1); // cap = 1, already full
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, 1); // cap = 1, already full
 
-        Promoter subordinate = promoter(1L, "Ana", promotorRank);
+        Promoter subordinate = promoter(1L, "Ana", advisorRank);
         Promoter supervisor = promoter(2L, "Beto", supervisorRank);
-        Promoter existingSubordinate = promoter(3L, "Carlos", promotorRank);
+        Promoter existingSubordinate = promoter(3L, "Carlos", advisorRank);
 
         when(promoterRepository.findByUuid(subordinate.getUuid())).thenReturn(Optional.of(subordinate));
         when(promoterRepository.findByUuid(supervisor.getUuid())).thenReturn(Optional.of(supervisor));
@@ -205,9 +206,9 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void resolveSupervisorAtReturnsVigenteAssignmentToSupervisor() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        Promoter subordinate = promoter(1L, "Ana", promotorRank);
-        Promoter supervisor = promoter(2L, "Beto", rank("SUPERVISOR", 2, 10));
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        Promoter subordinate = promoter(1L, "Ana", advisorRank);
+        Promoter supervisor = promoter(2L, "Beto", rank(AdvisorRankCodes.SUPERVISOR, 2, 10));
 
         PromoterSupervisorAssignment vigente = new PromoterSupervisorAssignment();
         vigente.setPromoter(subordinate);
@@ -224,13 +225,13 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void buildTreeNestsFromEachSupervisorlessRootDownToLeaves() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, 10);
-        PromoterRank coordRank = rank("COORDINADOR", 3, 5);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, 10);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, 5);
 
         Promoter coord = promoter(3L, "Coord", coordRank);
         Promoter sup = promoter(2L, "Sup", supervisorRank);
-        Promoter ase = promoter(1L, "Ase", promotorRank);
+        Promoter ase = promoter(1L, "Ase", advisorRank);
         sup.setSupervisor(coord);
         ase.setSupervisor(sup);
 
@@ -262,7 +263,7 @@ class PromoterHierarchyServiceTest {
         assertThat(tree).hasSize(1);
         var coordNode = tree.get(0);
         assertThat(coordNode.uuid()).isEqualTo(coord.getUuid());
-        assertThat(coordNode.rankCode()).isEqualTo("COORDINADOR");
+        assertThat(coordNode.rankCode()).isEqualTo(AdvisorRankCodes.COORDINATOR);
         assertThat(coordNode.supervisorUuid()).isNull();
         assertThat(coordNode.children()).hasSize(1);
 
@@ -279,10 +280,10 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void buildTreeExcludesInactiveAndSystemRoots() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        Promoter institucion = promoter(9L, "INSTITUCION", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        Promoter institucion = promoter(9L, PromoterResolver.SYSTEM_ADVISOR_CODE, advisorRank);
         institucion.setSystem(true);
-        Promoter inactiveRoot = promoter(8L, "Inactivo", promotorRank);
+        Promoter inactiveRoot = promoter(8L, "Inactivo", advisorRank);
         inactiveRoot.setActive(false);
 
         when(promoterRepository.findBySupervisorIsNull()).thenReturn(List.of(institucion, inactiveRoot));
@@ -295,10 +296,10 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void changeRankPromotesAndAssignsNewSupervisor() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
-        Promoter ase = promoter(1L, "Ana", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
+        Promoter ase = promoter(1L, "Ana", advisorRank);
         Promoter coord = promoter(3L, "Coord", coordRank);
 
         when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
@@ -316,7 +317,7 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void changeRankToTopRankAllowsNullSupervisor() {
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
         Promoter coord = promoter(3L, "Coord", coordRank);
 
         when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
@@ -333,30 +334,30 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void changeRankRejectsMissingSupervisorWhenNotTopRank() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        Promoter ase = promoter(1L, "Ana", promotorRank);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        Promoter ase = promoter(1L, "Ana", advisorRank);
 
         when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
-        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRankRepository.findByUuid(advisorRank.getUuid())).thenReturn(Optional.of(advisorRank));
         when(promoterRankRepository.existsByHierarchyLevelGreaterThanAndActiveTrue(1)).thenReturn(true);
 
-        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), promotorRank.getUuid(), null, "x", null))
+        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), advisorRank.getUuid(), null, "x", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("supervisor_required");
     }
 
     @Test
     void changeRankRejectsWhenDemotionWouldOutrankACurrentSubordinate() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
         Promoter ase = promoter(2L, "Sup", supervisorRank); // currently a Supervisor
-        Promoter subordinate = promoter(1L, "Ana", promotorRank);
+        Promoter subordinate = promoter(1L, "Ana", advisorRank);
         Promoter coord = promoter(3L, "Coord", coordRank);
 
         when(promoterRepository.findByUuid(ase.getUuid())).thenReturn(Optional.of(ase));
         when(promoterRepository.findByUuid(coord.getUuid())).thenReturn(Optional.of(coord));
-        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRankRepository.findByUuid(advisorRank.getUuid())).thenReturn(Optional.of(advisorRank));
 
         // ase's current team: "subordinate" reports to ase.
         lenient().when(promoterRepository.findBySupervisorId(2L)).thenReturn(List.of(subordinate));
@@ -376,15 +377,15 @@ class PromoterHierarchyServiceTest {
 
         // Demoting ase (Supervisor) down to Promotor — same rank as its own subordinate — must be rejected,
         // even though the proposed new supervisor (a Coordinador) is otherwise perfectly valid.
-        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), promotorRank.getUuid(), coord.getUuid(), "x", null))
+        assertThatThrownBy(() -> service().changeRank(ase.getUuid(), advisorRank.getUuid(), coord.getUuid(), "x", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("subordinate_rank_conflict");
     }
 
     @Test
     void changeRankKeepingSameSupervisorDoesNotWriteAssignmentRow() {
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
         Promoter sup = promoter(2L, "Sup", supervisorRank);
         Promoter coord = promoter(3L, "Coord", coordRank);
         sup.setSupervisor(coord);
@@ -402,17 +403,17 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void eligibleSupervisorOptionsDefaultsToImmediateSuperiorRankOnly() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, null);
         Promoter sup = promoter(2L, "Sup", supervisorRank);
 
-        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRankRepository.findByUuid(advisorRank.getUuid())).thenReturn(Optional.of(advisorRank));
         when(promoterRankRepository.findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(1))
                 .thenReturn(Optional.of(supervisorRank));
         when(promoterRepository.findEligibleSupervisors(1, 2, null)).thenReturn(List.of(sup));
 
         List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
-                service().eligibleSupervisorOptions(promotorRank.getUuid(), false, null, 50);
+                service().eligibleSupervisorOptions(advisorRank.getUuid(), false, null, 50);
 
         assertThat(options).hasSize(1);
         assertThat(options.get(0).uuid()).isEqualTo(sup.getUuid());
@@ -420,17 +421,17 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void eligibleSupervisorOptionsWithAllSuperiorsWidensToEveryRankAbove() {
-        PromoterRank promotorRank = rank("PROMOTOR", 1, null);
-        PromoterRank supervisorRank = rank("SUPERVISOR", 2, null);
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        PromoterRank advisorRank = rank(AdvisorRankCodes.ADVISOR, 1, null);
+        PromoterRank supervisorRank = rank(AdvisorRankCodes.SUPERVISOR, 2, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
         Promoter sup = promoter(2L, "Sup", supervisorRank);
         Promoter coord = promoter(3L, "Coord", coordRank);
 
-        when(promoterRankRepository.findByUuid(promotorRank.getUuid())).thenReturn(Optional.of(promotorRank));
+        when(promoterRankRepository.findByUuid(advisorRank.getUuid())).thenReturn(Optional.of(advisorRank));
         when(promoterRepository.findEligibleSupervisors(1, null, null)).thenReturn(List.of(sup, coord));
 
         List<com.fenixcore.optibienestar360.core.dto.OptionDto> options =
-                service().eligibleSupervisorOptions(promotorRank.getUuid(), true, null, 50);
+                service().eligibleSupervisorOptions(advisorRank.getUuid(), true, null, 50);
 
         assertThat(options).hasSize(2);
         verify(promoterRankRepository, never())
@@ -439,7 +440,7 @@ class PromoterHierarchyServiceTest {
 
     @Test
     void eligibleSupervisorOptionsReturnsEmptyForTopRank() {
-        PromoterRank coordRank = rank("COORDINADOR", 3, null);
+        PromoterRank coordRank = rank(AdvisorRankCodes.COORDINATOR, 3, null);
 
         when(promoterRankRepository.findByUuid(coordRank.getUuid())).thenReturn(Optional.of(coordRank));
         when(promoterRankRepository.findFirstByHierarchyLevelGreaterThanAndActiveTrueOrderByHierarchyLevelAsc(3))

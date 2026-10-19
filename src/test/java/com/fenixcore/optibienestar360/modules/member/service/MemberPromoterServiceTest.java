@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -305,12 +306,12 @@ class MemberPromoterServiceTest {
     @Test
     void portfolioToSupervisor_fallsBackToInstitucion_withoutNotifyingTheMember() {
         service = service();
-        Promoter institucion = promoter("INSTITUCION", true);
+        Promoter institucion = promoter(PromoterResolver.SYSTEM_ADVISOR_CODE, true);
         institucion.setSystem(true);
         Promoter source = promoter("SALIENTE", false);
         Member a = member(source);
         when(promoterRepository.findByUuid(source.getUuid())).thenReturn(Optional.of(source));
-        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+        when(promoterRepository.findByReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE)).thenReturn(Optional.of(institucion));
         when(memberRepository.findByPromoter_Id(source.getId())).thenReturn(List.of(a));
         stubSaveAssignment();
 

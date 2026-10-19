@@ -80,7 +80,7 @@ class PublicPlanControllerIT {
     private PublicPlanDto familiarDto() {
         return new PublicPlanDto(
                 UUID.randomUUID(), "FAMILIAR", "Plan Familiar",
-                "Cobertura para el titular y su grupo familiar", PlanType.FAMILIAR,
+                "Cobertura para el titular y su grupo familiar", PlanType.FAMILY,
                 new BigDecimal("20.00"), new BigDecimal("5.00"), "USD",
                 3, 5, new BigDecimal("5.00"), null, 7);
     }

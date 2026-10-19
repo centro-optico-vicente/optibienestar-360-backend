@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.member;
 
 import com.fenixcore.optibienestar360.modules.member.dto.MemberPromoterAssignmentDto;
 import com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -156,13 +157,13 @@ class AdminMemberPromoterControllerIT {
         when(memberPromoterService.history(memberUuid)).thenReturn(List.of(
                 new MemberPromoterAssignmentDto(
                         UUID.randomUUID(), memberUuid, "Juan Pérez",
-                        null, null, UUID.randomUUID(), "INSTITUCION",
+                        null, null, UUID.randomUUID(), PromoterResolver.SYSTEM_ADVISOR_CODE,
                         null, "Enrolamiento", Instant.parse("2026-07-01T12:00:00Z"))));
 
         mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", memberUuid)
                         .with(principal("MEMBER_ASSIGN_PROMOTER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].toPromoterName").value("INSTITUCION"));
+                .andExpect(jsonPath("$[0].toPromoterName").value(PromoterResolver.SYSTEM_ADVISOR_CODE));
     }
 
     @Test

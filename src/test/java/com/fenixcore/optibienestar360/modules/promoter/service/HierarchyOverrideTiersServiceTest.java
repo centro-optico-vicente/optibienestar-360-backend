@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyReposi
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierCreateRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.HierarchyOverrideTierUpdateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Commission.PeriodStrategy;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier;
 import com.fenixcore.optibienestar360.modules.promoter.entity.HierarchyOverrideTier.BasisType;
@@ -50,7 +51,7 @@ class HierarchyOverrideTiersServiceTest {
         PromoterRank r = new PromoterRank();
         r.setId(1L);
         r.setUuid(UUID.randomUUID());
-        r.setCode("SUPERVISOR");
+        r.setCode(AdvisorRankCodes.SUPERVISOR);
         r.setName("Supervisor");
         r.setHierarchyLevel(2);
         return r;

@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.document.generic.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.core.entity.CodedEnum;
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecordModel;
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import org.springframework.context.MessageSource;
@@ -876,13 +877,16 @@ public class GenericEntityExtractorService {
         Locale currentLocale = LocaleContextHolder.getLocale();
         Locale targetLocale = (currentLocale != null) ? currentLocale : venezuelaLocale;
 
+        // A CodedEnum is labelled by its code (e.g. FAMILIAR for PlanType.FAMILY),
+        // the same token the API and the message keys use.
+        String token = e instanceof CodedEnum coded ? coded.code() : e.name();
         if (messageSource != null) {
             String enumClassName = e.getDeclaringClass().getSimpleName();
             for (String key : List.of(
-                    "plans.types." + e.name(),
-                    "enum." + enumClassName + "." + e.name(),
-                    "enum." + e.name(),
-                    e.name()
+                    "plans.types." + token,
+                    "enum." + enumClassName + "." + token,
+                    "enum." + token,
+                    token
             )) {
                 try {
                     String msg = messageSource.getMessage(key, null, null, targetLocale);
@@ -891,12 +895,12 @@ public class GenericEntityExtractorService {
             }
         }
 
-        String enumKey = e.name().toUpperCase();
+        String enumKey = token.toUpperCase();
         if (SPANISH_ENUM_LABELS.containsKey(enumKey)) {
             return SPANISH_ENUM_LABELS.get(enumKey);
         }
 
-        return formatCamelCaseToTitle(e.name());
+        return formatCamelCaseToTitle(token);
     }
 
     @SuppressWarnings("unchecked")

@@ -30,7 +30,7 @@ import java.util.UUID;
  *
  * <p>Writes (reminder / payment-promise) require {@code PROMOTER_CONTACT_OWN}
  * (V36); reads (history / collection-score) reuse {@code PROMOTER_VIEW_OWN}
- * (V35). Both are granted to PROMOTOR + ADMINISTRADOR + SYSTEM.</p>
+ * (V35). Both are granted to ASESOR + ADMINISTRADOR + SYSTEM.</p>
  */
 @RestController
 @RequestMapping("/v1/promoter/me")

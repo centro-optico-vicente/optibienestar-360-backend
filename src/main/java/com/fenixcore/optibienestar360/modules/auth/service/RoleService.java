@@ -21,6 +21,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class RoleService {
 
-    private static final String SYSTEM_ROLE_NAME = "SYSTEM";
     private static final String ROLE_PERMISSION_EDIT = "ROLE_PERMISSION_EDIT";
     private static final String[] SEARCHABLE_FIELDS = {"name", "description"};
 
@@ -123,7 +123,7 @@ public class RoleService {
     public void updateRolePermissions(UUID roleUuid, Set<UUID> permissionUuids, UUID actorUuid) {
         Role role = findRole(roleUuid);
 
-        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !isSystemActor(actorUuid)) {
+        if (RoleNames.SYSTEM.equals(role.getName()) && !isSystemActor(actorUuid)) {
             throw new AccessDeniedException("role.system.not_editable");
         }
 
@@ -174,7 +174,7 @@ public class RoleService {
     @Auditable(entity = "role", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public RoleDto update(UUID uuid, UpdateRoleRequest req, UUID actorUuid) {
         Role role = findRole(uuid);
-        if (SYSTEM_ROLE_NAME.equals(role.getName()) && !isSystemActor(actorUuid)) {
+        if (RoleNames.SYSTEM.equals(role.getName()) && !isSystemActor(actorUuid)) {
             throw new AccessDeniedException("role.system.not_editable");
         }
         roleRepository.findByName(req.name())
@@ -221,7 +221,7 @@ public class RoleService {
     @Auditable(entity = "role", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid, boolean physical) {
         Role role = findRole(uuid);
-        if (SYSTEM_ROLE_NAME.equals(role.getName())) {
+        if (RoleNames.SYSTEM.equals(role.getName())) {
             throw new AccessDeniedException("role.system.not_deletable");
         }
         long usages = countUsages(uuid);
@@ -350,7 +350,7 @@ public class RoleService {
         return userRepository.findWithRolesByUuid(actorUuid)
                 .map(actor -> actor.getUserRoles().stream()
                         .filter(UserRole::isActive)
-                        .anyMatch(ur -> SYSTEM_ROLE_NAME.equals(ur.getRole().getName())))
+                        .anyMatch(ur -> RoleNames.SYSTEM.equals(ur.getRole().getName())))
                 .orElse(false);
     }
 

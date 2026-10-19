@@ -35,7 +35,7 @@ public final class TermsVersionScopes {
 
     /** Whether {@code version} is an ALIADO template {@code ally} may sign. */
     public static boolean isApplicableTo(TermsVersion version, Ally ally) {
-        if (version.getTermType() != TermType.ALIADO) return false;
+        if (version.getTermType() != TermType.ALLY) return false;
         if (version.getAlly() != null && !Objects.equals(version.getAlly().getId(), ally.getId())) {
             return false;
         }

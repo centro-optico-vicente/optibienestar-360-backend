@@ -63,7 +63,7 @@ class AllyAgreementsServiceTermsVersionTest {
 
     @Test
     void create_withAllyTermsVersion_linksItAndAppliesDefaults() {
-        TermsVersion version = version(TermType.ALIADO);
+        TermsVersion version = version(TermType.ALLY);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
         when(agreementRepository.save(any(AllyAgreement.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -90,7 +90,7 @@ class AllyAgreementsServiceTermsVersionTest {
 
     @Test
     void create_withNonAllyTermsVersion_isRejected() {
-        TermsVersion version = version(TermType.AFILIADO);
+        TermsVersion version = version(TermType.MEMBER);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
 
@@ -117,7 +117,7 @@ class AllyAgreementsServiceTermsVersionTest {
         agreement.setId(5L);
         agreement.setUuid(UUID.randomUUID());
         agreement.setAlly(ally);
-        TermsVersion version = version(TermType.PROMOTOR);
+        TermsVersion version = version(TermType.ADVISOR);
         when(agreementRepository.findByUuid(agreement.getUuid())).thenReturn(Optional.of(agreement));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
 
@@ -133,7 +133,7 @@ class AllyAgreementsServiceTermsVersionTest {
     @Test
     void create_withTemplateScopedToAnotherSegment_isNotApplicable() {
         ally.getAllyTypes().add(allyType(AllyType.Segment.B2B));
-        TermsVersion version = version(TermType.ALIADO);
+        TermsVersion version = version(TermType.ALLY);
         version.setSegment(AllyType.Segment.B2P);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
@@ -149,7 +149,7 @@ class AllyAgreementsServiceTermsVersionTest {
         Ally other = new Ally();
         other.setId(2L);
         other.setUuid(UUID.randomUUID());
-        TermsVersion version = version(TermType.ALIADO);
+        TermsVersion version = version(TermType.ALLY);
         version.setAlly(other);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
@@ -162,7 +162,7 @@ class AllyAgreementsServiceTermsVersionTest {
     @Test
     void create_withTemplateScopedToTheAllysSegment_linksIt() {
         ally.getAllyTypes().add(allyType(AllyType.Segment.B2P));
-        TermsVersion version = version(TermType.ALIADO);
+        TermsVersion version = version(TermType.ALLY);
         version.setSegment(AllyType.Segment.B2P);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
@@ -175,7 +175,7 @@ class AllyAgreementsServiceTermsVersionTest {
 
     @Test
     void update_resendingTheLinkedVersion_skipsTheApplicabilityCheck() {
-        TermsVersion version = version(TermType.ALIADO);
+        TermsVersion version = version(TermType.ALLY);
         version.setSegment(AllyType.Segment.B2P); // no longer matches: the ally has no types now
         AllyAgreement agreement = new AllyAgreement();
         agreement.setId(5L);

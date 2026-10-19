@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceReviewLogDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyServiceReviewService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +59,7 @@ class AllyServicesRemovalControllerIT {
 
     private RequestPostProcessor principal() {
         CustomUserDetails p = CustomUserDetails.fromJwt(UUID.randomUUID(), "jti", "es",
-                List.of(new SimpleGrantedAuthority("ALIADO")));
+                List.of(new SimpleGrantedAuthority(RoleNames.ALLY)));
         return authentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
     }
 

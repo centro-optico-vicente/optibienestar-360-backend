@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.core.audit;
 import com.fenixcore.optibienestar360.core.audit.dto.LoginAuditLogDto;
 import com.fenixcore.optibienestar360.core.audit.entity.LoginAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -84,7 +85,7 @@ class LoginAuditIT {
 		String email = "test-marker-" + System.nanoTime() + "@example.test";
 		try {
 			Optional<UUID> sessionId = loginAuditService.startSession(
-					null, email, List.of("ADMINISTRADOR"), "es", "127.0.0.1", "JUnit", "localhost", 30);
+					null, email, List.of(RoleNames.ADMINISTRATOR), "es", "127.0.0.1", "JUnit", "localhost", 30);
 			assertTrue(sessionId.isPresent(), "expected a sid — login_audit_enabled defaults to true");
 			assertTrue(loginAuditService.isSessionValid(sessionId.get()));
 
@@ -110,7 +111,7 @@ class LoginAuditIT {
 			// "role_switch" reason, not the FK-linked active_role_id column, which
 			// is exercised end-to-end by AuthServiceRoleSwitchTest instead.
 			Optional<UUID> oldSessionId = loginAuditService.startSession(
-					null, email, List.of("ADMINISTRADOR", "OPERADOR"), "es", "127.0.0.1", "JUnit", "localhost", 30);
+					null, email, List.of(RoleNames.ADMINISTRATOR, RoleNames.OPERATOR), "es", "127.0.0.1", "JUnit", "localhost", 30);
 			assertTrue(oldSessionId.isPresent());
 
 			loginAuditService.closeSession(oldSessionId.get(), "role_switch");
@@ -120,7 +121,7 @@ class LoginAuditIT {
 			assertFalse(loginAuditService.isSessionValid(oldSessionId.get()));
 
 			Optional<UUID> newSessionId = loginAuditService.startSession(
-					null, email, List.of("ADMINISTRADOR", "OPERADOR"), "es", "127.0.0.1", "JUnit", "localhost", 30);
+					null, email, List.of(RoleNames.ADMINISTRATOR, RoleNames.OPERATOR), "es", "127.0.0.1", "JUnit", "localhost", 30);
 			assertTrue(newSessionId.isPresent());
 			assertTrue(loginAuditService.isSessionValid(newSessionId.get()));
 

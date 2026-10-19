@@ -16,6 +16,7 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRe
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberPromoterAssignmentRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.promoter.entity.AdvisorRankCodes;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CommissionRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.CompetitiveCommissionAwardRepository;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterBonusAwardRepository;
@@ -88,9 +89,6 @@ public class PromotersService {
 
     /** Retry cap when an auto-generated candidate collides — a safety net, not a budget. */
     private static final int GENERATION_RETRIES = 10;
-
-    /** Base rank every new promoter starts at — same one V101 backfilled onto pre-existing rows. */
-    private static final String BASE_RANK_CODE = "PROMOTOR";
 
     /** Business timezone (ADR 0010) — default {@code joinedAt} is "today" there, not in UTC. */
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Caracas");
@@ -335,7 +333,7 @@ public class PromotersService {
      * dedicated promotion flow, never a bare field on this create request.
      */
     private PromoterRank resolveBaseRank() {
-        return promoterRankRepository.findByCode(BASE_RANK_CODE)
+        return promoterRankRepository.findByCode(AdvisorRankCodes.ADVISOR)
                 .orElseThrow(() -> new IllegalStateException("promoter_rank.base_rank_missing"));
     }
 

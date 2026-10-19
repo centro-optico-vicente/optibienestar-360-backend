@@ -14,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.document.service.RenderedDocument;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -515,7 +516,7 @@ class GenericRecordReportServiceTest {
     void testExtractTableModelForPromoters() {
         // System promoter (INSTITUCION)
         Promoter systemPromoter = new Promoter();
-        systemPromoter.setReferralCode("INSTITUCION");
+        systemPromoter.setReferralCode(PromoterResolver.SYSTEM_ADVISOR_CODE);
         systemPromoter.setDisplayName("Centro Óptico Vicente — Administración");
         systemPromoter.setDescription("Promotor del sistema...");
         systemPromoter.setSystem(true);
@@ -581,7 +582,7 @@ class GenericRecordReportServiceTest {
         int systemIdx = headers.indexOf("Sistema");
         int referralsIdx = headers.indexOf("Total de Referidos");
 
-        assertEquals("INSTITUCION", tableModel.rows().get(0).get(codeIdx));
+        assertEquals(PromoterResolver.SYSTEM_ADVISOR_CODE, tableModel.rows().get(0).get(codeIdx));
         assertEquals("Centro Óptico Vicente — Administración", tableModel.rows().get(0).get(nameIdx));
         assertEquals("Sí", tableModel.rows().get(0).get(systemIdx));
         assertEquals("0", tableModel.rows().get(0).get(referralsIdx));

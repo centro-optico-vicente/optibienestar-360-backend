@@ -36,8 +36,8 @@ import java.util.Optional;
 @Slf4j
 public class PromoterResolver {
 
-    /** Natural key of the V25-seeded system promoter (central administration). */
-    public static final String SYSTEM_PROMOTER_CODE = "INSTITUCION";
+    /** Referral code of the V25-seeded system advisor (central administration). */
+    public static final String SYSTEM_ADVISOR_CODE = "INSTITUCION";
 
     private final PromoterRepository promoterRepository;
 
@@ -55,7 +55,7 @@ public class PromoterResolver {
         if (direct != null) {
             return Optional.of(direct);
         }
-        return promoterRepository.findByReferralCode(SYSTEM_PROMOTER_CODE).filter(Promoter::isActive);
+        return promoterRepository.findByReferralCode(SYSTEM_ADVISOR_CODE).filter(Promoter::isActive);
     }
 
     public Promoter resolveForEnrollment(String referralCode) {

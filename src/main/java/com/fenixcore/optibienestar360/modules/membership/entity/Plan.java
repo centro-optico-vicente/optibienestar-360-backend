@@ -1,12 +1,14 @@
 package com.fenixcore.optibienestar360.modules.membership.entity;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.entity.CodedEnum;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -62,7 +64,7 @@ public class Plan extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = PlanTypeConverter.class)
     @Column(length = 20, nullable = false)
     private PlanType type;
 
@@ -112,7 +114,31 @@ public class Plan extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    public enum PlanType {
-        INDIVIDUAL, FAMILIAR, CORPORATIVO
+    /**
+     * Plan kind. The Java constants are English; {@link PlanType#code()} is the
+     * Spanish value stored in {@code plans.type} / {@code commission_tiers.plan_type}
+     * and exchanged through the API (JSON, RSQL {@code type==FAMILIAR}).
+     */
+    public enum PlanType implements CodedEnum {
+        INDIVIDUAL("INDIVIDUAL"),
+        FAMILY("FAMILIAR"),
+        CORPORATE("CORPORATIVO");
+
+        private final String code;
+
+        PlanType(String code) {
+            this.code = code;
+        }
+
+        @Override
+        @JsonValue
+        public String code() {
+            return code;
+        }
+
+        @JsonCreator
+        public static PlanType fromCode(String code) {
+            return CodedEnum.fromCode(PlanType.class, code);
+        }
     }
 }

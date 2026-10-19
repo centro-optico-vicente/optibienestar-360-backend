@@ -74,7 +74,7 @@ class CorporateContractsServiceTest {
 
     @Test
     void create_persistsContract_forCorporatePlan() {
-        Plan plan = plan(PlanType.CORPORATIVO);
+        Plan plan = plan(PlanType.CORPORATE);
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
         when(repository.save(any())).thenAnswer(inv -> {
             CorporateContract c = inv.getArgument(0);
@@ -98,7 +98,7 @@ class CorporateContractsServiceTest {
 
     @Test
     void create_resolvesContactUser_whenProvided() {
-        Plan plan = plan(PlanType.CORPORATIVO);
+        Plan plan = plan(PlanType.CORPORATE);
         User contact = user();
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
         when(userRepository.findByUuid(contact.getUuid())).thenReturn(Optional.of(contact));
@@ -124,7 +124,7 @@ class CorporateContractsServiceTest {
 
     @Test
     void create_rejectsExpectedCountBelowPlanMinimum() {
-        Plan plan = plan(PlanType.CORPORATIVO);
+        Plan plan = plan(PlanType.CORPORATE);
         plan.setMinMembers(20);
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
 
@@ -137,7 +137,7 @@ class CorporateContractsServiceTest {
 
     @Test
     void create_acceptsExpectedCountAtPlanMinimum() {
-        Plan plan = plan(PlanType.CORPORATIVO);
+        Plan plan = plan(PlanType.CORPORATE);
         plan.setMinMembers(20);
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -161,7 +161,7 @@ class CorporateContractsServiceTest {
 
     @Test
     void create_404_whenContactUserUnknown() {
-        Plan plan = plan(PlanType.CORPORATIVO);
+        Plan plan = plan(PlanType.CORPORATE);
         UUID contactUuid = UUID.randomUUID();
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
         when(userRepository.findByUuid(contactUuid)).thenReturn(Optional.empty());
@@ -348,7 +348,7 @@ class CorporateContractsServiceTest {
         CorporateContract c = new CorporateContract();
         c.setId(1L);
         c.setUuid(UUID.randomUUID());
-        c.setPlan(plan(PlanType.CORPORATIVO));
+        c.setPlan(plan(PlanType.CORPORATE));
         c.setInstitutionName("Original");
         c.setInstitutionTaxId("J-000");
         c.setPayerMode(mode);

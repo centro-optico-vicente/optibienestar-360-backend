@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -75,10 +76,10 @@ class RoleServiceGuardsTest {
     void editingSystemRoleAsNonSystemActor_isForbidden() {
         UUID roleUuid = UUID.randomUUID();
         UUID actorUuid = UUID.randomUUID();
-        when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(role(1L, "SYSTEM")));
+        when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(role(1L, RoleNames.SYSTEM)));
         // Actor holds an active role, but not SYSTEM → not a system actor.
         when(userRepository.findWithRolesByUuid(actorUuid))
-                .thenReturn(Optional.of(actorWithRoles(role(2L, "ADMINISTRADOR"))));
+                .thenReturn(Optional.of(actorWithRoles(role(2L, RoleNames.ADMINISTRATOR))));
 
         assertThatThrownBy(() -> service.updateRolePermissions(roleUuid, Set.of(UUID.randomUUID()), actorUuid))
                 .isInstanceOf(AccessDeniedException.class)
@@ -93,7 +94,7 @@ class RoleServiceGuardsTest {
     void requestingAnUnknownPermissionUuid_isRejected() {
         UUID roleUuid = UUID.randomUUID();
         UUID actorUuid = UUID.randomUUID();
-        when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(role(1L, "ADMINISTRADOR")));
+        when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(role(1L, RoleNames.ADMINISTRATOR)));
         // Two UUIDs requested, only one resolves → the whole call is rejected.
         when(permissionRepository.findAllByUuidIn(any())).thenReturn(List.of(perm(10L, "MEMBER_VIEW_ALL")));
 
@@ -114,7 +115,7 @@ class RoleServiceGuardsTest {
         Permission edit = perm(1L, "ROLE_PERMISSION_EDIT");
         Permission memberView = perm(2L, "MEMBER_VIEW_ALL");
         // The edited role is the actor's ONLY source of ROLE_PERMISSION_EDIT...
-        Role edited = role(5L, "ADMINISTRADOR", edit);
+        Role edited = role(5L, RoleNames.ADMINISTRATOR, edit);
         when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(edited));
         // ...and the requested new set drops it.
         when(permissionRepository.findAllByUuidIn(any())).thenReturn(List.of(memberView));
@@ -135,7 +136,7 @@ class RoleServiceGuardsTest {
         UUID actorUuid = UUID.randomUUID();
         Permission edit = perm(1L, "ROLE_PERMISSION_EDIT");
         Permission memberView = perm(2L, "MEMBER_VIEW_ALL");
-        Role edited = role(5L, "ADMINISTRADOR", edit);
+        Role edited = role(5L, RoleNames.ADMINISTRATOR, edit);
         when(roleRepository.findByUuid(roleUuid)).thenReturn(Optional.of(edited));
         when(permissionRepository.findAllByUuidIn(any())).thenReturn(List.of(memberView));
         // The actor keeps ROLE_PERMISSION_EDIT through a SEPARATE active role, so

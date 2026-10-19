@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.security.PermissionResolver;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import com.fenixcore.optibienestar360.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,13 +84,13 @@ class AuthServiceRoleSwitchTest {
         Role adminRole = new Role();
         adminRole.setId(1L);
         adminRole.setUuid(UUID.randomUUID());
-        adminRole.setName("ADMINISTRADOR");
+        adminRole.setName(RoleNames.ADMINISTRATOR);
         adminRole.setPermissions(new HashSet<>(List.of(perm("USER_VIEW_ALL"))));
 
         operadorRole = new Role();
         operadorRole.setId(2L);
         operadorRole.setUuid(UUID.randomUUID());
-        operadorRole.setName("OPERADOR");
+        operadorRole.setName(RoleNames.OPERATOR);
         operadorRole.setPermissions(new HashSet<>(List.of(perm("PAYMENT_APPROVE"))));
 
         UserRole adminAssignment = new UserRole();
@@ -135,7 +136,7 @@ class AuthServiceRoleSwitchTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<String>> permissionsCaptor = ArgumentCaptor.forClass(List.class);
         verify(jwtService).generateAccessToken(anyString(), permissionsCaptor.capture(), any(), any(),
-                eq(operadorRole.getUuid()), eq("OPERADOR"));
+                eq(operadorRole.getUuid()), eq(RoleNames.OPERATOR));
         // Scoped to OPERADOR only — never the union that would also include USER_VIEW_ALL.
         assertThat(permissionsCaptor.getValue()).containsExactly("PAYMENT_APPROVE");
 
