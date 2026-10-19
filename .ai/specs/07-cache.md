@@ -170,5 +170,5 @@ Monitorear con Actuator (`/actuator/metrics`):
 ## Referencias
 
 - [`../specs/10-validators.md`](10-validators.md) — uso específico en el validador
-- [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md) — blacklist tokens
+- [hub `03-security.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md) — blacklist tokens
 - Spring Cache Abstraction docs

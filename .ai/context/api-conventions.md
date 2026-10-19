@@ -1,6 +1,6 @@
 # Convenciones de API REST (backend)
 
-> Resumen aplicado al backend. Detalles cross-stack en [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md).
+> Resumen aplicado al backend. Detalles cross-stack en [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md).
 
 ## URL structure
 

@@ -322,7 +322,7 @@ DTO `ValidationResultDTO` cuidadosamente diseñada para incluir SÓLO lo necesar
 
 ## Referencias
 
-- [hub `business-rules.md` sección "Validador"](../../../centro-optico-vicente/.ai/context/business-rules.md)
+- [hub `business-rules.md` sección "Validador"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
 - [07-cache.md](07-cache.md)
 - [04-security.md](04-security.md)
 - [05-roles-permissions.md](05-roles-permissions.md)

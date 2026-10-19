@@ -1,6 +1,6 @@
 # Specs del backend — índice
 
-> Especificaciones técnicas específicas del backend Spring Boot. Specs cross-stack viven en el [hub maestro](../../../centro-optico-vicente/.ai/specs/).
+> Especificaciones técnicas específicas del backend Spring Boot. Specs cross-stack viven en el [hub maestro](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/specs/).
 
 ## Specs disponibles
 
@@ -28,11 +28,11 @@
 
 | # | Spec | Por qué importa al backend |
 |---|---|---|
-| 01 | [Arquitectura](../../../centro-optico-vicente/.ai/specs/01-architecture.md) | Cómo el backend se inserta en el ecosistema |
-| 03 | [Seguridad](../../../centro-optico-vicente/.ai/specs/03-security.md) | TLS, CORS, secretos, audit |
-| 05 | [Domain model](../../../centro-optico-vicente/.ai/specs/05-domain-model.md) | Modelo conceptual |
-| 06 | [Integración REST](../../../centro-optico-vicente/.ai/specs/06-integration.md) | Contracts REST con frontend/landing |
-| 11 | [Identidad visual de marca](../../../centro-optico-vicente/.ai/specs/11-brand-visual-identity.md) | Paleta, tipografía y logo que aplican reportes, PDF y emails (ver spec 17) |
+| 01 | [Arquitectura](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/01-architecture.md) | Cómo el backend se inserta en el ecosistema |
+| 03 | [Seguridad](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md) | TLS, CORS, secretos, audit |
+| 05 | [Domain model](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md) | Modelo conceptual |
+| 06 | [Integración REST](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md) | Contracts REST con frontend/landing |
+| 11 | [Identidad visual de marca](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/11-brand-visual-identity.md) | Paleta, tipografía y logo que aplican reportes, PDF y emails (ver spec 17) |
 
 ## Cómo crear una spec nueva
 

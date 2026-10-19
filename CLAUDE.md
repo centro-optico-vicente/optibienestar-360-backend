@@ -8,7 +8,7 @@ Backend REST API del ecosistema **OptiBienestar 360 / Centro Óptico Vicente**. 
 
 Toda la documentación específica del backend para asistencia IA vive en [`.ai/`](.ai/). **Empezar por [`.ai/CLAUDE.md`](.ai/CLAUDE.md)**.
 
-Para decisiones cross-stack (modelo de dominio, infraestructura, integración con frontend/landing), ver el **hub maestro**: [`../centro-optico-vicente/.ai/`](../centro-optico-vicente/.ai/).
+Para decisiones cross-stack (modelo de dominio, infraestructura, integración con frontend/landing), ver el **hub maestro**: [`../centro-optico-vicente/.ai/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/).
 
 | Necesito | Archivo |
 |---|---|
@@ -17,8 +17,8 @@ Para decisiones cross-stack (modelo de dominio, infraestructura, integración co
 | Schema de base de datos | [`.ai/specs/02-database.md`](.ai/specs/02-database.md) |
 | Convenciones de paquetes y arquitectura | [`.ai/specs/01-package-structure.md`](.ai/specs/01-package-structure.md) |
 | Playbooks (nueva entidad, migración, endpoint) | [`.ai/playbooks/`](.ai/playbooks/) |
-| Reglas de negocio | [`../centro-optico-vicente/.ai/context/business-rules.md`](../centro-optico-vicente/.ai/context/business-rules.md) |
-| ADRs cross-stack | [`../centro-optico-vicente/.ai/decisions/`](../centro-optico-vicente/.ai/decisions/) |
+| Reglas de negocio | [`../centro-optico-vicente/.ai/context/business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md) |
+| ADRs cross-stack | [`../centro-optico-vicente/.ai/decisions/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/decisions/) |
 
 ## Stack
 

@@ -1,8 +1,8 @@
 # 11 — Workflow de pagos manuales
 
-> Implementa [ADR 0008 cross-stack](../../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md) y su enmienda [ADR 0023 — modelo unificado](../../../centro-optico-vicente/.ai/decisions/0023-unified-payments-model-reality.md).
+> Implementa [ADR 0008 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md) y su enmienda [ADR 0023 — modelo unificado](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0023-unified-payments-model-reality.md).
 >
-> **Reescrito 2026-10-09** (ver [auditoría 2026-09-23](../../../centro-optico-vicente/.ai/notes/2026-09-23_audit.md)): la versión anterior describía un `Payment` plano con estado `PENDING_REVIEW`/`APPROVED`/`REJECTED` — eso nunca existió así. El modelo real es header (`Payment`, V23) + `PaymentLine` (V117) desde que se unificaron cobros y pagos a promotores. Todo lo de abajo está verificado contra `PaymentsService.java` (1453 líneas), `AdminPaymentController.java`, las entidades y los DTOs reales — no inventado.
+> **Reescrito 2026-10-09** (ver [auditoría 2026-09-23](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/notes/2026-09-23_audit.md)): la versión anterior describía un `Payment` plano con estado `PENDING_REVIEW`/`APPROVED`/`REJECTED` — eso nunca existió así. El modelo real es header (`Payment`, V23) + `PaymentLine` (V117) desde que se unificaron cobros y pagos a promotores. Todo lo de abajo está verificado contra `PaymentsService.java` (1453 líneas), `AdminPaymentController.java`, las entidades y los DTOs reales — no inventado.
 
 ## Modelo real
 
@@ -78,7 +78,7 @@ DRAFT ──(submit)──► PENDING ──(approve)──► APPROVED
 
 ## Referencias
 
-- [ADR 0008 — Manual payments](../../../centro-optico-vicente/.ai/decisions/0008-manual-payments.md)
-- [ADR 0023 — Modelo unificado real](../../../centro-optico-vicente/.ai/decisions/0023-unified-payments-model-reality.md)
+- [ADR 0008 — Manual payments](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md)
+- [ADR 0023 — Modelo unificado real](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0023-unified-payments-model-reality.md)
 - [12-commissions.md](12-commissions.md) — cuándo se crea la comisión, cómo se paga
 - [10-validators.md](10-validators.md) — invalidación cache del validador

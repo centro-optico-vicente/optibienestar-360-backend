@@ -6,9 +6,9 @@
 
 ## Pre-requisitos
 
-- [ ] Confirmar que la entidad pertenece al modelo definido en [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domain-model.md). Si no está, agregarlo al modelo primero.
+- [ ] Confirmar que la entidad pertenece al modelo definido en [hub `05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md). Si no está, agregarlo al modelo primero.
 - [ ] Identificar el módulo donde va (`modules/{nombre}`). Si es módulo nuevo, crear estructura `entity/repository/service/dto/`.
-- [ ] Confirmar convenciones cross-stack en [ADR 0006 table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md) — identificador dual `BIGINT` interno + `uuid` externo, **no** UUID como PK.
+- [ ] Confirmar convenciones cross-stack en [ADR 0006 table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md) — identificador dual `BIGINT` interno + `uuid` externo, **no** UUID como PK.
 
 ## Paso 1 — Migración Flyway
 
@@ -392,8 +392,8 @@ class AdminExampleThingControllerIT {
 
 - [ ] Actualizar [`../context/current-state.md`](../context/current-state.md).
 - [ ] Marcar tarea en [`../checklist.md`](../checklist.md) con fecha.
-- [ ] Si introduce nuevo endpoint público, actualizar [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md).
-- [ ] Si introduce nuevo término del dominio, actualizar [hub `domain-glossary.md`](../../../centro-optico-vicente/.ai/context/domain-glossary.md).
+- [ ] Si introduce nuevo endpoint público, actualizar [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md).
+- [ ] Si introduce nuevo término del dominio, actualizar [hub `domain-glossary.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/domain-glossary.md).
 
 ## Checklist final
 

@@ -1,6 +1,6 @@
 # 04 — Spring Security + JWT
 
-> Implementación local. Cross-stack: [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md).
+> Implementación local. Cross-stack: [hub `03-security.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md).
 
 ## Componentes
 
@@ -230,6 +230,6 @@ JWT_REFRESH_EXPIRATION_DAYS=30
 
 ## Referencias
 
-- [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md)
+- [hub `03-security.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md)
 - [05-roles-permissions.md](05-roles-permissions.md)
 - [`../decisions/loc-0003-audit-columns.md`](../decisions/loc-0003-audit-columns.md)

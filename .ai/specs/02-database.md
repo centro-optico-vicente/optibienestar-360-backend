@@ -1,12 +1,12 @@
 # 02 — Schema PostgreSQL completo
 
-> Schema detallado de todas las tablas. Convenciones en [ADR 0006 cross-stack](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md).
+> Schema detallado de todas las tablas. Convenciones en [ADR 0006 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md).
 >
 > **Estado:** este archivo se irá completando conforme se ejecuten las migraciones de la Tarea 5.1.
 
 ## Diagrama conceptual
 
-Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domain-model.md) para el diagrama ER de alto nivel.
+Ver [hub `05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md) para el diagrama ER de alto nivel.
 
 ## Catálogo de migraciones
 
@@ -76,7 +76,7 @@ Ver [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domai
 
 ## Convenciones aplicadas a TODAS las tablas
 
-Por [ADR 0006](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md):
+Por [ADR 0006](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md):
 
 ```sql
 CREATE TABLE example (
@@ -233,7 +233,7 @@ FAILED   →  SENDING        (ciclo de retry la levanta otra vez)
 
 ## Referencias
 
-- [ADR 0005 Flyway + JPA validate](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md)
-- [ADR 0006 Table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
-- [hub `05-domain-model.md`](../../../centro-optico-vicente/.ai/specs/05-domain-model.md)
+- [ADR 0005 Flyway + JPA validate](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
+- [ADR 0006 Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
+- [hub `05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md)
 - [`../playbooks/new-migration.md`](../playbooks/new-migration.md)

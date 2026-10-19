@@ -2,7 +2,7 @@
 
 > **Reescrito 2026-10-10** contra el código real (ver [auditoría 2026-09-23](../notes/2026-09-23_audit.md), recomendación #4) — la versión anterior enseñaba PK `UUID` simple; la real es `BIGINT` interno + `uuid` externo. Ver [`new-entity.md`](new-entity.md) para el patrón JPA correspondiente.
 
-> Decisión implementada: [ADR 0005 cross-stack](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md).
+> Decisión implementada: [ADR 0005 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md).
 
 ## Cuándo crear una migración
 
@@ -90,7 +90,7 @@ COMMENT ON TABLE ally_users IS 'Usuarios operadores que actúan en nombre de un 
 COMMENT ON COLUMN ally_users.role_within_ally IS 'Rol del usuario dentro del aliado (no rol del sistema)';
 ```
 
-**PK y FK, regla real:** la PK siempre es el nombre de tabla completo en plural + `_id` (`ally_users_id`, no `ally_user_id`). Las FK usan el nombre de la entidad referenciada en **singular** + `_id` (`ally_id` referencia `allies(allies_id)`, `user_id` referencia `users(users_id)`) — son dos reglas distintas, no confundirlas (ver [ADR 0006 del hub](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md), corregido 2026-10-09 con esta misma distinción).
+**PK y FK, regla real:** la PK siempre es el nombre de tabla completo en plural + `_id` (`ally_users_id`, no `ally_user_id`). Las FK usan el nombre de la entidad referenciada en **singular** + `_id` (`ally_id` referencia `allies(allies_id)`, `user_id` referencia `users(users_id)`) — son dos reglas distintas, no confundirlas (ver [ADR 0006 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md), corregido 2026-10-09 con esta misma distinción).
 
 #### Template para agregar columna
 
@@ -291,7 +291,7 @@ psql -d optibienestar360 -c "\di {tabla_nueva}*"
 
 ## Referencias
 
-- [ADR 0005 Flyway + JPA validate](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md)
-- [ADR 0006 Table conventions](../../../centro-optico-vicente/.ai/decisions/0006-table-conventions.md)
+- [ADR 0005 Flyway + JPA validate](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
+- [ADR 0006 Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
 - [`../specs/02-database.md`](../specs/02-database.md) — schema completo
 - [Flyway docs](https://flywaydb.org/documentation/)

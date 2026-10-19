@@ -316,7 +316,7 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 
 ## Mecanismo `DisplayFormatter` — convención `_Display` generalizada
 
-> Congela [hub ADR 0014](../../../centro-optico-vicente/.ai/decisions/0014-display-value-convention.md).
+> Congela [hub ADR 0014](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0014-display-value-convention.md).
 > El sufijo `_Display` deja de ser exclusivo de auditoría: pasa a ser la forma única en que **cualquier**
 > list/detail DTO expone etiquetas de FK y escalares presentacionales (fecha, fecha-hora, monto,
 > decimal, enum, boolean), resueltos por `Locale` en el servidor. Mecanismo `@Display` +

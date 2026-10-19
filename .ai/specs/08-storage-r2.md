@@ -1,6 +1,6 @@
 # 08 — Storage en Cloudflare R2 (vía API S3)
 
-> Implementa [ADR 0007 cross-stack](../../../centro-optico-vicente/.ai/decisions/0007-r2-as-s3.md).
+> Implementa [ADR 0007 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0007-r2-as-s3.md).
 
 ## Configuración
 
@@ -346,6 +346,6 @@ El enum, el key builder y `file_type_policy` ya soportan ambos valores de forma 
 
 ## Referencias
 
-- [ADR 0007 R2 as S3](../../../centro-optico-vicente/.ai/decisions/0007-r2-as-s3.md)
+- [ADR 0007 R2 as S3](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0007-r2-as-s3.md)
 - AWS SDK for Java v2 docs
 - Cloudflare R2 docs: https://developers.cloudflare.com/r2/

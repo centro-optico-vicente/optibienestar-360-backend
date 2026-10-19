@@ -199,4 +199,4 @@ Headers W3C Trace Context se propagan automáticamente entre servicios.
 
 - Spring Boot Actuator docs
 - Micrometer docs
-- [hub `02-infrastructure.md`](../../../centro-optico-vicente/.ai/specs/02-infrastructure.md) — monitoring stack futuro
+- [hub `02-infrastructure.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/02-infrastructure.md) — monitoring stack futuro

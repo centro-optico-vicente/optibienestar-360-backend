@@ -1,8 +1,8 @@
 # 12 — Comisiones de promotores + referidos
 
-> Reglas de negocio en [hub `business-rules.md` sección "Comisiones"](../../../centro-optico-vicente/.ai/context/business-rules.md).
+> Reglas de negocio en [hub `business-rules.md` sección "Comisiones"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md).
 >
-> **Reescrito parcial 2026-10-09** (ver [auditoría 2026-09-23](../../../centro-optico-vicente/.ai/notes/2026-09-23_audit.md)): este documento era enteramente ficticio — `Promoter.commissionRules` (JSONB), `Commission.payment` como UUID directo, `PayoutReportDTO.executePayout()`, y el `Referral`/`ReferralService` de abajo no existen así en el código. Se reescribió a fondo **la parte de pago/liquidación** (verificada contra `CommissionPayoutService.java`, 590 líneas, y `Commission.java`), que es la que integra con el modelo unificado de pagos (ADR 0023). **No se reescribió** el motor de tiers/jerarquía/bonos completo (`commission_tiers` V42, jerarquía de promotores V101-103, bonos V37, reglas competitivas ADR 0016) — eso es un sistema real y mucho más grande que merece su propia sesión de verificación dedicada, no una pasada rápida. La sección "Referrals" de abajo tampoco se verificó — el hub ADR 0013 ya documenta que el motor real usa `referrals` (V27) → `subsidies` (V41), no el `Referral`/`ReferralService` inventados que seguían acá.
+> **Reescrito parcial 2026-10-09** (ver [auditoría 2026-09-23](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/notes/2026-09-23_audit.md)): este documento era enteramente ficticio — `Promoter.commissionRules` (JSONB), `Commission.payment` como UUID directo, `PayoutReportDTO.executePayout()`, y el `Referral`/`ReferralService` de abajo no existen así en el código. Se reescribió a fondo **la parte de pago/liquidación** (verificada contra `CommissionPayoutService.java`, 590 líneas, y `Commission.java`), que es la que integra con el modelo unificado de pagos (ADR 0023). **No se reescribió** el motor de tiers/jerarquía/bonos completo (`commission_tiers` V42, jerarquía de promotores V101-103, bonos V37, reglas competitivas ADR 0016) — eso es un sistema real y mucho más grande que merece su propia sesión de verificación dedicada, no una pasada rápida. La sección "Referrals" de abajo tampoco se verificó — el hub ADR 0013 ya documenta que el motor real usa `referrals` (V27) → `subsidies` (V41), no el `Referral`/`ReferralService` inventados que seguían acá.
 
 ## Modelo real de `Commission` (verificado, `Commission.java`)
 
@@ -48,13 +48,13 @@ Dos operaciones reales, ambas en `AdminCommissionController` (base `/v1/admin/co
 
 - El motor completo de `commission_tiers` (V42, bandas por monto), `commission_bonus_rules` (V37, bonos por escala), jerarquía de promotores (`PromoterHierarchyOverride`, V101-103) y reglas competitivas (ADR 0016) — existen y están en uso (confirmado indirectamente por el gate de aprobación de arriba), pero su lógica de cálculo exacta no se leyó línea por línea en esta sesión.
 - `HierarchyOverrideService.cascadeFrom()` — se sabe que existe y que lo dispara `PaymentsService.attributeCommission()` al aprobar un pago `IN`, pero su algoritmo de cascada no se detalla acá.
-- La sección "Referrals" original de este documento (`Referral`/`ReferralService`) — el hub [ADR 0013](../../../centro-optico-vicente/.ai/decisions/0013-incentives-engine-v3.md) ya documenta que el motor real es `referrals` (V27) → `subsidies` (V41), pero la implementación detallada no se verificó acá; se elimina el modelo inventado en vez de dejarlo como si fuera real.
+- La sección "Referrals" original de este documento (`Referral`/`ReferralService`) — el hub [ADR 0013](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) ya documenta que el motor real es `referrals` (V27) → `subsidies` (V41), pero la implementación detallada no se verificó acá; se elimina el modelo inventado en vez de dejarlo como si fuera real.
 
 ## Referencias
 
-- [hub `business-rules.md`](../../../centro-optico-vicente/.ai/context/business-rules.md)
-- [hub ADR 0013 — Motor de incentivos v3](../../../centro-optico-vicente/.ai/decisions/0013-incentives-engine-v3.md)
-- [hub ADR 0016 — Reglas de comisión competitivas](../../../centro-optico-vicente/.ai/decisions/0016-competitive-commission-rules.md)
-- [hub ADR 0017 — Base de comisión neta](../../../centro-optico-vicente/.ai/decisions/0017-net-commission-base-and-portfolio-reassignment.md)
-- [hub ADR 0023 — Modelo unificado de pagos](../../../centro-optico-vicente/.ai/decisions/0023-unified-payments-model-reality.md)
+- [hub `business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
+- [hub ADR 0013 — Motor de incentivos v3](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md)
+- [hub ADR 0016 — Reglas de comisión competitivas](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0016-competitive-commission-rules.md)
+- [hub ADR 0017 — Base de comisión neta](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0017-net-commission-base-and-portfolio-reassignment.md)
+- [hub ADR 0023 — Modelo unificado de pagos](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0023-unified-payments-model-reality.md)
 - [11-billing-manual.md](11-billing-manual.md) — cuándo se crea la comisión (`PaymentsService.attributeCommission`)

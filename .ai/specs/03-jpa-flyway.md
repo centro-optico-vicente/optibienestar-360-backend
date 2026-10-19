@@ -1,6 +1,6 @@
 # 03 — Convenciones JPA + Flyway
 
-> Implementa [ADR 0005 cross-stack](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md).
+> Implementa [ADR 0005 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md).
 
 ## Configuración base
 
@@ -216,7 +216,7 @@ spring.jpa.properties.hibernate.order_updates=true
 
 ## Referencias
 
-- [ADR 0005 Flyway + JPA validate](../../../centro-optico-vicente/.ai/decisions/0005-flyway-jpa.md)
+- [ADR 0005 Flyway + JPA validate](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
 - [02-database.md](02-database.md)
 - [`../playbooks/new-migration.md`](../playbooks/new-migration.md)
 - [`../playbooks/new-entity.md`](../playbooks/new-entity.md)

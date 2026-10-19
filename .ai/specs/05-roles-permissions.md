@@ -14,7 +14,7 @@
 
 **Convención de nombres:** `SYSTEM` en inglés (rol técnico), resto en español sin sufijos redundantes.
 
-Detalle de cada perfil en [hub `stakeholders.md`](../../../centro-optico-vicente/.ai/context/stakeholders.md).
+Detalle de cada perfil en [hub `stakeholders.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/stakeholders.md).
 
 ## Permisos granulares
 
@@ -177,13 +177,13 @@ Los `@PreAuthorize` usan `hasAuthority('PERMISSION')` y el JWT lleva el claim `p
 |---|---|---|---|---|
 | **RBAC granular** *(actual)* | Permisos agrupados en roles; autorización por permiso. Permisos fijos en código, roles en BD. | Simple y predecible; fácil de auditar; nativo en Spring (`@PreAuthorize`); sin lookups extra (permisos en el JWT); ya implementado. | Permisos no editables en runtime; los casos contextuales (p. ej. "solo sus propios afiliados") requieren checks ad-hoc en service; puede crecer el nº de permisos. | ✅ Cubre ~95% de los casos. Los `VIEW_OWN` ya se resuelven con components custom (`@memberSecurity.canRead`). **Recomendado mantener.** |
 | **ABAC** (Attribute-Based) | Decisiones por atributos (usuario, recurso, entorno) evaluados en reglas. Ej.: "ver si `recurso.region == usuario.region` y en horario laboral". | Muy flexible; reglas contextuales sin tocar código por cada caso; escala a políticas complejas. | Alta complejidad (motor de reglas + gestión de políticas); más difícil de auditar/razonar; riesgo de reglas contradictorias; evaluación por request. | ⚠️ Los pocos casos contextuales actuales ya se cubren con checks puntuales → ABAC completo es sobre-ingeniería hoy. |
-| **OPA** (Open Policy Agent) | Motor de políticas externo (sidecar/servicio) con lenguaje Rego; centraliza la autorización fuera de la app. | Políticas declarativas, centralizadas y versionables; desacopladas del código; reutilizable cross-servicio; testeable aislado. OSS (compatible [ADR 0004](../../../centro-optico-vicente/.ai/decisions/0004-only-free-tools.md)). | Infra extra (sidecar/servicio) → choca con "single VPS / infra mínima" ([ADR 0003](../../../centro-optico-vicente/.ai/decisions/0003-infrastructure.md)); latencia por decisión; curva de Rego; otro componente que mantener y monitorear. | ❌ Overkill para un monolito Spring en un VPS. Tendría sentido recién con arquitectura multi-servicio o políticas muy dinámicas. |
+| **OPA** (Open Policy Agent) | Motor de políticas externo (sidecar/servicio) con lenguaje Rego; centraliza la autorización fuera de la app. | Políticas declarativas, centralizadas y versionables; desacopladas del código; reutilizable cross-servicio; testeable aislado. OSS (compatible [ADR 0004](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0004-only-free-tools.md)). | Infra extra (sidecar/servicio) → choca con "single VPS / infra mínima" ([ADR 0003](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0003-infrastructure.md)); latencia por decisión; curva de Rego; otro componente que mantener y monitorear. | ❌ Overkill para un monolito Spring en un VPS. Tendría sentido recién con arquitectura multi-servicio o políticas muy dinámicas. |
 
 **Veredicto:** mantener **RBAC granular**; los casos contextuales se resuelven con `PermissionEvaluator`/components custom (patrón ya en uso). Reevaluar **ABAC/OPA** solo si aparece multi-servicio o reglas de negocio fuertemente dependientes de atributos/contexto.
 
 ## Referencias
 
 - [04-security.md](04-security.md)
-- [hub `03-security.md`](../../../centro-optico-vicente/.ai/specs/03-security.md)
-- [hub `stakeholders.md`](../../../centro-optico-vicente/.ai/context/stakeholders.md)
+- [hub `03-security.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md)
+- [hub `stakeholders.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/stakeholders.md)
 - [`../playbooks/new-role.md`](../playbooks/new-role.md)

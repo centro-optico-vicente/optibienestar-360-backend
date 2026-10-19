@@ -115,7 +115,7 @@ void getMedicalRecord_returns403WhenNotAuthorized() throws Exception {
 ## Paso 6 — Documentación
 
 - [ ] Actualizar [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md) con el nuevo rol/permiso
-- [ ] Actualizar [hub `stakeholders.md`](../../../centro-optico-vicente/.ai/context/stakeholders.md) si introduce un nuevo perfil de usuario
+- [ ] Actualizar [hub `stakeholders.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/stakeholders.md) si introduce un nuevo perfil de usuario
 - [ ] Actualizar Swagger annotations si afecta endpoints documentados
 
 ## Paso 7 — Frontend
@@ -137,5 +137,5 @@ Notificar al equipo frontend para:
 
 - [`../specs/04-security.md`](../specs/04-security.md)
 - [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md)
-- [hub `03-security.md` sección "Autorización"](../../../centro-optico-vicente/.ai/specs/03-security.md)
-- [hub `stakeholders.md`](../../../centro-optico-vicente/.ai/context/stakeholders.md)
+- [hub `03-security.md` sección "Autorización"](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/03-security.md)
+- [hub `stakeholders.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/stakeholders.md)

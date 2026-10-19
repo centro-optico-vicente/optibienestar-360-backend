@@ -18,7 +18,7 @@ Antes de codear:
 - Status codes esperados (200/201/204/400/401/403/404/...)
 - Si requiere paginación, sort, filter (RSQL)
 
-Documentar en [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md) si es endpoint público o de uso cross-stack importante.
+Documentar en [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md) si es endpoint público o de uso cross-stack importante.
 
 ## Paso 2 — DTOs
 
@@ -271,7 +271,7 @@ class FooControllerIT {
 
 - [ ] Swagger genera doc automáticamente desde `@Operation`/`@ApiResponses`
 - [ ] Actualizar [`../checklist.md`](../checklist.md): marcar `[x]` con fecha
-- [ ] Si es endpoint público importante, agregar a [hub `06-integration.md`](../../../centro-optico-vicente/.ai/specs/06-integration.md)
+- [ ] Si es endpoint público importante, agregar a [hub `06-integration.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/06-integration.md)
 - [ ] Si introduce permiso nuevo, agregar a [`../specs/05-roles-permissions.md`](../specs/05-roles-permissions.md)
 
 ## Paso 12 — Commit

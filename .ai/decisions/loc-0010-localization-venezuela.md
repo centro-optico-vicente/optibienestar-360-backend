@@ -1,6 +1,6 @@
 # ADR LOC-0010 (backend) — Localización: Venezuela como mercado primario
 
-> **Espejo local** del [ADR 0010 del hub](../../../centro-optico-vicente/.ai/decisions/0010-localization-venezuela.md).
+> **Espejo local** del [ADR 0010 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0010-localization-venezuela.md).
 > Se mantiene esta copia dentro del repo backend para que cualquier sesión IA que solo tenga el backend cargado (sin el hub disponible) tenga acceso directo a la decisión.
 > Si hay divergencia, el hub es la fuente canónica — actualizar este espejo desde allí.
 
