@@ -7,7 +7,7 @@ import java.time.LocalDate;
 
 /**
  * One row of a promoter's monthly commission history — the body of
- * {@code GET /v1/admin/promoters/{uuid}/commissions/summary}. Sourced
+ * {@code GET /v1/admin/advisors/{uuid}/commissions/summary}. Sourced
  * directly from the {@code commission_period_summary} DB view (V42).
  *
  * <p>Scalars carry a localized {@code _Display} sibling (ADR 0014).</p>

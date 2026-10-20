@@ -17,7 +17,7 @@ import lombok.Setter;
 /**
  * Insert-only audit trail for the permanent member↔promoter link (V35, v2
  * PDF 2.a). {@link Member#getPromoter()} is set once at enrollment and only
- * ever changes through {@code POST /v1/admin/members/{uuid}/assign-promoter};
+ * ever changes through {@code POST /v1/admin/members/{uuid}/assign-advisor};
  * every such change writes exactly one row here.
  *
  * <p>Rows are never updated or soft-deleted — the {@code is_active}/{@code

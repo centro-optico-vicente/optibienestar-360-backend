@@ -134,7 +134,7 @@ public class PromoterHierarchyService {
     /**
      * The full hierarchy as a tree, rooted at every promoter with no
      * supervisor (top of their own chain) as of {@code asOf} — powers {@code
-     * GET /v1/admin/promoters/hierarchy-tree} for a Nuxt org-chart view.
+     * GET /v1/admin/advisors/hierarchy-tree} for a Nuxt org-chart view.
      * Excludes the seeded {@code INSTITUCION} system row and inactive
      * promoters (a deactivated promoter's still-active subordinates are kept
      * — they're real, just orphaned under a disabled node — so nothing

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Payload for {@code POST /v1/promoter/me/contacts/{memberUuid}/payment-promise}
+ * Payload for {@code POST /v1/advisors/me/contacts/{memberUuid}/payment-promise}
  * (v2 PDF 2.b). The affiliate committed to pay {@code promisedAmount} by
  * {@code promisedAtDate}; both are required (the V36 CHECK enforces it at the DB
  * too). {@code promisedAtDate} must be today or later.

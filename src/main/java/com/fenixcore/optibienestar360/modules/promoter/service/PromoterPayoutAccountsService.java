@@ -24,8 +24,8 @@ import java.util.UUID;
 
 /**
  * Advisor payout accounts (V184, dossier section V), mounted at
- * {@code /v1/admin/promoters/{promoterUuid}/payout-accounts} plus the
- * read-only self-service {@code GET /v1/promoter/me/payout-accounts}.
+ * {@code /v1/admin/advisors/{promoterUuid}/payout-accounts} plus the
+ * read-only self-service {@code GET /v1/advisors/me/payout-accounts}.
  *
  * <p>Same sub-resource shape as {@link PromoterReferencesService}: every
  * read/write resolves the parent from the path and verifies the child belongs

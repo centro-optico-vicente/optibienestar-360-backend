@@ -19,13 +19,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
 /**
- * The promoter's unique affiliation QR ({@code GET /v1/promoter/me/qr}). The QR
+ * The promoter's unique affiliation QR ({@code GET /v1/advisors/me/qr}). The QR
  * encodes the public affiliation link carrying the promoter's referral code
  * ({@code promoters.referral_code}, unique), so every new affiliation that
  * arrives through it is attributed to that promoter.
  */
 @RestController
-@RequestMapping("/v1/promoter/me/qr")
+// Deprecated alias, remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/advisors/me/qr", "/v1/promoter/me/qr"})
 @RequiredArgsConstructor
 public class PromoterQrController {
 

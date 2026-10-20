@@ -34,7 +34,8 @@ public class AdminMemberPromoterController {
 
     private final MemberPromoterService memberPromoterService;
 
-    @PostMapping("/{memberUuid}/assign-promoter")
+    // Deprecated alias, remove once frontend >= #235 is deployed
+    @PostMapping({"/{memberUuid}/assign-advisor", "/{memberUuid}/assign-promoter"})
     @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
     public ResponseEntity<MemberPromoterAssignmentDto> assignPromoter(
             @PathVariable UUID memberUuid,
@@ -44,7 +45,8 @@ public class AdminMemberPromoterController {
                 memberUuid, request.promoterUuid(), request.referralCode(), request.reason(), actor.getUuid()));
     }
 
-    @PostMapping("/promoter/bulk-assign")
+    // Deprecated alias, remove once frontend >= #235 is deployed
+    @PostMapping({"/advisor/bulk-assign", "/promoter/bulk-assign"})
     @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
     public ResponseEntity<List<MemberPromoterAssignmentDto>> bulkAssignPromoter(
             @Valid @RequestBody BulkAssignPromoterRequest request,
@@ -53,7 +55,8 @@ public class AdminMemberPromoterController {
                 request.memberUuids(), request.promoterUuid(), request.reason(), actor.getUuid()));
     }
 
-    @PostMapping("/promoter/portfolio-to-supervisor")
+    // Deprecated alias, remove once frontend >= #235 is deployed
+    @PostMapping({"/advisor/portfolio-to-supervisor", "/promoter/portfolio-to-supervisor"})
     @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
     public ResponseEntity<List<MemberPromoterAssignmentDto>> portfolioToSupervisor(
             @Valid @RequestBody PortfolioToSupervisorRequest request,
@@ -62,7 +65,8 @@ public class AdminMemberPromoterController {
                 request.sourcePromoterUuid(), request.reason(), actor.getUuid()));
     }
 
-    @GetMapping("/{memberUuid}/promoter-history")
+    // Deprecated alias, remove once frontend >= #235 is deployed
+    @GetMapping({"/{memberUuid}/advisor-history", "/{memberUuid}/promoter-history"})
     @PreAuthorize("hasAuthority('MEMBER_ASSIGN_PROMOTER')")
     public ResponseEntity<List<MemberPromoterAssignmentDto>> promoterHistory(@PathVariable UUID memberUuid) {
         return ResponseEntity.ok(memberPromoterService.history(memberUuid));

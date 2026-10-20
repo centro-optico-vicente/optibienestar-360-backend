@@ -26,8 +26,8 @@ Adoptamos la siguiente matriz para todos los endpoints REST del backend. Cada en
 |---|---|---|---|
 | **Lista** — devuelve array o `Page<T>` | `GET /v1/admin/members`, `GET /v1/admin/plans`, `GET /v1/me/payments`, `GET /v1/me/referrals` | **200** + `[]` o `Page` vacía | N/A |
 | **Sub-recurso 1:1 bajo un parent** — la última segmento no es un ID sino un nombre de sub-recurso | `GET /v1/admin/members/{uuid}/medical-record`, futuros `/preferences`, `/settings`, `/profile-picture` | **200** + DTO con flag `exists: false` y campos opcionales `null` | 404 del **parent** con el key correspondiente (ej. `member.not_found`) |
-| **Lookup por ID directo** — el path termina con el identificador del recurso pedido | `GET /v1/admin/members/{uuid}`, `GET /v1/admin/plans/{uuid}`, `GET /v1/admin/promoters/{uuid}` | N/A (si el ID no matchea, es error real) | **404** + `ProblemDetail` con key i18n (ej. `plan.not_found`) |
-| **Agregado / dashboard / computado** — devuelve una vista compuesta que "siempre existe" para el usuario | `GET /v1/promoter/dashboard`, futuro `/me/digital-card` | **200** + representación con campos vacíos donde no haya data | 404 solo si el parent (usuario/promotor) no existe — normalmente el auth ya filtra esto antes |
+| **Lookup por ID directo** — el path termina con el identificador del recurso pedido | `GET /v1/admin/members/{uuid}`, `GET /v1/admin/plans/{uuid}`, `GET /v1/admin/advisors/{uuid}` | N/A (si el ID no matchea, es error real) | **404** + `ProblemDetail` con key i18n (ej. `plan.not_found`) |
+| **Agregado / dashboard / computado** — devuelve una vista compuesta que "siempre existe" para el usuario | `GET /v1/advisors/me`, futuro `/me/digital-card` | **200** + representación con campos vacíos donde no haya data | 404 solo si el parent (usuario/promotor) no existe — normalmente el auth ya filtra esto antes |
 
 ### Regla de bolsillo
 
@@ -84,7 +84,7 @@ Primer endpoint refactorizado bajo esta ADR: `GET /v1/admin/members/{uuid}/medic
 Endpoints anticipados que deben adoptar el mismo patrón cuando landien:
 
 - `GET /v1/me/digital-card` (vertical-9) — sub-recurso.
-- `GET /v1/promoter/dashboard` (vertical-8) — agregado.
+- `GET /v1/advisors/me` (vertical-8) — agregado.
 - Cualquier futuro `GET /v1/admin/members/{uuid}/preferences` / `/settings` / etc. — sub-recurso 1:1.
 
 ## Alternativas consideradas

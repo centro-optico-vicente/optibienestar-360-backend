@@ -74,7 +74,7 @@ class PromoterContactsControllerIT {
 
     @Test
     void reminder_anonymous_is401_andNeverTouchesService() throws Exception {
-        mockMvc.perform(post("/v1/promoter/me/contacts/{m}/reminder", UUID.randomUUID())
+        mockMvc.perform(post("/v1/advisors/me/contacts/{m}/reminder", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"x\"}"))
                 .andExpect(status().isUnauthorized());
         verify(collectionService, never()).registerReminder(any(), any(), any());
@@ -82,7 +82,7 @@ class PromoterContactsControllerIT {
 
     @Test
     void reminder_withoutPermission_is403() throws Exception {
-        mockMvc.perform(post("/v1/promoter/me/contacts/{m}/reminder", UUID.randomUUID())
+        mockMvc.perform(post("/v1/advisors/me/contacts/{m}/reminder", UUID.randomUUID())
                         .with(principal("PROMOTER_VIEW_OWN"))   // read perm, not the write one
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"x\"}"))
                 .andExpect(status().isForbidden());
@@ -94,7 +94,7 @@ class PromoterContactsControllerIT {
         when(collectionService.registerReminder(any(UUID.class), any(UUID.class), any()))
                 .thenReturn(contactDto(ContactType.REMINDER));
 
-        mockMvc.perform(post("/v1/promoter/me/contacts/{m}/reminder", UUID.randomUUID())
+        mockMvc.perform(post("/v1/advisors/me/contacts/{m}/reminder", UUID.randomUUID())
                         .with(principal("PROMOTER_CONTACT_OWN"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"Llamado hoy\"}"))
                 .andExpect(status().isCreated())
@@ -106,7 +106,7 @@ class PromoterContactsControllerIT {
         when(collectionService.registerReminder(any(), any(), any()))
                 .thenThrow(new NoSuchElementException("promoter.member.not_in_portfolio"));
 
-        mockMvc.perform(post("/v1/promoter/me/contacts/{m}/reminder", UUID.randomUUID())
+        mockMvc.perform(post("/v1/advisors/me/contacts/{m}/reminder", UUID.randomUUID())
                         .with(principal("PROMOTER_CONTACT_OWN"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"x\"}"))
                 .andExpect(status().isNotFound());
@@ -121,7 +121,7 @@ class PromoterContactsControllerIT {
 
         // Far-future date so @FutureOrPresent never depends on the CI clock.
         String body = "{\"promisedAmount\":25.00,\"promisedAtDate\":\"2099-12-31\",\"note\":\"Promete\"}";
-        mockMvc.perform(post("/v1/promoter/me/contacts/{m}/payment-promise", UUID.randomUUID())
+        mockMvc.perform(post("/v1/advisors/me/contacts/{m}/payment-promise", UUID.randomUUID())
                         .with(principal("PROMOTER_CONTACT_OWN"))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -135,7 +135,7 @@ class PromoterContactsControllerIT {
         when(collectionService.listContacts(any(UUID.class), any(UUID.class)))
                 .thenReturn(List.of(contactDto(ContactType.REMINDER)));
 
-        mockMvc.perform(get("/v1/promoter/me/contacts").param("memberUuid", UUID.randomUUID().toString())
+        mockMvc.perform(get("/v1/advisors/me/contacts").param("memberUuid", UUID.randomUUID().toString())
                         .with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
@@ -146,7 +146,7 @@ class PromoterContactsControllerIT {
         when(collectionService.collectionScore(any(UUID.class)))
                 .thenReturn(new CollectionScoreDto(UUID.randomUUID(), 4, 2, 1, 1, new BigDecimal("50.00")));
 
-        mockMvc.perform(get("/v1/promoter/me/collection-score").with(principal("PROMOTER_VIEW_OWN")))
+        mockMvc.perform(get("/v1/advisors/me/collection-score").with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scorePct").value(50.00))
                 .andExpect(jsonPath("$.upToDate").value(2));
@@ -154,7 +154,7 @@ class PromoterContactsControllerIT {
 
     @Test
     void collectionScore_withoutReadPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/promoter/me/collection-score").with(principal("MEMBER_VIEW_ALL")))
+        mockMvc.perform(get("/v1/advisors/me/collection-score").with(principal("MEMBER_VIEW_ALL")))
                 .andExpect(status().isForbidden());
         verify(collectionService, never()).collectionScore(any());
     }

@@ -18,7 +18,7 @@
 | 1 | Gestión de Subsidios y Exoneraciones (incl. **Motor de Solvencia**) | [vertical-12](checklists/vertical-12-subsidios-y-exoneraciones.md) + cross-ref [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🆕 **nuevo vertical** + extensión | ✅ **Implementado (V41).** Modelo ampliado: 2 porcentajes independientes (mensualidad/inscripción), `valid_until` opcional, `max_exonerated_beneficiaries` + tabla `subsidy_beneficiaries`. `SUBSIDY_APPROVE`/`VIEW_ALL`/`VIEW_OWN` + `ALLOWS_DISCOUNT`. `MembershipStatusService` reconoce subsidio 100% de mensualidad como ACTIVE sin payment. |
 | 2 | Manejo de Descuentos por Referidos + **Cobranza Delegada** + **Enlace Permanente** | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | Decidido: metas configurables + estrategia `EXPIRES`/`ACCUMULATES`; tipo de beneficio elegido al canjear; tabla `promoter_member_contacts` con endpoints reminder/payment-promise; `Member.promoter_id` enlace permanente (solo cambia vía assign-promoter explícito) |
 | 3 | Planes Corporativos y Masivos | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🔄 extiende | Parcial: `Plan.type` enum + `corporate_contracts` + `payer_mode`. **TBD:** monto exacto del corporativo + payer_mode default + naming 1+/2+/3+ vs flyer |
-| 4 | Módulo de Promotores y Asesores | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | Decidido: dashboard `/v1/promoter/me` + `referral_code` único; collection-score endpoint |
+| 4 | Módulo de Promotores y Asesores | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | Decidido: dashboard `/v1/advisors/me` + `referral_code` único; collection-score endpoint |
 | 5 | Motor de Comisiones + Premiaciones | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 🔄 extiende | ✅ **Implementado (V42 tiers + V37 bonos).** `commission_tiers` (con `plan_type` opcional) tier-driven en `CommissionService`; `period_strategy` por tier (DAILY..ANNUAL, util compartido `PeriodStrategies`); leaderboard (`commission_period_summary` view, excluye `is_system`) + premios top-N (`leaderboard_prizes` + runner al cierre); atribución por defecto a INSTITUCION |
 | 6 | Flujo de Aprobación Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 🔄 extiende | Decidido: estados PROPOSED→IN_REVIEW→APPROVED/REJECTED + `ally_service_review_log` compartido admin+aliado |
 | 7 | Inclusión/Modificación de Beneficiarios | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) + [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 🔄 extiende | Decidido: tope `plan.max_beneficiaries` parametrizable; mensualidad fija; **cada beneficiario extra paga su inscripción one-time** ($5 según flyer) |
@@ -45,9 +45,9 @@
 
 ### Item #4 — Promotores (+ Enlace Permanente + Cobranza Delegada)
 - Cada promotor tiene un `referral_code` único; al registrar Member con ese código → asociación automática `member.promoter_id`.
-- Panel propio `/v1/promoter/me` con dashboard (cobranza al-día vs vencida con totales + drill-down, comisiones, leaderboard).
-- **Enlace Permanente Cliente-Promotor (PDF 2.a):** `Member.promoter_id` solo cambia vía `POST /v1/admin/members/{uuid}/assign-promoter` explícito con audit log. NO se sustituye automáticamente al cambiar de plan ni renovar membresía.
-- **Cobranza Delegada (PDF 2.b):** tabla `promoter_member_contacts` (REMINDER, PAYMENT_PROMISE, NOTE). Endpoints `POST .../reminder` y `POST .../payment-promise`. `GET /v1/promoter/me/collection-score` devuelve % de cartera al día como auto-evaluación (base para futuro bono por cobranza diferenciado del bono por venta). Guard: el promotor solo gestiona sus propios afiliados.
+- Panel propio `/v1/advisors/me` con dashboard (cobranza al-día vs vencida con totales + drill-down, comisiones, leaderboard).
+- **Enlace Permanente Cliente-Promotor (PDF 2.a):** `Member.promoter_id` solo cambia vía `POST /v1/admin/members/{uuid}/assign-advisor` explícito con audit log. NO se sustituye automáticamente al cambiar de plan ni renovar membresía.
+- **Cobranza Delegada (PDF 2.b):** tabla `promoter_member_contacts` (REMINDER, PAYMENT_PROMISE, NOTE). Endpoints `POST .../reminder` y `POST .../payment-promise`. `GET /v1/advisors/me/collection-score` devuelve % de cartera al día como auto-evaluación (base para futuro bono por cobranza diferenciado del bono por venta). Guard: el promotor solo gestiona sus propios afiliados.
 
 ### Item #5 — Comisiones Escalonadas
 - Tiers configurables (umbral de usuarios → % o monto plano).
@@ -58,7 +58,7 @@
     - Seed `Promoter` sistema `INSTITUCION` con `is_system=true`, rol GERENCIA. Filtrado del leaderboard público; visible en reportes financieros internos.
     - El service de alta de Member SIEMPRE resuelve un promotor: si trae `referral_code` válido → ese promotor real; si no trae código o se registra en taquilla → **auto-asigna INSTITUCION** (literal del PDF: "el 100% de la ganancia es captado por la administración central"). `Member.promoter_id` no queda NULL en uso operativo.
     - La nullabilidad de schema queda solo para migraciones legacy/test data.
-    - Endpoint `POST /v1/admin/members/{uuid}/assign-promoter` (late-assignment, requiere `MEMBER_ASSIGN_PROMOTER`) — caso de uso principal: **trasladar INSTITUCION → real promoter** cuando un afiliado pasa a cartera de un promotor humano. NO retroactivo sobre la inscripción ya pagada; solo afecta mensualidades nuevas. Audit log obligatorio.
+    - Endpoint `POST /v1/admin/members/{uuid}/assign-advisor` (late-assignment, requiere `MEMBER_ASSIGN_PROMOTER`) — caso de uso principal: **trasladar INSTITUCION → real promoter** cuando un afiliado pasa a cartera de un promotor humano. NO retroactivo sobre la inscripción ya pagada; solo afecta mensualidades nuevas. Audit log obligatorio.
 
 ### Item #6 — Aprobación Aliados
 - Workflow `ally_services.status`: PROPOSED → IN_REVIEW → APPROVED/REJECTED.

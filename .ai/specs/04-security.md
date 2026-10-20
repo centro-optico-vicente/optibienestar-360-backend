@@ -200,7 +200,7 @@ public class CorsConfig {
 | `/v1/me/*` | Sí (cualquier rol) | varía |
 | `/v1/admin/*` | Sí | `ADMINISTRADOR` u `OPERADOR` |
 | `/v1/ally/*` | Sí | `ALIADO` |
-| `/v1/promoter/*` | Sí | `PROMOTOR` |
+| `/v1/advisors/me/*` (alias deprecado `/v1/promoter/me/*`) | Sí | `ASESOR` |
 | `/swagger-ui/**`, `/v3/api-docs/**` | No (en dev) / Basic auth Traefik (en prod) | — |
 
 ## Audit log

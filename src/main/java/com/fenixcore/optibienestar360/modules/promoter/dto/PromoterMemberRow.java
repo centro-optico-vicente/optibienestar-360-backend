@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * One affiliate in a promoter's portfolio — the drill-down row of
- * {@code GET /v1/promoter/me}. {@code membershipStatus} is the status of the
+ * {@code GET /v1/advisors/me}. {@code membershipStatus} is the status of the
  * member's <i>currently-active</i> membership (ACTIVE = al día; SUSPENDED /
  * EXPIRED = vencida) or {@code null} when the member has no active membership.
  *

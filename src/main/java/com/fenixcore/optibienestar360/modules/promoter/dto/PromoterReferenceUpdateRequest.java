@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Payload for {@code PUT /v1/admin/promoters/{promoterUuid}/references/{uuid}}.
+ * Payload for {@code PUT /v1/admin/advisors/{promoterUuid}/references/{uuid}}.
  * PATCH semantics — non-null fields are applied; a blank string clears the
  * optional ones ({@code documentType}/{@code documentNumber}/{@code phone}).
  */

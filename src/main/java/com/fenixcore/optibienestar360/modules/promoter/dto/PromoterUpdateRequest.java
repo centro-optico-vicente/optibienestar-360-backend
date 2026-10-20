@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Payload for {@code PUT /v1/admin/promoters/{uuid}}. PATCH semantics —
+ * Payload for {@code PUT /v1/admin/advisors/{uuid}}. PATCH semantics —
  * only non-null fields are applied.
  *
  * <p>Fields intentionally NOT editable post-create:</p>

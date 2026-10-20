@@ -38,7 +38,8 @@ import java.util.UUID;
  * {@code modules.catalog}.
  */
 @RestController
-@RequestMapping("/v1/admin/promoter-ranks")
+// Deprecated alias, remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/admin/advisor-ranks", "/v1/admin/promoter-ranks"})
 @RequiredArgsConstructor
 public class AdminPromoterRankController {
 

@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Payload for {@code POST /v1/admin/promoters}.
+ * Payload for {@code POST /v1/admin/advisors}.
  *
  * <p>Only HUMAN promoters can be created via this endpoint —
  * {@code userUuid} is required. The linked {@code Person} is derived

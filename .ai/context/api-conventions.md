@@ -5,9 +5,10 @@
 ## URL structure
 
 - Base: `/v1/`
-- Grupos: `/v1/public/*`, `/v1/auth/*`, `/v1/me/*`, `/v1/admin/*`, `/v1/ally/*`, `/v1/promoter/*`
+- Grupos: `/v1/public/*`, `/v1/auth/*`, `/v1/me/*`, `/v1/admin/*`, `/v1/ally/*`, `/v1/advisors/me/*`
 - URLs en `kebab-case` plural: `/v1/admin/allies/{id}/agreements`
 - Path params son IDs (UUIDs): `/{member_id}`, `/{ally_id}`
+- Las URLs usan el término del glosario **Asesor** (`advisor`), nunca `promoter`/`promotor`: `/v1/admin/advisors`, `/v1/admin/advisor-ranks`, `/v1/admin/catalogs/advisor-types`, `/v1/advisors/me/*`, `/v1/admin/members/{uuid}/assign-advisor`. Las entidades/tablas/clases/permisos internos siguen como `Promoter`/`promoters`/`PROMOTER_*`. Los paths viejos (`/v1/admin/promoters`, `/v1/promoter/me`, `promoter-ranks`, `promoter-types`, `assign-promoter`, `promoter-history`, `members/promoter/*`) se mantienen como **alias deprecados** hasta que el frontend que usa los nuevos esté desplegado (comentario `// Deprecated alias` en cada controller).
 
 ## JSON
 
