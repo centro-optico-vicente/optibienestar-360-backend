@@ -13,12 +13,12 @@ El recepcionista de una clínica/farmacia/ambulancia ingresa la cédula del afil
 
 ## Endpoint
 
-`GET /v1/ally/validate/{document}`
+`GET /v1/allies/me/validations/{document}`
 
 ### Request
 
 ```
-GET /v1/ally/validate/V-12345678
+GET /v1/allies/me/validations/V-12345678
 Authorization: Bearer <jwt_ally_user>
 ```
 
@@ -76,7 +76,7 @@ Authorization: Bearer <jwt_ally_user>
   "title": "Resource not found",
   "status": 404,
   "detail": "No member found with document V-12345678",
-  "instance": "/v1/ally/validate/V-12345678"
+  "instance": "/v1/allies/me/validations/V-12345678"
 }
 ```
 
@@ -86,7 +86,7 @@ Authorization: Bearer <jwt_ally_user>
 
 ```java
 @RestController
-@RequestMapping("/v1/ally")
+@RequestMapping("/v1/allies/me")
 @RequiredArgsConstructor
 @Tag(name = "Ally Validator")
 public class AllyValidatorController {
@@ -303,7 +303,7 @@ class ValidatorPerformanceTest {
 import http from 'k6/http';
 export const options = { vus: 100, duration: '30s' };
 export default function() {
-  http.get(`https://api.dominio.com/v1/ally/validate/V-${Math.floor(Math.random() * 1000)}`,
+  http.get(`https://api.dominio.com/v1/allies/me/validations/V-${Math.floor(Math.random() * 1000)}`,
     { headers: { Authorization: 'Bearer ' + __ENV.TOKEN }}
   );
 }

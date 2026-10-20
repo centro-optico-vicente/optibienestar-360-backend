@@ -17,7 +17,9 @@ public class ContactController {
 
     private final ContactService contactService;
 
-    @PostMapping("/contact")
+    // Deprecated alias, remove once the landing (centro-optico-vicente-web) posts
+    // to /contact-messages; no client calls /contact today
+    @PostMapping({"/contact-messages", "/contact"})
     @ResponseStatus(HttpStatus.CREATED)
     public void submit(@Valid @RequestBody ContactRequestDto dto) {
         contactService.submit(dto);

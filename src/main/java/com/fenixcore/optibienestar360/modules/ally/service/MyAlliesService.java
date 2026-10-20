@@ -23,7 +23,7 @@ import java.util.UUID;
  *
  * <p>Without this the partner portal has no way to learn its own
  * {@code allyUuid}, which is a required field of
- * {@code POST /v1/ally/benefit-usage} and {@code POST /v1/aliado/services} —
+ * {@code POST /v1/allies/me/benefit-usages} and {@code POST /v1/allies/me/services} —
  * the operator would have to supply it by hand.</p>
  */
 @Service

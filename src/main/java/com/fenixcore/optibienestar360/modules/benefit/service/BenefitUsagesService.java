@@ -35,13 +35,13 @@ import java.util.UUID;
 /**
  * Application service for {@link BenefitUsage}. This commit ships only
  * the registration entry point; the history-read endpoint
- * ({@code GET /v1/ally/usage-history}) lands in a separate bullet.
+ * ({@code GET /v1/allies/me/usage-history}) lands in a separate bullet.
  *
  * <p>Plural-name convention ({@code BenefitUsagesService}) matches
  * {@code PlansService}, {@code MembershipsService}, {@code PaymentsService}.</p>
  *
  * <p><b>Authority assumed:</b> the validator endpoint
- * ({@code GET /v1/ally/validate/{document}}) is the ally portal's
+ * ({@code GET /v1/allies/me/validations/{document}}) is the ally portal's
  * pre-condition. We still re-check {@link Membership#getStatus()} here so a
  * stale request (or an unauthorized POST that skipped the validator) can't
  * register a usage against a non-ACTIVE membership.</p>
@@ -61,7 +61,7 @@ public class BenefitUsagesService {
     private final BenefitUsageMapper mapper;
 
     /**
-     * Powers {@code GET /v1/ally/usage-history}. Returns every benefit
+     * Powers {@code GET /v1/allies/me/usage-history}. Returns every benefit
      * usage registered at any ally the current user is an active operator
      * on (handles the N:M {@code AllyUser} pivot through a JPQL subquery).
      * Read-only, no scope check beyond the repository query — the JPQL

@@ -15,7 +15,7 @@ import java.util.UUID;
  * fields the partner portal needs to render a picker and then act.
  *
  * <p>{@code uuid} is the <b>ally</b> UUID, not the pivot's — that is the
- * value {@code POST /v1/ally/benefit-usage} and {@code POST /v1/aliado/services}
+ * value {@code POST /v1/allies/me/benefit-usages} and {@code POST /v1/allies/me/services}
  * expect as {@code allyUuid}, and having the portal read it straight off
  * this record is the whole point of the endpoint.</p>
  *

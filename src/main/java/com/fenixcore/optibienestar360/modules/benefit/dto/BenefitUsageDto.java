@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Output DTO for {@code POST /v1/ally/benefit-usage} (and any future
+ * Output DTO for {@code POST /v1/allies/me/benefit-usages} (and any future
  * read endpoints / usage history). Flat record — the relationships are
  * resolved into UUID + label pairs so the ally portal renders without a
  * second round-trip. Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
