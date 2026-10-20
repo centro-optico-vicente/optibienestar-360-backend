@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Eviction surface for the realtime ally-validator cache. The validator
- * endpoint ({@code GET /v1/ally/validate/{document}}, future bullet) reads
+ * endpoint ({@code GET /v1/allies/me/validations/{document}}, future bullet) reads
  * a short-lived solvency snapshot from Redis keyed by
  * {@code validator:document:{type}:{number}}; this service is the
  * counterpart that DELs the key whenever something happens that could

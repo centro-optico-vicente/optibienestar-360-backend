@@ -21,7 +21,7 @@ import java.util.UUID;
 
 /**
  * Ally-side proposal flow for {@link AllyService}. Backs the
- * {@code POST /v1/aliado/services} endpoint.
+ * {@code POST /v1/allies/me/services} endpoint.
  *
  * <p>Authorization is membership-based, NOT just permission-based: any
  * authenticated user can hit the endpoint, but the service rejects with

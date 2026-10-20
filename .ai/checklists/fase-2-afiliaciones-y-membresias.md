@@ -111,10 +111,10 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 ## Tarea 2.8 — Validador (CRÍTICO p95 < 200ms)
 
-- [x] [P0/C3] `GET /v1/ally/validate/{document}`
+- [x] [P0/C3] `GET /v1/allies/me/validations/{document}`
 - [x] [P0/C3] Cache Redis `validator:{document}` TTL 60s + invalidación al cambiar membership status
-- [x] [P0/C2] `POST /v1/ally/benefit-usage`
-- [x] [P0/C2] `GET /v1/ally/usage-history`
+- [x] [P0/C2] `POST /v1/allies/me/benefit-usages`
+- [x] [P0/C2] `GET /v1/allies/me/usage-history`
 
 > Hecho + mergeado. Fuente de verdad detallada: [vertical-7-validador](vertical-7-validador.md) (este archivo `fase-2` es overview desactualizado — usar los verticales).
 

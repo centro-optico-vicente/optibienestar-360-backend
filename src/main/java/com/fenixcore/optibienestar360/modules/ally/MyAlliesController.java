@@ -20,7 +20,7 @@ import java.util.List;
  *
  * <p>This is the entry point of the counter flow: the portal calls it once
  * on load to resolve the caller's {@code allyUuid}, then feeds that UUID to
- * {@code POST /v1/ally/benefit-usage} (and {@code POST /v1/aliado/services}),
+ * {@code POST /v1/allies/me/benefit-usages} (and {@code POST /v1/allies/me/services}),
  * both of which require it in the body. Before this endpoint existed the
  * portal had no way to obtain it and asked the operator to type it.</p>
  *

@@ -31,7 +31,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P0/C2] `core.config.RedisCacheConfig`: serializadores JSON, TTL, prefix — 2026-05-20
 - [x] [P0/C2] `core.config.S3Config` apuntando a Cloudflare R2 (endpoint custom, path-style) — 2026-05-20
 - [x] [P0/C3] `common.service.StorageService`: upload, download, generatePresignedUrl, delete, exists — 2026-05-20
-- [x] [P0/C2] Endpoint `POST /v1/public/contact` (form landing → email + persistencia) — 2026-05-21
+- [x] [P0/C2] Endpoint `POST /v1/public/contact-messages` (form landing → email + persistencia) — 2026-05-21
 - [x] [P0/C2] Migration `V1__initial_extensions.sql`: pgcrypto, unaccent, citext + `CREATE SCHEMA IF NOT EXISTS app` — 2026-05-21
 - [x] [P0/C2] Migration `V2__base_audit_function.sql`: `set_updated_at()` trigger en esquema `app` — 2026-05-21
 - [x] [P0/C2] Migration `V3__app_roles.sql`: roles de BD `optibienestar360_migration` (DDL), `optibienestar360_app` (DML), `optibienestar360_readonly` (SELECT) + hardening esquema — 2026-05-23

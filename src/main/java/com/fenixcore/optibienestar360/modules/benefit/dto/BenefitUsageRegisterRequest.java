@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Payload for {@code POST /v1/ally/benefit-usage}.
+ * Payload for {@code POST /v1/allies/me/benefit-usages}.
  *
  * <p>{@code membershipUuid} is what the ally portal extracts from the
  * validator response — the validator returns the membership UUID for an

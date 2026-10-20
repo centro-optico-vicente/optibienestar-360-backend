@@ -41,7 +41,7 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
 
     /**
      * Membership lookup by the natural keys (UUIDs) of the parent ally and
-     * user. Backs the ally-side {@code POST /v1/aliado/services} flow where
+     * user. Backs the ally-side {@code POST /v1/allies/me/services} flow where
      * we get a user UUID from the JWT + an ally UUID from the request body
      * and need to verify the actor has an active membership before letting
      * them propose a service.

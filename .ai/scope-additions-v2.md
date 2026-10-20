@@ -110,7 +110,7 @@
 | | c. Tarifas Planas | vertical-8 (`flat_amount` alternativa al pct) | ✅ |
 | 4. Planes Especiales | a. Suscripciones Corporativas/Masivas | vertical-5 (`corporate_contracts` + `Plan.type=CORPORATIVO`) | ✅ |
 | | b. Planes 1+, 2+, 3+ (Premium) | vertical-5 (TBD nuevo, ver tabla TBDs) | ❓ TBD |
-| 5. Autogestión Aliados | a. Panel de Carga para Aliados | vertical-3 (`POST /v1/aliado/services`) | ✅ |
+| 5. Autogestión Aliados | a. Panel de Carga para Aliados | vertical-3 (`POST /v1/allies/me/services`) | ✅ |
 | | b. Flujo de Aprobación Administrativa | vertical-3 (workflow PROPOSED→APPROVED + `ALLY_SERVICE_APPROVE`) | ✅ |
 | 6. Beneficiarios Dinámica | a. Miembros Adicionales $5 USD | vertical-4 + vertical-5 (`extra_beneficiary_inscription_fee` default $5) | ✅ |
 | | b. Sustitución de Beneficiarios | vertical-4 (`DELETE /v1/admin/members/{uuid}/beneficiaries/{benUuid}`) | ✅ |

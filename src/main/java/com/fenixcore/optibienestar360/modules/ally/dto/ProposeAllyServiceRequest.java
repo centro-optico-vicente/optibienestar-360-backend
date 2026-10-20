@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Payload for {@code POST /v1/aliado/services} — the ally-side proposal
+ * Payload for {@code POST /v1/allies/me/services} — the ally-side proposal
  * flow. Same fields as {@code AllyServiceCreateRequest} (admin-side) plus
  * {@code allyUuid} explicit in the body: a user can have memberships in
  * multiple allies (cadena de farmacias, etc.), so the request must say

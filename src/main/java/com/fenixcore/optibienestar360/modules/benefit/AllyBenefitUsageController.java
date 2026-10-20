@@ -18,13 +18,13 @@ import java.net.URI;
 /**
  * Ally-side benefit-usage registration surface. This commit only ships
  * the POST entry point — the usage-history GET endpoint
- * ({@code GET /v1/ally/usage-history}) lands in a follow-up bullet.
+ * ({@code GET /v1/allies/me/usage-history}) lands in a follow-up bullet.
  *
  * <p>Expected flow at the counter:</p>
  * <ol>
  *   <li>Operator scans / types the affiliate's document.</li>
  *   <li>Frontend calls
- *       {@code GET /v1/ally/validate/{document}} — the validator returns
+ *       {@code GET /v1/allies/me/validations/{document}} — the validator returns
  *       the membership UUID + plan + ACTIVE status.</li>
  *   <li>Operator confirms the consumed service and amounts, frontend
  *       POSTs here. The service rejects the row if the membership is no
@@ -32,7 +32,8 @@ import java.net.URI;
  * </ol>
  */
 @RestController
-@RequestMapping("/v1/ally/benefit-usage")
+// Deprecated alias, remove once frontend >= #236 is deployed
+@RequestMapping({"/v1/allies/me/benefit-usages", "/v1/ally/benefit-usage"})
 @RequiredArgsConstructor
 public class AllyBenefitUsageController {
 
