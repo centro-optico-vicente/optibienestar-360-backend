@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Sub-resource {@code /v1/admin/promoters/{promoterUuid}/payout-accounts} —
+ * Sub-resource {@code /v1/admin/advisors/{promoterUuid}/payout-accounts} —
  * advisor payout accounts, N per advisor with one default (V184, dossier
  * section V). The {@code OutPaymentFormModal} reads the list to prefill
  * payouts.
@@ -33,7 +33,8 @@ import java.util.UUID;
  * edit of the account, so it rides on {@code _UPDATE}.</p>
  */
 @RestController
-@RequestMapping("/v1/admin/promoters/{promoterUuid}/payout-accounts")
+// Deprecated alias, remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/admin/advisors/{promoterUuid}/payout-accounts", "/v1/admin/promoters/{promoterUuid}/payout-accounts"})
 @RequiredArgsConstructor
 public class AdminPromoterPayoutAccountsController {
 

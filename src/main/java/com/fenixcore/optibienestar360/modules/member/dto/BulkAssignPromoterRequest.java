@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/** Payload for {@code POST /v1/admin/members/promoter/bulk-assign} — portfolio reassignment to one promoter. */
+/** Payload for {@code POST /v1/admin/members/advisor/bulk-assign} — portfolio reassignment to one promoter. */
 public record BulkAssignPromoterRequest(
         @NotEmpty @Size(max = 500) List<@NotNull UUID> memberUuids,
         @NotNull UUID promoterUuid,

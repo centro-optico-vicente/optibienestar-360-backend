@@ -187,7 +187,7 @@ public class PaymentsService {
     }
 
     /**
-     * Powers {@code GET /v1/promoter/me/payments} — the two promoter
+     * Powers {@code GET /v1/advisors/me/payments} — the two promoter
      * self-service surfaces (hub plan payments-unification, "Mis portales"):
      * {@code direction=IN} = "Cobros de mis afiliados" (collections from the
      * affiliates in the promoter's downline, filtered by the denormalized
@@ -482,7 +482,7 @@ public class PaymentsService {
     }
 
     /**
-     * {@code POST /v1/promoter/me/payments} — a promoter registering a
+     * {@code POST /v1/advisors/me/payments} — a promoter registering a
      * collection on behalf of an affiliate in their own downline. Reuses
      * the {@code ownedMember}-style ownership check {@code
      * PromoterCollectionService} already applies for reminders/payment

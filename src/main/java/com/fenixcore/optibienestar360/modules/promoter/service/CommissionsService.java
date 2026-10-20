@@ -113,7 +113,7 @@ public class CommissionsService {
     }
 
     /** Monthly commission history for one promoter, most recent period first —
-     *  {@code GET /v1/admin/promoters/{uuid}/commissions/summary}. */
+     *  {@code GET /v1/admin/advisors/{uuid}/commissions/summary}. */
     public List<CommissionPeriodSummaryDto> periodSummaryFor(UUID promoterUuid) {
         Promoter promoter = promoterRepository.findByUuid(promoterUuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));

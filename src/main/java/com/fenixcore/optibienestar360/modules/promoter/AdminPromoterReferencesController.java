@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Sub-resource {@code /v1/admin/promoters/{promoterUuid}/references} —
+ * Sub-resource {@code /v1/admin/advisors/{promoterUuid}/references} —
  * advisor personal references (V182, dossier section IV).
  *
  * <p>Auth reuses {@code PROMOTER_*} permissions (no dedicated
@@ -31,7 +31,8 @@ import java.util.UUID;
  * managing the promoter, same as beneficiaries ride on {@code MEMBER_*}).</p>
  */
 @RestController
-@RequestMapping("/v1/admin/promoters/{promoterUuid}/references")
+// Deprecated alias, remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/admin/advisors/{promoterUuid}/references", "/v1/admin/promoters/{promoterUuid}/references"})
 @RequiredArgsConstructor
 public class AdminPromoterReferencesController {
 

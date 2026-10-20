@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Result of a supervisor (re)assignment — echoes the audit row written by
- * {@code POST /v1/admin/promoters/{uuid}/assign-supervisor}. {@code
+ * {@code POST /v1/admin/advisors/{uuid}/assign-supervisor}. {@code
  * fromSupervisor*}/{@code toSupervisor*} are null when there was/is no
  * supervisor on that side (NON_NULL — the null pair is omitted, and its
  * {@code _Display} sibling with it).

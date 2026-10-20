@@ -11,7 +11,7 @@ import java.util.UUID;
  * the {@code persons} row linked through {@code promoters.person_id} (which
  * is the linked user's person — see {@code PromoterCreateRequest}).
  *
- * <p>Only populated on {@code GET /v1/admin/promoters/{uuid}} (detail); the
+ * <p>Only populated on {@code GET /v1/admin/advisors/{uuid}} (detail); the
  * list returns {@code identity = null} to avoid loading the person's
  * catalog FKs (marital status, city) for every row.</p>
  */

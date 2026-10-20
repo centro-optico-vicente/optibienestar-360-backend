@@ -18,7 +18,7 @@ import java.util.UUID;
 /**
  * Read view of a granted bonus — shared by the admin awards queue
  * ({@code GET /v1/admin/bonus-awards}) and the promoter self-service list
- * ({@code GET /v1/promoter/me/bonuses}). Reward fields are the inline snapshot
+ * ({@code GET /v1/advisors/me/bonuses}). Reward fields are the inline snapshot
  * taken at grant time. Scalars carry a localized {@code _Display} sibling (hub ADR 0014).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Admin endpoint to issue / regenerate the affiliate referral code on a
  * Member. The code lives on {@code members.referral_code} (V27); this
  * is the canonical write path. Promoter referral codes are managed via
- * {@code POST /v1/admin/promoters}, not here.
+ * {@code POST /v1/admin/advisors}, not here.
  */
 @RestController
 @RequestMapping("/v1/admin/referral-codes")

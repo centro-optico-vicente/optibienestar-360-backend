@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
-/** Payload for {@code POST /v1/admin/members/promoter/portfolio-to-supervisor} — roll a promoter's portfolio up. */
+/** Payload for {@code POST /v1/admin/members/advisor/portfolio-to-supervisor} — roll a promoter's portfolio up. */
 public record PortfolioToSupervisorRequest(
         @NotNull UUID sourcePromoterUuid,
         @NotBlank @Size(max = 2000) String reason

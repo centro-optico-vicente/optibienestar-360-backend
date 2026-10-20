@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT del contrato de {@code GET /v1/promoter/me} ({@link PromoterMeController}):
+ * IT del contrato de {@code GET /v1/advisors/me} ({@link PromoterMeController}):
  * autorización ({@code PROMOTER_VIEW_OWN}), forma del dashboard y el 404 cuando
  * el usuario autenticado no es promotor. {@link PromoterDashboardService} se
  * mockea; el principal es un {@link CustomUserDetails} real (el controller lee
@@ -83,14 +83,14 @@ class PromoterMeControllerIT {
 
     @Test
     void anonymous_is401_andNeverTouchesService() throws Exception {
-        mockMvc.perform(get("/v1/promoter/me"))
+        mockMvc.perform(get("/v1/advisors/me"))
                 .andExpect(status().isUnauthorized());
         verify(dashboardService, never()).getMyDashboard(any());
     }
 
     @Test
     void authenticatedWithoutPermission_is403_andNeverTouchesService() throws Exception {
-        mockMvc.perform(get("/v1/promoter/me").with(principal("MEMBER_VIEW_ALL")))
+        mockMvc.perform(get("/v1/advisors/me").with(principal("MEMBER_VIEW_ALL")))
                 .andExpect(status().isForbidden());
         verify(dashboardService, never()).getMyDashboard(any());
     }
@@ -99,7 +99,7 @@ class PromoterMeControllerIT {
     void withPermission_returns200_withDashboard() throws Exception {
         when(dashboardService.getMyDashboard(any(UUID.class))).thenReturn(dashboard());
 
-        mockMvc.perform(get("/v1/promoter/me").with(principal("PROMOTER_VIEW_OWN")))
+        mockMvc.perform(get("/v1/advisors/me").with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.referralCode").value("ANAV42"))
                 .andExpect(jsonPath("$.activeAffiliates").value(4))
@@ -116,15 +116,30 @@ class PromoterMeControllerIT {
         when(dashboardService.getMyDashboard(any(UUID.class)))
                 .thenThrow(new NoSuchElementException("me.promoter.not_found"));
 
-        mockMvc.perform(get("/v1/promoter/me").with(principal("PROMOTER_VIEW_OWN")))
+        mockMvc.perform(get("/v1/advisors/me").with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isNotFound());
     }
 
-    // ─── GET /v1/promoter/me/payout-accounts (V184) ──────────────────────────
+    // ─── Deprecated alias /v1/promoter/me (kept for zero-downtime deploys) ────
+
+    @Test
+    void deprecatedPromoterAlias_stillAnswers_withSameSecurity() throws Exception {
+        when(dashboardService.getMyDashboard(any(UUID.class))).thenReturn(dashboard());
+
+        mockMvc.perform(get("/v1/promoter/me"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/promoter/me").with(principal("MEMBER_VIEW_ALL")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/v1/promoter/me").with(principal("PROMOTER_VIEW_OWN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referralCode").value("ANAV42"));
+    }
+
+    // ─── GET /v1/advisors/me/payout-accounts (V184) ──────────────────────────
 
     @Test
     void myPayoutAccounts_requiresItsOwnPermission_notPromoterViewOwn() throws Exception {
-        mockMvc.perform(get("/v1/promoter/me/payout-accounts").with(principal("PROMOTER_VIEW_OWN")))
+        mockMvc.perform(get("/v1/advisors/me/payout-accounts").with(principal("PROMOTER_VIEW_OWN")))
                 .andExpect(status().isForbidden());
         verify(payoutAccountsService, never()).listMine(any());
     }
@@ -135,7 +150,7 @@ class PromoterMeControllerIT {
                 List.of(new SimpleGrantedAuthority("PROMOTER_PAYOUT_ACCOUNT_VIEW_OWN")));
         when(payoutAccountsService.listMine(p.getUuid())).thenReturn(List.of());
 
-        mockMvc.perform(get("/v1/promoter/me/payout-accounts")
+        mockMvc.perform(get("/v1/advisors/me/payout-accounts")
                         .with(authentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));

@@ -24,8 +24,8 @@ import java.util.UUID;
 
 /**
  * Delegated collection management for a promoter over their own portfolio
- * (v2 PDF 2.b). Backs the self-service {@code /v1/promoter/me/contacts} +
- * {@code /v1/promoter/me/collection-score} endpoints.
+ * (v2 PDF 2.b). Backs the self-service {@code /v1/advisors/me/contacts} +
+ * {@code /v1/advisors/me/collection-score} endpoints.
  *
  * <p>Every operation resolves the promoter from the JWT user and — for the
  * per-member ones — verifies the target member belongs to that promoter

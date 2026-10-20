@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Payload for {@code POST /v1/admin/promoters/{promoterUuid}/references}.
+ * Payload for {@code POST /v1/admin/advisors/{promoterUuid}/references}.
  * The cédula is optional but comes as a pair (both or neither) — the service
  * rejects a half pair with 422 {@code promoter_reference.document.incomplete}.
  */

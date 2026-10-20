@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /**
  * Admin CRUD for an advisor's personal references (V182, dossier section IV),
- * mounted at {@code /v1/admin/promoters/{promoterUuid}/references}. Same
+ * mounted at {@code /v1/admin/advisors/{promoterUuid}/references}. Same
  * shape as the member beneficiaries sub-resource: every read/write resolves
  * the parent from the path and verifies the child belongs to it (404 on URL
  * tampering), delete is a soft-delete.

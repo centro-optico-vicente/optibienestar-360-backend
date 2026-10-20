@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
  * (v2 PDF #4/#5): promoter-table lookup by code only, {@code null} otherwise
  * (no forced INSTITUCION default — project chat 2026-08-06: a member can now
  * be enrolled without a promoter and linked later via
- * {@code POST /v1/admin/members/{uuid}/assign-promoter}).
+ * {@code POST /v1/admin/members/{uuid}/assign-advisor}).
  */
 @ExtendWith(MockitoExtension.class)
 class PromoterResolverTest {

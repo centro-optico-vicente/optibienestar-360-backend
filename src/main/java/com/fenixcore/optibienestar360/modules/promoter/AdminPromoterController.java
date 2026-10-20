@@ -38,7 +38,8 @@ import java.util.UUID;
  * rejected with 422 — it's seed-only.
  */
 @RestController
-@RequestMapping("/v1/admin/promoters")
+// Deprecated alias, remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/admin/advisors", "/v1/admin/promoters"})
 @RequiredArgsConstructor
 public class AdminPromoterController {
 
@@ -63,7 +64,7 @@ public class AdminPromoterController {
         return ResponseEntity.ok(promotersService.get(uuid));
     }
 
-    /** Portfolio + collection health + this-month commissions, admin view of {@code GET /v1/promoter/me}. */
+    /** Portfolio + collection health + this-month commissions, admin view of {@code GET /v1/advisors/me}. */
     @GetMapping("/{uuid}/portfolio")
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
     public ResponseEntity<PromoterDashboardDto> portfolio(@PathVariable UUID uuid) {

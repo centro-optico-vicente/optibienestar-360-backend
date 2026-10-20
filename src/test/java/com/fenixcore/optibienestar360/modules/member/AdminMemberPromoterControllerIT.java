@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT del contrato de {@code POST /v1/admin/members/{uuid}/assign-promoter}
+ * IT del contrato de {@code POST /v1/admin/members/{uuid}/assign-advisor}
  * ({@link AdminMemberPromoterController}). Cubre autorización
  * ({@code MEMBER_ASSIGN_PROMOTER}) y el mapeo de excepciones de negocio a 422/404.
  * El {@link MemberPromoterService} se mockea (perfil {@code test} sobre H2 sin
@@ -75,7 +75,7 @@ class AdminMemberPromoterControllerIT {
 
     @Test
     void anonymous_is401_andNeverTouchesService() throws Exception {
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isUnauthorized());
         verify(memberPromoterService, never()).assign(any(), any(), any(), anyString(), any());
@@ -83,7 +83,7 @@ class AdminMemberPromoterControllerIT {
 
     @Test
     void authenticatedWithoutPermission_is403_andNeverTouchesService() throws Exception {
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", UUID.randomUUID())
                         .with(principal("MEMBER_VIEW_ALL"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isForbidden());
@@ -100,7 +100,7 @@ class AdminMemberPromoterControllerIT {
                         null, null, toPromoter, "Óptica Vicente",
                         UUID.randomUUID(), "Cartera nueva", Instant.parse("2026-07-25T12:00:00Z")));
 
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", memberUuid)
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", memberUuid)
                         .with(principal("MEMBER_ASSIGN_PROMOTER"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(toPromoter)))
                 .andExpect(status().isOk())
@@ -121,7 +121,7 @@ class AdminMemberPromoterControllerIT {
                         null, null, toPromoter, "Óptica Vicente",
                         UUID.randomUUID(), "Vinculación inicial", Instant.parse("2026-07-25T12:00:00Z")));
 
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", memberUuid)
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", memberUuid)
                         .with(principal("MEMBER_ASSIGN_PROMOTER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"referralCode\":\"PROMO01\",\"reason\":\"Vinculación inicial\"}"))
@@ -134,7 +134,7 @@ class AdminMemberPromoterControllerIT {
         when(memberPromoterService.assign(any(), any(), any(), anyString(), any()))
                 .thenThrow(new IllegalArgumentException("member.promoter.unchanged"));
 
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", UUID.randomUUID())
                         .with(principal("MEMBER_ASSIGN_PROMOTER"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableEntity());
@@ -145,7 +145,7 @@ class AdminMemberPromoterControllerIT {
         when(memberPromoterService.assign(any(), any(), any(), anyString(), any()))
                 .thenThrow(new NoSuchElementException("member.not_found"));
 
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", UUID.randomUUID())
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-advisor", UUID.randomUUID())
                         .with(principal("MEMBER_ASSIGN_PROMOTER"))
                         .contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID())))
                 .andExpect(status().isNotFound());
@@ -160,7 +160,7 @@ class AdminMemberPromoterControllerIT {
                         null, null, UUID.randomUUID(), PromoterResolver.SYSTEM_ADVISOR_CODE,
                         null, "Enrolamiento", Instant.parse("2026-07-01T12:00:00Z"))));
 
-        mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", memberUuid)
+        mockMvc.perform(get("/v1/admin/members/{uuid}/advisor-history", memberUuid)
                         .with(principal("MEMBER_ASSIGN_PROMOTER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].toPromoterName").value(PromoterResolver.SYSTEM_ADVISOR_CODE));
@@ -168,6 +168,32 @@ class AdminMemberPromoterControllerIT {
 
     @Test
     void history_withoutPermission_is403() throws Exception {
+        mockMvc.perform(get("/v1/admin/members/{uuid}/advisor-history", UUID.randomUUID())
+                        .with(principal("MEMBER_VIEW_ALL")))
+                .andExpect(status().isForbidden());
+    }
+
+    // Deprecated aliases (pre-rename paths) must keep answering until the frontend is migrated.
+
+    @Test
+    void deprecatedAssignPromoterAlias_stillAnswers() throws Exception {
+        UUID memberUuid = UUID.randomUUID();
+        UUID toPromoter = UUID.randomUUID();
+        when(memberPromoterService.assign(any(UUID.class), any(UUID.class), any(), anyString(), any(UUID.class)))
+                .thenReturn(new MemberPromoterAssignmentDto(
+                        UUID.randomUUID(), memberUuid, "Juan Pérez",
+                        null, null, toPromoter, "Óptica Vicente",
+                        UUID.randomUUID(), "Cartera nueva", Instant.parse("2026-07-25T12:00:00Z")));
+
+        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", memberUuid)
+                        .with(principal("MEMBER_ASSIGN_PROMOTER"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body(toPromoter)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toPromoterUuid").value(toPromoter.toString()));
+    }
+
+    @Test
+    void deprecatedPromoterHistoryAlias_keepsPermissionGate() throws Exception {
         mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", UUID.randomUUID())
                         .with(principal("MEMBER_VIEW_ALL")))
                 .andExpect(status().isForbidden());

@@ -30,7 +30,7 @@ import java.util.UUID;
 /**
  * Owns the reassignment of the permanent member↔promoter link (v2 PDF 2.a).
  * The link is set once at enrollment ({@code MembersService.create}) and only
- * ever changes here, via {@code POST /v1/admin/members/{uuid}/assign-promoter}.
+ * ever changes here, via {@code POST /v1/admin/members/{uuid}/assign-advisor}.
  *
  * <p>Every reassignment writes one {@link MemberPromoterAssignment} audit row
  * (from → to, actor, reason). Reassigning does <b>not</b> touch already-earned

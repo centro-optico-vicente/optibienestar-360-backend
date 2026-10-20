@@ -9,8 +9,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Output DTO for {@code GET /v1/admin/promoters} (list) and
- * {@code GET /v1/admin/promoters/{uuid}} (detail).
+ * Output DTO for {@code GET /v1/admin/advisors} (list) and
+ * {@code GET /v1/admin/advisors/{uuid}} (detail).
  *
  * <p>{@code _Display} convention (hub ADR 0014): {@code @Display} foreign
  * keys serialize as {@code <rel>_Uuid} + {@code <rel>_Display}, and
@@ -21,7 +21,7 @@ import java.util.UUID;
  * "cargo" — independent of {@code promoterType}) and {@code supervisor}
  * (the live pointer, {@code null} = top of the chain) are read-only here;
  * changing them goes through the dedicated hierarchy endpoints ({@code
- * POST /v1/admin/promoters/{uuid}/assign-supervisor}).</p>
+ * POST /v1/admin/advisors/{uuid}/assign-supervisor}).</p>
  *
  * <p>Dossier fields (V182): {@code joinedAt}/{@code assignedZone}
  * (registration) and the executive profile ({@code educationLevel} +

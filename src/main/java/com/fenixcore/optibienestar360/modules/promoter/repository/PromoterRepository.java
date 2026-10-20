@@ -36,7 +36,7 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
 
     /**
      * Resolve the promoter of the JWT-authenticated user for the self-service
-     * dashboard {@code GET /v1/promoter/me}. Backed by the V25 partial UNIQUE
+     * dashboard {@code GET /v1/advisors/me}. Backed by the V25 partial UNIQUE
      * {@code (user_id) WHERE user_id IS NOT NULL AND is_active=TRUE}, so at most
      * one active row matches.
      */
@@ -47,7 +47,7 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
      * Candidate supervisors for a promoter targeting a given rank — every
      * active promoter whose own rank is strictly above {@code minLevel}
      * (exclusive) and, when {@code maxLevel} is given, at or below it too —
-     * powering {@code GET /v1/admin/promoters/eligible-supervisors}.
+     * powering {@code GET /v1/admin/advisors/eligible-supervisors}.
      * {@code maxLevel = minLevel of the immediate next rank} scopes the
      * result to just that rank ("immediate superiors" — the default);
      * {@code maxLevel = null} widens it to every rank above ("all

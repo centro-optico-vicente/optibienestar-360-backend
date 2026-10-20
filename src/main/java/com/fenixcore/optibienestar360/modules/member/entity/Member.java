@@ -81,7 +81,7 @@ public class Member extends BaseEntity {
      * Permanent attribution link to the sales-network promoter (V25).
      * Nullable — a member can be enrolled without a promoter (no or unknown
      * {@code referral_code} on the request) and linked to one later by an
-     * admin via {@code POST /v1/admin/members/{uuid}/assign-promoter} (accepts
+     * admin via {@code POST /v1/admin/members/{uuid}/assign-advisor} (accepts
      * either a promoter UUID or a referral code). Commission attribution
      * falls back to the INSTITUCION system promoter at calculation time
      * regardless of this field ({@code CommissionService.resolvePromoter}).

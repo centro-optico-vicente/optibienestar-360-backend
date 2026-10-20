@@ -23,7 +23,7 @@ import java.util.Optional;
  *   <li>Otherwise (no code, unknown code, or a code that is actually an
  *       affiliate-to-affiliate referral code, not a promoter's) return
  *       {@code null} — the member is enrolled without a promoter. An admin can
- *       link one later via {@code POST /v1/admin/members/{uuid}/assign-promoter}
+ *       link one later via {@code POST /v1/admin/members/{uuid}/assign-advisor}
  *       (accepts either a promoter UUID or a referral code). Commission
  *       attribution still falls back to {@code INSTITUCION} at calculation time
  *       ({@code CommissionService.resolvePromoter}), so an unlinked member does

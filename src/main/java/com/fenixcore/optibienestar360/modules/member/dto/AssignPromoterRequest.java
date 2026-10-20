@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 /**
- * Payload for {@code POST /v1/admin/members/{uuid}/assign-promoter} (v2 PDF 2.a).
+ * Payload for {@code POST /v1/admin/members/{uuid}/assign-advisor} (v2 PDF 2.a).
  * Reassigns the permanent member↔promoter link, or links a member that was
  * enrolled without one. Exactly one of {@code promoterUuid} / {@code
  * referralCode} must be given — the admin either picks a promoter directly or

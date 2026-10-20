@@ -39,7 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link PromoterDashboardService} — the {@code /v1/promoter/me}
+ * Unit tests for {@link PromoterDashboardService} — the {@code /v1/advisors/me}
  * aggregation (v2 PDF #4). Locks the collection-health bucketing (al día /
  * vencida / sin membresía) and the not-a-promoter 404.
  */

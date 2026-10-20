@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Builds the promoter self-service dashboard ({@code GET /v1/promoter/me},
+ * Builds the promoter self-service dashboard ({@code GET /v1/advisors/me},
  * v2 PDF #4). Resolves the promoter of the JWT-authenticated user, then
  * aggregates their book of business: portfolio size, collection health
  * (al día / vencida / sin membresía) with per-affiliate drill-down, and
@@ -70,7 +70,7 @@ public class PromoterDashboardService {
     }
 
     /** Admin variant of {@link #getMyDashboard} — resolves the promoter by its own uuid
-     *  instead of by the JWT-authenticated user, for {@code GET /v1/admin/promoters/{uuid}/portfolio}. */
+     *  instead of by the JWT-authenticated user, for {@code GET /v1/admin/advisors/{uuid}/portfolio}. */
     public PromoterDashboardDto getDashboardFor(UUID promoterUuid) {
         Promoter promoter = promoterRepository.findByUuid(promoterUuid)
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
