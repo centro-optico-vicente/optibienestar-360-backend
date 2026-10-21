@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .button { display: inline-block; background: #7a5cc9; color: #fff !important; padding: 10px 18px; border-radius: 6px; text-decoration: none; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Sobre tu solicitud de afiliación</h2>
+
+    <p>Hola <span th:text="${fullName}"></span>,</p>
+
+    <p>Revisamos tu solicitud de afiliación a OptiBienestar 360 y por ahora no pudimos aprobarla.</p>
+
+    <div class="info-box" th:if="${reason}">
+        <span class="label">Motivo:</span>
+        <span th:text="${reason}"></span>
+    </div>
+
+    <p>
+        Si quieres, puedes enviar una nueva solicitud con los datos corregidos o comunicarte
+        <span th:if="${advisorName}">con tu asesor, <strong th:text="${advisorName}"></strong>, o </span>con nosotros.
+    </p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

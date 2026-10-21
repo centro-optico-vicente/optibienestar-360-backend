@@ -106,6 +106,25 @@ public class TermsVariableResolver {
                 plan.getMaxBeneficiaries() == null ? UNLIMITED : number(plan.getMaxBeneficiaries()));
     }
 
+    /**
+     * MEMBER values for someone who is not a member yet — the public
+     * affiliation form and its requests ({@code affiliation_requests}). Only
+     * what the applicant typed: the holder and the chosen plan, with its
+     * {@code plan.*} fees. The activation date and the beneficiaries stay
+     * pending, they don't exist until the membership does.
+     */
+    public Map<String, String> forApplicant(MemberTermsApplicant applicant) {
+        Map<String, String> values = new HashMap<>();
+        put(values, "member.fullName", applicant.fullName());
+        put(values, "member.document", document(applicant.documentType(), applicant.documentNumber()));
+        put(values, "member.birthDate", date(applicant.birthDate()));
+        if (applicant.plan() != null) {
+            put(values, "membership.planName", applicant.plan().getName());
+            putPlan(values, applicant.plan());
+        }
+        return values;
+    }
+
     /** ADVISOR values from the advisor's own record ({@code promoters}). */
     public Map<String, String> forAdvisor(Promoter advisor) {
         Map<String, String> values = new HashMap<>();

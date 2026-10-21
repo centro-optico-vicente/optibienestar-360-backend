@@ -31,6 +31,12 @@ Detalle de cada perfil en [hub `stakeholders.md`](https://github.com/centro-opti
 - `MEMBER_UPLOAD_DOCUMENT`
 - `MEDICAL_RECORD_VIEW`, `MEDICAL_RECORD_UPDATE` (sensible)
 
+### Affiliation requests (V190, dominio `AFFILIATION_REQUESTS`)
+
+- `AFFILIATION_REQUEST_VIEW_ALL` (listado y detalle admin), `AFFILIATION_REQUEST_VIEW_OWN` (portal del asesor: las que llegaron por su QR)
+- `AFFILIATION_REQUEST_UPDATE` (corregir datos mientras está `PENDING`), `AFFILIATION_REQUEST_APPROVE`, `AFFILIATION_REQUEST_REJECT`
+- Seed: ADMINISTRADOR todos; ASESOR solo `_VIEW_OWN`; OPERADOR **ninguno** (se le asigna desde Roles); SYSTEM todos vía trigger V30.
+
 ### Allies
 
 - `ALLY_CREATE`, `ALLY_UPDATE`, `ALLY_DELETE`

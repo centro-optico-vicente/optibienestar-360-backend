@@ -208,6 +208,16 @@ com.fenixcore.optibienestar360/
     │   ├── controller/                   # /v1/admin/reports/*
     │   └── dto/
     │
+    ├── affiliation/                    # Solicitudes de afiliación (V190)
+    │   ├── entity/                       # AffiliationRequest, AffiliationRequestLog
+    │   ├── repository/
+    │   ├── service/                      # AffiliationRequestService (crear, corregir, aprobar, rechazar)
+    │   ├── event/                        # AffiliationRequestNotifier (correos after-commit)
+    │   ├── dto/
+    │   ├── PublicAffiliationRequestController.java    # POST /v1/public/affiliation-requests
+    │   ├── AdminAffiliationRequestController.java     # /v1/admin/affiliation-requests
+    │   └── AdvisorAffiliationRequestController.java   # GET /v1/advisors/me/affiliation-requests
+    │
     ├── contact/                        # Form contacto landing
     │   ├── entity/
     │   │   └── ContactMessage.java

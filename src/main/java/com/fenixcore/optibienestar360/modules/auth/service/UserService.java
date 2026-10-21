@@ -167,6 +167,27 @@ public class UserService {
     @Transactional
     @Auditable(entity = "user", action = AuditAction.CREATE)
     public UserDto createUser(AdminCreateUserRequest request, UUID actorUuid) {
+        return create(request, passwordEncoder.encode(request.password()), actorUuid);
+    }
+
+    /**
+     * Same as {@link #createUser} for a password that was already hashed with
+     * this application's {@code PasswordEncoder} — e.g. the one an applicant
+     * chose on the public affiliation form, stored hashed on the request
+     * until it is approved. {@code request.password()} is ignored; every
+     * other rule (email uniqueness, SYSTEM role guard, person hub reuse)
+     * applies unchanged.
+     */
+    @Transactional
+    @Auditable(entity = "user", action = AuditAction.CREATE)
+    public UserDto createUserWithPasswordHash(AdminCreateUserRequest request, String passwordHash, UUID actorUuid) {
+        if (passwordHash == null || passwordHash.isBlank()) {
+            throw new IllegalArgumentException("user.password.required");
+        }
+        return create(request, passwordHash, actorUuid);
+    }
+
+    private UserDto create(AdminCreateUserRequest request, String passwordHash, UUID actorUuid) {
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException("user.email.exists");
         }
@@ -194,7 +215,7 @@ public class UserService {
 
         User user = new User();
         user.setEmail(request.email());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(passwordHash);
         user.setPerson(person);
         user.setStatus("ACTIVE");
         userRepository.save(user);
