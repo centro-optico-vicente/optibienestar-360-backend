@@ -324,7 +324,14 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
 
 ### `core/display/DisplayFormatter` (`@Component`) — autoridad única de presentación
 
-- **Escalares:** formatea por tipo (fechas, montos `VES`, decimales, porcentajes, enums, booleanos).
+- **Escalares:** formatea por tipo (fechas, montos, decimales, porcentajes, enums, booleanos).
+  **Montos en la moneda ISO de su fila** ([hub ADR 0015](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0015-multi-currency-exchange-rates.md)):
+  `money(BigDecimal value, String currencyCode, Locale locale)` usa el símbolo y los decimales
+  reales de `currencyCode` (US$, EUR, Bs.…); si el código es `null`/vacío o desconocido cae a `VES`
+  (con `warn` en el log). El overload `money(BigDecimal, Locale)` —solo `VES`— queda `@Deprecated`
+  para los llamadores que aún no tienen moneda en contexto. En los DTOs, `@Display(Kind.MONEY,
+  moneyCurrencyField = "<campo con el código ISO>")` le indica al serializador de qué componente del
+  `record` leer la moneda; sin `moneyCurrencyField` se usa la moneda por defecto (`VES`).
   Todo lo que varía por idioma sale del `MessageSource`, **incluido el patrón de fecha**
   (`display.format.datetime` / `display.format.date`, parseado y cacheado por patrón) — un idioma
   nuevo es alta de bundle, no de código. Enums/booleanos → `display.enum.<campo>.<VALOR>` con
@@ -350,7 +357,8 @@ serialización:
   `@Display(Kind.MONEY|DATETIME|DATE|NUMBER|PERCENT|ENUM|BOOLEAN)` para escalares
   (`Kind.AUTO` infiere por tipo runtime: temporal→datetime, `Boolean`→sí/no, `Number`→separadores,
   `String`→enum); `@Display(fk = "allyType")` **o** un campo tipado `DisplayRef` para FK;
-  `enumScope` fija la clave i18n (`display.enum.<scope>.<VALOR>`).
+  `enumScope` fija la clave i18n (`display.enum.<scope>.<VALOR>`); `moneyCurrencyField` nombra el
+  componente hermano con el código ISO de la moneda de un `MONEY`.
 - **`core/display/DisplayRef(uuid, code, name)`** — carrier compacto de una FK dentro del DTO.
   Nunca se serializa como objeto.
 - **`core/display/DisplayRefs`** (`@Component`) — construye el `DisplayRef` desde la asociación ya

@@ -67,7 +67,7 @@ hotfix/cors-missing-header
 
 Ejemplos:
 ```
-feat: Add POST /v1/public/contact endpoint
+feat: Add POST /v1/public/contact-messages endpoint
 fix: Resolve PlaceholderResolutionException in test context
 chore: Optimize Docker build cache with prebuilt JAR
 ```
@@ -75,7 +75,7 @@ chore: Optimize Docker build cache with prebuilt JAR
 **Contenido** (copy-paste directo en GitHub):
 
 ```markdown
-feat: Add POST /v1/public/contact endpoint
+feat: Add POST /v1/public/contact-messages endpoint
 
 ## Summary
 

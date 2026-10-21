@@ -54,7 +54,7 @@ public interface AllyUserRepository extends JpaRepository<AllyUser, Long>,
                                                       @Param("userUuid") UUID userUuid);
 
     /**
-     * Backs {@code GET /v1/me/allies}: every ally the given user can operate
+     * Backs {@code GET /v1/allies/me}: every ally the given user can operate
      * on, resolved from the JWT subject alone. Fetch-joins the parent ally and
      * its type so the portal picker renders without an N+1 walk over the
      * lazy {@code ally} relation.
