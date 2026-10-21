@@ -44,7 +44,7 @@ El equipo trabaja en español pero la mayoría de la documentación técnica del
 | **TypeScript/Vue functions** | `camelCase` | `loadMembers()`, `formatCurrency()` |
 | **TypeScript/Vue composables** | `useXxx` | `useApi()`, `useAuth()`, `usePermissions()` |
 | **Vue components** | `PascalCase` (multi-word) | `DigitalCard.vue`, `PaymentForm.vue` |
-| **Vue pages** | `kebab-case.vue` | `pages/admin/members.vue`, `pages/afiliado/usage-history.vue` |
+| **Vue pages** | `kebab-case.vue` | `pages/admin/members.vue`, `pages/members/usage-history.vue` |
 | **CSS classes / Tailwind** | `kebab-case` | `card-container`, `text-primary` |
 | **SQL tables** | `snake_case_plural` | `members`, `ally_agreements` |
 | **SQL columns** | `snake_case` | `full_name`, `created_at` |

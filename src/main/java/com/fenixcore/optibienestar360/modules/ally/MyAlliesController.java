@@ -16,7 +16,10 @@ import java.util.List;
 /**
  * Self-service "which allies do I operate on?" surface, completing the
  * {@code /v1/me/*} family alongside {@code /v1/me/member} and
- * {@code /v1/me/payments}.
+ * {@code /v1/me/payments}. {@code /v1/me/*} is the primary prefix for the
+ * caller's own data; {@code /v1/allies/me} is a secondary path next to the
+ * ally-portal family ({@code /v1/allies/me/services},
+ * {@code /v1/allies/me/validations}…), hub spec 12.
  *
  * <p>This is the entry point of the counter flow: the portal calls it once
  * on load to resolve the caller's {@code allyUuid}, then feeds that UUID to
@@ -33,7 +36,7 @@ import java.util.List;
  * (see {@link MyAlliesService#listMyAllies}).</p>
  */
 @RestController
-@RequestMapping("/v1/me/allies")
+@RequestMapping({"/v1/me/allies", "/v1/allies/me"})
 @RequiredArgsConstructor
 public class MyAlliesController {
 
