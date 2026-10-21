@@ -45,6 +45,29 @@ class TermsVariablesTest {
     }
 
     @Test
+    void member_offersThePlanAmountsAsMoneyAndItsLimitsAsNumbers() {
+        assertThat(TermsVariables.forType(TermType.MEMBER))
+                .filteredOn(v -> v.key().startsWith("plan."))
+                .extracting(TermsVariables.Variable::key, TermsVariables.Variable::kind)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("plan.monthlyFee", TermsVariables.Kind.MONEY),
+                        org.assertj.core.groups.Tuple.tuple("plan.inscriptionFee", TermsVariables.Kind.MONEY),
+                        org.assertj.core.groups.Tuple.tuple("plan.extraBeneficiaryInscriptionFee", TermsVariables.Kind.MONEY),
+                        org.assertj.core.groups.Tuple.tuple("plan.includedBeneficiaries", TermsVariables.Kind.NUMBER),
+                        org.assertj.core.groups.Tuple.tuple("plan.maxBeneficiaries", TermsVariables.Kind.NUMBER));
+        assertThat(TermsVariables.samplesFor(TermType.MEMBER).get("plan.monthlyFee"))
+                .isEqualTo("US$ 25,00 o su equivalente en bolívares a la tasa oficial del BCV vigente el día del pago");
+    }
+
+    @Test
+    void unknownIn_planVariablesAreOnlyValidForMember() {
+        assertThat(TermsVariables.unknownIn("{{plan.monthlyFee}} {{plan.maxBeneficiaries}}", TermType.MEMBER)).isEmpty();
+        assertThat(TermsVariables.unknownIn("{{plan.monthlyFee}}", TermType.ALLY)).containsExactly("plan.monthlyFee");
+        assertThat(TermsVariables.unknownIn("{{plan.monthlyFee}}", TermType.ADVISOR)).containsExactly("plan.monthlyFee");
+        assertThat(TermsVariables.unknownIn("{{plan.discount}}", TermType.MEMBER)).containsExactly("plan.discount");
+    }
+
+    @Test
     void unknownIn_listsPlaceholdersOfOtherKindsAndMadeUpOnesOnceInOrder() {
         String template = "{{org.city}} {{advisor.code}} {{ member.fullName }} {{foo}} {{advisor.code}} {{ally.name}}";
 

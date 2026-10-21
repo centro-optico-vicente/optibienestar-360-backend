@@ -23,6 +23,7 @@
 | 15 | [Reportes y documentos](15-reporting-documents.md) | Motor de reportes (Jasper + HTML→PDF + XLSX/CSV) |
 | 16 | [Auditoría](16-audit.md) | Login, cambios de datos, reportes |
 | 17 | [Marca en documentos](17-brand-documents.md) | Logo, fuentes, colores y pie en reportes/PDF/emails, con defaults del classpath si la organización no configuró |
+| 18 | [Contratos (T&C)](18-terms-acceptance.md) | Variables de plantilla (montos sin tasa congelada), aceptación por convenio de aliado, historial y diferencias |
 
 ## Specs cross-stack relevantes (hub)
 

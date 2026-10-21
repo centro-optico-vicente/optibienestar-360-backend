@@ -23,8 +23,8 @@ import java.util.stream.Stream;
  * <ul>
  *   <li><b>Common</b> (every kind): {@code brand.name} and the {@code org.*}
  *   organization values.</li>
- *   <li><b>MEMBER</b>: the affiliate holder, their active membership and its
- *   beneficiaries.</li>
+ *   <li><b>MEMBER</b>: the affiliate holder, their active membership, its
+ *   beneficiaries and its plan's fees and beneficiary limits ({@code plan.*}).</li>
  *   <li><b>ADVISOR</b>: the advisor's own record ({@code promoters}).</li>
  *   <li><b>ALLY</b>: the ally and the agreement that links the template.</li>
  * </ul>
@@ -36,8 +36,26 @@ import java.util.stream.Stream;
  */
 public final class TermsVariables {
 
-    /** One template variable: its key, the note shown when the value is missing, a preview sample. */
-    public record Variable(String key, String pendingNote, String sample) {
+    /**
+     * How a variable's value is formatted in the contract text (es-VE): plain
+     * text, a {@code dd-MM-yyyy} date, a locale-formatted number, an amount in
+     * its own currency (see {@link TermsVariableResolver#MONEY_PAYMENT_CLAUSE_VES})
+     * or {@code Sí}/{@code No}. Exposed to the admin editor as a hint.
+     */
+    public enum Kind { TEXT, DATE, NUMBER, MONEY, BOOLEAN }
+
+    /** One template variable: its key, value kind, the note shown when the value is missing, a preview sample. */
+    public record Variable(String key, Kind kind, String pendingNote, String sample) {
+
+        /** A {@link Kind#TEXT} variable. */
+        public Variable(String key, String pendingNote, String sample) {
+            this(key, Kind.TEXT, pendingNote, sample);
+        }
+    }
+
+    /** Preview sample of a MONEY variable — the shape the resolver produces for a USD plan with VES as official currency. */
+    private static String moneySample(String amount) {
+        return "US$ " + amount + " " + TermsVariableResolver.MONEY_PAYMENT_CLAUSE_VES;
     }
 
     public static final String BRAND_NAME = "brand.name";
@@ -61,10 +79,18 @@ public final class TermsVariables {
     static final List<Variable> MEMBER = List.of(
             new Variable("member.fullName", "[Nombre del afiliado pendiente]", "María Fernanda Pérez Gómez"),
             new Variable("member.document", "[Cédula del afiliado pendiente]", "V-12345678"),
-            new Variable("member.birthDate", "[Fecha de nacimiento pendiente]", "15-03-1985"),
+            new Variable("member.birthDate", Kind.DATE, "[Fecha de nacimiento pendiente]", "15-03-1985"),
             new Variable("membership.planName", "[Plan pendiente]", "Plan Familiar"),
-            new Variable("membership.activatedAt", "[Fecha de activación pendiente]", "01-10-2026"),
-            new Variable("beneficiaries.count", "[Beneficiarios pendiente]", "3")
+            new Variable("membership.activatedAt", Kind.DATE, "[Fecha de activación pendiente]", "01-10-2026"),
+            new Variable("beneficiaries.count", Kind.NUMBER, "[Beneficiarios pendiente]", "3"),
+            new Variable("plan.monthlyFee", Kind.MONEY, "[Cuota mensual del plan pendiente]", moneySample("25,00")),
+            new Variable("plan.inscriptionFee", Kind.MONEY, "[Cuota de inscripción del plan pendiente]",
+                    moneySample("10,00")),
+            new Variable("plan.extraBeneficiaryInscriptionFee", Kind.MONEY,
+                    "[Inscripción por beneficiario adicional pendiente]", moneySample("5,00")),
+            new Variable("plan.includedBeneficiaries", Kind.NUMBER, "[Beneficiarios incluidos en el plan pendiente]",
+                    "3"),
+            new Variable("plan.maxBeneficiaries", Kind.NUMBER, "[Máximo de beneficiarios del plan pendiente]", "5")
     );
 
     static final List<Variable> ADVISOR = List.of(
@@ -73,7 +99,7 @@ public final class TermsVariables {
             new Variable("advisor.document", "[Cédula del asesor pendiente]", "V-15678901"),
             new Variable("advisor.zone", "[Zona asignada pendiente]", "Acarigua centro"),
             new Variable("advisor.rank", "[Rango pendiente]", "Asesor"),
-            new Variable("advisor.joinedAt", "[Fecha de ingreso pendiente]", "01-09-2026")
+            new Variable("advisor.joinedAt", Kind.DATE, "[Fecha de ingreso pendiente]", "01-09-2026")
     );
 
     static final List<Variable> ALLY = List.of(
@@ -82,9 +108,9 @@ public final class TermsVariables {
             new Variable("ally.representativeName", "[Representante pendiente]", "Ana López"),
             new Variable("ally.representativeDocument", "[Documento del representante pendiente]", "V-9876543"),
             new Variable("ally.fileNumber", "[Nº de expediente pendiente]", "ASE001-0007"),
-            new Variable("agreement.startDate", "[Fecha de inicio del convenio pendiente]", "01-10-2026"),
-            new Variable("agreement.noticeDays", "[Días de preaviso pendiente]", "30"),
-            new Variable("agreement.autoRenew", "[Renovación automática pendiente]", "Sí"),
+            new Variable("agreement.startDate", Kind.DATE, "[Fecha de inicio del convenio pendiente]", "01-10-2026"),
+            new Variable("agreement.noticeDays", Kind.NUMBER, "[Días de preaviso pendiente]", "30"),
+            new Variable("agreement.autoRenew", Kind.BOOLEAN, "[Renovación automática pendiente]", "Sí"),
             new Variable("agreement.addendum", "[Condiciones particulares pendiente]",
                     "Descuento adicional del 5 % en consultas los sábados.")
     );

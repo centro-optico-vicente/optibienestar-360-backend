@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.terms;
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
 import com.fenixcore.optibienestar360.modules.terms.dto.TermsAcceptRequest;
+import com.fenixcore.optibienestar360.modules.terms.dto.TermsAcceptanceHistoryDto;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +24,9 @@ import java.util.List;
  * user (the endpoints are scoped by JWT subject, same posture as
  * {@code MyAlliesController}). The frontend calls {@code /pending} once per
  * session/hydration and blocks the app behind {@code TermsAcceptanceModal}
- * until {@code /accept} clears it.
+ * until {@code /accept} clears it. {@code /acceptances} is the user's own
+ * history ("Mis contratos"): every contract accepted, with the text as
+ * accepted.
  */
 @RestController
 @RequestMapping("/v1/me/terms")
@@ -41,7 +44,12 @@ public class MyTermsController {
     public ResponseEntity<Void> accept(@AuthenticationPrincipal CustomUserDetails actor,
                                        @Valid @RequestBody TermsAcceptRequest request,
                                        HttpServletRequest httpRequest) {
-        service.accept(actor.getUuid(), request.termsVersionUuids(), ClientRequestMetadata.from(httpRequest));
+        service.accept(actor.getUuid(), request.allItems(), ClientRequestMetadata.from(httpRequest));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/acceptances")
+    public ResponseEntity<List<TermsAcceptanceHistoryDto>> acceptances(@AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(service.historyForUser(actor.getUuid()));
     }
 }

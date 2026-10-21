@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
@@ -11,6 +12,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
@@ -21,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.ResourceBundleMessageSource;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -32,8 +35,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * Per-type variable values built by {@link TermsVariableResolver} for the
- * concrete user, and how they render (formatted dd-MM-yyyy / Sí-No, missing
- * values as pending notes).
+ * concrete user, and how they render (formatted dd-MM-yyyy / Sí-No, es-VE
+ * numbers, amounts in their own currency with the BCV clause, missing values
+ * as pending notes).
  */
 @ExtendWith(MockitoExtension.class)
 class TermsVariableResolverTest {
@@ -41,8 +45,10 @@ class TermsVariableResolverTest {
     @Mock private MemberRepository memberRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
+    @Mock private OrganizationRepository organizationRepository;
 
     private TermsVariableResolver resolver;
+    private DisplayFormatter formatter;
 
     @BeforeEach
     void setup() {
@@ -50,8 +56,9 @@ class TermsVariableResolverTest {
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setFallbackToSystemLocale(false);
+        formatter = new DisplayFormatter(messageSource);
         resolver = new TermsVariableResolver(memberRepository, membershipRepository, beneficiaryRepository,
-                new DisplayFormatter(messageSource));
+                formatter, organizationRepository);
     }
 
     // ─── MEMBER ─────────────────────────────────────────────────────────────
@@ -108,6 +115,85 @@ class TermsVariableResolverTest {
 
         assertThat(render("{{membership.activatedAt}} / {{beneficiaries.count}}", values))
                 .isEqualTo("[Fecha de activación pendiente] / 0");
+    }
+
+    // ─── MEMBER: plan amounts and numbers ───────────────────────────────────
+
+    @Test
+    void member_planAmountInUsd_isWrittenInUsdWithTheBcvClauseAndNoConvertedFigure() {
+        officialCurrencyIs(currency("VES", "Bolívar venezolano"));
+        Plan plan = plan(currency("USD", "Dólar estadounidense"));
+        plan.setMonthlyFee(new BigDecimal("25.00"));
+        plan.setInscriptionFee(new BigDecimal("10.00"));
+        plan.setExtraBeneficiaryInscriptionFee(new BigDecimal("5.00"));
+        plan.setIncludedBeneficiaries(3);
+        plan.setMaxBeneficiaries(12000);
+
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan));
+
+        String clause = " o su equivalente en bolívares a la tasa oficial del BCV vigente el día del pago";
+        assertThat(values.get("plan.monthlyFee"))
+                .isEqualTo(formatter.money(new BigDecimal("25.00"), "USD", TermsVariableResolver.CONTRACT_LOCALE) + clause)
+                .contains("25,00");
+        assertThat(values.get("plan.inscriptionFee")).contains("10,00").endsWith(clause);
+        assertThat(values.get("plan.extraBeneficiaryInscriptionFee")).contains("5,00").endsWith(clause);
+        assertThat(values).containsEntry("plan.includedBeneficiaries", "3")
+                .containsEntry("plan.maxBeneficiaries", "12.000");
+    }
+
+    @Test
+    void member_planAmountInTheOfficialCurrency_hasNoClause() {
+        Currency ves = currency("VES", "Bolívar venezolano");
+        officialCurrencyIs(ves);
+        Plan plan = plan(ves);
+        plan.setMonthlyFee(new BigDecimal("900.00"));
+        plan.setInscriptionFee(new BigDecimal("15000.50"));
+
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan));
+
+        assertThat(values.get("plan.monthlyFee"))
+                .isEqualTo(formatter.money(new BigDecimal("900.00"), "VES", TermsVariableResolver.CONTRACT_LOCALE))
+                .doesNotContain("equivalente");
+        assertThat(values.get("plan.inscriptionFee")).contains("15.000,50");
+        assertThat(values).doesNotContainKey("plan.extraBeneficiaryInscriptionFee")
+                .containsEntry("plan.maxBeneficiaries", "sin límite");
+    }
+
+    @Test
+    void member_officialCurrencyOtherThanTheBolivar_namesItInTheClause() {
+        officialCurrencyIs(currency("EUR", "Euro"));
+        Plan plan = plan(currency("USD", "Dólar estadounidense"));
+        plan.setMonthlyFee(new BigDecimal("25.00"));
+        plan.setInscriptionFee(new BigDecimal("0.00"));
+
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan));
+
+        assertThat(values.get("plan.monthlyFee"))
+                .endsWith(" o su equivalente en Euro a la tasa oficial vigente el día del pago");
+    }
+
+    @Test
+    void member_withoutPlan_rendersThePlanAmountsAsPending() {
+        User user = user(person("María Pérez", "V", "12345678", null));
+        when(memberRepository.findByUserUuid(user.getUuid())).thenReturn(Optional.empty());
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(render("{{plan.monthlyFee}} · {{plan.maxBeneficiaries}}", values))
+                .isEqualTo("[Cuota mensual del plan pendiente] · [Máximo de beneficiarios del plan pendiente]");
+    }
+
+    @Test
+    void member_beneficiaryCountUsesLocaleSeparators() {
+        User user = user(person("María Pérez", "V", "12345678", null));
+        Member member = new Member();
+        member.setId(5L);
+        member.setPerson(user.getPerson());
+        when(memberRepository.findByUserUuid(user.getUuid())).thenReturn(Optional.of(member));
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(5L)).thenReturn(Optional.empty());
+        when(beneficiaryRepository.countByMemberIdAndActiveTrue(5L)).thenReturn(15000L);
+
+        assertThat(resolver.forMember(user)).containsEntry("beneficiaries.count", "15.000");
     }
 
     // ─── ADVISOR ────────────────────────────────────────────────────────────
@@ -199,6 +285,40 @@ class TermsVariableResolverTest {
     }
 
     // ─── Fixtures ───────────────────────────────────────────────────────────
+
+    private void officialCurrencyIs(Currency official) {
+        Organization organization = new Organization();
+        organization.setOfficialCurrency(official);
+        when(organizationRepository.findSingleton()).thenReturn(organization);
+    }
+
+    private static Currency currency(String code, String name) {
+        Currency currency = new Currency();
+        currency.setCode(code);
+        currency.setName(name);
+        return currency;
+    }
+
+    private static Plan plan(Currency currency) {
+        Plan plan = new Plan();
+        plan.setName("Plan Familiar");
+        plan.setCurrency(currency);
+        return plan;
+    }
+
+    /** A user whose member record has an active membership on {@code plan}. */
+    private User memberWithPlan(Plan plan) {
+        User user = user(person("María Pérez", "V", "12345678", null));
+        Member member = new Member();
+        member.setId(5L);
+        member.setPerson(user.getPerson());
+        Membership membership = new Membership();
+        membership.setPlan(plan);
+        when(memberRepository.findByUserUuid(user.getUuid())).thenReturn(Optional.of(member));
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(5L)).thenReturn(Optional.of(membership));
+        when(beneficiaryRepository.countByMemberIdAndActiveTrue(5L)).thenReturn(0L);
+        return user;
+    }
 
     private static String render(String template, Map<String, String> values) {
         return TermsTemplateRenderer.render(template, new Organization(), values);

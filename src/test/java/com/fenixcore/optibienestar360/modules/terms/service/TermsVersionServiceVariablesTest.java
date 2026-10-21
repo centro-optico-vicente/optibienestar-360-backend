@@ -88,6 +88,34 @@ class TermsVersionServiceVariablesTest {
     }
 
     @Test
+    void listVariables_member_includesThePlanAmountsWithKindAndDescription() {
+        LocaleContextHolder.setLocale(Locale.forLanguageTag("es"));
+
+        List<TermsVariableDto> variables = service.listVariables(TermType.MEMBER);
+
+        assertThat(variables).filteredOn(v -> v.key().equals("plan.monthlyFee")).singleElement()
+                .satisfies(v -> {
+                    assertThat(v.kind()).isEqualTo(TermsVariables.Kind.MONEY);
+                    assertThat(v.description()).startsWith("Cuota mensual del plan");
+                });
+        assertThat(variables).filteredOn(v -> v.key().equals("plan.maxBeneficiaries"))
+                .extracting(TermsVariableDto::kind).containsExactly(TermsVariables.Kind.NUMBER);
+        assertThat(variables).allSatisfy(v -> assertThat(v.description()).isNotEqualTo(v.key()));
+    }
+
+    @Test
+    void create_withAMadeUpPlanVariable_is422() {
+        TermsVersionCreateRequest req = createRequest(TermType.MEMBER, "{{plan.monthlyFee}} {{plan.discount}}");
+
+        assertThatThrownBy(() -> service.create(req))
+                .isInstanceOf(UnprocessableDetailsException.class)
+                .hasMessage("terms_version.unknown_variables")
+                .satisfies(ex -> assertThat(((UnprocessableDetailsException) ex).getProperties())
+                        .containsEntry("invalidVariables", List.of("plan.discount")));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void create_withVariablesOfAnotherTypeOrUnknownOnes_is422ListingThem() {
         TermsVersionCreateRequest req = createRequest(TermType.MEMBER,
                 "{{member.fullName}} {{advisor.code}} {{foo.bar}} {{advisor.code}}");
