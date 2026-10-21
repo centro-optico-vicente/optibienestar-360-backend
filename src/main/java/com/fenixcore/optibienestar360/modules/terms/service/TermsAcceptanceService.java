@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
@@ -11,6 +12,9 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto;
+import com.fenixcore.optibienestar360.modules.terms.dto.PendingTermDto.PreviousAcceptance;
+import com.fenixcore.optibienestar360.modules.terms.dto.TermsAcceptRequest;
+import com.fenixcore.optibienestar360.modules.terms.dto.TermsAcceptanceHistoryDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance.Channel;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
@@ -21,16 +25,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Self-service acceptance flow — resolves which contracts the caller must
@@ -46,11 +58,15 @@ import java.util.stream.Collectors;
  *   <li><b>ALLY</b> (ally agreement): for every ally the user operates on
  *   ({@code ally_users}), the template linked to that ally's active
  *   agreements ({@code is_active} and status {@code ACTIVE}); an agreement
- *   without a linked version asks for nothing.</li>
+ *   without a linked version asks for nothing. Accepted <b>once per
+ *   agreement</b> (V189): one template shared by two of the user's allies is
+ *   two pending items, each rendered with its own agreement's data. Allies
+ *   come primary first, then by name (same order as {@code MyAlliesService}).</li>
  * </ul>
  * {@code is_public} plays no part here — it only controls the public web
  * endpoint. Each pending text is rendered with the variables of the entity
- * that made it due ({@link TermsVariableResolver}).
+ * that made it due ({@link TermsVariableResolver}), and that exact text is
+ * stored with its SHA-256 when accepted.
  */
 @Service
 @RequiredArgsConstructor
@@ -72,35 +88,153 @@ public class TermsAcceptanceService {
     /**
      * The versions the caller must accept (see the class javadoc for each
      * kind's audience) that they have not accepted yet, MEMBER first, then
-     * ADVISOR, then ALLY. Empty list = nothing pending.
+     * ADVISOR, then ALLY (one per agreement). Empty list = nothing pending.
      */
     public List<PendingTermDto> pendingForUser(UUID userUuid) {
-        User user = userRepository.findByUuid(userUuid)
-                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        User user = requireUser(userUuid);
+        VersionNumbers numbers = new VersionNumbers();
+        return pendingDues(user).stream().map(due -> toPendingDto(user, due, numbers)).toList();
+    }
 
-        Instant now = Instant.now();
-        // Keyed by version id: one ALLY template shared by two of the user's allies is accepted once
-        // (rendered with the first agreement's data).
-        Map<Long, Due> required = new LinkedHashMap<>();
-        currentOf(TermType.MEMBER, now)
-                .ifPresent(v -> required.put(v.getId(), new Due(v, () -> variableResolver.forMember(user))));
-        activeAdvisor(userUuid).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
-                .ifPresent(v -> required.put(v.getId(), new Due(v, () -> variableResolver.forAdvisor(advisor)))));
-        for (AllyAgreement agreement : allyAgreementsWithVigentTemplate(userUuid, now)) {
-            TermsVersion v = agreement.getTermsVersion();
-            required.putIfAbsent(v.getId(), new Due(v, () -> variableResolver.forAlly(agreement)));
-        }
-
-        return required.values().stream()
-                .filter(due -> !termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), due.version().getId()))
-                .map(due -> new PendingTermDto(due.version().getUuid(), due.version().getTermType(),
-                        due.version().getTitle(),
-                        renderer.render(due.version().getContentMarkdown(), due.values().get())))
+    /**
+     * {@code GET /v1/me/terms/acceptances} — every contract the caller
+     * accepted, newest first, with the text as accepted (legacy rows without
+     * a stored text are re-rendered with current data and flagged).
+     */
+    public List<TermsAcceptanceHistoryDto> historyForUser(UUID userUuid) {
+        User user = requireUser(userUuid);
+        VersionNumbers numbers = new VersionNumbers();
+        return termsAcceptanceRepository.findByUserIdOrderByAcceptedAtDescIdDesc(user.getId()).stream()
+                .map(acceptance -> {
+                    TermsVersion version = acceptance.getTermsVersion();
+                    AllyAgreement agreement = acceptance.getAllyAgreement();
+                    Ally ally = agreement == null ? null : agreement.getAlly();
+                    boolean reconstructed = acceptance.getRenderedContent() == null;
+                    return new TermsAcceptanceHistoryDto(
+                            acceptance.getUuid(),
+                            version.getTermType(),
+                            version.getUuid(),
+                            numbers.of(version),
+                            version.getTitle(),
+                            ally == null ? null : ally.getUuid(),
+                            ally == null ? null : ally.getName(),
+                            agreement == null ? null : agreement.getUuid(),
+                            acceptance.getAcceptedAt(),
+                            acceptance.getChannel(),
+                            acceptedText(user, acceptance),
+                            reconstructed);
+                })
                 .toList();
     }
 
-    /** A version the user must accept, plus the (lazily built) variables it is rendered with. */
-    private record Due(TermsVersion version, Supplier<Map<String, String>> values) {
+    /**
+     * A contract the user must accept: the version, the agreement that made
+     * it due (ALLY only) and the (lazily built, memoized) rendered text.
+     */
+    private final class Due {
+        private final TermsVersion version;
+        private final AllyAgreement agreement;
+        private final Supplier<Map<String, String>> values;
+        private String rendered;
+
+        private Due(TermsVersion version, AllyAgreement agreement, Supplier<Map<String, String>> values) {
+            this.version = version;
+            this.agreement = agreement;
+            this.values = values;
+        }
+
+        String rendered() {
+            if (rendered == null) {
+                rendered = renderer.render(version.getContentMarkdown(), values.get());
+            }
+            return rendered;
+        }
+
+        boolean matches(UUID versionUuid, UUID agreementUuid) {
+            return version.getUuid().equals(versionUuid)
+                    && Objects.equals(agreement == null ? null : agreement.getUuid(), agreementUuid);
+        }
+    }
+
+    /** Every contract due for {@code user}, in display order, minus the ones already accepted. */
+    private List<Due> pendingDues(User user) {
+        Instant now = Instant.now();
+        List<Due> required = new ArrayList<>();
+        currentOf(TermType.MEMBER, now)
+                .ifPresent(v -> required.add(new Due(v, null, () -> variableResolver.forMember(user))));
+        activeAdvisor(user.getUuid()).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
+                .ifPresent(v -> required.add(new Due(v, null, () -> variableResolver.forAdvisor(advisor)))));
+        for (AllyAgreement agreement : allyAgreementsWithVigentTemplate(user.getUuid(), now)) {
+            required.add(new Due(agreement.getTermsVersion(), agreement, () -> variableResolver.forAlly(agreement)));
+        }
+        return required.stream().filter(due -> !isAccepted(user, due)).toList();
+    }
+
+    private boolean isAccepted(User user, Due due) {
+        Long versionId = due.version.getId();
+        return due.agreement == null
+                ? termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(), versionId)
+                : termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementId(user.getId(), versionId,
+                        due.agreement.getId());
+    }
+
+    private PendingTermDto toPendingDto(User user, Due due, VersionNumbers numbers) {
+        TermsVersion v = due.version;
+        Ally ally = due.agreement == null ? null : due.agreement.getAlly();
+        PreviousAcceptance previous = previousAcceptance(user, due)
+                .map(a -> new PreviousAcceptance(a.getTermsVersion().getUuid(), numbers.of(a.getTermsVersion()),
+                        a.getAcceptedAt(), acceptedText(user, a)))
+                .orElse(null);
+        return new PendingTermDto(v.getUuid(), v.getTermType(), v.getTitle(), due.rendered(), numbers.of(v),
+                ally == null ? null : ally.getUuid(),
+                ally == null ? null : ally.getName(),
+                due.agreement == null ? null : due.agreement.getUuid(),
+                previous);
+    }
+
+    /**
+     * The acceptance a pending item replaces: for ALLY, the latest one of the
+     * same agreement, else of the same ally (the agreement was renewed), else
+     * an unlinked legacy acceptance of the same version (pre-V189, shared
+     * template); for MEMBER / ADVISOR, the latest one of the same type.
+     */
+    private Optional<TermsAcceptance> previousAcceptance(User user, Due due) {
+        if (due.agreement == null) {
+            return termsAcceptanceRepository
+                    .findFirstByUserIdAndTermsVersionTermTypeAndAllyAgreementIsNullOrderByAcceptedAtDescIdDesc(
+                            user.getId(), due.version.getTermType());
+        }
+        Optional<TermsAcceptance> sameAgreement = termsAcceptanceRepository
+                .findFirstByUserIdAndAllyAgreementIdOrderByAcceptedAtDescIdDesc(user.getId(), due.agreement.getId());
+        if (sameAgreement.isPresent()) return sameAgreement;
+        Ally ally = due.agreement.getAlly();
+        if (ally != null && ally.getId() != null) {
+            Optional<TermsAcceptance> sameAlly = termsAcceptanceRepository
+                    .findFirstByUserIdAndAllyAgreementAllyIdOrderByAcceptedAtDescIdDesc(user.getId(), ally.getId());
+            if (sameAlly.isPresent()) return sameAlly;
+        }
+        return termsAcceptanceRepository
+                .findFirstByUserIdAndTermsVersionIdAndAllyAgreementIsNullOrderByAcceptedAtDescIdDesc(
+                        user.getId(), due.version.getId());
+    }
+
+    /**
+     * The text of {@code acceptance}: the stored one, or — for rows recorded
+     * before V189 — its version's template rendered with the current data of
+     * the entity it belongs to (best effort, flagged as reconstructed).
+     */
+    private String acceptedText(User user, TermsAcceptance acceptance) {
+        if (acceptance.getRenderedContent() != null) {
+            return acceptance.getRenderedContent();
+        }
+        TermsVersion version = acceptance.getTermsVersion();
+        Map<String, String> values = switch (version.getTermType()) {
+            case MEMBER -> variableResolver.forMember(user);
+            case ADVISOR -> activeAdvisor(user.getUuid()).map(variableResolver::forAdvisor).orElse(Map.of());
+            case ALLY -> acceptance.getAllyAgreement() == null
+                    ? Map.of() : variableResolver.forAlly(acceptance.getAllyAgreement());
+        };
+        return renderer.render(version.getContentMarkdown(), values);
     }
 
     private Optional<TermsVersion> currentOf(TermType type, Instant now) {
@@ -116,51 +250,85 @@ public class TermsAcceptanceService {
 
     /**
      * Active agreements of the allies the user operates on that link an
-     * already-vigente template. A linked version not yet vigente is skipped
+     * already-vigente template — primary ally first, then by ally name, then
+     * by agreement start date. A linked version not yet vigente is skipped
      * until it is.
      */
     private List<AllyAgreement> allyAgreementsWithVigentTemplate(UUID userUuid, Instant now) {
-        List<Long> allyIds = allyUserRepository.findActiveByUserUuid(userUuid).stream()
+        Map<Long, Integer> allyOrder = new LinkedHashMap<>();
+        allyUserRepository.findActiveByUserUuid(userUuid).stream()
+                .sorted(Comparator.comparing(AllyUser::isPrimary).reversed()
+                        .thenComparing(au -> nameOf(au.getAlly()), String.CASE_INSENSITIVE_ORDER))
                 .map(AllyUser::getAlly)
-                .map(ally -> ally.getId())
-                .distinct()
-                .toList();
-        if (allyIds.isEmpty()) return List.of();
-        return allyAgreementRepository.findInForceWithTermsVersionByAllyIds(allyIds, ACTIVE_AGREEMENT_STATUS).stream()
+                .map(Ally::getId)
+                .forEach(id -> allyOrder.putIfAbsent(id, allyOrder.size()));
+        if (allyOrder.isEmpty()) return List.of();
+        return allyAgreementRepository.findInForceWithTermsVersionByAllyIds(List.copyOf(allyOrder.keySet()),
+                        ACTIVE_AGREEMENT_STATUS).stream()
                 .filter(a -> a.getTermsVersion() != null)
                 .filter(a -> !a.getTermsVersion().getValidFrom().isAfter(now))
+                .sorted(Comparator.<AllyAgreement>comparingInt(a -> allyOrder.getOrDefault(a.getAlly().getId(),
+                                Integer.MAX_VALUE))
+                        .thenComparing(AllyAgreement::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(AllyAgreement::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
 
+    private static String nameOf(Ally ally) {
+        return ally == null || ally.getName() == null ? "" : ally.getName();
+    }
+
     /**
-     * Accepts every {@code termsVersionUuid} in the request for the caller —
-     * transactional and idempotent (the UNIQUE constraint on
-     * {@code terms_acceptances} absorbs a duplicate submit). Each UUID is
-     * re-validated as an actually-pending version for this user, so a caller
-     * can't blindly accept an arbitrary/superseded version by guessing a UUID.
-     * Recorded with channel {@code PORTAL} plus the caller's IP/User-Agent as
-     * evidence.
+     * Accepts the given pending items for the caller — transactional and
+     * idempotent (an item already accepted is skipped, and the partial unique
+     * indexes of V189 absorb a racing duplicate submit). Each item is
+     * re-validated as actually pending for this user, so a caller can't
+     * blindly accept an arbitrary/superseded version by guessing a UUID:
+     * 422 {@code terms_acceptance.not_pending}. An item without
+     * {@code allyAgreementUuid} (legacy {@code termsVersionUuids}) is
+     * accepted only when it matches exactly one pending item; an ALIADO
+     * version pending for several agreements is 422
+     * {@code terms_acceptance.agreement_required}.
+     * Recorded with channel {@code PORTAL}, the caller's IP/User-Agent as
+     * evidence and the exact text shown (plus its SHA-256).
      */
     @Transactional
-    public void accept(UUID userUuid, List<UUID> termsVersionUuids, ClientRequestMetadata client) {
-        User user = userRepository.findByUuid(userUuid)
-                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
-
-        Set<UUID> pendingUuids = pendingForUser(userUuid).stream()
-                .map(PendingTermDto::termsVersionUuid)
-                .collect(Collectors.toSet());
-
-        for (UUID versionUuid : termsVersionUuids) {
-            if (!pendingUuids.contains(versionUuid)) {
-                throw new IllegalArgumentException("terms_acceptance.not_pending");
-            }
-            TermsVersion version = termsVersionRepository.findByUuid(versionUuid)
-                    .orElseThrow(() -> new NoSuchElementException("terms_version.not_found"));
-            if (termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), version.getId())) {
-                continue;
-            }
-            save(user, version, Channel.PORTAL, client, null);
+    public void accept(UUID userUuid, List<TermsAcceptRequest.Item> items, ClientRequestMetadata client) {
+        User user = requireUser(userUuid);
+        List<Due> pending = pendingDues(user);
+        Set<Due> toSave = new LinkedHashSet<>();
+        for (TermsAcceptRequest.Item item : items) {
+            toSave.add(resolvePending(pending, item));
         }
+        for (Due due : toSave) {
+            save(user, due.version, due.agreement, due.rendered(), Channel.PORTAL, client, null, null);
+        }
+    }
+
+    /** Legacy entry point: bare version UUIDs (see {@link #accept(UUID, List, ClientRequestMetadata)}). */
+    @Transactional
+    public void acceptVersions(UUID userUuid, List<UUID> termsVersionUuids, ClientRequestMetadata client) {
+        accept(userUuid, termsVersionUuids.stream().map(uuid -> new TermsAcceptRequest.Item(uuid, null)).toList(),
+                client);
+    }
+
+    private static Due resolvePending(List<Due> pending, TermsAcceptRequest.Item item) {
+        if (item.allyAgreementUuid() != null) {
+            return pending.stream()
+                    .filter(due -> due.matches(item.termsVersionUuid(), item.allyAgreementUuid()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("terms_acceptance.not_pending"));
+        }
+        List<Due> sameVersion = pending.stream()
+                .filter(due -> due.version.getUuid().equals(item.termsVersionUuid()))
+                .toList();
+        if (sameVersion.isEmpty()) {
+            throw new IllegalArgumentException("terms_acceptance.not_pending");
+        }
+        if (sameVersion.size() > 1) {
+            throw new IllegalArgumentException("terms_acceptance.agreement_required");
+        }
+        return sameVersion.getFirst();
     }
 
     /**
@@ -168,27 +336,93 @@ public class TermsAcceptanceService {
      * the AFILIADO user and its membership are created (same transaction).
      * The caller has already validated {@code version} as the current public
      * AFILIADO version ({@code TermsVersionService.requireCurrentPublic}).
+     * The stored text is rendered here with the new member's data; use the
+     * {@linkplain #recordSelfServiceAcceptance(User, TermsVersion, Membership, ClientRequestMetadata, Instant, String)
+     * full overload} when the caller already holds the exact text the person saw.
      */
     @Transactional
     public void recordSelfServiceAcceptance(User user, TermsVersion version, Membership membership,
                                             ClientRequestMetadata client) {
-        if (termsAcceptanceRepository.existsByUserIdAndTermsVersionId(user.getId(), version.getId())) {
-            return;
-        }
-        save(user, version, Channel.SELF_SERVICE, client, membership);
+        recordSelfServiceAcceptance(user, version, membership, client, null, null);
     }
 
-    private void save(User user, TermsVersion version, Channel channel, ClientRequestMetadata client,
-                      Membership membership) {
+    /**
+     * {@link #recordSelfServiceAcceptance(User, TermsVersion, Membership, ClientRequestMetadata)}
+     * for an acceptance given before it is recorded (e.g. on a form reviewed
+     * later): {@code acceptedAt} is when the person accepted ({@code null} =
+     * now) and {@code renderedContent} the exact text they saw ({@code null} =
+     * render it with the member's current data).
+     */
+    @Transactional
+    public void recordSelfServiceAcceptance(User user, TermsVersion version, Membership membership,
+                                            ClientRequestMetadata client, Instant acceptedAt,
+                                            String renderedContent) {
+        if (termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(),
+                version.getId())) {
+            return;
+        }
+        String content = renderedContent != null
+                ? renderedContent
+                : renderer.render(version.getContentMarkdown(), variableResolver.forMember(user));
+        save(user, version, null, content, Channel.SELF_SERVICE, client, membership, acceptedAt);
+    }
+
+    private void save(User user, TermsVersion version, AllyAgreement agreement, String renderedContent,
+                      Channel channel, ClientRequestMetadata client, Membership membership, Instant acceptedAt) {
         ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
         TermsAcceptance acceptance = new TermsAcceptance();
         acceptance.setUser(user);
         acceptance.setTermsVersion(version);
-        acceptance.setAcceptedAt(Instant.now());
+        acceptance.setAllyAgreement(agreement);
+        acceptance.setAcceptedAt(acceptedAt != null ? acceptedAt : Instant.now());
         acceptance.setChannel(channel);
         acceptance.setIpAddress(evidence.ipAddress());
         acceptance.setUserAgent(evidence.userAgent());
         acceptance.setMembership(membership);
+        acceptance.setRenderedContent(renderedContent);
+        acceptance.setContentSha256(sha256(renderedContent));
         termsAcceptanceRepository.save(acceptance);
+    }
+
+    /** Hex SHA-256 of {@code content} (UTF-8); {@code null} for {@code null}. */
+    static String sha256(String content) {
+        if (content == null) return null;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 not available", impossible);
+        }
+    }
+
+    private User requireUser(UUID userUuid) {
+        return userRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+    }
+
+    /**
+     * 1-based position of a version in its stream (same type and ALIADO
+     * scope), by {@code validFrom} then id — the "version N" shown to the
+     * user. Loads each type's versions once per call.
+     */
+    private final class VersionNumbers {
+        private final Map<TermType, List<TermsVersion>> byType = new EnumMap<>(TermType.class);
+
+        int of(TermsVersion version) {
+            List<TermsVersion> all = byType.computeIfAbsent(version.getTermType(),
+                    termsVersionRepository::findByTermTypeOrderByValidFromDesc);
+            long earlierOrSame = all.stream()
+                    .filter(other -> other.sameStreamAs(version))
+                    .filter(other -> isEarlierOrSame(other, version))
+                    .count();
+            return (int) Math.max(1, earlierOrSame);
+        }
+
+        private boolean isEarlierOrSame(TermsVersion other, TermsVersion version) {
+            int byDate = other.getValidFrom().compareTo(version.getValidFrom());
+            if (byDate != 0) return byDate < 0;
+            if (other.getId() == null || version.getId() == null) return true;
+            return other.getId() <= version.getId();
+        }
     }
 }

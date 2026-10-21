@@ -69,7 +69,8 @@ public class TermsVersionService {
         Locale locale = LocaleContextHolder.getLocale();
         return TermsVariables.forType(termType).stream()
                 .map(v -> new TermsVariableDto(v.key(),
-                        messageSource.getMessage(TermsVariables.descriptionCode(v.key()), null, v.key(), locale)))
+                        messageSource.getMessage(TermsVariables.descriptionCode(v.key()), null, v.key(), locale),
+                        v.kind()))
                 .toList();
     }
 
