@@ -36,6 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -76,6 +77,9 @@ public class AuthService {
 
     @Value("${jwt.refresh-expiration-days:30}")
     private int refreshExpirationDays;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     // ─── Login ────────────────────────────────────────────────────────────────
 
@@ -358,10 +362,31 @@ public class AuthService {
                     subject,
                     "password-recovery",
                     recipientLocale,
-                    Map.of("fullName", user.getPerson().getFullName(), "token", rawToken)
+                    Map.of(
+                            "fullName", user.getPerson().getFullName(),
+                            "token", rawToken,
+                            "resetUrl", buildResetUrl(rawToken, recipientLocale)
+                    )
             );
         });
         // Always return void (don't reveal if email exists)
+    }
+
+    /**
+     * Frontend reset page with the raw token as query param. The page path
+     * follows the recipient's language: the Spanish route is the default,
+     * English lives under the i18n prefix ({@code /en/reset-password}).
+     * The token is Base64-URL (no padding) so encoding is a no-op today; it is
+     * encoded anyway so the URL stays valid if the token format changes.
+     */
+    String buildResetUrl(String rawToken, Locale recipientLocale) {
+        String base = frontendUrl.endsWith("/")
+                ? frontendUrl.substring(0, frontendUrl.length() - 1)
+                : frontendUrl;
+        String path = "en".equals(recipientLocale.getLanguage())
+                ? "/en/reset-password"
+                : "/restablecer-clave";
+        return base + path + "?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
     }
 
     private Locale resolveRecipientLocale(String userLocaleTag) {
