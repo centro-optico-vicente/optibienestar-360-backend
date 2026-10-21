@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.ResourceBundleMessageSource;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,7 +58,7 @@ class MemberContractServiceTest {
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setFallbackToSystemLocale(false);
         TermsVariableResolver resolver = new TermsVariableResolver(memberRepository, membershipRepository,
-                beneficiaryRepository, new DisplayFormatter(messageSource));
+                beneficiaryRepository, new DisplayFormatter(messageSource), organizationRepository);
         service = new MemberContractService(termsVersionService, new TermsTemplateRenderer(organizationRepository),
                 resolver, planRepository);
 
@@ -83,6 +85,29 @@ class MemberContractServiceTest {
         assertThat(dto.uuid()).isEqualTo(version.getUuid());
         assertThat(dto.contentMarkdown())
                 .isEqualTo("María Pérez | V-12345678 | 15-03-1985 | Plan Individual | [Fecha de activación pendiente]");
+    }
+
+    @Test
+    void preview_fillsThePlanFeesInTheirOwnCurrency() {
+        Currency usd = new Currency();
+        usd.setCode("USD");
+        Plan plan = new Plan();
+        plan.setUuid(UUID.randomUUID());
+        plan.setName("Plan Familiar");
+        plan.setActive(true);
+        plan.setPublished(true);
+        plan.setCurrency(usd);
+        plan.setMonthlyFee(new BigDecimal("5.00"));
+        version.setContentMarkdown("{{plan.monthlyFee}}");
+        when(termsVersionService.getCurrentPublic(TermType.MEMBER)).thenReturn(version);
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+
+        PublicTermsDto dto = service.preview(TermType.MEMBER, new MemberTermsPreviewRequest(
+                "Ana", "Ruiz", "V", "1234567", null, plan.getUuid()));
+
+        assertThat(dto.contentMarkdown())
+                .contains("5,00")
+                .endsWith("o su equivalente en bolívares a la tasa oficial del BCV vigente el día del pago");
     }
 
     @Test
