@@ -2,7 +2,9 @@ package com.fenixcore.optibienestar360.modules.terms;
 
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
+import com.fenixcore.optibienestar360.modules.terms.service.MemberContractService;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
+import org.springframework.http.MediaType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,11 +19,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -44,6 +49,9 @@ class PublicTermsControllerIT {
 
     @MockitoBean
     private TermsVersionService termsVersionService;
+
+    @MockitoBean
+    private MemberContractService memberContractService;
 
     private MockMvc mockMvc;
 
@@ -79,5 +87,30 @@ class PublicTermsControllerIT {
     void retiredCode_isRejected() throws Exception {
         mockMvc.perform(get("/v1/public/terms/PROMOTOR")).andExpect(status().isBadRequest());
         verify(termsVersionService, never()).getCurrentPublicRendered(any());
+    }
+
+    // ─── POST /v1/public/terms/{type}/preview ───────────────────────────────
+
+    @Test
+    void preview_isAnonymous_andRendersWithTheFormData() throws Exception {
+        when(memberContractService.preview(eq(TermType.MEMBER), argThat(r -> "María".equals(r.firstName())
+                && "12345678".equals(r.documentNumber())))).thenReturn(new PublicTermsDto(
+                UUID.randomUUID(), TermType.MEMBER, "Acuerdo de Membresía", "Contrato de María Pérez, V-12345678",
+                Instant.parse("2026-10-01T00:00:00Z")));
+
+        mockMvc.perform(post("/v1/public/terms/AFILIADO/preview").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"firstName\":\"María\",\"lastName\":\"Pérez\",\"documentType\":\"V\",\"documentNumber\":\"12345678\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.termType").value("AFILIADO"))
+                .andExpect(jsonPath("$.contentMarkdown").value("Contrato de María Pérez, V-12345678"));
+    }
+
+    @Test
+    void preview_ofAnotherKind_is422() throws Exception {
+        when(memberContractService.preview(eq(TermType.ADVISOR), any()))
+                .thenThrow(new IllegalArgumentException("terms.preview.member_only"));
+
+        mockMvc.perform(post("/v1/public/terms/ASESOR/preview").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity());
     }
 }
