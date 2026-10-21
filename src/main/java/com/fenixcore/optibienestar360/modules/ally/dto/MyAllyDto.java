@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Output DTO for {@code GET /v1/allies/me} — "which allies do I operate
+ * Output DTO for {@code GET /v1/me/allies} — "which allies do I operate
  * on?". Flattens the {@link com.fenixcore.optibienestar360.modules.ally.entity.AllyUser
  * AllyUser} pivot row plus its parent {@link
  * com.fenixcore.optibienestar360.modules.ally.entity.Ally Ally} into the

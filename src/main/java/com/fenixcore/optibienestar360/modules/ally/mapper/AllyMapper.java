@@ -127,7 +127,7 @@ public interface AllyMapper {
     AllyUserDto toAllyUserDto(AllyUser allyUser);
 
     /**
-     * Self-service projection for {@code GET /v1/allies/me}. Flips the
+     * Self-service projection for {@code GET /v1/me/allies}. Flips the
      * perspective of {@link #toAllyUserDto}: the identity fields come from
      * the parent ally (the portal already knows who the caller is), while
      * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
@@ -145,7 +145,7 @@ public interface AllyMapper {
      * /v1/admin/users/{userUuid}/allies}. Same perspective flip as {@link
      * #toMyAllyDto} (identity from the ally, membership from the pivot) but
      * keeps {@code active} explicit since the admin caller isn't implicitly
-     * scoped to "only my active memberships" the way {@code /v1/allies/me}
+     * scoped to "only my active memberships" the way {@code /v1/me/allies}
      * is.
      */
     @Mapping(target = "ally", source = "ally")

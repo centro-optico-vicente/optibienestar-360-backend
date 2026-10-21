@@ -32,16 +32,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT of {@link MyAlliesController}: {@code GET /v1/allies/me} is the primary
- * path and {@code GET /v1/me/allies} the deprecated alias; both must serve
+ * IT of {@link MyAlliesController}: {@code GET /v1/me/allies} is the primary
+ * path and {@code GET /v1/allies/me} the secondary one; both must serve
  * the exact same response and the same {@code ALLY_VIEW_OWN} gate.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
 class MyAlliesControllerIT {
 
-    private static final String PRIMARY_PATH = "/v1/allies/me";
-    private static final String DEPRECATED_PATH = "/v1/me/allies";
+    private static final String PRIMARY_PATH = "/v1/me/allies";
+    private static final String SECONDARY_PATH = "/v1/allies/me";
 
     @Autowired
     private WebApplicationContext context;
@@ -75,24 +75,24 @@ class MyAlliesControllerIT {
                 .andExpect(jsonPath("$[0].name").value("Clínica Demo"))
                 .andReturn().getResponse().getContentAsString();
 
-        String deprecated = mockMvc.perform(get(DEPRECATED_PATH).with(principal("ALLY_VIEW_OWN")))
+        String secondary = mockMvc.perform(get(SECONDARY_PATH).with(principal("ALLY_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(deprecated).isEqualTo(primary);
+        assertThat(secondary).isEqualTo(primary);
     }
 
     @Test
     void bothPaths_anonymous_is401() throws Exception {
         mockMvc.perform(get(PRIMARY_PATH)).andExpect(status().isUnauthorized());
-        mockMvc.perform(get(DEPRECATED_PATH)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(SECONDARY_PATH)).andExpect(status().isUnauthorized());
     }
 
     @Test
     void bothPaths_withoutAllyViewOwn_is403() throws Exception {
         mockMvc.perform(get(PRIMARY_PATH).with(principal("MEMBER_VIEW_OWN")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get(DEPRECATED_PATH).with(principal("MEMBER_VIEW_OWN")))
+        mockMvc.perform(get(SECONDARY_PATH).with(principal("MEMBER_VIEW_OWN")))
                 .andExpect(status().isForbidden());
     }
 }

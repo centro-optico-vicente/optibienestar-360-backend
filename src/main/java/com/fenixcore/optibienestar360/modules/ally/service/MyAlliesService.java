@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Ally-side self-identification. Backs {@code GET /v1/allies/me}.
+ * Ally-side self-identification. Backs {@code GET /v1/me/allies}.
  *
  * <p>Split from {@link AllyUsersService} (admin-side management of the same
  * pivot) for the same reason {@link AllyServicesProposeService} is split from

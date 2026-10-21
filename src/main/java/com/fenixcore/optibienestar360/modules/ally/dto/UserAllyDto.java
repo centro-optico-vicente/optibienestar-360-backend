@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * com.fenixcore.optibienestar360.modules.ally.entity.Ally Ally}, membership
  * fields from the {@link com.fenixcore.optibienestar360.modules.ally.entity.AllyUser
  * AllyUser} pivot) but for the admin reverse-lookup instead of the
- * self-service {@code /v1/allies/me}.
+ * self-service {@code /v1/me/allies}.
  *
  * <p>{@code ally} serializes as {@code ally_Uuid} + {@code ally_Display};
  * membership scalars carry their {@code _Display} sibling (hub ADR 0014).</p>
