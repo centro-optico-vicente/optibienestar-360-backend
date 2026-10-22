@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT of the ally validator path ({@link AllyValidatorController}):
- * {@code GET /v1/allies/me/validations/{document}} gated on
+ * {@code GET /v1/me/allies/validations/{document}} gated on
  * {@code ALLY_VALIDATE_MEMBER}, plus the deprecated {@code /v1/ally/validate}
  * alias answering with the same security. {@link ValidatorService} is mocked.
  */
@@ -64,13 +64,13 @@ class AllyValidatorControllerIT {
 
     @Test
     void validate_anonymous_is401() throws Exception {
-        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678"))
+        mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void validate_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678").with(principal("MEMBER_VIEW_OWN")))
+        mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678").with(principal("MEMBER_VIEW_OWN")))
                 .andExpect(status().isForbidden());
     }
 
@@ -78,7 +78,7 @@ class AllyValidatorControllerIT {
     void validate_withPermission_is200() throws Exception {
         when(validatorService.validate(anyString())).thenReturn(notFound());
 
-        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
+        mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NOT_FOUND"));
     }
@@ -94,6 +94,21 @@ class AllyValidatorControllerIT {
         mockMvc.perform(get("/v1/ally/validate/{d}", "V-12345678").with(principal("MEMBER_VIEW_OWN")))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/v1/ally/validate/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NOT_FOUND"));
+    }
+
+    // ─── Secondary path /v1/allies/me/validations (kept, not deprecated) ─────
+
+    @Test
+    void secondaryAlliesMePath_answersLikePrimary_withSameSecurity() throws Exception {
+        when(validatorService.validate(anyString())).thenReturn(notFound());
+
+        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678").with(principal("MEMBER_VIEW_OWN")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NOT_FOUND"));
     }

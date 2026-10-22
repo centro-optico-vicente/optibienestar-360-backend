@@ -20,8 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
  * promoter from the JWT subject; 404 when the caller is not a promoter.
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/advisors/me/bonuses", "/v1/promoter/me/bonuses"})
+// Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
+// Deprecated alias (last entry), remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/me/advisor/bonuses", "/v1/advisors/me/bonuses", "/v1/promoter/me/bonuses"})
 @RequiredArgsConstructor
 public class PromoterBonusesController {
 

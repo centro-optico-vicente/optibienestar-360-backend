@@ -25,7 +25,7 @@ import java.util.UUID;
 
 /**
  * Delegated collection management self-service (v2 PDF 2.b) under
- * {@code /v1/advisors/me}. The promoter is resolved from the JWT; the service
+ * {@code /v1/me/advisor}. The promoter is resolved from the JWT; the service
  * verifies the target member belongs to the caller's portfolio.
  *
  * <p>Writes (reminder / payment-promise) require {@code PROMOTER_CONTACT_OWN}
@@ -33,8 +33,9 @@ import java.util.UUID;
  * (V35). Both are granted to ASESOR + ADMINISTRADOR + SYSTEM.</p>
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/advisors/me", "/v1/promoter/me"})
+// Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
+// Deprecated alias (last entry), remove once frontend >= #235 is deployed
+@RequestMapping({"/v1/me/advisor", "/v1/advisors/me", "/v1/promoter/me"})
 @RequiredArgsConstructor
 public class PromoterContactsController {
 

@@ -26,15 +26,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Ally-side surface at {@code /v1/allies/me/services}. Distinct from the
+ * Ally-side surface at {@code /v1/me/allies/services}. Distinct from the
  * admin-side {@code /v1/admin/allies/{uuid}/services} controller —
  * authorization here is membership-based (the actor must belong to the
  * target ally with OWNER or STAFF role) rather than permission-based, so
  * the URL prefix segregation keeps the two flows visibly separate.
  */
 @RestController
-// Deprecated alias, remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/allies/me/services", "/v1/aliado/services"})
+// Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
+// Deprecated alias (last entry), remove once frontend >= #236 is deployed
+@RequestMapping({"/v1/me/allies/services", "/v1/allies/me/services", "/v1/aliado/services"})
 @RequiredArgsConstructor
 public class AllyServicesController {
 

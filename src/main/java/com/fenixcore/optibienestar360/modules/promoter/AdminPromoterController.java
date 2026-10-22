@@ -64,7 +64,7 @@ public class AdminPromoterController {
         return ResponseEntity.ok(promotersService.get(uuid));
     }
 
-    /** Portfolio + collection health + this-month commissions, admin view of {@code GET /v1/advisors/me}. */
+    /** Portfolio + collection health + this-month commissions, admin view of {@code GET /v1/me/advisor}. */
     @GetMapping("/{uuid}/portfolio")
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
     public ResponseEntity<PromoterDashboardDto> portfolio(@PathVariable UUID uuid) {

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Self-service dashboard for a promoter — the body of {@code GET /v1/advisors/me}
+ * Self-service dashboard for a promoter — the body of {@code GET /v1/me/advisor}
  * (v2 PDF #4). Aggregates the promoter's own book of business:
  *
  * <ul>

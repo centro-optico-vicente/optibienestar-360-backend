@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Compact row of the admin requests list ({@code GET /v1/admin/affiliation-requests})
- * and of the advisor's own list ({@code GET /v1/advisors/me/affiliation-requests}).
+ * and of the advisor's own list ({@code GET /v1/me/advisor/affiliation-requests}).
  * The applicant's identity stays flat; plan and advisor follow the
  * {@code _Display} convention (hub ADR 0014).
  */

@@ -36,7 +36,7 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
 
     /**
      * Resolve the promoter of the JWT-authenticated user for the self-service
-     * dashboard {@code GET /v1/advisors/me}. Backed by the V25 partial UNIQUE
+     * dashboard {@code GET /v1/me/advisor}. Backed by the V25 partial UNIQUE
      * {@code (user_id) WHERE user_id IS NOT NULL AND is_active=TRUE}, so at most
      * one active row matches.
      */
