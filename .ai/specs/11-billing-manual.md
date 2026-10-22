@@ -53,9 +53,9 @@ DRAFT ──(submit)──► PENDING ──(approve)──► APPROVED
 ## Superficies de autoservicio (no existían en el diseño original)
 
 - `POST /v1/me/payments` — un afiliado registra su propio pago (`registerOwn`); la membresía se resuelve del caller, nunca de un parámetro del cliente.
-- `POST /v1/advisors/me/payments` — un promotor registra un cobro **de un afiliado de su propia red** (`registerForDownline`); si el afiliado no está en su cartera, 404 (no se distingue de "no existe", para no filtrar qué afiliados están fuera de su red).
+- `POST /v1/me/advisor/payments` — un promotor registra un cobro **de un afiliado de su propia red** (`registerForDownline`); si el afiliado no está en su cartera, 404 (no se distingue de "no existe", para no filtrar qué afiliados están fuera de su red).
 - Ambas superficies tienen sus propios `updateLines`/`submit`/`reactivate`/`remove` con el mismo chequeo de pertenencia (`ownedByUser`/`ownedByPromoterDownline`).
-- `GET /v1/me/payments`, `GET /v1/advisors/me/payments?direction=IN|OUT` (`IN` = cobros de la red, `OUT` = comisiones que le pagaron a él).
+- `GET /v1/me/payments`, `GET /v1/me/advisor/payments?direction=IN|OUT` (`IN` = cobros de la red, `OUT` = comisiones que le pagaron a él).
 
 ## Reglas reales (verificadas, no inventadas)
 

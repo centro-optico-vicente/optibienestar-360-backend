@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Output DTO for {@code /v1/admin/advisors/{promoterUuid}/payout-accounts}
- * and {@code GET /v1/advisors/me/payout-accounts} (V184).
+ * and {@code GET /v1/me/advisor/payout-accounts} (V184).
  *
  * <p>{@code paymentMethod}/{@code bank} serialize as {@code <rel>_Uuid} +
  * {@code <rel>_Display} (ADR 0014); {@code paymentMethodCode} is exposed too

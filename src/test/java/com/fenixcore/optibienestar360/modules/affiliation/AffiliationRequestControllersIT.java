@@ -239,12 +239,12 @@ class AffiliationRequestControllersIT {
 
     @Test
     void advisorList_requiresViewOwn_notViewAll() throws Exception {
-        mockMvc.perform(get("/v1/advisors/me/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
+        mockMvc.perform(get("/v1/me/advisor/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
                 .andExpect(status().isForbidden());
         verify(service, never()).listForAdvisor(any(), any(), any());
 
         when(service.listForAdvisor(any(UUID.class), any(), any())).thenReturn(onePage());
-        mockMvc.perform(get("/v1/advisors/me/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
+        mockMvc.perform(get("/v1/me/advisor/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].documentNumber").value("12345678"));
     }
@@ -254,8 +254,27 @@ class AffiliationRequestControllersIT {
         when(service.listForAdvisor(any(UUID.class), any(), any()))
                 .thenThrow(new java.util.NoSuchElementException("me.promoter.not_found"));
 
-        mockMvc.perform(get("/v1/advisors/me/affiliation-requests").param("status", "PENDING")
+        mockMvc.perform(get("/v1/me/advisor/affiliation-requests").param("status", "PENDING")
                         .with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void advisorList_secondaryAdvisorsMePath_answersLikePrimary_withSameSecurity() throws Exception {
+        when(service.listForAdvisor(any(UUID.class), any(), any())).thenReturn(onePage());
+
+        mockMvc.perform(get("/v1/advisors/me/affiliation-requests"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/advisors/me/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/v1/advisors/me/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].documentNumber").value("12345678"));
+    }
+
+    @Test
+    void advisorList_primaryPath_anonymous_is401() throws Exception {
+        mockMvc.perform(get("/v1/me/advisor/affiliation-requests"))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Builds the promoter self-service dashboard ({@code GET /v1/advisors/me},
+ * Builds the promoter self-service dashboard ({@code GET /v1/me/advisor},
  * v2 PDF #4). Resolves the promoter of the JWT-authenticated user, then
  * aggregates their book of business: portfolio size, collection health
  * (al día / vencida / sin membresía) with per-affiliate drill-down, and

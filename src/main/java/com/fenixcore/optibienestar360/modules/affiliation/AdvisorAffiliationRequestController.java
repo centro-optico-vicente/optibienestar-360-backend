@@ -17,12 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Advisor portal: the affiliation requests that came through the caller's own
- * QR ({@code GET /v1/advisors/me/affiliation-requests}), read-only, gated by
+ * QR ({@code GET /v1/me/advisor/affiliation-requests}), read-only, gated by
  * {@code AFFILIATION_REQUEST_VIEW_OWN}. The advisor is resolved from the JWT;
  * 404 when the caller has no active advisor record.
  */
 @RestController
-@RequestMapping("/v1/advisors/me/affiliation-requests")
+// Primary /v1/me/advisor/...; /v1/advisors/me/... is the secondary path (not deprecated)
+@RequestMapping({"/v1/me/advisor/affiliation-requests", "/v1/advisors/me/affiliation-requests"})
 @RequiredArgsConstructor
 public class AdvisorAffiliationRequestController {
 

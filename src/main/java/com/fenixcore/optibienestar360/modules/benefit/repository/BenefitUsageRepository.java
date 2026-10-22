@@ -24,7 +24,7 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
     long countByAllyId(Long allyId);
 
     /**
-     * Powers {@code GET /v1/allies/me/usage-history} — every benefit usage
+     * Powers {@code GET /v1/me/allies/usage-history} — every benefit usage
      * registered at any ally the current user is an active operator on.
      * The {@code AllyUser} pivot (V12) is N:M, so a single user can see
      * usages across multiple allies; the subquery handles that without

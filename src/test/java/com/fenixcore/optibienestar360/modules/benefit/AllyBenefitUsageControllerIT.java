@@ -33,9 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT of the ally-side benefit usage paths: {@code POST /v1/allies/me/benefit-usages}
+ * IT of the ally-side benefit usage paths: {@code POST /v1/me/allies/benefit-usages}
  * ({@link AllyBenefitUsageController}, {@code ALLY_REGISTER_USAGE}) and
- * {@code GET /v1/allies/me/usage-history} ({@link AllyUsageHistoryController},
+ * {@code GET /v1/me/allies/usage-history} ({@link AllyUsageHistoryController},
  * {@code ALLY_VIEW_OWN}), plus the deprecated {@code /v1/ally/benefit-usage} and
  * {@code /v1/ally/usage-history} aliases. {@link BenefitUsagesService} is mocked.
  */
@@ -80,18 +80,18 @@ class AllyBenefitUsageControllerIT {
                 """.formatted(UUID.randomUUID(), UUID.randomUUID());
     }
 
-    // ─── POST /v1/allies/me/benefit-usages ────────────────────────────────────
+    // ─── POST /v1/me/allies/benefit-usages ────────────────────────────────────
 
     @Test
     void register_anonymous_is401() throws Exception {
-        mockMvc.perform(post("/v1/allies/me/benefit-usages")
+        mockMvc.perform(post("/v1/me/allies/benefit-usages")
                         .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void register_withoutPermission_is403() throws Exception {
-        mockMvc.perform(post("/v1/allies/me/benefit-usages").with(principal("ALLY_VIEW_OWN"))
+        mockMvc.perform(post("/v1/me/allies/benefit-usages").with(principal("ALLY_VIEW_OWN"))
                         .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
                 .andExpect(status().isForbidden());
     }
@@ -100,23 +100,23 @@ class AllyBenefitUsageControllerIT {
     void register_withPermission_is201() throws Exception {
         when(benefitUsagesService.register(any())).thenReturn(usage());
 
-        mockMvc.perform(post("/v1/allies/me/benefit-usages").with(principal("ALLY_REGISTER_USAGE"))
+        mockMvc.perform(post("/v1/me/allies/benefit-usages").with(principal("ALLY_REGISTER_USAGE"))
                         .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.allyName").value("Clínica Ejemplo"));
     }
 
-    // ─── GET /v1/allies/me/usage-history ──────────────────────────────────────
+    // ─── GET /v1/me/allies/usage-history ──────────────────────────────────────
 
     @Test
     void history_anonymous_is401() throws Exception {
-        mockMvc.perform(get("/v1/allies/me/usage-history"))
+        mockMvc.perform(get("/v1/me/allies/usage-history"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void history_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/allies/me/usage-history").with(principal("ALLY_REGISTER_USAGE")))
+        mockMvc.perform(get("/v1/me/allies/usage-history").with(principal("ALLY_REGISTER_USAGE")))
                 .andExpect(status().isForbidden());
     }
 
@@ -125,7 +125,7 @@ class AllyBenefitUsageControllerIT {
         when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(usage())));
 
-        mockMvc.perform(get("/v1/allies/me/usage-history").with(principal("ALLY_VIEW_OWN")))
+        mockMvc.perform(get("/v1/me/allies/usage-history").with(principal("ALLY_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
     }
@@ -152,6 +152,33 @@ class AllyBenefitUsageControllerIT {
         mockMvc.perform(get("/v1/ally/usage-history").with(principal("ALLY_REGISTER_USAGE")))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/v1/ally/usage-history").with(principal("ALLY_VIEW_OWN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    // ─── Secondary paths /v1/allies/me/* (kept, not deprecated) ──────────────
+
+    @Test
+    void secondaryAlliesMePaths_answerLikePrimary_withSameSecurity() throws Exception {
+        when(benefitUsagesService.register(any())).thenReturn(usage());
+        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(usage())));
+
+        mockMvc.perform(post("/v1/allies/me/benefit-usages")
+                        .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/v1/allies/me/benefit-usages").with(principal("ALLY_VIEW_OWN"))
+                        .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/v1/allies/me/benefit-usages").with(principal("ALLY_REGISTER_USAGE"))
+                        .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.allyName").value("Clínica Ejemplo"));
+        mockMvc.perform(get("/v1/allies/me/usage-history"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/allies/me/usage-history").with(principal("ALLY_REGISTER_USAGE")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/v1/allies/me/usage-history").with(principal("ALLY_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
     }

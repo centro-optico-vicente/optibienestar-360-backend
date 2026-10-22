@@ -65,7 +65,7 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
 
     /**
      * A promoter's portfolio for the self-service dashboard
-     * ({@code GET /v1/advisors/me}): every active member attributed to the
+     * ({@code GET /v1/me/advisor}): every active member attributed to the
      * promoter, each with the status of its currently-active membership (via a
      * LEFT JOIN so members without one still appear, with null membership
      * fields). Returns the flat {@link PromoterMemberRow} projection so the

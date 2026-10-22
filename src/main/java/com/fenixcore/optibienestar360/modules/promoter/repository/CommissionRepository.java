@@ -112,7 +112,7 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
 
     /**
      * Commissions a promoter earned within a period, for the self-service
-     * dashboard ({@code GET /v1/advisors/me}). Sums non-voided rows whose
+     * dashboard ({@code GET /v1/me/advisor}). Sums non-voided rows whose
      * period falls inside the range; {@code COALESCE} keeps it 0 (never null)
      * when the promoter has none.
      */

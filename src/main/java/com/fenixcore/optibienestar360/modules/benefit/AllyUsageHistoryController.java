@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Ally-side history view of benefit usages — counterpart to
- * {@code POST /v1/allies/me/benefit-usages}. The operator at the counter sees
+ * {@code POST /v1/me/allies/benefit-usages}. The operator at the counter sees
  * what their ally has registered, newest first.
  *
  * <p>Scope is implicit through the auth principal: the repository JPQL
@@ -26,8 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
  * user spanning multiple allies sees all of their usages in one feed.</p>
  */
 @RestController
-// Deprecated alias, remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/allies/me/usage-history", "/v1/ally/usage-history"})
+// Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
+// Deprecated alias (last entry), remove once frontend >= #236 is deployed
+@RequestMapping({"/v1/me/allies/usage-history", "/v1/allies/me/usage-history", "/v1/ally/usage-history"})
 @RequiredArgsConstructor
 public class AllyUsageHistoryController {
 
