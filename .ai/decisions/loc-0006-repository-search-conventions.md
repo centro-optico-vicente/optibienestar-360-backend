@@ -54,7 +54,7 @@ Las tablas que no tienen `uuid` propio (`user_roles`, `user_password_history`, `
 | Tabla | Búsqueda canónica |
 |---|---|
 | `user_roles` | por **cada FK** (`findByUserId` / `findByRoleId`, con variante `...AndActiveTrue`) y por la **clave compuesta** (`findByUserIdAndRoleId`) |
-| `user_password_history` | `findRecentByUserId(Long userId)` (ORDER BY created_at DESC) |
+| `user_password_history` | `findRecentByUserId(Long userId, Pageable page)` (ORDER BY created_at DESC, acotado con `PageRequest.of(0, passwordHistoryCount)`) |
 | `user_sessions_log` | por `jti` (`findByJtiAndLogoutAtIsNull`) y por FK `user_id` (`findByUserId`, `findByUserIdAndLogoutAtIsNull`) |
 | `role_permissions` | modelado como `@ManyToMany` en `Role` — sin repositorio propio |
 
