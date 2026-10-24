@@ -19,6 +19,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * {@code /v1/promoter/me}, {@code /v1/ally}, {@code /v1/aliado}); every one is
  * gated so the lock can't be skipped by switching alias. Admin endpoints
  * ({@code /v1/admin/**}) and {@code /v1/me/terms} are never gated.
+ *
+ * <p>Tests: the gate queries the database (pending contracts), so an MVC IT that
+ * calls a portal route and mocks its services must also mock
+ * {@code TermsAcceptanceService} ({@code hasPending} → {@code false}).</p>
  */
 @Configuration
 @RequiredArgsConstructor

@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.CollectionScoreDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberContactDto;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterMemberContact.ContactType;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterCollectionService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,10 @@ class PromoterContactsControllerIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private PromoterCollectionService collectionService;

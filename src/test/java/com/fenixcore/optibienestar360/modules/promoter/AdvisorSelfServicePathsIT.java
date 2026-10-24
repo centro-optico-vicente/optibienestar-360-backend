@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promoter;
 import com.fenixcore.optibienestar360.modules.payment.PromoterMePaymentsController;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,10 @@ class AdvisorSelfServicePathsIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private PaymentsService paymentsService;

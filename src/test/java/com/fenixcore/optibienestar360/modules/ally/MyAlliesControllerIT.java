@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.service.MyAlliesService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,10 @@ class MyAlliesControllerIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private MyAlliesService myAlliesService;
