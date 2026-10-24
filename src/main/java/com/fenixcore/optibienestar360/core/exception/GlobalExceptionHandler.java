@@ -112,6 +112,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
+    // 403 — refusal the client must react to (e.g. terms.pending): code + extra properties
+    @ExceptionHandler(ForbiddenDetailsException.class)
+    public ResponseEntity<ProblemDetail> handleForbiddenDetails(ForbiddenDetailsException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, resolveCodeOrLiteral(ex.getMessage(), locale));
+        problem.setType(URI.create(problemsBase + "/forbidden"));
+        problem.setTitle(resolve("error.title.forbidden", locale));
+        problem.setProperty("code", ex.getMessage());
+        ex.getProperties().forEach(problem::setProperty);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
     // 404
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(NoSuchElementException ex) {

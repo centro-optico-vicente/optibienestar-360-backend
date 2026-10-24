@@ -26,6 +26,12 @@ import java.util.UUID;
  * agreement (or, failing that, the same ally; for AFILIADO / ASESOR, the same
  * type) so the client can show what changed; {@code null} on a first
  * acceptance.</p>
+ *
+ * <p>{@code mandatory} is decided here, not by the client: only AFILIADO (the
+ * membership agreement every user signs) blocks the whole app. ASESOR and
+ * ALIADO can be postponed; until accepted, their self-service endpoints
+ * ({@code /v1/advisors/me/**}, {@code /v1/allies/me/**}) answer 403
+ * {@code terms.pending} ({@code TermsGateInterceptor}).</p>
  */
 public record PendingTermDto(
         UUID termsVersionUuid,
@@ -36,7 +42,8 @@ public record PendingTermDto(
         UUID allyUuid,
         String allyName,
         UUID allyAgreementUuid,
-        PreviousAcceptance previousAcceptance
+        PreviousAcceptance previousAcceptance,
+        boolean mandatory
 ) {
 
     /**
