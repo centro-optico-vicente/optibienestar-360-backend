@@ -97,9 +97,9 @@ public class DisplayFormatter {
 	 * (ADR 0015) — {@code "US$ 120,00"}, {@code "Bs. 1.200,00"}, etc. Falls back
 	 * to {@code VES} when {@code currencyCode} is {@code null}/blank or not a
 	 * valid ISO 4217 code — same rendering the formatter always produced before
-	 * every money-bearing row carried its own currency, so existing VES-only
-	 * callers (via {@link #money(BigDecimal, Locale)} / an empty
-	 * {@code @Display(moneyCurrencyField)}) see no change.
+	 * every money-bearing row carried its own currency, so a DTO with an empty
+	 * {@code @Display(moneyCurrencyField)} sees no change. Callers with no
+	 * currency in scope pass {@code null} explicitly.
 	 */
 	public String money(BigDecimal value, String currencyCode, Locale locale) {
 		if (value == null) {
@@ -116,12 +116,6 @@ public class DisplayFormatter {
 		}
 		format.setCurrency(currency);
 		return format.format(value);
-	}
-
-	/** @deprecated use {@link #money(BigDecimal, String, Locale)} — kept for callers with no currency in scope; renders VES, same as before ADR 0015. */
-	@Deprecated
-	public String money(BigDecimal value, Locale locale) {
-		return money(value, (String) null, locale);
 	}
 
 	/**
