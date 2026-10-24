@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.auth.repository;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.UserPasswordHistory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,8 +13,13 @@ import java.util.List;
 @Transactional(readOnly = true)
 public interface UserPasswordHistoryRepository extends JpaRepository<UserPasswordHistory, Long> {
 
+    /**
+     * Most recent password hashes of a user, newest first, bounded by
+     * {@code page} (callers pass {@code PageRequest.of(0, historyCount)}) so the
+     * reuse check never loads the whole history into memory.
+     */
     @Query("SELECT h FROM UserPasswordHistory h WHERE h.user.id = :userId ORDER BY h.createdAt DESC")
-    List<UserPasswordHistory> findRecentByUserId(@Param("userId") Long userId);
+    List<UserPasswordHistory> findRecentByUserId(@Param("userId") Long userId, Pageable page);
 
     // Write query — must override the interface-level readOnly so the DELETE
     // can run. The caller (AuthService.savePasswordHistory) already supplies a
