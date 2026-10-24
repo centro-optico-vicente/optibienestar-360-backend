@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.currency;
 
+import com.fenixcore.optibienestar360.modules.currency.dto.ConvertedAmountDto;
 import com.fenixcore.optibienestar360.modules.currency.dto.CurrentExchangeRateDto;
 import com.fenixcore.optibienestar360.modules.currency.service.ExchangeRateLookupService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.math.BigDecimal;
 
 /**
  * Generic "rate vigente" lookup (ADR 0015 §7) — deliberately NOT under
@@ -43,5 +46,22 @@ public class ExchangeRateLookupController {
             @RequestParam String quote,
             @RequestParam(required = false) String asOf) {
         return ResponseEntity.ok(service.current(base, quote, asOf));
+    }
+
+    /**
+     * Converts {@code amount} from {@code from} to {@code to} as of {@code
+     * asOf} (same flexible format and fallback as {@link #current}),
+     * crossing through the organization's official currency when the pair
+     * has no rate of its own — see {@link ExchangeRateLookupService#convert}.
+     * Returns the converted amount raw and formatted; a missing rate is
+     * {@code available = false}, never an error.
+     */
+    @GetMapping("/convert")
+    public ResponseEntity<ConvertedAmountDto> convert(
+            @RequestParam BigDecimal amount,
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam(required = false) String asOf) {
+        return ResponseEntity.ok(service.convert(amount, from, to, asOf));
     }
 }
