@@ -199,8 +199,8 @@ public class CorsConfig {
 | `/actuator/health/**` | No | — |
 | `/v1/me/*` | Sí (cualquier rol) | varía |
 | `/v1/admin/*` | Sí | `ADMINISTRADOR` u `OPERADOR` |
-| `/v1/allies/me/*` (alias deprecados `/v1/ally/*`, `/v1/aliado/services`) | Sí | `ALIADO` |
-| `/v1/advisors/me/*` (alias deprecado `/v1/promoter/me/*`) | Sí | `ASESOR` |
+| `/v1/me/allies/*` (secundaria `/v1/allies/me/*`; alias deprecados `/v1/ally/*`, `/v1/aliado/services`) | Sí | `ALIADO` |
+| `/v1/me/advisor/*` (secundaria `/v1/advisors/me/*`; alias deprecado `/v1/promoter/me/*`) | Sí | `ASESOR` |
 | `/swagger-ui/**`, `/v3/api-docs/**` | No (en dev) / Basic auth Traefik (en prod) | — |
 
 ## Audit log

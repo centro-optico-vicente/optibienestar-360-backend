@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 /**
  * Realtime solvency oracle for the ally portal.
  *
- * <p>The ally counter operator hits {@code GET /v1/allies/me/validations/{document}}
+ * <p>The ally counter operator hits {@code GET /v1/me/allies/validations/{document}}
  * before applying any benefit. Per the vertical-7 spec the call must
  * return in p95 &lt; 200ms, which is why every successful answer is cached
  * in Redis for 60 seconds under the canonical key

@@ -75,13 +75,13 @@ class PromoterBonusesControllerIT {
 
     @Test
     void myBonuses_anonymous_is401() throws Exception {
-        mockMvc.perform(get("/v1/advisors/me/bonuses"))
+        mockMvc.perform(get("/v1/me/advisor/bonuses"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void myBonuses_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/advisors/me/bonuses").with(principal("BONUS_AWARD_VIEW_ALL")))
+        mockMvc.perform(get("/v1/me/advisor/bonuses").with(principal("BONUS_AWARD_VIEW_ALL")))
                 .andExpect(status().isForbidden());
     }
 
@@ -90,7 +90,7 @@ class PromoterBonusesControllerIT {
         when(bonusAwardsService.listOwn(any(UUID.class), any()))
                 .thenReturn(new PageImpl<>(List.of(awardDto())));
 
-        mockMvc.perform(get("/v1/advisors/me/bonuses").with(principal("BONUS_VIEW_OWN")))
+        mockMvc.perform(get("/v1/me/advisor/bonuses").with(principal("BONUS_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].amount").value(100.00));
@@ -101,7 +101,23 @@ class PromoterBonusesControllerIT {
         when(bonusAwardsService.listOwn(any(UUID.class), any()))
                 .thenThrow(new NoSuchElementException("me.promoter.not_found"));
 
-        mockMvc.perform(get("/v1/advisors/me/bonuses").with(principal("BONUS_VIEW_OWN")))
+        mockMvc.perform(get("/v1/me/advisor/bonuses").with(principal("BONUS_VIEW_OWN")))
                 .andExpect(status().isNotFound());
+    }
+
+    // ─── Secondary path /v1/advisors/me/bonuses (kept, not deprecated) ──────
+
+    @Test
+    void secondaryAdvisorsMePath_answersLikePrimary_withSameSecurity() throws Exception {
+        when(bonusAwardsService.listOwn(any(UUID.class), any()))
+                .thenReturn(new PageImpl<>(List.of(awardDto())));
+
+        mockMvc.perform(get("/v1/advisors/me/bonuses"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/advisors/me/bonuses").with(principal("BONUS_AWARD_VIEW_ALL")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/v1/advisors/me/bonuses").with(principal("BONUS_VIEW_OWN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
     }
 }

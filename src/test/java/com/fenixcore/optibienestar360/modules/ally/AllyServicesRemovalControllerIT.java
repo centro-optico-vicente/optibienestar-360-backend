@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * IT of the ally-owner self-service surface (v2 PDF #6, {@link AllyServicesController}):
- * {@code DELETE /v1/allies/me/services/{uuid}} (self-removal) + {@code GET .../log}.
+ * {@code DELETE /v1/me/allies/services/{uuid}} (self-removal) + {@code GET .../log}.
  * Both are {@code isAuthenticated()} — the membership rule lives in the mocked
  * {@link AllyServiceReviewService}; here we lock the auth gate + error mapping.
  */
@@ -73,7 +73,7 @@ class AllyServicesRemovalControllerIT {
 
     @Test
     void delete_anonymous_is401() throws Exception {
-        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()))
+        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -81,7 +81,7 @@ class AllyServicesRemovalControllerIT {
     void delete_authenticatedOwner_is200() throws Exception {
         when(reviewService.allyRemove(any(), any(), any())).thenReturn(removedDto());
 
-        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()).with(principal()))
+        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reviewStatus").value("REMOVED"));
     }
@@ -91,7 +91,7 @@ class AllyServicesRemovalControllerIT {
         when(reviewService.allyRemove(any(), any(), any()))
                 .thenThrow(new AccessDeniedException("ally_service.remove.not_allowed"));
 
-        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()).with(principal()))
+        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isForbidden());
     }
 
@@ -100,7 +100,7 @@ class AllyServicesRemovalControllerIT {
         when(reviewService.allyRemove(any(), any(), any()))
                 .thenThrow(new NoSuchElementException("ally_service.not_found"));
 
-        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()).with(principal()))
+        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isNotFound());
     }
 
@@ -108,7 +108,7 @@ class AllyServicesRemovalControllerIT {
 
     @Test
     void log_anonymous_is401() throws Exception {
-        mockMvc.perform(get("/v1/allies/me/services/{u}/log", UUID.randomUUID()))
+        mockMvc.perform(get("/v1/me/allies/services/{u}/log", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -118,7 +118,7 @@ class AllyServicesRemovalControllerIT {
                 new AllyServiceReviewLogDto(ReviewStatus.APPROVED, ReviewStatus.REMOVED,
                         UUID.randomUUID(), Instant.parse("2026-07-25T12:00:00Z"), "Retirado por el aliado")));
 
-        mockMvc.perform(get("/v1/allies/me/services/{u}/log", UUID.randomUUID()).with(principal()))
+        mockMvc.perform(get("/v1/me/allies/services/{u}/log", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].toStatus").value("REMOVED"));
@@ -129,7 +129,7 @@ class AllyServicesRemovalControllerIT {
         when(reviewService.allyLog(any(), any()))
                 .thenThrow(new NoSuchElementException("ally_service.not_found"));
 
-        mockMvc.perform(get("/v1/allies/me/services/{u}/log", UUID.randomUUID()).with(principal()))
+        mockMvc.perform(get("/v1/me/allies/services/{u}/log", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isNotFound());
     }
 
@@ -144,5 +144,24 @@ class AllyServicesRemovalControllerIT {
         mockMvc.perform(delete("/v1/aliado/services/{u}", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reviewStatus").value("REMOVED"));
+    }
+
+    // ─── Secondary path /v1/allies/me/services (kept, not deprecated) ────────
+
+    @Test
+    void secondaryAlliesMePath_answersLikePrimary_withSameSecurity() throws Exception {
+        when(reviewService.allyRemove(any(), any(), any())).thenReturn(removedDto());
+        when(reviewService.allyLog(any(), any())).thenReturn(List.of());
+
+        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/v1/allies/me/services/{u}", UUID.randomUUID()).with(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewStatus").value("REMOVED"));
+        mockMvc.perform(get("/v1/allies/me/services/{u}/log", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/allies/me/services/{u}/log", UUID.randomUUID()).with(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 }

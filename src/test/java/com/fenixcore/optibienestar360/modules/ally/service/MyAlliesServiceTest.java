@@ -58,7 +58,7 @@ class MyAlliesServiceTest {
 
         MyAllyDto dto = service.listMyAllies(userUuid).getFirst();
 
-        // The portal feeds dto.uuid() straight into POST /v1/allies/me/benefit-usages
+        // The portal feeds dto.uuid() straight into POST /v1/me/allies/benefit-usages
         // as allyUuid — handing back the pivot's uuid would 404 there.
         assertThat(dto.uuid()).isEqualTo(ally.getUuid());
         assertThat(dto.uuid()).isNotEqualTo(pivot.getUuid());

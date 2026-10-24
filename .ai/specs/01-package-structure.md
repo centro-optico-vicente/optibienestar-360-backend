@@ -182,11 +182,11 @@ com.fenixcore.optibienestar360/
     │
     ├── validator/                      # Validador en tiempo real
     │   ├── service/
-    │   │   ├── MemberValidatorService.java       # endpoint /v1/allies/me/validations/{doc}
+    │   │   ├── MemberValidatorService.java       # endpoint /v1/me/allies/validations/{doc}
     │   │   ├── BenefitUsageService.java
     │   │   └── ValidatorCacheService.java         # Redis layer
     │   ├── controller/
-    │   │   └── AllyValidatorController.java       # /v1/allies/me/*
+    │   │   └── AllyValidatorController.java       # /v1/me/allies/* (secundaria /v1/allies/me/*)
     │   ├── dto/
     │   │   ├── ValidationResultDTO.java
     │   │   └── BenefitUsageCreateDTO.java
@@ -216,7 +216,7 @@ com.fenixcore.optibienestar360/
     │   ├── dto/
     │   ├── PublicAffiliationRequestController.java    # POST /v1/public/affiliation-requests
     │   ├── AdminAffiliationRequestController.java     # /v1/admin/affiliation-requests
-    │   └── AdvisorAffiliationRequestController.java   # GET /v1/advisors/me/affiliation-requests
+    │   └── AdvisorAffiliationRequestController.java   # GET /v1/me/advisor/affiliation-requests
     │
     ├── contact/                        # Form contacto landing
     │   ├── entity/

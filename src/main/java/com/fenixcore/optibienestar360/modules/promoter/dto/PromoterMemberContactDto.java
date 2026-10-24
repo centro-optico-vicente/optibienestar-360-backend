@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * A logged collection contact — an item of the history returned by
- * {@code GET /v1/advisors/me/contacts} and the echo of a just-created one.
+ * {@code GET /v1/me/advisor/contacts} and the echo of a just-created one.
  * {@code promised*} fields are present only for {@code PAYMENT_PROMISE}.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)

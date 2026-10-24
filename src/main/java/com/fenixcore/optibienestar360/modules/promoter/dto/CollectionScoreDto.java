@@ -7,7 +7,7 @@ import java.util.UUID;
 
 /**
  * Self-assessment of a promoter's collection performance
- * ({@code GET /v1/advisors/me/collection-score}, v2 PDF 2.b): what share of
+ * ({@code GET /v1/me/advisor/collection-score}, v2 PDF 2.b): what share of
  * their active portfolio is up to date. {@code scorePct} = up-to-date /
  * active affiliates × 100 (0 when the portfolio is empty). Basis for a future
  * collection bonus, distinct from the sales bonus.

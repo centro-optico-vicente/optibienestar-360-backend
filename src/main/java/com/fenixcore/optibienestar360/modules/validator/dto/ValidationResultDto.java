@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Response body for {@code GET /v1/allies/me/validations/{document}}. Designed to
+ * Response body for {@code GET /v1/me/allies/validations/{document}}. Designed to
  * be small and JSON-serializable so the same shape can be cached verbatim
  * in Redis with a 60-second TTL.
  *

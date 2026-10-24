@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * JSON part of the {@code POST /v1/advisors/me/payments} multipart request
+ * JSON part of the {@code POST /v1/me/advisor/payments} multipart request
  * — a promoter registering a collection on behalf of an affiliate in their
  * own portfolio. Same shape as {@link MyPaymentCreateRequest} plus the
  * target {@code memberUuid}; the service layer verifies that member belongs

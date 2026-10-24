@@ -24,8 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
  * fresh without an external sync mechanism.</p>
  */
 @RestController
-// Deprecated alias, remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/allies/me/validations", "/v1/ally/validate"})
+// Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
+// Deprecated alias (last entry), remove once frontend >= #236 is deployed
+@RequestMapping({"/v1/me/allies/validations", "/v1/allies/me/validations", "/v1/ally/validate"})
 @RequiredArgsConstructor
 public class AllyValidatorController {
 
