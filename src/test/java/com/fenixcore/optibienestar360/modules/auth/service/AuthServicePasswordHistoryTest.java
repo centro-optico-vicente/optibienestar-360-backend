@@ -124,5 +124,18 @@ class AuthServicePasswordHistoryTest {
 
         verify(passwordHistoryRepository, never()).findRecentByUserId(anyLong(), any(Pageable.class));
         assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        // History disabled still keeps the current hash instead of pruning to LIMIT 0.
+        verify(passwordHistoryRepository).pruneOlderThan(10L, 1);
+    }
+
+    @Test
+    void negativeHistoryCountBehavesLikeDisabled() {
+        policyWithHistoryCount(-1);
+        when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hash");
+
+        authService.resetPassword(new ResetPasswordRequest(RAW_TOKEN, NEW_PASSWORD));
+
+        verify(passwordHistoryRepository, never()).findRecentByUserId(anyLong(), any(Pageable.class));
+        verify(passwordHistoryRepository).pruneOlderThan(10L, 1);
     }
 }

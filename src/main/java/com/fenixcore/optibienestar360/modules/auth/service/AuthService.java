@@ -563,7 +563,8 @@ public class AuthService {
 
     private String hashNewPassword(User user, String rawPassword, SecurityPolicy policy) {
         // Check password history — only the last N hashes the policy cares
-        // about are fetched (LIMIT in SQL); a policy of 0 disables the check.
+        // about are fetched (LIMIT in SQL). A policy of 0 (or any value <= 0)
+        // disables the check, so a user may reuse the same password in a row.
         int historyCount = policy.getPasswordHistoryCount();
         List<UserPasswordHistory> history = historyCount > 0
                 ? passwordHistoryRepository.findRecentByUserId(user.getId(), PageRequest.of(0, historyCount))
@@ -587,7 +588,10 @@ public class AuthService {
                 : Instant.now().plus(policy.getDaysPasswordExpires(), ChronoUnit.DAYS);
 
         passwordHistoryRepository.save(new UserPasswordHistory(user, passwordHash, expiresAt));
-        passwordHistoryRepository.pruneOlderThan(user.getId(), policy.getPasswordHistoryCount());
+        // Always keep at least the current hash: with history disabled (<= 0)
+        // a LIMIT of 0 would wipe the row just saved, and a negative LIMIT is
+        // rejected by PostgreSQL.
+        passwordHistoryRepository.pruneOlderThan(user.getId(), Math.max(1, policy.getPasswordHistoryCount()));
     }
 
     private String generateSecureToken() {
