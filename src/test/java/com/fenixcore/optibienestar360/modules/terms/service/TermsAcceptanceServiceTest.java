@@ -461,13 +461,14 @@ class TermsAcceptanceServiceTest {
     }
 
     @Test
-    void pending_onlyTheMemberAgreementIsMandatory() {
+    void pending_carriesEachVersionsMandatoryFlag() {
         beAdvisor(AdvisorRankCodes.ADVISOR, false);
+        advisorTerms.setMandatory(true);
 
         assertThat(service.pendingForUser(user.getUuid()))
                 .extracting(PendingTermDto::termType, PendingTermDto::mandatory)
                 .containsExactly(tuple(TermType.MEMBER, true),
-                        tuple(TermType.ADVISOR, false));
+                        tuple(TermType.ADVISOR, true));
     }
 
     @Test
@@ -592,6 +593,7 @@ class TermsAcceptanceServiceTest {
         version.setTitle(type.name() + " v1");
         version.setContentMarkdown("Contenido " + type.name());
         version.setPublic(isPublic);
+        version.setMandatory(TermsAcceptanceService.isMandatoryByDefault(type));
         version.setValidFrom(Instant.now().minus(1, ChronoUnit.DAYS));
         return version;
     }

@@ -97,11 +97,12 @@ public class TermsAcceptanceService {
     }
 
     /**
-     * Whether {@code type} must be accepted before using anything else:
-     * only MEMBER. ADVISOR / ALLY can be postponed, gating only their own
-     * module ({@link #hasPending}).
+     * Default of {@code is_mandatory} for a new version created without it
+     * (V192): MEMBER {@code true}, ADVISOR / ALLY {@code false}. The flag is
+     * per version afterwards — an optional contract can be postponed, gating
+     * only its own module ({@link #hasPending}).
      */
-    public static boolean isMandatory(TermType type) {
+    public static boolean isMandatoryByDefault(TermType type) {
         return type == TermType.MEMBER;
     }
 
@@ -209,7 +210,7 @@ public class TermsAcceptanceService {
                 ally == null ? null : ally.getName(),
                 due.agreement == null ? null : due.agreement.getUuid(),
                 previous,
-                isMandatory(v.getTermType()));
+                v.isMandatory());
     }
 
     /**

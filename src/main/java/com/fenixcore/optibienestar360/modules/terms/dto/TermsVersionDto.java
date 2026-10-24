@@ -27,6 +27,7 @@ public record TermsVersionDto(
         String contentMarkdown,
         String contentRendered,
         boolean isPublic,
+        boolean isMandatory,
         Instant validFrom,
         boolean isVigent,
         @Display DisplayRef allyType,

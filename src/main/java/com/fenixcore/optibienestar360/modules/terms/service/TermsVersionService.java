@@ -145,6 +145,9 @@ public class TermsVersionService {
         version.setTitle(req.title());
         version.setContentMarkdown(req.contentMarkdown());
         version.setPublic(req.isPublic() != null && req.isPublic());
+        version.setMandatory(req.isMandatory() != null
+                ? req.isMandatory()
+                : TermsAcceptanceService.isMandatoryByDefault(req.termType()));
         version.setValidFrom(req.validFrom());
         applyScope(version, req.allyTypeUuid(), req.segment(), req.allyUuid());
 
@@ -165,7 +168,12 @@ public class TermsVersionService {
     public TermsVersionDto update(UUID uuid, TermsVersionUpdateRequest req) {
         TermsVersion version = findManaged(uuid);
         if (!version.getValidFrom().isAfter(Instant.now())) {
-            throw new IllegalArgumentException("terms_version.immutable");
+            // Vigente: only the mandatory policy may change, never the text.
+            if (req.isMandatory() == null || !onlyMandatory(req)) {
+                throw new IllegalArgumentException("terms_version.immutable");
+            }
+            version.setMandatory(req.isMandatory());
+            return toDto(version);
         }
 
         if (req.title() != null) version.setTitle(req.title());
@@ -174,6 +182,7 @@ public class TermsVersionService {
             version.setContentMarkdown(req.contentMarkdown());
         }
         if (req.isPublic() != null) version.setPublic(req.isPublic());
+        if (req.isMandatory() != null) version.setMandatory(req.isMandatory());
         if (req.validFrom() != null) {
             if (!req.validFrom().isAfter(Instant.now())) {
                 throw new IllegalArgumentException("terms_version.valid_from_must_be_future");
@@ -265,6 +274,12 @@ public class TermsVersionService {
     }
 
     // Resolves the organization once per row; the admin list is a handful of versions.
+    private static boolean onlyMandatory(TermsVersionUpdateRequest req) {
+        return req.title() == null && req.contentMarkdown() == null && req.isPublic() == null
+                && req.validFrom() == null && req.allyTypeUuid() == null && req.segment() == null
+                && req.allyUuid() == null;
+    }
+
     // contentRendered is a preview: per-entity variables show sample values.
     private TermsVersionDto toDto(TermsVersion v) {
         AllyType allyType = v.getAllyType();
@@ -276,6 +291,7 @@ public class TermsVersionService {
                 v.getContentMarkdown(),
                 renderer.renderSample(v.getContentMarkdown(), v.getTermType()),
                 v.isPublic(),
+                v.isMandatory(),
                 v.getValidFrom(),
                 !v.getValidFrom().isAfter(Instant.now()),
                 allyType == null ? null : DisplayRef.of(allyType.getUuid(), allyType.getCode(), allyType.getName()),

@@ -14,6 +14,8 @@ import java.util.UUID;
  * never mutates a previous one. {@code isPublic} defaults to {@code false}
  * when omitted (see V139 column default); it only controls whether the public
  * web endpoint serves the version, never who must accept it.
+ * {@code isMandatory} defaults by type when omitted: AFILIADO {@code true},
+ * the others {@code false} (V192).
  *
  * <p>{@code allyTypeUuid} / {@code segment} / {@code allyUuid} are the
  * optional scope of an ALIADO template (V183) — all omitted = general
@@ -25,6 +27,7 @@ public record TermsVersionCreateRequest(
         @NotBlank @Size(max = 200) String title,
         @NotBlank String contentMarkdown,
         Boolean isPublic,
+        Boolean isMandatory,
         @NotNull Instant validFrom,
         UUID allyTypeUuid,
         Segment segment,

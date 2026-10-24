@@ -150,7 +150,7 @@ class TermsVersionServiceVariablesTest {
         scheduled.setContentMarkdown("{{advisor.code}}");
         scheduled.setValidFrom(Instant.now().plus(3, ChronoUnit.DAYS));
         when(repository.findByUuid(scheduled.getUuid())).thenReturn(Optional.of(scheduled));
-        TermsVersionUpdateRequest req = new TermsVersionUpdateRequest(null, "{{ally.name}}", null, null, null, null, null);
+        TermsVersionUpdateRequest req = new TermsVersionUpdateRequest(null, "{{ally.name}}", null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(scheduled.getUuid(), req))
                 .isInstanceOf(UnprocessableDetailsException.class);
@@ -158,7 +158,7 @@ class TermsVersionServiceVariablesTest {
     }
 
     private static TermsVersionCreateRequest createRequest(TermType type, String content) {
-        return new TermsVersionCreateRequest(type, "Título", content, false,
+        return new TermsVersionCreateRequest(type, "Título", content, false, null,
                 Instant.now().minus(1, ChronoUnit.HOURS), null, null, null);
     }
 }
