@@ -1,145 +1,54 @@
 # Estado actual del backend (snapshot)
 
-> **Actualizado:** 2026-05-31 (ver nota de refresh parcial 2026-10-08 abajo)
+> **Actualizado:** 2026-10-24 — reescrito contra `origin/main` (`11d75da`, PR #337). Reemplaza el snapshot de bootstrap del 2026-05-31 y la nota de refresh parcial del 2026-10-08 (cierra el hallazgo H-E-1 de la [auditoría del hub 2026-09-23](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/notes/2026-09-23_audit.md) y el B-19 / recomendación 5 de su anexo de backend).
 >
-> Qué existe HOY en `optibienestar-360-backend`. Actualizar al cierre de cada sesión productiva.
-
-> **Refresh parcial 2026-10-08** (ver [auditoría hub 2026-09-23](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/notes/2026-09-23_audit.md) hallazgo H-E-1): esta tabla quedó congelada en V1–V10 / "sin tests de integración" desde 2026-05-31, cinco meses desatrás de la realidad. Hechos verificados hoy contra el código:
-> - **175 migraciones Flyway** (V1–V176, última `V176__promotion_notices_job_seed.sql`), no V1–V10.
-> - **795 archivos Java**, **88 controllers REST**, no los ~10 de este snapshot.
-> - Motor de reportes: **4 reportes productivos vía JasperReports** (`GenericDocumentController`, `.jrxml` en `resources/reports/`) + `attached_files`/`report_audit_log` como persistencia — ver [ADR 0020 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0020-reporting-engine-reality-amendment.md).
-> - JSON de la API: camelCase (no se configura ninguna `PropertyNamingStrategy`) — ver [ADR 0019 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md).
->
-> **No verificado en este refresh** (requiere sesión dedicada, fuera de alcance de esta corrección): cobertura real de tests, inventario completo de módulos/entidades/endpoints por vertical. La tabla de abajo queda tal cual estaba — tratarla como histórica, no como el estado actual completo; para el detalle actualizado por vertical usar `.ai/checklists/vertical-*.md`.
+> Qué existe HOY en `optibienestar-360-backend`. Actualizar al cierre de cada sesión productiva. **No duplicar aquí el avance por vertical** — la fuente de verdad son los checkboxes de [`../checklists/`](../checklists/) y el dashboard de [`../checklist.md`](../checklist.md).
 
 ## Resumen
 
 | Aspecto | Estado |
 |---|---|
-| Bootstrap base | ✅ Spring Boot 4.0.6 + Java 25 + Gradle 9.4.1 |
-| Estructura paquetes | ✅ `core/`, `security/`, `common/`, `modules/{auth,catalog,contact}` |
-| Configuración seguridad | ✅ `SecurityConfig` + `JwtService` + filters + `RedisTokenBlacklistService` + 49+1 permisos |
-| Migraciones Flyway | ✅ V1–V10 aplicadas (extensions, audit, app_roles, contact, users+roles+permission_domains, seeds, locations, personal, health catalogs) |
-| Entidades JPA | ✅ User, Role, Permission, **PermissionDomain**, UserRole, UserPasswordHistory, SecurityPolicy, UserSessionLog, ContactMessage + 10 catálogos (Country/State/City/Gender/DocumentType/MaritalStatus/Occupation/MedicalSpecialty/ServiceCategory/AllyType) |
-| Endpoints REST | ✅ `AuthController` (login/refresh/logout/recover), `MeController`, `AdminUserController` (CRUD + RSQL), `AdminRoleController` (read-only), **`PermissionController`** (GET catálogo), `ContactController`, `AdminCatalogsController`, `PublicCatalogsController`, `SystemInfoController` |
-| Tests | ⚠️ Sin tests de integración aún (solo `contextLoads()` trivial) |
-| Dockerfile | ✅ Multi-stage Alpine + Debian |
-| CI/CD | ✅ GitHub Actions: build + publish Docker Hub |
-| Configuración SMTP | ✅ `EmailService` + templates (recuperación de contraseña) |
-| Configuración Redis | ✅ Token blacklist + refresh token store |
-| Configuración S3/R2 | ✅ Cliente configurado (MinIO en dev, R2 en prod) |
-| Swagger/OpenAPI | ✅ Configurado en `/v1/swagger-ui` con redirects 301 |
+| Stack | ✅ Spring Boot 4.0.6 + Java 25 + Gradle 9.4.1, Jetty embebido ([ADR LOC-0001](../decisions/loc-0001-jetty-over-tomcat.md)) |
+| Código | ✅ ~850 archivos Java en `src/main/java`; ~97 clases `@RestController` |
+| Paquetes raíz | ✅ `core/` (audit, config, display, dto, entity, exception, jpa, util, validation, web) · `security/` (JWT + `PermissionResolver`) · `common/` (email, storage, system-info) · `modules/` |
+| Módulos de negocio (`modules/`) | ✅ 26: `affiliation`, `ally`, `auth`, `bank`, `benefit`, `campaign`, `card`, `catalog`, `contact`, `corporate`, `currency`, `document`, `exchangerate`, `member`, `membership`, `notification`, `organization`, `payment`, `person`, `promoter`, `promotion`, `scheduling`, `subsidy`, `system`, `terms`, `validator` |
+| Migraciones Flyway | ✅ 187 archivos `V*.sql`, última `V190__affiliation_requests.sql` (hay huecos de numeración, ver `git log` de cada migración). JPA en `validate` en todos los perfiles; nunca editar una migración aplicada |
+| Persistencia | ✅ PostgreSQL 15, PK `{tabla}_id BIGINT` + `uuid` público ([ADR LOC-0005](../decisions/loc-0005-table-id-convention.md)), soft-delete ([LOC-0002](../decisions/loc-0002-soft-delete.md)), columnas de auditoría ([LOC-0003](../decisions/loc-0003-audit-columns.md)) |
+| Seguridad | ✅ JWT (access + refresh en Redis, `sid`), autorización por **permiso** granular vía `@PreAuthorize(hasAuthority)` — el JWT lleva permisos, no roles ([spec 05](../specs/05-roles-permissions.md)) |
+| Contrato JSON | ✅ camelCase + convención `_Display` ([hub ADR 0019](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md), [hub ADR 0014](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0014-display-value-convention.md)) — ver [`api-conventions.md`](api-conventions.md) |
+| Auditoría | ✅ `@Auditable` + 3 tablas de bitácora + `entity_config` ([spec 16](../specs/16-audit.md)) |
+| i18n | ✅ Bilingüe `es`/`en` (`messages*.properties`, plantillas de correo `_es`/`_en`) — [spec 14](../specs/14-i18n.md), vertical 11 al 100 % |
+| Multi-moneda | ✅ `currencies` / `exchange_rates` / `organizations` ([hub ADR 0015](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0015-multi-currency-exchange-rates.md)) |
+| Reportes | ✅ 4 reportes JasperReports (`resources/reports/*.jrxml`, `GenericDocumentController`) + persistencia `attached_files` / `report_audit_log` ([hub ADR 0020](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0020-reporting-engine-reality-amendment.md)). openhtmltopdf + fastexcel también en el classpath ([spec 15](../specs/15-reporting-documents.md)) |
+| Jobs programados | ✅ 15 implementaciones de `ScheduledJobRunner` sobre `scheduled_jobs` (módulo `scheduling`, CRUD admin en `AdminScheduledJobController`) |
+| Cache | ✅ Spring Cache: `simple` en dev, Redis en prod; Caffeine disponible |
+| Storage | ✅ Spring Cloud AWS S3 → Cloudflare R2 (MinIO en dev) ([spec 08](../specs/08-storage-r2.md)) |
+| Correo | ✅ `EmailService` + plantillas Thymeleaf bilingües en `resources/templates/` |
+| API docs | ✅ springdoc: `/swagger-ui.html` (redirects de variantes `/swagger-ui*` → `/swagger-ui/index.html`), `/v3/api-docs` |
+| Tests | ✅ ~117 clases `*Test` (unitarias, JUnit 5 + Mockito) + ~37 `*IT` (integración contra PostgreSQL). **No correr en local** — CI los corre |
+| CI/CD | ✅ `.github/workflows/ci.yaml` (`./gradlew build` con servicio `postgres:15-alpine`) + `publish.yaml` (imagen Docker; requiere `target: runtime` + `no-cache`) |
+| Docker | ✅ `docker/alpine.Dockerfile` + `docker/debian.Dockerfile` |
+| Arranque local | ✅ `start.sh` (perfil dev) — ver [playbook `local-build`](../playbooks/local-build.md) y `GUIA-DESARROLLO-LOCAL.md` |
 
-## Detalle
+## Dónde mirar el detalle
 
-### `build.gradle` (dependencias instaladas)
+| Necesito | Archivo |
+|---|---|
+| Avance por vertical / qué falta | [`../checklist.md`](../checklist.md) + [`../checklists/`](../checklists/) |
+| Esquema de BD | [`../specs/02-database.md`](../specs/02-database.md) + `src/main/resources/db/migration/` |
+| Pagos unificados IN/OUT | [`../specs/11-billing-manual.md`](../specs/11-billing-manual.md) |
+| Motor de comisiones | [`../specs/12-commissions.md`](../specs/12-commissions.md) |
+| Crear entidad / migración / endpoint / rol | [`../playbooks/`](../playbooks/) |
 
-```groovy
-// Spring Boot 4.0.6
-spring-boot-starter-web (sin Tomcat)
-spring-boot-starter-jetty
-spring-boot-starter-data-jpa
-spring-boot-starter-security
-spring-boot-starter-validation
-spring-boot-starter-cache
-spring-boot-starter-data-redis
-spring-boot-starter-actuator
-spring-boot-starter-aspectj
+## Cómo se recalculan las cifras de este snapshot
 
-// DB
-org.postgresql:postgresql:42.7.11
-
-// Auth
-io.jsonwebtoken:jjwt-api:0.13.0
-io.jsonwebtoken:jjwt-impl:0.13.0
-io.jsonwebtoken:jjwt-jackson:0.13.0
-
-// Cloud Storage (compatible con R2 vía endpoint)
-io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2
-
-// API docs
-org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3
-
-// Tools
-org.mapstruct:mapstruct:1.6.3
-io.github.perplexhub:rsql-jpa-spring-boot-starter:7.0.0
-com.fasterxml.jackson.module:spring-boot-jackson2
-
-// Test
-spring-boot-starter-test
-com.h2database:h2
+```bash
+git ls-tree -r --name-only origin/main src/main/resources/db/migration | grep -c '\.sql$'   # migraciones
+git ls-tree -r --name-only origin/main src/main/java | grep -c '\.java$'                   # archivos Java
+git grep -l '@RestController' origin/main -- src/main/java | wc -l                          # controllers
+git ls-tree -r --name-only origin/main src/test/java | grep -c 'Test\.java$'              # tests unitarios
+git ls-tree -r --name-only origin/main src/test/java | grep -c 'IT\.java$'                # tests de integración
 ```
-
-### Configuraciones actuales
-
-**`application.properties`:**
-```properties
-spring.application.name=optibienestar360
-```
-
-**`application-dev.properties`:**
-```properties
-server.port=${SERVER_PORT:8080}
-server.jetty.threads.min=10
-server.jetty.threads.max=100
-
-spring.datasource.url=jdbc:postgresql://localhost:5432/optibienestar-360
-spring.datasource.username=${DATABASE_USER}
-spring.datasource.password=${DATABASE_PASSWORD}
-spring.jpa.hibernate.ddl-auto=update    # ⚠️ debe cambiarse a validate
-spring.cache.type=simple
-
-spring.cloud.aws.credentials.access-key=${S3_ACCESS_KEY_ID}
-spring.cloud.aws.credentials.secret-key=${S3_SECRET_ACCESS_KEY}
-spring.cloud.aws.region.static=${S3_REGION:us-east-1}
-
-logging.level.org.springframework=DEBUG
-logging.level.com.fenixcore=INFO
-```
-
-**`application-prod.properties`:** similar, con `ddl-auto=validate`, `cache.type=redis`.
-
-### Código actual
-
-`OptiBienestar360Application.java`:
-```java
-@SpringBootApplication
-public class OptiBienestar360Application {
-    public static void main(String[] args) {
-        SpringApplication.run(OptiBienestar360Application.class, args);
-    }
-}
-```
-
-### Estructura del repo
-
-```
-optibienestar-360-backend/
-├── CLAUDE.md                                  ← creado 2026-05-18
-├── .ai/                                       ← creado 2026-05-18
-├── build.gradle, settings.gradle
-├── README.md, HELP.md
-├── src/main/
-│   ├── java/com/fenixcore/optibienestar360/
-│   │   └── OptiBienestar360Application.java     ← ÚNICA clase
-│   └── resources/
-│       ├── application.properties
-│       ├── application-dev.properties
-│       └── application-prod.properties
-├── src/test/                                  ← un test trivial
-├── .vscode/                                   ← config Java VS Code
-└── .github/
-    └── java-upgrade/                          ← script upgrade Java
-```
-
-## Próximos pasos
-
-Ver [`../checklist.md`](../checklist.md) sección FASE 1 Tarea 1.7. Empezar por:
-1. Agregar Flyway al `build.gradle`
-2. Crear migration `V1__initial_extensions.sql`
-3. Cambiar `ddl-auto=validate` en TODOS los profiles
-4. Crear estructura de paquetes `core/`, `security/`, `common/`, `modules/`
-5. Crear `BaseEntity` abstracta
 
 ## Cambios recientes
 
@@ -149,5 +58,3 @@ Ver [`../checklist.md`](../checklist.md) sección FASE 1 Tarea 1.7. Empezar por:
 - **2026-05-25** — Endpoint `/v1/system-info` con metadata de release.
 - **2026-05-18 → 2026-05-24** — Bootstrap completo del módulo auth (login/refresh/logout/recover/me/admin users), módulo catalog (10 catálogos públicos+admin), módulo contact. Migraciones V1–V10. Hardening Postgres (REVOKE PUBLIC, search_path, connection limits).
 - **2026-05-18 (inicial)** — Bootstrap Spring Boot 4 + Java 25 + dependencias clave + `.ai/` local.
-
-> Las secciones "Detalle" y "Estructura del repo" más abajo describen el estado de bootstrap del 2026-05-18 y necesitan refresh — usar como contexto histórico, no como verdad operativa.
