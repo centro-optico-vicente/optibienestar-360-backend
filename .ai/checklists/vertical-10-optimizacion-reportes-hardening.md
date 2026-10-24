@@ -16,7 +16,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [P1/C3] EXPLAIN ANALYZE queries críticas (validate, memberships listing, payments)
 - [ ] [P1/C2] Índices adicionales según EXPLAIN
 - [ ] [P1/C3] Tuning HikariCP (pool size, timeout, keepalive)
-- [ ] [P1/C3] Paginación obligatoria (default 20, max 100) en todos los listados — incluye: `findRecentByUserId` (sin LIMIT actual), `findAllByActiveTrue` en roles/permissions (spring-data-jpa)
+- [ ] [P1/C3] Paginación obligatoria (default 20, max 100) en todos los listados — incluye: ~~`findRecentByUserId` (sin LIMIT actual)~~ ✅ 2026-10-24 (#340) — ahora recibe `Pageable` y `AuthService.hashNewPassword` pide solo `PageRequest.of(0, passwordHistoryCount)` (LIMIT en SQL; `0` omite la consulta), test `AuthServicePasswordHistoryTest`; `findAllByActiveTrue` en roles/permissions (spring-data-jpa) sigue pendiente
 - [ ] [P1/C1] `user_sessions_log.jti` — cambiar índice B-tree → HASH (`USING HASH`) para lookups de igualdad pura (jti equality-only) — migración V(N) (postgresql-expert)
 - [ ] [P1/C2] `findByPasswordResetToken` en `UserRepository` — cambiar return type a proyección `UserPasswordResetView` (uuid + passwordResetTokenExpiresAt) — evita cargar entidad completa con roles en flujo de reset (spring-data-jpa)
 - [ ] [P1/C2] Lazy loading + `@EntityGraph` / JOIN FETCH (evitar N+1) — incluye: `UserRole.role` EAGER→LAZY (postgresql-expert), revisar cualquier listado RSQL que no use EntityGraph
