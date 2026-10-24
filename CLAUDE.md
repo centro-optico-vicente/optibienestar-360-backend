@@ -25,14 +25,15 @@ Para decisiones cross-stack (modelo de dominio, infraestructura, integración co
 - **Java 25** + **Spring Boot 4.0.6** + **Gradle 9.4.1**
 - **Servidor:** Jetty embebido (más liviano que Tomcat)
 - **Persistencia:** Spring Data JPA + Hibernate + PostgreSQL 15
-- **Migraciones:** Flyway (pendiente instalar) — DDL versionado + JPA en `validate` mode
+- **Migraciones:** Flyway — DDL versionado (`src/main/resources/db/migration/`) + JPA en `validate` mode
 - **Auth:** JWT con jjwt 0.13.0 (access 15min + refresh 30d)
 - **Cache:** Spring Cache + Redis 7
 - **Storage:** Spring Cloud AWS S3 4.0.2 → Cloudflare R2
 - **API docs:** springdoc-openapi (Swagger UI)
 - **DTO mapping:** MapStruct 1.6.3
 - **Filtering:** RSQL JPA 7.0.0 para listings
-- **Tests:** JUnit 5 + Testcontainers
+- **Reportes:** JasperReports (`resources/reports/*.jrxml`) + openhtmltopdf + fastexcel
+- **Tests:** JUnit 5 + Mockito (unitarios) + `*IT` de integración contra PostgreSQL (servicio `postgres` en CI)
 
 ## Cómo correr (local)
 
@@ -47,4 +48,4 @@ Variables clave en `application-dev.properties`. Ver [`.ai/specs/01-package-stru
 
 ## Estado actual
 
-Bootstrap completo con dependencias instaladas; **sin entidades ni endpoints aún**. Ver [`.ai/context/current-state.md`](.ai/context/current-state.md).
+Fase 2 en construcción: 26 módulos de negocio, ~97 controllers REST y migraciones Flyway hasta `V190`. Resumen verificado en [`.ai/context/current-state.md`](.ai/context/current-state.md); avance por vertical en [`.ai/checklist.md`](.ai/checklist.md).
