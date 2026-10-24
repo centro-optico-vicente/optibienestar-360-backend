@@ -328,8 +328,9 @@ Mismo patrón de `V54__document_permissions.sql` (`permissions`/`permission_doma
   **Montos en la moneda ISO de su fila** ([hub ADR 0015](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0015-multi-currency-exchange-rates.md)):
   `money(BigDecimal value, String currencyCode, Locale locale)` usa el símbolo y los decimales
   reales de `currencyCode` (US$, EUR, Bs.…); si el código es `null`/vacío o desconocido cae a `VES`
-  (con `warn` en el log). El overload `money(BigDecimal, Locale)` —solo `VES`— queda `@Deprecated`
-  para los llamadores que aún no tienen moneda en contexto. En los DTOs, `@Display(Kind.MONEY,
+  (con `warn` en el log). El overload `money(BigDecimal, Locale)` —solo `VES`, `@Deprecated` desde
+  el ADR 0015— se eliminó el 2026-10-24 al no quedar llamadores; quien no tenga moneda en contexto
+  pasa `null` como `currencyCode` y obtiene el mismo resultado (`VES`). En los DTOs, `@Display(Kind.MONEY,
   moneyCurrencyField = "<campo con el código ISO>")` le indica al serializador de qué componente del
   `record` leer la moneda; sin `moneyCurrencyField` se usa la moneda por defecto (`VES`).
   Todo lo que varía por idioma sale del `MessageSource`, **incluido el patrón de fecha**
