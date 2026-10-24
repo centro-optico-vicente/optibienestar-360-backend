@@ -37,6 +37,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P1/C1] `GET /v1/admin/roles` + `/{uuid}` — lectura de roles activos (AdminRoleController/RoleService) para poblar selects del panel; sin CRUD (roles son seed fijo en V6)
 - [x] [P1/C2] `POST /v1/me/change-password` — verifica contraseña actual, historial, revoca refresh tokens
 - [x] [P1/C2] Anti-brute-force (lock IP + identifier) — configurable via SecurityPolicy (max_login_attempts, lockout_duration_minutes)
+- [x] [P1/C2] Política de seguridad editable desde el panel — `GET`/`PUT /v1/admin/security-policy` (`AdminSecurityPolicyController` + `SecurityPolicyService`, singleton como Organización) sobre la fila activa de `security_policies`. Permisos granulares `SECURITY_POLICY_VIEW` / `SECURITY_POLICY_UPDATE` en el dominio nuevo `SECURITY_POLICY` (SYSTEM + ADMINISTRADOR, sin guard SYSTEM-only, igual que `ORGANIZATION_*` y `AUDIT_MANAGE_CONFIG`). `V191` agrega los permisos, CHECKs (`max_login_attempts`/`lockout_duration_minutes`/`max_concurrent_sessions` ≥ 1, `days_password_expires`/`password_history_count` ≥ 0) y la fila `entity_config` `security_policy` para auditar el PUT. **`password_history_count = 0` desactiva el chequeo de historial** (se permite repetir la contraseña); `days_password_expires = 0` = sin fecha de expiración. `max_concurrent_sessions` se guarda pero aún no se aplica en el login. Tests: `SecurityPolicyServiceTest`, `SecurityPolicyUpdateRequestValidationTest`, `AdminSecurityPolicyControllerIT`.
 
 ## Hardening adicional (hallazgos audit multi-skill)
 

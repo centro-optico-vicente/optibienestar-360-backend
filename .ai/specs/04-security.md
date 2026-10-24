@@ -190,6 +190,22 @@ public class CorsConfig {
 }
 ```
 
+## Política de seguridad (`security_policies`)
+
+Una sola fila activa (`is_active = true`, sembrada por V6). `AuthService.activePolicy()` la lee en cada login / cambio / reset de contraseña; si no hay fila activa usa los defaults de `new SecurityPolicy()` (5 / 30 / 90 / 5 / 3).
+
+Editable desde el panel: `GET`/`PUT /v1/admin/security-policy` (`SECURITY_POLICY_VIEW` / `SECURITY_POLICY_UPDATE`, V191). El PUT reemplaza los 5 valores (todos obligatorios), se valida con Bean Validation y con CHECKs en BD, y queda en la bitácora de cambios (`entity_config.security_policy`).
+
+| Campo | Mínimo | Qué hace el código hoy | Significado de `0` |
+|---|---|---|---|
+| `max_login_attempts` | 1 | Bloquea la cuenta cuando `failed_login_attempts >= max_login_attempts` | No permitido (bloquearía al primer fallo) |
+| `lockout_duration_minutes` | 1 | `locked_until = now + N minutos` al alcanzar el máximo | No permitido (desactivaría el bloqueo en silencio) |
+| `days_password_expires` | 0 | Fecha `expires_at` en `user_password_history` al guardar una contraseña nueva | Sin fecha de expiración. **Nota:** el login aún no rechaza contraseñas vencidas |
+| `password_history_count` | 0 | Rechaza (`auth.password.history.repeat`) una contraseña igual a cualquiera de las últimas N | Chequeo de historial desactivado: se puede repetir la misma contraseña (PR #340 conserva al menos el hash actual al podar) |
+| `max_concurrent_sessions` | 1 | Se persiste; **aún no se aplica** en el login | No permitido |
+
+Permisos otorgados a SYSTEM (trigger V30) y ADMINISTRADOR; no hay guard SYSTEM-only (misma política que `ORGANIZATION_*`, V98, y `AUDIT_MANAGE_CONFIG`, V64). Un admin puede quitar `SECURITY_POLICY_UPDATE` al rol ADMINISTRADOR desde el editor de roles si se quiere restringir a SYSTEM.
+
 ## Endpoints públicos vs protegidos
 
 | Endpoint | Auth | Permiso |

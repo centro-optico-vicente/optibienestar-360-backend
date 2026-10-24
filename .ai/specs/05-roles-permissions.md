@@ -37,6 +37,11 @@ Detalle de cada perfil en [hub `stakeholders.md`](https://github.com/centro-opti
 - `AFFILIATION_REQUEST_UPDATE` (corregir datos mientras está `PENDING`), `AFFILIATION_REQUEST_APPROVE`, `AFFILIATION_REQUEST_REJECT`
 - Seed: ADMINISTRADOR todos; ASESOR solo `_VIEW_OWN`; OPERADOR **ninguno** (se le asigna desde Roles); SYSTEM todos vía trigger V30.
 
+### Security policy (V191, dominio `SECURITY_POLICY`)
+
+- `SECURITY_POLICY_VIEW` (`GET /v1/admin/security-policy`), `SECURITY_POLICY_UPDATE` (`PUT /v1/admin/security-policy`)
+- Seed: SYSTEM (trigger V30) + ADMINISTRADOR. Sin guard SYSTEM-only — mismo criterio que `ORGANIZATION_*` (V98) y `AUDIT_MANAGE_CONFIG` (V64). Ver [04-security.md §Política de seguridad](04-security.md#política-de-seguridad-security_policies).
+
 ### Allies
 
 - `ALLY_CREATE`, `ALLY_UPDATE`, `ALLY_DELETE`
