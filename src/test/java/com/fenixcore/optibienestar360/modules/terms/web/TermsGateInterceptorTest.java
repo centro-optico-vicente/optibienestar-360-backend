@@ -1,6 +1,6 @@
 package com.fenixcore.optibienestar360.modules.terms.web;
 
-import com.fenixcore.optibienestar360.core.exception.ForbiddenDetailsException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,7 +40,11 @@ class TermsGateInterceptorTest {
 
     @BeforeEach
     void setup() {
-        interceptor = new TermsGateInterceptor(termsAcceptanceService, TermType.ADVISOR);
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        interceptor = new TermsGateInterceptor(termsAcceptanceService, TermType.ADVISOR, messageSource,
+                new ObjectMapper(), "https://problems.test");
     }
 
     @AfterEach
@@ -49,19 +53,23 @@ class TermsGateInterceptorTest {
     }
 
     @Test
-    void pendingContract_isRefusedWithItsType() {
+    void pendingContract_isRefusedWithItsType() throws Exception {
         authenticate();
         when(termsAcceptanceService.hasPending(userUuid, TermType.ADVISOR)).thenReturn(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
 
-        assertThatThrownBy(() -> interceptor.preHandle(get(), new MockHttpServletResponse(), new Object()))
-                .isInstanceOfSatisfying(ForbiddenDetailsException.class, ex -> {
-                    assertThat(ex.getMessage()).isEqualTo(TermsGateInterceptor.PENDING_CODE);
-                    assertThat(ex.getProperties()).containsEntry("termType", "ASESOR");
-                });
+        boolean proceed = interceptor.preHandle(get(), response, new Object());
+
+        assertThat(proceed).isFalse();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentType()).startsWith("application/problem+json");
+        assertThat(response.getContentAsString())
+                .contains(TermsGateInterceptor.PENDING_CODE)
+                .contains("ASESOR");
     }
 
     @Test
-    void acceptedContract_passes() {
+    void acceptedContract_passes() throws Exception {
         authenticate();
         when(termsAcceptanceService.hasPending(userUuid, TermType.ADVISOR)).thenReturn(false);
 
@@ -69,7 +77,7 @@ class TermsGateInterceptorTest {
     }
 
     @Test
-    void anonymousRequest_isLeftToSpringSecurity() {
+    void anonymousRequest_isLeftToSpringSecurity() throws Exception {
         assertThat(interceptor.preHandle(get(), new MockHttpServletResponse(), new Object())).isTrue();
         verify(termsAcceptanceService, never()).hasPending(any(), any());
     }

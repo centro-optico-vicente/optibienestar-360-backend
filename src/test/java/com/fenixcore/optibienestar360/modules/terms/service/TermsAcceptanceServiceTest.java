@@ -484,6 +484,14 @@ class TermsAcceptanceServiceTest {
     }
 
     @Test
+    void hasPending_isFalseForAnUnknownUser() {
+        UUID stranger = UUID.randomUUID();
+        when(userRepository.findByUuid(stranger)).thenReturn(Optional.empty());
+
+        assertThat(service.hasPending(stranger, TermType.ADVISOR)).isFalse();
+    }
+
+    @Test
     void acceptOne_storesTheGivenAgreementOnly() {
         Ally first = belongToAlly(50L, "Clínica Norte");
         Ally second = belongToAlly(51L, "Clínica Sur");

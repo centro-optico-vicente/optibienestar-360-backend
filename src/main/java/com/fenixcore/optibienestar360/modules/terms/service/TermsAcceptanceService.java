@@ -109,11 +109,15 @@ public class TermsAcceptanceService {
     /**
      * Whether the caller still has a contract of {@code type} to accept —
      * backs {@code TermsGateInterceptor}. Same resolution as
-     * {@link #pendingForUser} but without rendering any text.
+     * {@link #pendingForUser} but without rendering any text, and {@code false}
+     * (never an error) for an unknown user.
      */
     public boolean hasPending(UUID userUuid, TermType type) {
-        User user = requireUser(userUuid);
-        return pendingDues(user).stream().anyMatch(due -> due.version.getTermType() == type);
+        // A caller with no user row has nothing pending: the gate must not turn
+        // that into an error of its own — the endpoint answers it as usual.
+        return userRepository.findByUuid(userUuid)
+                .map(user -> pendingDues(user).stream().anyMatch(due -> due.version.getTermType() == type))
+                .orElse(false);
     }
 
     /**
