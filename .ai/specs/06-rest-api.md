@@ -39,6 +39,17 @@ public class MemberController {
 }
 ```
 
+## Recursos singleton de configuración
+
+Configuración con una sola fila activa se expone sin `/{uuid}` y solo con `GET` + `PUT` (sin list/create/delete), con un par de permisos `<X>_VIEW` / `<X>_UPDATE`:
+
+| Recurso | Endpoints | Permisos |
+|---|---|---|
+| Organización (V98) | `GET`/`PUT /v1/admin/organizations/me` | `ORGANIZATION_VIEW` / `ORGANIZATION_UPDATE` |
+| Política de seguridad (V191) | `GET`/`PUT /v1/admin/security-policy` | `SECURITY_POLICY_VIEW` / `SECURITY_POLICY_UPDATE` |
+
+`PUT /v1/admin/security-policy` recibe los 5 campos obligatorios (`maxLoginAttempts`, `lockoutDurationMinutes`, `daysPasswordExpires`, `passwordHistoryCount`, `maxConcurrentSessions`) y devuelve el mismo `SecurityPolicyDto` (+ `uuid`). Valores fuera de rango → **400** `validation-error` con `errors[].field`. Rangos y significado de `0` por campo en [04-security.md §Política de seguridad](04-security.md#política-de-seguridad-security_policies).
+
 ## Paginación
 
 > **Regla obligatoria.** Todo endpoint de listado (`GET /<recurso>`) **debe** paginar por default y devolver `Page<DTO>`. No se aceptan endpoints que devuelvan `List<DTO>` para colecciones sin acotar — un dataset chico hoy se vuelve grande mañana y romper el contrato es caro. Se aplica a TODO nuevo service/controller que se agregue al API.
