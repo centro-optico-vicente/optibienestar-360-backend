@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -164,13 +165,14 @@ class ExchangeRateLookupServiceTest {
         when(currencyConversionService.convert(eq(new BigDecimal("10")), eq(usd), eq(ves), any()))
                 .thenReturn(new CurrencyConversionService.ConversionResult(
                         new BigDecimal("10"), new BigDecimal("8862.30"), new BigDecimal("886.23"), LocalDate.of(2026, 10, 22)));
-        when(displayFormatter.money(eq(new BigDecimal("8862.30")), eq("VES"), any())).thenReturn("Bs. 8.862,30");
+        when(displayFormatter.money(any(), anyString(), any()))
+                .thenAnswer(inv -> inv.getArgument(1) + " " + ((BigDecimal) inv.getArgument(0)).toPlainString());
 
         ConvertedAmountDto result = service().convert(new BigDecimal("10"), "USD", "VES", null);
 
         assertThat(result.available()).isTrue();
         assertThat(result.convertedAmount()).isEqualByComparingTo("8862.30");
-        assertThat(result.convertedAmount_Display()).isEqualTo("Bs. 8.862,30");
+        assertThat(result.convertedAmount_Display()).isEqualTo("VES 8862.30");
         assertThat(result.rate()).isEqualByComparingTo("886.23");
         assertThat(result.viaCurrencyCode()).isNull();
     }
