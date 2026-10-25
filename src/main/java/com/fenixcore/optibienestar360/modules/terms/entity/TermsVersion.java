@@ -98,6 +98,14 @@ public class TermsVersion extends BaseEntity {
     @Column(name = "is_public", nullable = false)
     private boolean isPublic = false;
 
+    /**
+     * Must be accepted before using the platform (V192); {@code false} = can be
+     * postponed, locking only its module. Policy, not text: editable even once
+     * vigente.
+     */
+    @Column(name = "is_mandatory", nullable = false)
+    private boolean isMandatory = false;
+
     @Column(name = "valid_from", nullable = false)
     private Instant validFrom;
 

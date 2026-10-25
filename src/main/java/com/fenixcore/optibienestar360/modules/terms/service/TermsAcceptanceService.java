@@ -97,6 +97,30 @@ public class TermsAcceptanceService {
     }
 
     /**
+     * Default of {@code is_mandatory} for a new version created without it
+     * (V192): MEMBER {@code true}, ADVISOR / ALLY {@code false}. The flag is
+     * per version afterwards — an optional contract can be postponed, gating
+     * only its own module ({@link #hasPending}).
+     */
+    public static boolean isMandatoryByDefault(TermType type) {
+        return type == TermType.MEMBER;
+    }
+
+    /**
+     * Whether the caller still has a contract of {@code type} to accept —
+     * backs {@code TermsGateInterceptor}. Same resolution as
+     * {@link #pendingForUser} but without rendering any text, and {@code false}
+     * (never an error) for an unknown user.
+     */
+    public boolean hasPending(UUID userUuid, TermType type) {
+        // A caller with no user row has nothing pending: the gate must not turn
+        // that into an error of its own — the endpoint answers it as usual.
+        return userRepository.findByUuid(userUuid)
+                .map(user -> pendingDues(user).stream().anyMatch(due -> due.version.getTermType() == type))
+                .orElse(false);
+    }
+
+    /**
      * {@code GET /v1/me/terms/acceptances} — every contract the caller
      * accepted, newest first, with the text as accepted (legacy rows without
      * a stored text are re-rendered with current data and flagged).
@@ -189,7 +213,8 @@ public class TermsAcceptanceService {
                 ally == null ? null : ally.getUuid(),
                 ally == null ? null : ally.getName(),
                 due.agreement == null ? null : due.agreement.getUuid(),
-                previous);
+                previous,
+                v.isMandatory());
     }
 
     /**
@@ -303,6 +328,16 @@ public class TermsAcceptanceService {
         for (Due due : toSave) {
             save(user, due.version, due.agreement, due.rendered(), Channel.PORTAL, client, null, null);
         }
+    }
+
+    /**
+     * {@code POST /v1/me/terms/{termsVersionUuid}/accept} — one pending item,
+     * same rules as {@link #accept(UUID, List, ClientRequestMetadata)}
+     * ({@code allyAgreementUuid} only for ALIADO).
+     */
+    @Transactional
+    public void acceptOne(UUID userUuid, UUID termsVersionUuid, UUID allyAgreementUuid, ClientRequestMetadata client) {
+        accept(userUuid, List.of(new TermsAcceptRequest.Item(termsVersionUuid, allyAgreementUuid)), client);
     }
 
     /** Legacy entry point: bare version UUIDs (see {@link #accept(UUID, List, ClientRequestMetadata)}). */

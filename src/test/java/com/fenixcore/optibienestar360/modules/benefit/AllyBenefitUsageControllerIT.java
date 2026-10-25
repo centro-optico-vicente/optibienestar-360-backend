@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.benefit;
 
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageDto;
 import com.fenixcore.optibienestar360.modules.benefit.service.BenefitUsagesService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,10 @@ class AllyBenefitUsageControllerIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private BenefitUsagesService benefitUsagesService;

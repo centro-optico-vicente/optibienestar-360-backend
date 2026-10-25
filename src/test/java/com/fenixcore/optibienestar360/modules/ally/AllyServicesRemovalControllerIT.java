@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceReviewLogDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyServiceReviewService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,10 @@ class AllyServicesRemovalControllerIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private AllyServiceReviewService reviewService;

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.validator;
 
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto;
 import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto.ValidationStatus;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorService;
@@ -40,6 +41,10 @@ class AllyValidatorControllerIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private ValidatorService validatorService;

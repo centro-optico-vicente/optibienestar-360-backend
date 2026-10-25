@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -459,6 +460,64 @@ class TermsAcceptanceServiceTest {
                 .hasMessage("terms_acceptance.not_pending");
     }
 
+    @Test
+    void pending_carriesEachVersionsMandatoryFlag() {
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
+        advisorTerms.setMandatory(true);
+
+        assertThat(service.pendingForUser(user.getUuid()))
+                .extracting(PendingTermDto::termType, PendingTermDto::mandatory)
+                .containsExactly(tuple(TermType.MEMBER, true),
+                        tuple(TermType.ADVISOR, true));
+    }
+
+    @Test
+    void hasPending_isTrueOnlyForTheKindsStillToAccept() {
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
+        when(termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(1L, advisorTerms.getId()))
+                .thenReturn(true);
+
+        assertThat(service.hasPending(user.getUuid(), TermType.MEMBER)).isTrue();
+        assertThat(service.hasPending(user.getUuid(), TermType.ADVISOR)).isFalse();
+        assertThat(service.hasPending(user.getUuid(), TermType.ALLY)).isFalse();
+        verify(renderer, never()).render(anyString(), anyMap());
+    }
+
+    @Test
+    void hasPending_isFalseForAnUnknownUser() {
+        UUID stranger = UUID.randomUUID();
+        when(userRepository.findByUuid(stranger)).thenReturn(Optional.empty());
+
+        assertThat(service.hasPending(stranger, TermType.ADVISOR)).isFalse();
+    }
+
+    @Test
+    void acceptOne_storesTheGivenAgreementOnly() {
+        Ally first = belongToAlly(50L, "Clínica Norte");
+        Ally second = belongToAlly(51L, "Clínica Sur");
+        TermsVersion template = version(20L, TermType.ALLY, false);
+        AllyAgreement north = agreement(first, template);
+        AllyAgreement south = agreement(second, template);
+        when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
+                .thenReturn(List.of(north, south));
+
+        service.acceptOne(user.getUuid(), template.getUuid(), south.getUuid(), null);
+
+        ArgumentCaptor<TermsAcceptance> saved = ArgumentCaptor.forClass(TermsAcceptance.class);
+        verify(termsAcceptanceRepository, times(1)).save(saved.capture());
+        assertThat(saved.getValue().getAllyAgreement()).isSameAs(south);
+    }
+
+    @Test
+    void acceptOne_rejectsAVersionThatIsNotPending() {
+        UUID advisorTermsUuid = advisorTerms.getUuid();
+
+        assertThatThrownBy(() -> service.acceptOne(user.getUuid(), advisorTermsUuid, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("terms_acceptance.not_pending");
+        verify(termsAcceptanceRepository, never()).save(any());
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────
 
     private List<TermType> pendingTypes() {
@@ -542,6 +601,7 @@ class TermsAcceptanceServiceTest {
         version.setTitle(type.name() + " v1");
         version.setContentMarkdown("Contenido " + type.name());
         version.setPublic(isPublic);
+        version.setMandatory(TermsAcceptanceService.isMandatoryByDefault(type));
         version.setValidFrom(Instant.now().minus(1, ChronoUnit.DAYS));
         return version;
     }

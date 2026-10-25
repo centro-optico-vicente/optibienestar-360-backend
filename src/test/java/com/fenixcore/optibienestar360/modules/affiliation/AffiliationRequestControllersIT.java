@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,10 @@ class AffiliationRequestControllersIT {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** Portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     @MockitoBean
     private AffiliationRequestService service;
