@@ -171,8 +171,8 @@ public class CorsConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-            "https://centro-optico-vicente.com",
-            "https://www.centro-optico-vicente.com",
+            "https://centroopticovicente.com",
+            "https://www.centroopticovicente.com",
             "https://app.dominio.com",
             "http://localhost:3000",  // dev
             "http://localhost:3001"   // dev

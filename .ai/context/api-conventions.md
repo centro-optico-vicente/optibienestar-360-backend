@@ -111,7 +111,7 @@ Response:
 ## Filtros (RSQL)
 
 ```
-GET /v1/admin/members?filter=status==ACTIVE;city.name==Maturín;age=ge=18
+GET /v1/admin/members?filter=status==ACTIVE;city.name==Acarigua;age=ge=18
 ```
 
 Operadores: `==`, `!=`, `=in=`, `=out=`, `=ge=`, `=gt=`, `=le=`, `=lt=`, `=like=`. AND `;`, OR `,`.
@@ -162,7 +162,7 @@ Ver [`../specs/04-security.md`](../specs/04-security.md).
 ## CORS
 
 Configurado en `core.config.CorsConfig`:
-- `https://centro-optico-vicente.com`, `https://app.dominio.com`
+- `https://centroopticovicente.com`, `https://app.dominio.com`
 - `http://localhost:3000`, `http://localhost:3001` (dev)
 - Métodos: GET, POST, PUT, PATCH, DELETE, OPTIONS
 - Headers permitidos: Authorization, Content-Type, X-Requested-With, X-Idempotency-Key
