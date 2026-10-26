@@ -21,6 +21,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentApproveRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLineRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
@@ -244,6 +245,50 @@ class PaymentsServiceTest {
         sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
 
         assertThat(member.getConfirmedAt()).isNull();
+    }
+
+    @Test
+    void approve_confirmsMember_beforeAttributingCommission() {
+        // The commission tier count only counts confirmed enrollments, and this very payment is
+        // what confirms the member: confirmation must already be stamped when the engine runs.
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+        when(paymentRepository.countApprovedByMemberId(9L)).thenReturn(1L);
+        var confirmedWhenAttributing = new java.util.concurrent.atomic.AtomicBoolean(false);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            confirmedWhenAttributing.set(member.getConfirmedAt() != null);
+            return Optional.empty();
+        }).when(commissionService).calculateAndPersistFor(payment);
+
+        sut().approve(payment.getUuid(), new PaymentApproveRequest(null), ACTOR);
+
+        verify(commissionService).calculateAndPersistFor(payment);
+        assertThat(confirmedWhenAttributing).isTrue();
+    }
+
+    @Test
+    void reject_doesNotConfirmMember_norAttributeCommission() {
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setMember(member);
+        Payment payment = pending(new BigDecimal("5.00"));
+        payment.setMembership(membership);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+
+        sut().reject(payment.getUuid(), new PaymentRejectRequest("Comprobante ilegible"), ACTOR);
+
+        assertThat(member.getConfirmedAt()).isNull();
+        verify(commissionService, org.mockito.Mockito.never()).calculateAndPersistFor(any());
     }
 
     @Test

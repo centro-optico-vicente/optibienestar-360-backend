@@ -1057,8 +1057,11 @@ public class PaymentsService {
         if (!"OUT".equals(payment.getDirection())) {
             snapshotExchangeRate(payment);
             validatorCacheService.evictForMembership(payment.getMembership());
-            attributeCommission(payment);
+            // Confirm BEFORE attributing: the commission tier count only counts confirmed
+            // enrollments (MemberRepository.countNewSubscribersForPromoter), and this very
+            // payment is what confirms the member — so the tier evaluation must see them.
             confirmMemberOnFirstApprovedPayment(payment);
+            attributeCommission(payment);
             applyMembershipCharges(payment);
             eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
         }
