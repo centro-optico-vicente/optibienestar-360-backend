@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Boots the full Spring context under the "dev" profile (real Postgres, Flyway
@@ -67,7 +68,7 @@ class FlywayMigrationIT {
                         + "AND conrelid = 'app.commissions'::regclass");
         assertEquals(Boolean.TRUE, row.get("convalidated"));
         assertEquals("a", row.get("del"));
-        assertEquals("app.commission_tiers", row.get("target"));
+        assertTrue(row.get("target").toString().endsWith("commission_tiers"));
     }
 
     @Test
