@@ -125,21 +125,6 @@ class PromoterMeControllerIT {
                 .andExpect(status().isNotFound());
     }
 
-    // ─── Deprecated alias /v1/promoter/me (kept for zero-downtime deploys) ────
-
-    @Test
-    void deprecatedPromoterAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(dashboardService.getMyDashboard(any(UUID.class))).thenReturn(dashboard());
-
-        mockMvc.perform(get("/v1/promoter/me"))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/v1/promoter/me").with(principal("MEMBER_VIEW_ALL")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/v1/promoter/me").with(principal("PROMOTER_VIEW_OWN")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.referralCode").value("ANAV42"));
-    }
-
     // ─── GET /v1/me/advisor/payout-accounts (V184) ──────────────────────────
 
     @Test

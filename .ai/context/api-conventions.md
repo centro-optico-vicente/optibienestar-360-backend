@@ -8,24 +8,24 @@
 - Grupos: `/v1/public/*`, `/v1/auth/*`, `/v1/me/*` (incluye `/v1/me/advisor/*` y `/v1/me/allies/*`), `/v1/admin/*`; secundarias `/v1/allies/me/*`, `/v1/advisors/me/*`
 - URLs en `kebab-case` plural: `/v1/admin/allies/{id}/agreements`
 - Path params son IDs (UUIDs): `/{member_id}`, `/{ally_id}`
-- Las URLs usan el término del glosario **Asesor** (`advisor`), nunca `promoter`/`promotor`: `/v1/admin/advisors`, `/v1/admin/advisor-ranks`, `/v1/admin/catalogs/advisor-types`, `/v1/me/advisor/*`, `/v1/admin/members/{uuid}/assign-advisor`. Las entidades/tablas/clases/permisos internos siguen como `Promoter`/`promoters`/`PROMOTER_*`. Los paths viejos (`/v1/admin/promoters`, `/v1/promoter/me`, `promoter-ranks`, `promoter-types`, `assign-promoter`, `promoter-history`, `members/promoter/*`) se mantienen como **alias deprecados** hasta que el frontend que usa los nuevos esté desplegado (comentario `// Deprecated alias` en cada controller).
+- Las URLs usan el término del glosario **Asesor** (`advisor`), nunca `promoter`/`promotor`: `/v1/admin/advisors`, `/v1/admin/advisor-ranks`, `/v1/admin/catalogs/advisor-types`, `/v1/me/advisor/*`, `/v1/admin/members/{uuid}/assign-advisor`. Las entidades/tablas/clases/permisos internos siguen como `Promoter`/`promoters`/`PROMOTER_*`. Los paths viejos (`/v1/admin/promoters`, `/v1/promoter/me`, `promoter-ranks`, `promoter-types`, `assign-promoter`, `promoter-history`, `members/promoter/*`) **ya no existen**: se eliminaron los alias deprecados (responden 404; los fija `RemovedApiAliasesIT`).
 - El aliado actual va en `/v1/me/allies/*` (principal; `/v1/allies/me/*` secundaria — [spec 12 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/12-url-conventions.md)): `/v1/me/allies/services`, `/v1/me/allies/validations/{document}`, `/v1/me/allies/benefit-usages`, `/v1/me/allies/usage-history`. El formulario público de contacto es `POST /v1/public/contact-messages`. Los paths viejos `/v1/aliado/services`, `/v1/ally/validate`, `/v1/ally/benefit-usage`, `/v1/ally/usage-history` y `POST /v1/public/contact` se mantienen como **alias deprecados** (mismo handler y mismo `@PreAuthorize`) hasta que el [frontend #236](https://github.com/centro-optico-vicente/optibienestar-360-frontend/pull/236) esté desplegado. No chocan con `/v1/admin/allies/**` ni `/v1/public/allies/{uuid}`: no existe ningún mapping `/v1/allies/{uuid}` que capture `me`, ni `/v1/me/allies/{uuid}` que capture `services`/`validations`/….
 - **Datos propios del usuario: `/v1/me/*` es el prefijo principal** (perfil, foto, términos, pagos, «mis aliados»), para que se lea que es propio del perfil; `/v1/<colección>/me` es la ruta **secundaria**. Ejemplo: `GET /v1/me/allies` (principal) y `GET /v1/allies/me` (secundaria, mismo handler y mismo `ALLY_VIEW_OWN`). Decisión del product owner, 2026-10-21. La secundaria **no** está deprecada: se mantiene. En cada `@RequestMapping({...})` la principal va primero, la secundaria después y, si queda, el alias deprecado al final:
 
-  | Familia | Principal | Secundaria (se mantiene) | Alias deprecado |
-  |---|---|---|---|
-  | Panel del asesor (1:1, singular como `/v1/me/member`) | `/v1/me/advisor` | `/v1/advisors/me` | `/v1/promoter/me` |
-  | Cuentas de pago del asesor | `/v1/me/advisor/payout-accounts` | `/v1/advisors/me/payout-accounts` | `/v1/promoter/me/payout-accounts` |
-  | Gestiones de cobranza | `/v1/me/advisor/contacts…`, `/v1/me/advisor/collection-score` | `/v1/advisors/me/contacts…`, `/v1/advisors/me/collection-score` | `/v1/promoter/me/…` |
-  | QR del asesor | `/v1/me/advisor/qr` | `/v1/advisors/me/qr` | `/v1/promoter/me/qr` |
-  | Bonos del asesor | `/v1/me/advisor/bonuses` | `/v1/advisors/me/bonuses` | `/v1/promoter/me/bonuses` |
-  | Cobros/pagos del asesor | `/v1/me/advisor/payments…` | `/v1/advisors/me/payments…` | `/v1/promoter/me/payments…` |
-  | Solicitudes de afiliación del asesor | `/v1/me/advisor/affiliation-requests` | `/v1/advisors/me/affiliation-requests` | — |
-  | Mis aliados (N, plural como la colección) | `/v1/me/allies` | `/v1/allies/me` | — |
-  | Servicios del aliado | `/v1/me/allies/services…` | `/v1/allies/me/services…` | `/v1/aliado/services…` |
-  | Validador | `/v1/me/allies/validations/{document}` | `/v1/allies/me/validations/{document}` | `/v1/ally/validate/{document}` |
-  | Registro de uso | `/v1/me/allies/benefit-usages` | `/v1/allies/me/benefit-usages` | `/v1/ally/benefit-usage` |
-  | Historial de usos del aliado | `/v1/me/allies/usage-history` | `/v1/allies/me/usage-history` | `/v1/ally/usage-history` |
+  | Familia | Principal | Secundaria (se mantiene) |
+  |---|---|---|
+  | Panel del asesor (1:1, singular como `/v1/me/member`) | `/v1/me/advisor` | `/v1/advisors/me` |
+  | Cuentas de pago del asesor | `/v1/me/advisor/payout-accounts` | `/v1/advisors/me/payout-accounts` |
+  | Gestiones de cobranza | `/v1/me/advisor/contacts…`, `/v1/me/advisor/collection-score` | `/v1/advisors/me/contacts…`, `/v1/advisors/me/collection-score` |
+  | QR del asesor | `/v1/me/advisor/qr` | `/v1/advisors/me/qr` |
+  | Bonos del asesor | `/v1/me/advisor/bonuses` | `/v1/advisors/me/bonuses` |
+  | Cobros/pagos del asesor | `/v1/me/advisor/payments…` | `/v1/advisors/me/payments…` |
+  | Solicitudes de afiliación del asesor | `/v1/me/advisor/affiliation-requests` | `/v1/advisors/me/affiliation-requests` |
+  | Mis aliados (N, plural como la colección) | `/v1/me/allies` | `/v1/allies/me` |
+  | Servicios del aliado | `/v1/me/allies/services…` | `/v1/allies/me/services…` |
+  | Validador | `/v1/me/allies/validations/{document}` | `/v1/allies/me/validations/{document}` |
+  | Registro de uso | `/v1/me/allies/benefit-usages` | `/v1/allies/me/benefit-usages` |
+  | Historial de usos del aliado | `/v1/me/allies/usage-history` | `/v1/allies/me/usage-history` |
 
   `GET /v1/me/payments` sigue siendo el de los pagos del **afiliado**; el del asesor es `/v1/me/advisor/payments`, así que no chocan. Mismo handler y mismo `@PreAuthorize` en las tres columnas.
 - La autoafiliación pública (QR del asesor → `/afiliarse`) es una **solicitud** que se revisa antes de crear nada (V190): `POST /v1/public/affiliation-requests` → 201 `{uuid, status: PENDING, email, advisorName}`. El viejo `POST /v1/public/affiliations` (que creaba usuario, afiliado y membresía al instante) queda como **alias deprecado** del mismo handler hasta que el [frontend #240](https://github.com/centro-optico-vicente/optibienestar-360-frontend/pull/240) esté desplegado. El contrato que ve la persona mientras llena el formulario sale de `POST /v1/public/terms/AFILIADO/preview` (body con los datos tipeados; no guarda nada; otro tipo → 422). La revisión vive en `/v1/admin/affiliation-requests` (`GET` lista con `?status=`/`?q=`, `GET /{uuid}` detalle con bitácora, `PUT /{uuid}` corrige solo si está `PENDING`, `POST /{uuid}/approve`, `POST /{uuid}/reject` con `{reason}` obligatorio → 422 sin motivo) y el asesor ve las suyas en `GET /v1/me/advisor/affiliation-requests` (secundaria `/v1/advisors/me/affiliation-requests`).

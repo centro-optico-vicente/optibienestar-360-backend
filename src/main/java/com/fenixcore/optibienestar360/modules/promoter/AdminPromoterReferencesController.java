@@ -31,8 +31,7 @@ import java.util.UUID;
  * managing the promoter, same as beneficiaries ride on {@code MEMBER_*}).</p>
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/admin/advisors/{promoterUuid}/references", "/v1/admin/promoters/{promoterUuid}/references"})
+@RequestMapping("/v1/admin/advisors/{promoterUuid}/references")
 @RequiredArgsConstructor
 public class AdminPromoterReferencesController {
 

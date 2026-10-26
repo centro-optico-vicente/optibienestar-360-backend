@@ -27,8 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/me/allies/usage-history", "/v1/allies/me/usage-history", "/v1/ally/usage-history"})
+@RequestMapping({"/v1/me/allies/usage-history", "/v1/allies/me/usage-history"})
 @RequiredArgsConstructor
 public class AllyUsageHistoryController {
 

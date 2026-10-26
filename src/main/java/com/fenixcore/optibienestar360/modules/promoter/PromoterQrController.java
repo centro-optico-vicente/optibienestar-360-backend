@@ -26,8 +26,7 @@ import java.util.NoSuchElementException;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/me/advisor/qr", "/v1/advisors/me/qr", "/v1/promoter/me/qr"})
+@RequestMapping({"/v1/me/advisor/qr", "/v1/advisors/me/qr"})
 @RequiredArgsConstructor
 public class PromoterQrController {
 

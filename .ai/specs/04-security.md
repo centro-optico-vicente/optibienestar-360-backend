@@ -215,8 +215,8 @@ Permisos otorgados a SYSTEM (trigger V30) y ADMINISTRADOR; no hay guard SYSTEM-o
 | `/actuator/health/**` | No | — |
 | `/v1/me/*` | Sí (cualquier rol) | varía |
 | `/v1/admin/*` | Sí | `ADMINISTRADOR` u `OPERADOR` |
-| `/v1/me/allies/*` (secundaria `/v1/allies/me/*`; alias deprecados `/v1/ally/*`, `/v1/aliado/services`) | Sí | `ALIADO` |
-| `/v1/me/advisor/*` (secundaria `/v1/advisors/me/*`; alias deprecado `/v1/promoter/me/*`) | Sí | `ASESOR` |
+| `/v1/me/allies/*` (secundaria `/v1/allies/me/*`) | Sí | `ALIADO` |
+| `/v1/me/advisor/*` (secundaria `/v1/advisors/me/*`) | Sí | `ASESOR` |
 | `/swagger-ui/**`, `/v3/api-docs/**` | No si `SPRINGDOC_ENABLED=true` (default en dev/test; staging lo activa) / cerrado (401 anónimo, endpoints no registrados) si `false` (default en prod) | — |
 
 ## Audit log

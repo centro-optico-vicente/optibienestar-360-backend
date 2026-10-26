@@ -138,19 +138,6 @@ class AllyServicesRemovalControllerIT {
                 .andExpect(status().isNotFound());
     }
 
-    // ─── Deprecated alias /v1/aliado/services (kept for zero-downtime deploys) ─
-
-    @Test
-    void deprecatedAliadoAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(reviewService.allyRemove(any(), any(), any())).thenReturn(removedDto());
-
-        mockMvc.perform(delete("/v1/aliado/services/{u}", UUID.randomUUID()))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/v1/aliado/services/{u}", UUID.randomUUID()).with(principal()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reviewStatus").value("REMOVED"));
-    }
-
     // ─── Secondary path /v1/allies/me/services (kept, not deprecated) ────────
 
     @Test

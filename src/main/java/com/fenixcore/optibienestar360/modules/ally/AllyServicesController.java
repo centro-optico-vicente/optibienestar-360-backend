@@ -34,8 +34,7 @@ import java.util.UUID;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/me/allies/services", "/v1/allies/me/services", "/v1/aliado/services"})
+@RequestMapping({"/v1/me/allies/services", "/v1/allies/me/services"})
 @RequiredArgsConstructor
 public class AllyServicesController {
 

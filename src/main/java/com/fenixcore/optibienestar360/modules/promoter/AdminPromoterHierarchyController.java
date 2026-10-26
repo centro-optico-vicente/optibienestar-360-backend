@@ -33,8 +33,7 @@ import java.util.UUID;
  * {@code AdminMemberPromoterController} for the member↔promoter link (V35).
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/admin/advisors", "/v1/admin/promoters"})
+@RequestMapping("/v1/admin/advisors")
 @RequiredArgsConstructor
 public class AdminPromoterHierarchyController {
 

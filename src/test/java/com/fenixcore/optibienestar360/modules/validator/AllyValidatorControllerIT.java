@@ -32,8 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * IT of the ally validator path ({@link AllyValidatorController}):
  * {@code GET /v1/me/allies/validations/{document}} gated on
- * {@code ALLY_VALIDATE_MEMBER}, plus the deprecated {@code /v1/ally/validate}
- * alias answering with the same security. {@link ValidatorService} is mocked.
+ * {@code ALLY_VALIDATE_MEMBER}, plus the secondary {@code /v1/allies/me/validations}
+ * path answering with the same security. {@link ValidatorService} is mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -84,21 +84,6 @@ class AllyValidatorControllerIT {
         when(validatorService.validate(anyString())).thenReturn(notFound());
 
         mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("NOT_FOUND"));
-    }
-
-    // ─── Deprecated alias /v1/ally/validate (kept for zero-downtime deploys) ──
-
-    @Test
-    void deprecatedAllyAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(validatorService.validate(anyString())).thenReturn(notFound());
-
-        mockMvc.perform(get("/v1/ally/validate/{d}", "V-12345678"))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/v1/ally/validate/{d}", "V-12345678").with(principal("MEMBER_VIEW_OWN")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/v1/ally/validate/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NOT_FOUND"));
     }

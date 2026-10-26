@@ -34,8 +34,7 @@ import java.util.UUID;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/me/advisor", "/v1/advisors/me", "/v1/promoter/me"})
+@RequestMapping({"/v1/me/advisor", "/v1/advisors/me"})
 @RequiredArgsConstructor
 public class PromoterContactsController {
 

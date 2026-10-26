@@ -31,8 +31,7 @@ public class PublicAffiliationRequestController {
 
     private final AffiliationRequestService service;
 
-    // Deprecated alias, remove once frontend >= #240 is deployed
-    @PostMapping({"/affiliation-requests", "/affiliations"})
+    @PostMapping("/affiliation-requests")
     @ResponseStatus(HttpStatus.CREATED)
     public AffiliationRequestCreatedDto create(@Valid @RequestBody AffiliationRequestCreateRequest request,
                                                HttpServletRequest httpRequest) {
