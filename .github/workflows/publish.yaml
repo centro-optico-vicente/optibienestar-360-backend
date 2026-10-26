@@ -61,6 +61,45 @@ jobs:
           DATABASE_MIGRATION_USER: postgres
           DATABASE_MIGRATION_PASSWORD: postgres
 
+      # OpenAPI contract written by OpenApiContractIT during the build above
+      # (ADR LOC-0015). Handed to the attach-openapi-to-release job below.
+      - name: Upload OpenAPI contract
+        uses: actions/upload-artifact@v7
+        with:
+          name: openapi-contract
+          path: build/openapi/openapi.json
+          if-no-files-found: error
+          retention-days: 7
+
+
+  # Attach the contract to the release as `openapi.json`, so consumers (the
+  # frontend's `api:generate`) can fetch
+  #   https://github.com/<owner>/<repo>/releases/download/<tag>/openapi.json
+  # Separate job on purpose: it is the only one that needs write access to the
+  # repository (contents: write, scoped to this job), and it is independent of
+  # the image publish jobs, so a failure here never blocks an image.
+  attach-openapi-to-release:
+    name: Attach openapi.json to the release
+    needs:
+      - build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download OpenAPI contract
+        uses: actions/download-artifact@v8
+        with:
+          name: openapi-contract
+
+      - name: Upload openapi.json to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test -s openapi.json
+          gh release upload "$RELEASE_TAG" openapi.json --clobber --repo "$GITHUB_REPOSITORY"
+          echo "Attached: https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/openapi.json"
+
 
   # Verify secrets before attempting Docker Hub push
   check-secrets-dhr:
