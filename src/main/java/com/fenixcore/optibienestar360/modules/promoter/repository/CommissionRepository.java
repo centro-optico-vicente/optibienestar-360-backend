@@ -45,10 +45,8 @@ public interface CommissionRepository extends JpaRepository<Commission, Long>,
 
     /**
      * Usage check for {@code CommissionTiersService.countUsages} — the FK was
-     * closed by V42 ({@code fk_commissions_tier}) even though the entity still
-     * maps {@code commissionTierId} as a bare {@code Long} (see the Javadoc on
-     * {@link Commission}, which predates that migration and is stale on this
-     * point). Counts ALL rows (active + inactive/voided) since a real FK row
+     * closed by V42 ({@code fk_commissions_tier}, indexed by V193) even though
+     * the entity maps {@code commissionTierId} as a bare {@code Long}. Counts ALL rows (active + inactive/voided) since a real FK row
      * of any status would still block a hard delete at the DB level.
      */
     long countByCommissionTierId(Long commissionTierId);

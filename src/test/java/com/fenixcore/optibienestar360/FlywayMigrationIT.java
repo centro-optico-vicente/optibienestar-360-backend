@@ -7,8 +7,14 @@ import java.net.Socket;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Boots the full Spring context under the "dev" profile (real Postgres, Flyway
@@ -26,6 +32,9 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("dev")
 class FlywayMigrationIT {
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @BeforeAll
     static void assumePostgresReachable() {
@@ -47,6 +56,28 @@ class FlywayMigrationIT {
         // Intentionally empty: reaching this point means the Spring context started
         // successfully, which means Flyway (enabled under the "dev" profile) applied
         // every migration in src/main/resources/db/migration/** without error.
+    }
+
+    @Test
+    void commissionsTierForeignKeyIsValidatedAndRestrictsDelete() {
+        // fk_commissions_tier (V42) must be validated (so unknown tier ids are
+        // rejected) and NO ACTION ('a'): a referenced tier cannot be hard-deleted.
+        var row = jdbc.queryForMap(
+                "SELECT convalidated, confdeltype::text AS del, confrelid::regclass::text AS target "
+                        + "FROM pg_constraint WHERE conname = 'fk_commissions_tier' "
+                        + "AND conrelid = 'app.commissions'::regclass");
+        assertEquals(Boolean.TRUE, row.get("convalidated"));
+        assertEquals("a", row.get("del"));
+        assertTrue(row.get("target").toString().endsWith("commission_tiers"));
+    }
+
+    @Test
+    void commissionsTierForeignKeyColumnIsIndexed() {
+        // V193: FK columns are not indexed automatically in PostgreSQL.
+        String index = jdbc.queryForObject(
+                "SELECT indexname FROM pg_indexes WHERE schemaname = 'app' AND tablename = 'commissions' "
+                        + "AND indexname = 'idx_commissions_tier'", String.class);
+        assertNotNull(index);
     }
 
 }

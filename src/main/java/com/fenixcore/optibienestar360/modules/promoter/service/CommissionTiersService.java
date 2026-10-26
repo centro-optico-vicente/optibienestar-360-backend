@@ -208,10 +208,7 @@ public class CommissionTiersService {
 
     /**
      * {@code Commission.commissionTierId} is mapped as a bare {@code Long} in
-     * the entity (no {@code @ManyToOne}) — the Javadoc on {@link
-     * com.fenixcore.optibienestar360.modules.promoter.entity.Commission}
-     * claims there's no real FK yet, but that comment is stale: V42
-     * ("Close the deferred FK reserved in V26") added
+     * the entity (no {@code @ManyToOne}), but V42 added
      * {@code fk_commissions_tier} at the DB level. So a hard delete really
      * can violate a live FK — this counts every {@code commissions} row
      * (any status) pointing at this tier via {@code commissionRepository
