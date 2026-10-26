@@ -212,6 +212,19 @@ class PublicProductsServiceTest {
         verify(serviceRepository, never()).findAll(any(Specification.class));
     }
 
+    @Test
+    void productDetail_404s_whenProductIsUnpublished_andNeverQueriesOffers() {
+        AllyProduct offer = service("Examen de la vista", "Optometría", ally("Óptica Vicente", "Óptica", "Mérida"));
+        offer.getProduct().setPublished(false);
+        UUID productUuid = offer.getProduct().getUuid();
+        when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
+
+        assertThatThrownBy(() -> service.productDetail(productUuid, null, null))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("product.not_found");
+        verify(serviceRepository, never()).findAll(any(Specification.class));
+    }
+
     // ─── Fixtures ────────────────────────────────────────────────────────────
 
     private AllyProduct offerOf(Product product, Ally ally, String price, String discount) {

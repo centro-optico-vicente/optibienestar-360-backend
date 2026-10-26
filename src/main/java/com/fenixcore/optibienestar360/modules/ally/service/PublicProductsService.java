@@ -47,7 +47,7 @@ import java.util.UUID;
  *
  * <p><b>Visibility invariant (every path):</b> an offer is public only when it
  * is {@code active AND published AND reviewStatus=APPROVED}, its product is
- * active, <i>and</i> its parent ally is itself {@code active AND published}.
+ * active and published (V199), <i>and</i> its parent ally is itself {@code active AND published}.
  * List filters are best-effort: an unknown UUID yields an empty page rather
  * than a 404, matching {@code AlliesService.publicDirectory}.</p>
  */
@@ -157,6 +157,7 @@ public class PublicProductsService {
     public PublicProductDetailDto productDetail(UUID productUuid, UUID cityUuid, String city) {
         Product product = productRepository.findByUuid(productUuid)
                 .filter(Product::isActive)
+                .filter(Product::isPublished)
                 .orElseThrow(() -> new NoSuchElementException("product.not_found"));
 
         Specification<AllyProduct> spec = publiclyVisible()
@@ -203,6 +204,7 @@ public class PublicProductsService {
                 cb.isTrue(root.get("published")),
                 cb.equal(root.get("reviewStatus"), AllyProduct.ReviewStatus.APPROVED),
                 cb.isTrue(root.get("product").get("active")),
+                cb.isTrue(root.get("product").get("published")),
                 cb.isTrue(root.get("ally").get("active")),
                 cb.isTrue(root.get("ally").get("published"))
         );

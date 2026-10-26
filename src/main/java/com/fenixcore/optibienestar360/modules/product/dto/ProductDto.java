@@ -25,6 +25,8 @@ public record ProductDto(
         /** Derived {@code publicBaseUrl + imageKey}; {@code null} until the image is explicitly published (spec §5). */
         String imageUrl,
 
+        /** May appear in the public catalog (V199). */
+        @Display(Display.Kind.BOOLEAN) boolean published,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "product.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,

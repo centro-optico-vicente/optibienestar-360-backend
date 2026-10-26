@@ -308,7 +308,7 @@ public interface AllyMapper {
                 .filter(AllyProduct::isActive)
                 .filter(AllyProduct::isPublished)
                 .filter(o -> o.getReviewStatus() == AllyProduct.ReviewStatus.APPROVED)
-                .filter(o -> o.getProduct().isActive())
+                .filter(o -> o.getProduct().isActive() && o.getProduct().isPublished())
                 .map(o -> toPublicProductDto(o, publicBaseUrl))
                 .toList();
     }

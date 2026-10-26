@@ -20,5 +20,7 @@ public record ProductUpdateRequest(
         UUID ownerAllyUuid,
         Boolean general,
         Boolean requiresAppointment,
+        /** {@code false} hides every ally's offer of this product from the public catalog. */
+        Boolean published,
         Boolean active
 ) {}

@@ -24,6 +24,8 @@ public record ProductListItemDto(
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
         String imageUrl,
 
+        /** May appear in the public catalog (V199). */
+        @Display(Display.Kind.BOOLEAN) boolean published,
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "product.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt

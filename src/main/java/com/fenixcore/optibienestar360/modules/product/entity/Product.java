@@ -16,6 +16,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 /**
  * Catalog master item — a service (consultation, exam, lodging…) or a
  * product (lenses, medicine, spare parts…) that allies offer (hub ADR 0026).
@@ -70,6 +72,17 @@ public class Product extends BaseEntity {
      */
     @Column(name = "image_key", length = 500)
     private String imageKey;
+
+    /**
+     * May appear in the public catalog (V199). Same switch allies and offers
+     * have: an offer is public only when ally, offer and product are all
+     * published — hiding a product hides every ally's offer of it at once.
+     */
+    @Column(name = "is_published", nullable = false)
+    private boolean published = true;
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
 
     public boolean isExclusive() {
         return ownerAlly != null;
