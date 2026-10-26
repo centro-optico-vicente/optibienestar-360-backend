@@ -5,7 +5,12 @@ import com.fenixcore.optibienestar360.common.storage.AttachedFile;
 import com.fenixcore.optibienestar360.common.storage.AttachedFileRepository;
 import com.fenixcore.optibienestar360.common.storage.FileVisibility;
 import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
-import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
+import com.fenixcore.optibienestar360.modules.media.MediaTables;
+import com.fenixcore.optibienestar360.modules.media.entity.MediaItem;
+import com.fenixcore.optibienestar360.modules.media.repository.MediaItemRepository;
+import com.fenixcore.optibienestar360.modules.media.service.MediaItemsService;
+import com.fenixcore.optibienestar360.modules.media.service.MediaOwner;
+import com.fenixcore.optibienestar360.modules.media.service.MediaOwnerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +26,9 @@ import java.util.List;
  * One-shot move of catalog images from the legacy {@code ally_services/}
  * prefix to {@code products/} (hub ADR 0026). V198 already re-pointed each
  * {@code attached_files} row to its product ({@code owner_table='products'})
- * but left {@code file_key} alone, because SQL cannot move R2 objects.
+ * but left {@code file_key} alone, because SQL cannot move R2 objects. Since
+ * ADR 0027 the image is a {@code media_items} row, so its {@code public_key}
+ * and the owner's {@code logo_url} are corrected here too.
  *
  * <p>Off by default; enabled per environment with
  * {@code storage.r2.legacy-product-keys.migrate=true} and switched off again
@@ -44,7 +51,9 @@ public class ProductImageKeyMigrationRunner implements ApplicationRunner {
 
     private final StorageService storage;
     private final AttachedFileRepository attachedFileRepository;
-    private final ProductRepository productRepository;
+    private final MediaItemRepository mediaItemRepository;
+    private final MediaOwnerRegistry mediaOwners;
+    private final MediaItemsService mediaItemsService;
     private final TransactionTemplate transactionTemplate;
 
     @Value("${storage.r2.legacy-product-keys.delete-legacy:false}")
@@ -53,7 +62,7 @@ public class ProductImageKeyMigrationRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         List<AttachedFile> pending = attachedFileRepository
-                .findByOwnerTableAndFileKeyContaining(ProductImageService.OWNER_TABLE, LEGACY_SEGMENT);
+                .findByOwnerTableAndFileKeyContaining(MediaTables.PRODUCTS, LEGACY_SEGMENT);
         log.info("product image key migration: {} file(s) under the legacy prefix", pending.size());
 
         int moved = 0;
@@ -72,7 +81,7 @@ public class ProductImageKeyMigrationRunner implements ApplicationRunner {
     private void move(AttachedFile file) {
         String bucket = file.getVisibility() == FileVisibility.PUBLIC ? storage.getPublicBucket() : storage.getBucket();
         String oldKey = file.getFileKey();
-        String newKey = StorageKeyBuilder.build(file.getVisibility(), ProductImageService.OWNER_TABLE,
+        String newKey = StorageKeyBuilder.build(file.getVisibility(), MediaTables.PRODUCTS,
                 file.getOwnerUuid(), file.getFileName());
 
         storage.copy(bucket, oldKey, bucket, newKey);
@@ -80,9 +89,17 @@ public class ProductImageKeyMigrationRunner implements ApplicationRunner {
         transactionTemplate.executeWithoutResult(status -> {
             AttachedFile managed = attachedFileRepository.findById(file.getId()).orElseThrow();
             managed.setFileKey(newKey);
-            productRepository.findByUuid(managed.getOwnerUuid())
-                    .filter(product -> oldKey.equals(product.getImageKey()))
-                    .ifPresent(product -> product.setImageKey(newKey));
+            // The gallery image that points at this object follows it, and the
+            // owner's logo_url is rebuilt from the (possibly new) primary key.
+            MediaOwner owner = mediaOwners.byTableOrNull(MediaTables.PRODUCTS);
+            for (MediaItem item : mediaItemRepository.findByAttachedFile_Id(managed.getId())) {
+                if (oldKey.equals(item.getPublicKey())) {
+                    item.setPublicKey(newKey);
+                }
+            }
+            if (owner != null) {
+                mediaItemsService.syncLogoUrl(owner, managed.getOwnerUuid());
+            }
         });
 
         if (deleteLegacy) {

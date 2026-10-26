@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 
 import java.math.BigDecimal;
@@ -30,5 +31,13 @@ public record PublicProductDetailDto(
         /** Highest discount among the offers; {@code null} if none has one. */
         @Display(Display.Kind.NUMBER) BigDecimal maxDiscountPct,
 
-        List<PublicProductOfferDto> offers
-) {}
+        List<PublicProductOfferDto> offers,
+
+        /** The product's gallery in display order (primary first by default). */
+        List<PublicImageDto> images
+) {
+    public PublicProductDetailDto withImages(List<PublicImageDto> images, List<PublicProductOfferDto> offers) {
+        return new PublicProductDetailDto(uuid, name, description, productType, categoryName, requiresAppointment,
+                imageUrl, offersCount, minFinalPrice, maxDiscountPct, offers, images);
+    }
+}

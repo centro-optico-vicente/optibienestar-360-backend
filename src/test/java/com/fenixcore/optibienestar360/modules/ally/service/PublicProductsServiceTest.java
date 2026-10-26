@@ -13,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductReposit
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
+import com.fenixcore.optibienestar360.modules.media.service.MediaImages;
 import com.fenixcore.optibienestar360.modules.product.entity.Product;
 import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,12 +67,14 @@ class PublicProductsServiceTest {
     @Mock private AllyProductRepository serviceRepository;
     @Mock private AllyRepository allyRepository;
     @Mock private ProductRepository productRepository;
+    @Mock private MediaImages media;   // returns empty galleries: these tests are about visibility, not images
 
     private PublicProductsService service;
 
     @BeforeEach
     void setup() {
-        service = new PublicProductsService(serviceRepository, allyRepository, productRepository, new AllyMapperImpl());
+        service = new PublicProductsService(serviceRepository, allyRepository, productRepository,
+                new PublicMediaEnricher(media), new AllyMapperImpl());
     }
 
     // ─── listByAlly ──────────────────────────────────────────────────────────

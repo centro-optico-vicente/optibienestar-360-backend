@@ -19,14 +19,8 @@ public interface ProductMapper {
     @Mapping(target = "imageUrl",  expression = "java(ProductMapper.imageUrl(product, publicBaseUrl))")
     ProductDto toDto(Product product, @Context String publicBaseUrl);
 
-    /**
-     * Derives the public catalog image URL from the persisted key —
-     * {@code publicBaseUrl + imageKey} — so a change of public domain never
-     * requires a data migration (spec §5). {@code null} until published.
-     */
+    /** The product's primary image URL ({@code logo_url}, hub ADR 0027); {@code null} without images. */
     static String imageUrl(Product product, String publicBaseUrl) {
-        String imageKey = product == null ? null : product.getImageKey();
-        if (imageKey == null || publicBaseUrl == null || publicBaseUrl.isBlank()) return null;
-        return publicBaseUrl.endsWith("/") ? publicBaseUrl + imageKey : publicBaseUrl + "/" + imageKey;
+        return product == null ? null : product.getLogoUrl();
     }
 }

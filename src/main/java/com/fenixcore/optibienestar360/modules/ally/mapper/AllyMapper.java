@@ -77,6 +77,7 @@ public interface AllyMapper {
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
     @Mapping(target = "products",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     @Mapping(target = "services",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
+    @Mapping(target = "images",         ignore = true)
     PublicAllyDetailDto toPublicDetail(Ally ally, @Context String publicBaseUrl);
 
     /** One row of the public product detail's ally comparison — see {@link PublicProductOfferDto}. */
@@ -88,6 +89,8 @@ public interface AllyMapper {
     @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
     @Mapping(target = "allyPhone",     source = "ally.phone")
     @Mapping(target = "allyWhatsapp",  source = "ally.whatsapp")
+    @Mapping(target = "imageUrl",      expression = "java(offer.getEffectiveLogoUrl())")
+    @Mapping(target = "images",        ignore = true)
     PublicProductOfferDto toPublicProductOffer(AllyProduct offer);
 
     @Mapping(target = "productUuid",         source = "product.uuid")
@@ -98,6 +101,7 @@ public interface AllyMapper {
     @Mapping(target = "description",         source = "product.description")
     @Mapping(target = "requiresAppointment", source = "product.requiresAppointment")
     @Mapping(target = "imageUrl",            expression = "java(imageUrl(offer, publicBaseUrl))")
+    @Mapping(target = "images",              ignore = true)
     PublicAllyProductDto toPublicProductDto(AllyProduct offer, @Context String publicBaseUrl);
 
     /**
@@ -260,7 +264,7 @@ public interface AllyMapper {
      * {@code null} until the image is explicitly published.
      */
     default String imageUrl(AllyProduct offer, String publicBaseUrl) {
-        return ProductMapper.imageUrl(offer.getProduct(), publicBaseUrl);
+        return offer.getEffectiveLogoUrl();
     }
 
     default int countActive(Collection<? extends BaseEntity> entities) {

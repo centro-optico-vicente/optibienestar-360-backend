@@ -1,9 +1,11 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,5 +41,13 @@ public record PublicAllyProductDto(
         /** Where the preferential rate does NOT apply (V179) — affiliates must see it. */
         String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
-        String imageUrl
-) {}
+        /** The offer's primary image (else its product's). */
+        String imageUrl,
+        /** The offer's gallery in display order; the product's when the offer has none. */
+        List<PublicImageDto> images
+) {
+    public PublicAllyProductDto withImages(List<PublicImageDto> images) {
+        return new PublicAllyProductDto(uuid, productUuid, productType, inCatalog, categoryName, name, description,
+                priceAmount, discountPct, finalPrice, exclusions, requiresAppointment, imageUrl, images);
+    }
+}

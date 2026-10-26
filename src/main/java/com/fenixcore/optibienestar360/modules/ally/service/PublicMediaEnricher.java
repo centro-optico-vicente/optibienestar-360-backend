@@ -1,0 +1,66 @@
+package com.fenixcore.optibienestar360.modules.ally.service;
+
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductDetailDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
+import com.fenixcore.optibienestar360.modules.media.MediaTables;
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
+import com.fenixcore.optibienestar360.modules.media.service.MediaImages;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Adds the galleries to the public DTOs (hub ADR 0027). MapStruct builds the
+ * DTOs without {@code images}; this loads every needed gallery in two queries
+ * (offers and products) and fills them in. <b>An offer without images of its
+ * own shows its product's.</b>
+ */
+@Component
+@RequiredArgsConstructor
+public class PublicMediaEnricher {
+
+    private final MediaImages media;
+
+    /** An ally's public detail: its own gallery plus each offer's. */
+    public PublicAllyDetailDto ally(PublicAllyDetailDto detail) {
+        List<PublicAllyProductDto> products = allyProducts(detail.products());
+        return detail.withImages(media.forOwner(MediaTables.ALLIES, detail.uuid()), products);
+    }
+
+    /** Offers of one ally (its detail or {@code /allies/{uuid}/products}). */
+    public List<PublicAllyProductDto> allyProducts(List<PublicAllyProductDto> offers) {
+        if (offers == null || offers.isEmpty()) {
+            return offers;
+        }
+        Map<UUID, List<PublicImageDto>> offerImages = media.forOwners(MediaTables.ALLY_PRODUCTS,
+                offers.stream().map(PublicAllyProductDto::uuid).toList());
+        Map<UUID, List<PublicImageDto>> productImages = media.forOwners(MediaTables.PRODUCTS,
+                offers.stream().map(PublicAllyProductDto::productUuid).distinct().toList());
+        return offers.stream()
+                .map(o -> o.withImages(inherit(offerImages.get(o.uuid()), productImages.get(o.productUuid()))))
+                .toList();
+    }
+
+    /** A product's public detail: its gallery plus each offering ally's offer gallery. */
+    public PublicProductDetailDto product(PublicProductDetailDto detail) {
+        List<PublicImageDto> productImages = media.forOwner(MediaTables.PRODUCTS, detail.uuid());
+        Map<UUID, List<PublicImageDto>> offerImages = media.forOwners(MediaTables.ALLY_PRODUCTS,
+                detail.offers().stream().map(PublicProductOfferDto::offerUuid).toList());
+        List<PublicProductOfferDto> offers = detail.offers().stream()
+                .map(o -> o.withImages(inherit(offerImages.get(o.offerUuid()), productImages)))
+                .toList();
+        return detail.withImages(productImages, offers);
+    }
+
+    private static List<PublicImageDto> inherit(List<PublicImageDto> own, List<PublicImageDto> fallback) {
+        if (own != null && !own.isEmpty()) {
+            return own;
+        }
+        return fallback == null ? List.of() : fallback;
+    }
+}

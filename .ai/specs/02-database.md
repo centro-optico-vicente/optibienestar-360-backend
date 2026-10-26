@@ -132,6 +132,11 @@ Modelo de catálogo desde V197 ([ADR 0026 del hub](https://github.com/fenix-core
 - Trigger `enforce_exclusive_product_owner` (en `ally_products` y en `products.owner_ally_id`): un producto exclusivo solo lo ofrece su dueño, y un producto ya ofrecido por otros aliados no puede volverse exclusivo.
 - `benefit_usages.ally_product_id` / `product_category_id` (renombradas en V196/V197).
 
+Imágenes desde V200 ([ADR 0027 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0027-media-items.md)):
+
+- `media_items` — galería genérica: dueño polimórfico (`owner_table` + `owner_uuid`, sin CHECK de tablas: la lista permitida vive en el registro Java `MediaOwnerRegistry`), `attached_file_id`, `public_key` (archivo en R2) **o** `external_url` (https), `caption`, `sort_order`, `is_primary` (índice único parcial: una principal activa por dueño).
+- `logo_url` con el mismo nombre en `allies`, `products` y `ally_products`: URL de la imagen principal, sincronizada por `MediaItemsService`; nunca se edita a mano. `products.image_key` se eliminó.
+
 ### `plans`, `memberships`
 
 (pendiente)
