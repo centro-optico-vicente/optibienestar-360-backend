@@ -68,7 +68,7 @@ class AllyProductReviewServiceTest {
 
     @Test
     void pendingQueue_withQ_composesSpecAndDelegatesToRepository() {
-        AllyProductDto dto = new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(),
+        AllyProductDto dto = new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 UUID.randomUUID(), Product.ProductType.SERVICE, true, null,
                 "Consulta oftalmológica", null, false, null,
                 null, null, null, null,

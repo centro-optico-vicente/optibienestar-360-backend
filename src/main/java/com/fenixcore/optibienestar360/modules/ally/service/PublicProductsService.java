@@ -45,9 +45,12 @@ import java.util.UUID;
  *       it and its own price and discount, behind {@code GET /v1/public/products/{uuid}}.</li>
  * </ul>
  *
- * <p><b>Visibility invariant (every path):</b> an offer is public only when it
- * is {@code active AND published AND reviewStatus=APPROVED}, its product is
- * active, <i>and</i> its parent ally is itself {@code active AND published}.
+ * <p><b>Visibility:</b> an offer is public when it is {@code active AND
+ * published AND reviewStatus=APPROVED}, its product is active <i>and</i> its
+ * parent ally is itself {@code active AND published} — that is enough for the
+ * ally's own page ({@link #listByAlly}). The cross-ally catalog and the product
+ * detail additionally require the product to be published (V199): an
+ * unpublished product appears only through the allies that publish it.
  * List filters are best-effort: an unknown UUID yields an empty page rather
  * than a 404, matching {@code AlliesService.publicDirectory}.</p>
  */
@@ -85,7 +88,7 @@ public class PublicProductsService {
      * (city, ally name / RIF / number, category name, "servicio"/"producto").
      */
     public Page<PublicProductListItemDto> search(PublicProductSearch search, Pageable pageable) {
-        Specification<AllyProduct> spec = publiclyVisible();
+        Specification<AllyProduct> spec = listedInCatalog();
         if (search.categoryUuid() != null) {
             spec = spec.and(categoryEquals(search.categoryUuid()));
         }
@@ -128,7 +131,7 @@ public class PublicProductsService {
                 .filter(Ally::isPublished)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
 
-        Specification<AllyProduct> spec = publiclyVisible()
+        Specification<AllyProduct> spec = offeredPublicly()
                 .and((root, query, cb) -> cb.equal(root.get("ally").get("id"), ally.getId()));
         if (categoryUuid != null) {
             spec = spec.and(categoryEquals(categoryUuid));
@@ -157,9 +160,10 @@ public class PublicProductsService {
     public PublicProductDetailDto productDetail(UUID productUuid, UUID cityUuid, String city) {
         Product product = productRepository.findByUuid(productUuid)
                 .filter(Product::isActive)
+                .filter(Product::isPublished)
                 .orElseThrow(() -> new NoSuchElementException("product.not_found"));
 
-        Specification<AllyProduct> spec = publiclyVisible()
+        Specification<AllyProduct> spec = listedInCatalog()
                 .and((root, query, cb) -> cb.equal(root.get("product").get("id"), product.getId()));
         if (cityUuid != null) {
             spec = spec.and(allyCityEquals(cityUuid));
@@ -196,8 +200,12 @@ public class PublicProductsService {
 
     // ─── Specs ────────────────────────────────────────────────────────────────
 
-    /** Offer, its product and its parent ally all cleared for anonymous consumption. */
-    private static Specification<AllyProduct> publiclyVisible() {
+    /**
+     * The ally publishes the offer: offer approved + published + active, its
+     * product active, parent ally active + published. Enough to show it on the
+     * ally's own public page, even when the product is not in the catalog.
+     */
+    private static Specification<AllyProduct> offeredPublicly() {
         return (root, query, cb) -> cb.and(
                 cb.isTrue(root.get("active")),
                 cb.isTrue(root.get("published")),
@@ -206,6 +214,15 @@ public class PublicProductsService {
                 cb.isTrue(root.get("ally").get("active")),
                 cb.isTrue(root.get("ally").get("published"))
         );
+    }
+
+    /**
+     * Offered publicly AND the product itself is published (V199) — what the
+     * cross-ally catalog and the product comparison list. An unpublished
+     * product is only shown through each ally that publishes its offer.
+     */
+    private static Specification<AllyProduct> listedInCatalog() {
+        return offeredPublicly().and((root, query, cb) -> cb.isTrue(root.get("product").get("published")));
     }
 
     /**

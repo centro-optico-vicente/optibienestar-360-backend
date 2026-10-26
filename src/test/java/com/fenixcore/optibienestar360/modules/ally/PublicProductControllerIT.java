@@ -80,7 +80,7 @@ class PublicProductControllerIT {
 
     private PublicAllyProductDto leanRow() {
         return new PublicAllyProductDto(
-                UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, "Optometría", "Examen de la vista",
+                UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, true, "Optometría", "Examen de la vista",
                 "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null);
     }
 

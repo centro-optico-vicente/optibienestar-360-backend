@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
@@ -25,6 +26,8 @@ import java.util.UUID;
 public record AllyProductDto(
         UUID uuid,
         UUID allyUuid,
+        /** The offering ally as {@code ally_Uuid} + {@code ally_Display} (ADR 0014) — cross-ally lists show its name. */
+        @Display DisplayRef ally,
 
         // ─── Product (master) ───
         UUID productUuid,

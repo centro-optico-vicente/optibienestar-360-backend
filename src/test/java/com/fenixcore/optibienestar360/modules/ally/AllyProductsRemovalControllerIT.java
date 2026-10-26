@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductReviewLogDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyProductReviewService;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyProductsProposeService;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -28,6 +31,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -56,6 +60,9 @@ class AllyProductsRemovalControllerIT {
     @MockitoBean
     private AllyProductReviewService reviewService;
 
+    @MockitoBean
+    private AllyProductsProposeService proposeService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -70,7 +77,7 @@ class AllyProductsRemovalControllerIT {
     }
 
     private AllyProductDto removedDto() {
-        return new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(),
+        return new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 UUID.randomUUID(), ProductType.SERVICE, true, null, "Consulta", null, false, null,
                 null, null, null, null,
                 ReviewStatus.REMOVED, null, null, "Retirado por el aliado", false, null, true, null, null, null);
@@ -138,6 +145,34 @@ class AllyProductsRemovalControllerIT {
 
         mockMvc.perform(get("/v1/me/allies/products/{u}/log", UUID.randomUUID()).with(principal()))
                 .andExpect(status().isNotFound());
+    }
+
+    // ─── GET /v1/me/allies/products/offerable (portal product picker) ─────────
+
+    @Test
+    void offerable_requiresAuth_thenListsWhatTheAllyMayOffer() throws Exception {
+        UUID allyUuid = UUID.randomUUID();
+        when(proposeService.offerable(any(), eq(allyUuid), eq("lentes"), eq("producto"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/v1/me/allies/products/offerable").param("allyUuid", allyUuid.toString()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v1/me/allies/products/offerable").with(principal())
+                        .param("allyUuid", allyUuid.toString())
+                        .param("q", "lentes")
+                        .param("type", "producto"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0));
+    }
+
+    @Test
+    void offerable_withoutMembership_is403() throws Exception {
+        when(proposeService.offerable(any(), any(), any(), any(), any(Pageable.class)))
+                .thenThrow(new AccessDeniedException("ally_product.propose.not_allowed"));
+
+        mockMvc.perform(get("/v1/me/allies/products/offerable").with(principal())
+                        .param("allyUuid", UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden());
     }
 
     // ─── Deprecated .../services alias (ADR 0026 transition) ─────────────────

@@ -28,6 +28,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -47,7 +48,7 @@ public class ProductsService {
     private static final String ENTITY_KEY = "product";
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "code", "name", "productType", "requiresAppointment",
+            "code", "name", "productType", "requiresAppointment", "published",
             "productCategory.uuid", "ownerAlly.uuid",
             "createdAt", "updatedAt", "active", "status"
     );
@@ -125,6 +126,7 @@ public class ProductsService {
         if (req.requiresAppointment() != null) {
             product.setRequiresAppointment(req.requiresAppointment());
         }
+        setPublished(product, req.published() == null || req.published());
         return mapper.toDto(repository.save(product), publicBaseUrl);
     }
 
@@ -139,6 +141,7 @@ public class ProductsService {
         if (req.productCategoryUuid() != null) product.setProductCategory(findCategory(req.productCategoryUuid()));
         if (req.requiresAppointment() != null) product.setRequiresAppointment(req.requiresAppointment());
         if (req.active() != null)              product.setActive(req.active());
+        if (req.published() != null)           setPublished(product, req.published());
         if (Boolean.TRUE.equals(req.general())) {
             product.setOwnerAlly(null);
         } else if (req.ownerAllyUuid() != null) {
@@ -214,6 +217,14 @@ public class ProductsService {
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────
+
+    /** {@code publishedAt} records when it last became public, like allies / offers. */
+    private static void setPublished(Product product, boolean published) {
+        if (published && (!product.isPublished() || product.getPublishedAt() == null)) {
+            product.setPublishedAt(Instant.now());
+        }
+        product.setPublished(published);
+    }
 
     private Product find(UUID uuid) {
         return repository.findByUuid(uuid)

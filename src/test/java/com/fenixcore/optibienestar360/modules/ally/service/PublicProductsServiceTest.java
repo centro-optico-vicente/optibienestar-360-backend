@@ -212,6 +212,36 @@ class PublicProductsServiceTest {
         verify(serviceRepository, never()).findAll(any(Specification.class));
     }
 
+    @Test
+    void listByAlly_keepsOffersOfUnpublishedProducts_flaggedOutOfCatalog() {
+        Ally ally = ally("Óptica Vicente", "Óptica", "Mérida");
+        AllyProduct svc = service("Montura de la casa", "Lentes", ally);
+        svc.getProduct().setPublished(false);   // not in the general catalog…
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(svc)));
+
+        PublicAllyProductDto dto = service.listByAlly(ally.getUuid(), null, null, null, null, PageRequest.of(0, 20))
+                .getContent().getFirst();
+
+        // …but the ally publishes its offer, so it shows on the ally's page.
+        assertThat(dto.name()).isEqualTo("Montura de la casa");
+        assertThat(dto.inCatalog()).isFalse();
+    }
+
+    @Test
+    void productDetail_404s_whenProductIsUnpublished_andNeverQueriesOffers() {
+        AllyProduct offer = service("Examen de la vista", "Optometría", ally("Óptica Vicente", "Óptica", "Mérida"));
+        offer.getProduct().setPublished(false);
+        UUID productUuid = offer.getProduct().getUuid();
+        when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
+
+        assertThatThrownBy(() -> service.productDetail(productUuid, null, null))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("product.not_found");
+        verify(serviceRepository, never()).findAll(any(Specification.class));
+    }
+
     // ─── Fixtures ────────────────────────────────────────────────────────────
 
     private AllyProduct offerOf(Product product, Ally ally, String price, String discount) {

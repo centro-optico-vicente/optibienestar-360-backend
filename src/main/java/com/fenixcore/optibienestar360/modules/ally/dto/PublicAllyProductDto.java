@@ -23,6 +23,12 @@ public record PublicAllyProductDto(
         /** The catalog product this offer is for — shared across allies when the product is general. */
         UUID productUuid,
         @Display(Display.Kind.ENUM) ProductType productType,
+        /**
+         * Whether the product itself is published in the cross-ally catalog
+         * (V199). When {@code false} the ally still offers it publicly, but
+         * there is no product comparison page to link to.
+         */
+        boolean inCatalog,
         String categoryName,
         String name,
         String description,
