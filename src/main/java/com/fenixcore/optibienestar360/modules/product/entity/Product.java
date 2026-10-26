@@ -74,9 +74,9 @@ public class Product extends BaseEntity {
     private String imageKey;
 
     /**
-     * May appear in the public catalog (V199). Same switch allies and offers
-     * have: an offer is public only when ally, offer and product are all
-     * published — hiding a product hides every ally's offer of it at once.
+     * Listed in the public cross-ally catalog and product comparison (V199).
+     * When {@code false} the product is still public through each ally that
+     * publishes its offer (ally page), just not in the general catalog.
      */
     @Column(name = "is_published", nullable = false)
     private boolean published = true;

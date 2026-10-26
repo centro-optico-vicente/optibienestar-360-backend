@@ -92,6 +92,7 @@ public interface AllyMapper {
 
     @Mapping(target = "productUuid",         source = "product.uuid")
     @Mapping(target = "productType",         source = "product.productType")
+    @Mapping(target = "inCatalog",           source = "product.published")
     @Mapping(target = "categoryName",        source = "product.productCategory.name")
     @Mapping(target = "name",                source = "product.name")
     @Mapping(target = "description",         source = "product.description")
@@ -308,7 +309,7 @@ public interface AllyMapper {
                 .filter(AllyProduct::isActive)
                 .filter(AllyProduct::isPublished)
                 .filter(o -> o.getReviewStatus() == AllyProduct.ReviewStatus.APPROVED)
-                .filter(o -> o.getProduct().isActive() && o.getProduct().isPublished())
+                .filter(o -> o.getProduct().isActive())
                 .map(o -> toPublicProductDto(o, publicBaseUrl))
                 .toList();
     }

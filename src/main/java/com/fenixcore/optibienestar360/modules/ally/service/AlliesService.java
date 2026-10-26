@@ -227,8 +227,7 @@ public class AlliesService {
                     cb.isTrue(offer.get("active")),
                     cb.isTrue(offer.get("published")),
                     cb.equal(offer.get("reviewStatus"), AllyProduct.ReviewStatus.APPROVED),
-                    cb.isTrue(offer.get("product").get("active")),
-                    cb.isTrue(offer.get("product").get("published"))));
+                    cb.isTrue(offer.get("product").get("active"))));
             if (categoryUuid != null) {
                 predicates.add(cb.equal(offer.get("product").get("productCategory").get("uuid"), categoryUuid));
             }

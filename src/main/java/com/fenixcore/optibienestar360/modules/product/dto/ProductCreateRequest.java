@@ -20,6 +20,6 @@ public record ProductCreateRequest(
         @NotNull UUID productCategoryUuid,
         UUID ownerAllyUuid,
         Boolean requiresAppointment,
-        /** Defaults to {@code true}: offers still need approval + their own publication. */
+        /** Listed in the general catalog; defaults to {@code true} (offers still need approval + their own publication). */
         Boolean published
 ) {}
