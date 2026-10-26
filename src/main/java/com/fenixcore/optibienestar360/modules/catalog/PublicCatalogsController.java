@@ -8,7 +8,7 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.GenderDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.MaritalStatusDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.OccupationDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.StateDto;
 import com.fenixcore.optibienestar360.modules.catalog.service.AllyTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.CityService;
@@ -18,7 +18,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.GenderService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusService;
 import com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
-import com.fenixcore.optibienestar360.modules.catalog.service.ServiceCategoryService;
+import com.fenixcore.optibienestar360.modules.catalog.service.ProductCategoryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.StateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -56,7 +56,7 @@ public class PublicCatalogsController {
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
     private final ProfessionService professionService;
-    private final ServiceCategoryService serviceCategoryService;
+    private final ProductCategoryService productCategoryService;
     private final AllyTypeService allyTypeService;
 
     // ─── countries ──────────────────────────────────────────────────────────
@@ -174,18 +174,19 @@ public class PublicCatalogsController {
         return ResponseEntity.ok(professionService.get(uuid));
     }
 
-    // ─── service-categories ─────────────────────────────────────────────────
-    @GetMapping("/service-categories")
-    public ResponseEntity<Page<ServiceCategoryDto>> listServiceCategories(
+    // ─── product-categories ─────────────────────────────────────────────────
+    // /service-categories is a deprecated alias kept while clients move over (ADR 0026).
+    @GetMapping({"/product-categories", "/service-categories"})
+    public ResponseEntity<Page<ProductCategoryDto>> listProductCategories(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(serviceCategoryService.list(pageable, filter, q, false));
+        return ResponseEntity.ok(productCategoryService.list(pageable, filter, q, false));
     }
 
-    @GetMapping("/service-categories/{uuid}")
-    public ResponseEntity<ServiceCategoryDto> getServiceCategory(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(serviceCategoryService.get(uuid));
+    @GetMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    public ResponseEntity<ProductCategoryDto> getProductCategory(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(productCategoryService.get(uuid));
     }
 
     // ─── ally-types ─────────────────────────────────────────────────────────

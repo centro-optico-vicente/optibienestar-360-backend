@@ -6,28 +6,29 @@ import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.AllyServiceDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.UserAllyDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.PublicServiceListItemDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryDto;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
-import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.modules.product.mapper.ProductMapper;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import org.mapstruct.Context;
@@ -66,39 +67,50 @@ public interface AllyMapper {
     /**
      * Sanitized projection for the public detail page. Same omission rules
      * as {@link #toPublicListItem} plus filtered sub-lists: profession
-     * names + only the public-visible services
-     * ({@code active AND published AND reviewStatus=APPROVED}).
+     * names + only the public-visible offers
+     * ({@code active AND published AND reviewStatus=APPROVED}, active product).
      */
     @Mapping(target = "allyTypeNames",   expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
     @Mapping(target = "allySegments",   expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",       source = "city.name")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
-    @Mapping(target = "services",       expression = "java(extractPublicServices(ally.getServices()))")
-    PublicAllyDetailDto toPublicDetail(Ally ally);
+    @Mapping(target = "services",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
+    PublicAllyDetailDto toPublicDetail(Ally ally, @Context String publicBaseUrl);
 
-    @Mapping(target = "categoryName", source = "serviceCategory.name")
-    PublicAllyServiceDto toPublicServiceDto(AllyService service);
+    @Mapping(target = "productUuid",         source = "product.uuid")
+    @Mapping(target = "productType",         source = "product.productType")
+    @Mapping(target = "categoryName",        source = "product.productCategory.name")
+    @Mapping(target = "name",                source = "product.name")
+    @Mapping(target = "description",         source = "product.description")
+    @Mapping(target = "requiresAppointment", source = "product.requiresAppointment")
+    @Mapping(target = "imageUrl",            expression = "java(imageUrl(offer, publicBaseUrl))")
+    PublicAllyProductDto toPublicProductDto(AllyProduct offer, @Context String publicBaseUrl);
 
     /**
-     * Cross-ally public catalog row — see {@link PublicServiceListItemDto}.
-     * Flattens a compact slice of the parent ally's public identity onto the
-     * service so a {@code GET /v1/public/services} result stands on its own.
+     * Cross-ally public catalog row — see {@link PublicProductListItemDto}.
+     * Flattens the product and a compact slice of the parent ally's public
+     * identity onto the offer so a catalog result stands on its own.
      */
-    @Mapping(target = "categoryName",  source = "serviceCategory.name")
-    @Mapping(target = "imageUrl",      expression = "java(imageUrl(service, publicBaseUrl))")
+    @Mapping(target = "productUuid",         source = "product.uuid")
+    @Mapping(target = "productType",         source = "product.productType")
+    @Mapping(target = "categoryName",        source = "product.productCategory.name")
+    @Mapping(target = "name",                source = "product.name")
+    @Mapping(target = "description",         source = "product.description")
+    @Mapping(target = "requiresAppointment", source = "product.requiresAppointment")
+    @Mapping(target = "imageUrl",      expression = "java(imageUrl(offer, publicBaseUrl))")
     @Mapping(target = "allyUuid",      source = "ally.uuid")
     @Mapping(target = "allyName",      source = "ally.name")
-    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(service.getAlly().getAllyTypes()))")
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(offer.getAlly().getAllyTypes()))")
     @Mapping(target = "allyCityName",  source = "ally.city.name")
     @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
     @Mapping(target = "allyPhone",     source = "ally.phone")
-    PublicServiceListItemDto toPublicServiceListItem(AllyService service, @Context String publicBaseUrl);
+    PublicProductListItemDto toPublicProductListItem(AllyProduct offer, @Context String publicBaseUrl);
 
     @Mapping(target = "allyTypes",   expression = "java(toAllyTypeDtoList(ally.getAllyTypes()))")
     @Mapping(target = "city",        source = "city")
     @Mapping(target = "professions", source = "professions")
     @Mapping(target = "activeUsersCount",      expression = "java(countActive(ally.getUsers()))")
-    @Mapping(target = "activeServicesCount",   expression = "java(countActive(ally.getServices()))")
+    @Mapping(target = "activeProductsCount",   expression = "java(countActive(ally.getProducts()))")
     @Mapping(target = "activeAgreementsCount", expression = "java(countActive(ally.getAgreements()))")
     @Mapping(target = "capturedByPromoter",    expression = "java(promoterRef(ally.getCapturedByPromoter()))")
     @Mapping(target = "fileNumber",            expression = "java(fileNumber(ally))")
@@ -110,13 +122,19 @@ public interface AllyMapper {
     @Mapping(target = "termsVersion", expression = "java(termsVersionRef(agreement.getTermsVersion()))")
     AllyAgreementDto toAgreementDto(AllyAgreement agreement);
 
-    // ─── AllyService → DTO ─────────────────────────────────────────────────
+    // ─── AllyProduct → DTO ─────────────────────────────────────────────────
 
-    @Mapping(target = "allyUuid",        source = "ally.uuid")
-    @Mapping(target = "serviceCategory", source = "serviceCategory")
-    @Mapping(target = "reviewedByUuid",  source = "reviewedBy.uuid")
-    @Mapping(target = "imageUrl",        expression = "java(imageUrl(service, publicBaseUrl))")
-    AllyServiceDto toServiceDto(AllyService service, @Context String publicBaseUrl);
+    @Mapping(target = "allyUuid",            source = "ally.uuid")
+    @Mapping(target = "productUuid",         source = "product.uuid")
+    @Mapping(target = "productType",         source = "product.productType")
+    @Mapping(target = "exclusive",           expression = "java(offer.getProduct().isExclusive())")
+    @Mapping(target = "productCategory",     source = "product.productCategory")
+    @Mapping(target = "name",                source = "product.name")
+    @Mapping(target = "description",         source = "product.description")
+    @Mapping(target = "requiresAppointment", source = "product.requiresAppointment")
+    @Mapping(target = "reviewedByUuid",      source = "reviewedBy.uuid")
+    @Mapping(target = "imageUrl",            expression = "java(imageUrl(offer, publicBaseUrl))")
+    AllyProductDto toAllyProductDto(AllyProduct offer, @Context String publicBaseUrl);
 
     // ─── AllyUser → DTO ────────────────────────────────────────────────────
 
@@ -177,9 +195,9 @@ public interface AllyMapper {
                 ms.getName(), ms.getDescription(), ms.isActive());
     }
 
-    default ServiceCategoryDto toServiceCategoryDto(ServiceCategory sc) {
+    default ProductCategoryDto toProductCategoryDto(ProductCategory sc) {
         if (sc == null) return null;
-        return new ServiceCategoryDto(sc.getUuid(), sc.getCode(),
+        return new ProductCategoryDto(sc.getUuid(), sc.getCode(),
                 sc.getName(), sc.getDescription(), sc.isActive());
     }
 
@@ -226,10 +244,8 @@ public interface AllyMapper {
      * change of public domain never requires a data migration (spec §5).
      * {@code null} until the image is explicitly published.
      */
-    default String imageUrl(AllyService service, String publicBaseUrl) {
-        String imageKey = service.getImageKey();
-        if (imageKey == null || publicBaseUrl == null || publicBaseUrl.isBlank()) return null;
-        return publicBaseUrl.endsWith("/") ? publicBaseUrl + imageKey : publicBaseUrl + "/" + imageKey;
+    default String imageUrl(AllyProduct offer, String publicBaseUrl) {
+        return ProductMapper.imageUrl(offer.getProduct(), publicBaseUrl);
     }
 
     default int countActive(Collection<? extends BaseEntity> entities) {
@@ -267,18 +283,19 @@ public interface AllyMapper {
     }
 
     /**
-     * Filters services to only those visible publicly — active + published +
-     * APPROVED. Anything in PROPOSED / IN_REVIEW / REJECTED / REMOVED, or
-     * unpublished, or soft-deleted is dropped before the DTOs are built so
-     * anonymous viewers never see them.
+     * Filters offers to only those visible publicly — active + published +
+     * APPROVED, over an active product. Anything in PROPOSED / IN_REVIEW /
+     * REJECTED / REMOVED, unpublished, or soft-deleted is dropped before the
+     * DTOs are built so anonymous viewers never see them.
      */
-    default List<PublicAllyServiceDto> extractPublicServices(List<AllyService> services) {
-        if (services == null) return List.of();
-        return services.stream()
-                .filter(AllyService::isActive)
-                .filter(AllyService::isPublished)
-                .filter(s -> s.getReviewStatus() == AllyService.ReviewStatus.APPROVED)
-                .map(this::toPublicServiceDto)
+    default List<PublicAllyProductDto> extractPublicProducts(List<AllyProduct> offers, String publicBaseUrl) {
+        if (offers == null) return List.of();
+        return offers.stream()
+                .filter(AllyProduct::isActive)
+                .filter(AllyProduct::isPublished)
+                .filter(o -> o.getReviewStatus() == AllyProduct.ReviewStatus.APPROVED)
+                .filter(o -> o.getProduct().isActive())
+                .map(o -> toPublicProductDto(o, publicBaseUrl))
                 .toList();
     }
 }

@@ -333,8 +333,8 @@ public class UserService {
      * excludes actor-stamp columns that merely record "who did this"
      * historically ({@code Payment.reviewedBy}/{@code discountedBy},
      * {@code MemberDocument.uploadedBy}, {@code Subsidy.authorizedBy},
-     * {@code SubsidyAuditLog.actor}, {@code AllyService.reviewedBy},
-     * {@code AllyServiceReviewLog.actor}, {@code MemberPromoterAssignment.actor},
+     * {@code SubsidyAuditLog.actor}, {@code AllyProduct.reviewedBy},
+     * {@code AllyProductReviewLog.actor}, {@code MemberPromoterAssignment.actor},
      * {@code CorporateContract.contactUser}, {@code Payment.payerUser}), which
      * behave like {@code createdBy}/{@code updatedBy} audit metadata rather
      * than an ownership/membership relationship — blocking a hard delete over

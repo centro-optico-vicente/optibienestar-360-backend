@@ -45,7 +45,7 @@ import java.time.Instant;
  *
  * <p>Publishing flag controls public-directory visibility independently of
  * {@code isActive} — admin can ready a plan in the DB without exposing it
- * (matches the V11 allies / ally_services publishing pattern).</p>
+ * (matches the V11 allies / ally_products publishing pattern).</p>
  */
 @Getter
 @Setter

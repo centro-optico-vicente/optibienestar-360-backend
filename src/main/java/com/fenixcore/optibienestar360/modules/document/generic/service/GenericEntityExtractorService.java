@@ -91,7 +91,9 @@ public class GenericEntityExtractorService {
         SPANISH_FIELD_LABELS.put("professions", "Profesiones");
         SPANISH_FIELD_LABELS.put("profession", "Profesión");
         SPANISH_FIELD_LABELS.put("services", "Servicios Ofrecidos");
-        SPANISH_FIELD_LABELS.put("servicecategory", "Categoría de Servicio");
+        SPANISH_FIELD_LABELS.put("products", "Productos y Servicios Ofrecidos");
+        SPANISH_FIELD_LABELS.put("productcategory", "Categoría de Producto");
+        SPANISH_FIELD_LABELS.put("producttype", "Tipo de Producto");
         SPANISH_FIELD_LABELS.put("agreements", "Acuerdos Comerciales");
         SPANISH_FIELD_LABELS.put("agreementtype", "Tipo de Acuerdo");
         SPANISH_FIELD_LABELS.put("type", "Tipo");
@@ -337,7 +339,7 @@ public class GenericEntityExtractorService {
         if (lower.equals("allytype") || lower.equals("promotertype") || lower.equals("plantype") || lower.equals("agreementtype") || lower.equals("type") || lower.equals("tipo") || lower.equals("allytype.name") || lower.equals("promotertype.name") || lower.equals("promotertypename")) {
             return 45;
         }
-        if (lower.equals("servicecategory") || lower.equals("profession") || lower.equals("professions") || lower.equals("services")) {
+        if (lower.equals("productcategory") || lower.equals("profession") || lower.equals("professions") || lower.equals("products") || lower.equals("services")) {
             return 48;
         }
         if (lower.equals("relationship") || lower.equals("parentesco") || lower.equals("allyrole") || lower.equals("role") || lower.equals("roles") || lower.equals("user") || lower.equals("person")) {
@@ -775,7 +777,7 @@ public class GenericEntityExtractorService {
                 candidateKeys.add(cleanField + "." + trimmed);
                 candidateKeys.add(cleanField + "." + upper);
                 candidateKeys.add("allies.agreements.status." + upper);
-                candidateKeys.add("allies.services.reviewStatus." + upper);
+                candidateKeys.add("allies.products.reviewStatus." + upper);
                 candidateKeys.add("allies.staff.roles." + upper);
                 candidateKeys.add("allies.agreements.types." + upper);
                 candidateKeys.add("allies.status." + upper);

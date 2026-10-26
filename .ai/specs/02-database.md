@@ -123,9 +123,14 @@ Spec funcional: [`05-roles-permissions.md`](05-roles-permissions.md).
 
 (pendiente)
 
-### `allies`, `ally_services`, `ally_agreements`, `ally_users`
+### `allies`, `products`, `ally_products`, `ally_agreements`, `ally_users`
 
-(pendiente)
+Modelo de catálogo desde V197 ([ADR 0026 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0026-products-catalog-replaces-services.md)):
+
+- `products` — maestro. `product_type` `SERVICE`/`PRODUCT`, `product_category_id` → `product_categories` (V196, antes `service_categories`), `owner_ally_id` NULL = general / con valor = exclusivo de ese aliado (`ON DELETE CASCADE`), `requires_appointment`, `image_key`. Índice trigram sobre `immutable_unaccent(lower(name))`.
+- `ally_products` — la oferta de un aliado (antes `ally_services`): `ally_id`, `product_id`, `price_amount` + `price_currency_id`, `discount_pct`, `exclusions`, workflow `review_status` + `ally_product_review_log`, `is_published`. `UNIQUE (ally_id, product_id)`.
+- Trigger `enforce_exclusive_product_owner` (en `ally_products` y en `products.owner_ally_id`): un producto exclusivo solo lo ofrece su dueño, y un producto ya ofrecido por otros aliados no puede volverse exclusivo.
+- `benefit_usages.ally_product_id` / `product_category_id` (renombradas en V196/V197).
 
 ### `plans`, `memberships`
 

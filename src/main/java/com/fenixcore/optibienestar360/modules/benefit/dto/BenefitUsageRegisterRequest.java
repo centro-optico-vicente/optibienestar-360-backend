@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.benefit.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -27,16 +28,17 @@ public record BenefitUsageRegisterRequest(
         @NotNull UUID membershipUuid,
         @NotNull UUID allyUuid,
 
-        UUID allyServiceUuid,                 // optional — non-catalogued usage is allowed
+        // optional — non-catalogued usage is allowed; allyServiceUuid accepted during the ADR 0026 transition
+        @JsonAlias("allyServiceUuid") UUID allyProductUuid,
         UUID allyUserUuid,                    // optional — admin-side registrations have null
 
         /**
-         * Rubro del consumo. Opcional SOLO cuando viene {@code allyServiceUuid}:
-         * en ese caso el servicio ya trae su categoría y el servidor la copia.
-         * Sin servicio es obligatorio — es la condición que garantiza que todo
+         * Rubro del consumo. Opcional SOLO cuando viene {@code allyProductUuid}:
+         * en ese caso el producto de la oferta ya trae su categoría y el servidor la copia.
+         * Sin oferta es obligatorio — es la condición que garantiza que todo
          * consumo entre en el reporte por rubro (V158).
          */
-        UUID serviceCategoryUuid,
+        @JsonAlias("serviceCategoryUuid") UUID productCategoryUuid,
 
         // Defaults to today when null; never accept future dates
         @PastOrPresent LocalDate usageDate,

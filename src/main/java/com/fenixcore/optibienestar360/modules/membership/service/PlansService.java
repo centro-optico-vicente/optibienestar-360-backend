@@ -41,7 +41,7 @@ import java.util.UUID;
  * <p>Plural class name ({@code PlansService}) to mirror the convention used
  * by {@code AlliesService} / {@code MembersService} and to leave the
  * singular {@code PlanService} name free for a possible future business
- * service around a Plan transaction (analogous to how {@code AllyService}
+ * service around a Plan transaction (analogous to how {@code AllyProduct}
  * the entity coexists with {@code AlliesService} the manager).</p>
  */
 @Service

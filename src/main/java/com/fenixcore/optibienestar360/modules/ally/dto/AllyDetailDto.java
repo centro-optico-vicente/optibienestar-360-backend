@@ -77,7 +77,7 @@ public record AllyDetailDto(
 
         // ─── Aggregated summary (sub-lists not inlined; sub-resources handle that) ─
         int activeUsersCount,
-        int activeServicesCount,
+        int activeProductsCount,
         int activeAgreementsCount,
 
         // ─── Audit ─────────────────────────────────────────────────────────

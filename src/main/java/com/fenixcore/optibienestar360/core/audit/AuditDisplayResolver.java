@@ -13,7 +13,8 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.MaritalStatusRe
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.OccupationRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.PromoterTypeRepository;
-import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ProductCategoryRepository;
+import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
 import com.fenixcore.optibienestar360.modules.corporate.repository.CorporateContractRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
@@ -96,8 +97,9 @@ public class AuditDisplayResolver {
             MaritalStatusRepository maritalStatusRepository,
             OccupationRepository occupationRepository,
             ProfessionRepository professionRepository,
-            ServiceCategoryRepository serviceCategoryRepository,
-            PromoterTypeRepository promoterTypeRepository) {
+            ProductCategoryRepository productCategoryRepository,
+            PromoterTypeRepository promoterTypeRepository,
+            ProductRepository productRepository) {
         this.messageSource = messageSource;
         this.displayFormatter = displayFormatter;
         this.userRepository = userRepository;
@@ -118,6 +120,7 @@ public class AuditDisplayResolver {
 				.map(m -> displayFormatter.personLabel(m.getPerson().getTaxDocumentNumber(), m.getPerson().getFullName())));
 		entityResolvers.put("member_promoter", uuid -> memberRepository.findByUuid(uuid)
 				.map(m -> displayFormatter.personLabel(m.getPerson().getTaxDocumentNumber(), m.getPerson().getFullName())));
+        entityResolvers.put("product", uuid -> productRepository.findByUuid(uuid).map(p -> p.getName()));
         entityResolvers.put("plan", uuid -> planRepository.findByUuid(uuid).map(p -> p.getName()));
         entityResolvers.put("membership", uuid -> membershipRepository.findByUuid(uuid)
                 .map(ms -> ms.getMember().getPerson().getFullName() + " — " + ms.getPlan().getName()));
@@ -139,8 +142,12 @@ public class AuditDisplayResolver {
         fieldResolvers.put("occupationUuid", uuid -> occupationRepository.findByUuid(uuid).map(o -> o.getName()));
 		fieldResolvers.put("professionUuid", uuid -> professionRepository.findByUuid(uuid)
 				.map(s -> displayFormatter.catalogLabel(s.getCode(), s.getName())));
-		fieldResolvers.put("serviceCategoryUuid", uuid -> serviceCategoryRepository.findByUuid(uuid)
+		fieldResolvers.put("productCategoryUuid", uuid -> productCategoryRepository.findByUuid(uuid)
 				.map(c -> displayFormatter.catalogLabel(c.getCode(), c.getName())));
+		// Snapshots written before ADR 0026 still carry the old key.
+		fieldResolvers.put("serviceCategoryUuid", uuid -> productCategoryRepository.findByUuid(uuid)
+				.map(c -> displayFormatter.catalogLabel(c.getCode(), c.getName())));
+		fieldResolvers.put("productUuid", uuid -> productRepository.findByUuid(uuid).map(p -> p.getName()));
 		fieldResolvers.put("allyTypeUuid", uuid -> allyTypeRepository.findByUuid(uuid)
 				.map(a -> displayFormatter.catalogLabel(a.getCode(), a.getName())));
 		fieldResolvers.put("promoterTypeUuid", uuid -> promoterTypeRepository.findByUuid(uuid)

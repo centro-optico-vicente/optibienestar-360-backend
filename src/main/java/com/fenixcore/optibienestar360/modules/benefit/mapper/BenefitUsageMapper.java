@@ -17,10 +17,10 @@ public interface BenefitUsageMapper {
     @Mapping(target = "planCode",         source = "membership.plan.code")
     @Mapping(target = "allyUuid",         source = "ally.uuid")
     @Mapping(target = "allyName",         source = "ally.name")
-    @Mapping(target = "allyServiceUuid",  source = "allyService.uuid")
+    @Mapping(target = "allyProductUuid",  source = "allyProduct.uuid")
     @Mapping(target = "allyUserUuid",     source = "allyUser.uuid")
-    @Mapping(target = "serviceCategoryUuid", source = "serviceCategory.uuid")
-    @Mapping(target = "serviceCategoryName", source = "serviceCategory.name")
+    @Mapping(target = "productCategoryUuid", source = "productCategory.uuid")
+    @Mapping(target = "productCategoryName", source = "productCategory.name")
     @Mapping(target = "copayCurrency",    source = "copayCurrency.code")
     @Mapping(target = "consumptionCurrency", source = "consumptionCurrency.code")
     BenefitUsageDto toDto(BenefitUsage usage);

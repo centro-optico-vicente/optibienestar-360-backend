@@ -13,7 +13,7 @@ import java.util.UUID;
  *   <li>Full {@code address} on top of the city label.</li>
  *   <li>List of medical profession names (just labels, no UUIDs) so the
  *       frontend can render them as tags.</li>
- *   <li>List of {@link PublicAllyServiceDto} — filtered to only published +
+ *   <li>List of {@link PublicAllyProductDto} — filtered to only published +
  *       APPROVED + active offerings; everything else (PROPOSED / IN_REVIEW /
  *       REJECTED / REMOVED, unpublished, soft-deleted) is intentionally
  *       hidden from anonymous viewers.</li>
@@ -47,5 +47,5 @@ public record PublicAllyDetailDto(
         List<String> professionNames,
 
         // Public offerings (already filtered to APPROVED + published + active)
-        List<PublicAllyServiceDto> services
+        List<PublicAllyProductDto> services
 ) {}

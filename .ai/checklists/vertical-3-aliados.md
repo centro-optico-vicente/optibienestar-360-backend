@@ -53,6 +53,18 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 - [x] [v2] [P0/C1] Permiso `ALLY_SERVICE_APPROVE` (asignado a ADMINISTRADOR + SYSTEM). _(Seed en V11 vía `INSERT INTO permissions` + `role_permissions` join — usa el `permission_domains.code='ALLIES'` ya existente del V5 seed. Asignado solo a SYSTEM + ADMINISTRADOR; el aliado nunca aprueba sus propios servicios.)_
 
+## Catálogo de productos — [ADR 0026 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0026-products-catalog-replaces-services.md)
+
+> `ally_services` se reemplaza por un maestro `products` (`SERVICE`/`PRODUCT`; general u exclusivo de un aliado) + la oferta por aliado `ally_products`. Las rutas `.../services` y `service-categories` quedan como alias deprecados hasta que el frontend y la landing migren. Los ítems de arriba de este vertical describen el modelo anterior y se conservan como historia.
+
+- [x] [P0/C3] `V196` `service_categories` → `product_categories`: tabla, PK, `benefit_usages.product_category_id`, permisos `PRODUCT_CATEGORY_*`, dominio `CATALOG_PRODUCT_CATEGORY`, claves de auditoría.
+- [x] [P0/C4] `V197` maestro `products` + `ally_services` → `ally_products` + `ally_product_review_log` + `benefit_usages.ally_product_id`. Backfill: 1 producto exclusivo por oferta existente, conservando el `uuid` de la oferta. Trigger `enforce_exclusive_product_owner`.
+- [x] [P0/C2] `V198` permisos granulares `PRODUCT_*` (dominio `PRODUCTS`) y `ALLY_PRODUCT_*`, `ALLY_PRODUCT_APPROVE`, `PRODUCT_IMAGE_*`; auditoría `ally_product` + `product`; `attached_files` re-apuntados al producto.
+- [x] [P0/C3] Módulo `modules/product`: entidad `Product`, `ProductsService`, `AdminProductsController` (`/v1/admin/products` + imagen), `ProductImageService`, `ProductImageKeyMigrationRunner` (mueve los objetos R2 de `ally_services/` a `products/`, detrás de `storage.r2.legacy-product-keys.migrate`).
+- [x] [P0/C3] Ofertas: `/v1/admin/allies/{allyUuid}/products` (paginado, `type`, `q`), `/v1/admin/ally-products/*` (revisión), `/v1/me/allies/products` (propuesta: producto general por `productUuid` o exclusivo nuevo). Alias deprecados `.../services`.
+- [ ] [P0/C3] API pública nueva: `GET /v1/public/products`, `/v1/public/products/{uuid}`, `/v1/public/allies/{uuid}/products`, filtro por categoría/tipo en `/v1/public/allies` (plan B1 del hub).
+- [ ] [P2/C1] Retirar los alias `.../services`, `service-categories` y el campo `services` de `PublicAllyDetailDto`.
+
 ## Adicionales v3 — Fidelidad y cortesías de aliados
 
 > Ver [`../scope-additions-v3.md`](../scope-additions-v3.md) (ítems D1/D2) + [ADR 0013](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0013-incentives-engine-v3.md) §5. Premio parametrizable en **voucher canjeable**; cortesía validable por el validador (vertical-7). Reusa el ledger `benefit_usages` (V24).

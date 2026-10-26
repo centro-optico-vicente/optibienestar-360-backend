@@ -3,13 +3,13 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
-import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
-import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
@@ -73,7 +73,7 @@ public class TermsVariableResolver {
     private final BeneficiaryRepository beneficiaryRepository;
     private final DisplayFormatter displayFormatter;
     private final OrganizationRepository organizationRepository;
-    private final AllyServiceRepository allyServiceRepository;
+    private final AllyProductRepository allyProductRepository;
 
     /**
      * MEMBER values for {@code user}. The holder is the user's member record;
@@ -180,21 +180,22 @@ public class TermsVariableResolver {
     /** The {@code agreement.rates} rows of {@code ally} (empty without a persisted ally). */
     private List<Map<String, String>> rates(Ally ally) {
         if (ally == null || ally.getId() == null) return List.of();
-        List<AllyService> services = allyServiceRepository.findByAllyIdAndReviewStatus(ally.getId(),
+        List<AllyProduct> services = allyProductRepository.findByAllyIdAndReviewStatus(ally.getId(),
                 ReviewStatus.APPROVED);
         if (services == null || services.isEmpty()) return List.of();
         String segment = segmentOf(ally);
         return services.stream()
-                .filter(AllyService::isActive)
-                .sorted(Comparator.comparing((AllyService s) -> s.getName() == null ? "" : s.getName(),
+                .filter(AllyProduct::isActive)
+                .sorted(Comparator.comparing((AllyProduct s) -> s.getProduct().getName() == null ? "" : s.getProduct().getName(),
                                 String.CASE_INSENSITIVE_ORDER)
-                        .thenComparing(AllyService::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .thenComparing(AllyProduct::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(service -> {
                     Map<String, String> row = new HashMap<>();
                     put(row, "segment", segment);
-                    ServiceCategory category = service.getServiceCategory();
+                    ProductCategory category = service.getProduct().getProductCategory();
                     put(row, "category", category == null ? null : category.getName());
-                    put(row, "serviceName", service.getName());
+                    // Placeholder kept as {{serviceName}}: stored agreement templates already use it (ADR 0026).
+                    put(row, "serviceName", service.getProduct().getName());
                     put(row, "discountPct", number(service.getDiscountPct()));
                     put(row, "exclusions", service.getExclusions());
                     return Map.copyOf(row);

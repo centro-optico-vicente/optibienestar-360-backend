@@ -31,10 +31,10 @@ public record BenefitUsageDto(
         // Where + what
         UUID allyUuid,
         String allyName,
-        UUID allyServiceUuid,
+        UUID allyProductUuid,
         UUID allyUserUuid,
-        UUID serviceCategoryUuid,
-        String serviceCategoryName,
+        UUID productCategoryUuid,
+        String productCategoryName,
 
         // When
         @Display(Display.Kind.DATE) LocalDate usageDate,
