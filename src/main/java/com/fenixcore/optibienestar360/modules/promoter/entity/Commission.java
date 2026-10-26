@@ -26,18 +26,18 @@ import java.time.LocalDate;
 /**
  * Earnings ledger (V26). One row per payment-driven commission event,
  * carrying the tier snapshot inline so later edits to commission_tiers
- * (future v2 table) do NOT retroactively rewrite history.
+ * do NOT retroactively rewrite history.
  *
  * <p>{@link #commissionPct} XOR {@link #flatAmount} — exactly one is
  * populated (V26 CHECK {@code chk_commissions_pct_xor_flat}). Service
  * code computes one or the other from the matched tier at calculation
  * time.</p>
  *
- * <p>{@link #commissionTierId} is mapped as a bare {@code Long} (no FK)
- * because {@code commission_tiers} doesn't exist yet (v2). When it
- * lands, switch to {@code @ManyToOne CommissionTier} and the schema
- * gets the deferred FK from V26 too — closure trigger documented in
- * vertical-8 § Pendientes de análisis.</p>
+ * <p>{@link #commissionTierId} is mapped as a bare {@code Long} (no
+ * {@code @ManyToOne}) on purpose: it is a calculation snapshot reference. The
+ * database does enforce it — V42 added {@code fk_commissions_tier} to
+ * {@code commission_tiers} (NO ACTION, so a referenced tier cannot be
+ * hard-deleted) and V193 indexes the column.</p>
  *
  * <p>{@code status} is inherited as a {@code String}; the V26 CHECK
  * pins it to {@link CommissionStatus} values.</p>

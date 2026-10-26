@@ -222,6 +222,7 @@ FAILED   →  SENDING        (ciclo de retry la levanta otra vez)
 | `benefit_usages` | `(membership_id, usage_date DESC)` | Historial uso por afiliado |
 | `benefit_usages` | `(ally_id, usage_date DESC)` | Métricas por aliado |
 | `commissions` | `(promoter_id, status, cycle_end)` | Liquidación |
+| `commissions` | `(commission_tier_id)` parcial `WHERE commission_tier_id IS NOT NULL` (V193) | Índice del FK `fk_commissions_tier` (V42, NO ACTION): usage-check y DELETE de `commission_tiers` |
 | `audit_log` | `(entity, entity_id, timestamp DESC)` | Trace por entidad |
 | `audit_log` | `(user_id, timestamp DESC)` | Auditoría por usuario |
 
