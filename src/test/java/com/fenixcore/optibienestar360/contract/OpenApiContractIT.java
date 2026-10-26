@@ -1,16 +1,9 @@
 package com.fenixcore.optibienestar360.contract;
 
-import com.fenixcore.optibienestar360.core.display.DisplayRef;
-import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
-import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
-import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -18,16 +11,9 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -84,71 +70,10 @@ class OpenApiContractIT {
 
     @Test
     void writesWireSamples() throws Exception {
-        Map<String, Object> samples = new LinkedHashMap<>();
-        samples.put("AllyListItemDto", new AllyListItemDto(
-                UUID.fromString("00000000-0000-0000-0000-000000000001"), "Optica Sample", 7,
-                List.of("Optica"),
-                new DisplayRef(UUID.fromString("00000000-0000-0000-0000-0000000000c1"), "CCS", "Caracas"),
-                "J", "123456789", null, null,
-                true, Instant.parse("2026-01-02T03:04:05Z"),
-                true, "APPROVED", Instant.parse("2026-01-01T00:00:00Z")));
-        samples.put("AppliedSortPage(empty)", new AppliedSortPage<String>(
-                new PageImpl<String>(List.of(), PageRequest.of(0, 10), 0), List.of()));
-        samples.put("MemberDetailDto", RecordSamples.blank(MemberDetailDto.class));
-        samples.put("PublicAllyDetailDto", RecordSamples.blank(PublicAllyDetailDto.class));
-
         Files.createDirectories(OUTPUT_DIR);
         Files.writeString(OUTPUT_DIR.resolve("wire-samples.json"),
-                jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(samples) + "\n",
+                jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(WireSamples.all()) + "\n",
                 StandardCharsets.UTF_8);
-    }
-
-    /** Builds a record with default component values (null / 0 / false). */
-    static final class RecordSamples {
-
-        private RecordSamples() {
-        }
-
-        static Object blank(Class<?> recordType) throws Exception {
-            RecordComponent[] components = recordType.getRecordComponents();
-            Class<?>[] types = new Class<?>[components.length];
-            Object[] values = new Object[components.length];
-            for (int i = 0; i < components.length; i++) {
-                types[i] = components[i].getType();
-                values[i] = defaultOf(types[i]);
-            }
-            Constructor<?> ctor = recordType.getDeclaredConstructor(types);
-            ctor.setAccessible(true);
-            return ctor.newInstance(values);
-        }
-
-        private static Object defaultOf(Class<?> type) {
-            if (!type.isPrimitive()) {
-                return null;
-            }
-            if (type == boolean.class) {
-                return false;
-            }
-            if (type == long.class) {
-                return 0L;
-            }
-            if (type == double.class) {
-                return 0.0d;
-            }
-            if (type == float.class) {
-                return 0.0f;
-            }
-            if (type == short.class) {
-                return (short) 0;
-            }
-            if (type == byte.class) {
-                return (byte) 0;
-            }
-            if (type == char.class) {
-                return (char) 0;
-            }
-            return 0;
-        }
     }
 
 }
