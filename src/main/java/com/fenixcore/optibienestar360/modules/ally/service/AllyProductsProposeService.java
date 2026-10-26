@@ -100,6 +100,31 @@ public class AllyProductsProposeService {
     }
 
     /**
+     * The ally's own offers in every review state, for the portal list. Any
+     * active member reads (VIEWER included); optional {@code q} over the product
+     * name / description and plain-word {@code type}; default order by product name.
+     */
+    public Page<AllyProductDto> listOwn(UUID actorUserUuid, UUID allyUuid, String q, String type, Pageable pageable) {
+        AllyUser membership = allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid)
+                .orElseThrow(() -> new AccessDeniedException("ally_product.propose.not_allowed"));
+        Long allyId = membership.getAlly().getId();
+
+        Specification<AllyProduct> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("ally").get("id"), allyId),
+                cb.isTrue(root.get("active")));
+        Product.ProductType productType = PublicCatalogSearch.parseType(type);
+        if (productType != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("product").get("productType"), productType));
+        }
+        if (PublicCatalogSearch.hasText(q)) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, "product.name", "product.description"));
+        }
+        Pageable sorted = pageable.getSort().isSorted() ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("product.name"));
+        return offerRepository.findAll(spec, sorted).map(offer -> mapper.toAllyProductDto(offer, publicBaseUrl));
+    }
+
+    /**
      * Creates a new offer on behalf of the actor under the requested ally.
      * It lands at {@code reviewStatus=PROPOSED} — admin moves it via the
      * workflow endpoints so the review log captures the transition.

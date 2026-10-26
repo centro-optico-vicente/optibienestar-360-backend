@@ -65,13 +65,12 @@ public class Product extends BaseEntity {
     private boolean requiresAppointment = false;
 
     /**
-     * R2 key of the public catalog image, once published (spec
-     * {@code .ai/specs/08-storage-r2.md} §5) — {@code null} until an admin
-     * explicitly publishes an uploaded {@code attached_files} row. Only the
-     * key is persisted; mappers derive {@code publicBaseUrl + imageKey}.
+     * URL of the product's primary image (hub ADR 0027) — the icon / cover lists
+     * show. Mirrored from {@code media_items} by the media service; never set by
+     * hand.
      */
-    @Column(name = "image_key", length = 500)
-    private String imageKey;
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
 
     /**
      * Listed in the public cross-ally catalog and product comparison (V199).

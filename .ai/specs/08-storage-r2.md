@@ -294,7 +294,17 @@ Un archivo siempre se sube atado a su registro con visibilidad no pública (`INT
 
 Esto es distinto de `DELETE` (§4.2): `unpublish` retracta la visibilidad pública pero conserva el archivo; `delete` lo elimina definitivamente de donde esté.
 
-### 5. Imágenes públicas de catálogo (`AllyService` → `Product`)
+### 5. Imágenes públicas (galerías `media_items`)
+
+> **Reemplazado por el [ADR 0027 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0027-media-items.md).** Las imágenes de aliados, productos y ofertas ya no usan `image_key` ni el flujo de dos pasos (subir privada → publicar). Ahora son una galería genérica en `media_items` (lista ordenada con una principal; archivo en R2 o URL externa `https`), con la misma lógica para todos los dueños (`MediaItemsService`), y la columna `logo_url` en cada tabla dueña (`allies`, `products`, `ally_products`) guarda la URL de la principal.
+> - Rutas: `/v1/admin/allies/{uuid}/media`, `/v1/admin/products/{uuid}/media`, `/v1/admin/allies/{allyUuid}/products/{offerUuid}/media`, `/v1/me/allies/{allyUuid}/media`, `/v1/me/allies/products/{offerUuid}/media` (listar, subir, `/url`, `PATCH`, `PUT /order`, `DELETE`).
+> - La subida guarda el archivo (`attached_files`, `owner_table = 'media_items'`, categoría `MEDIA`) y lo **publica al bucket público en el mismo paso** (sin aprobación); la clave pública queda en `media_items.public_key`.
+> - Permisos: `ALLY_IMAGE_*`, `ALLY_PRODUCT_IMAGE_*`, `PRODUCT_IMAGE_*` (`UPLOAD`/`UPDATE`/`DELETE`); el portal del aliado usa membresía (OWNER/STAFF escriben, VIEWER lee).
+> - `ProductImageKeyMigrationRunner` mueve los objetos viejos de `ally_services/` a `products/` y corrige `media_items.public_key`; `MediaLogoUrlSyncRunner` completa `logo_url` al arrancar (`storage.r2.media.resync-logo-urls=true` lo recalcula todo si cambia el dominio público).
+>
+> El texto de abajo describe el diseño original (ADR 0026) y se conserva como historia.
+
+#### Diseño original: imágenes públicas de catálogo (`AllyService` → `Product`)
 
 > **Actualizado por el [ADR 0026 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0026-products-catalog-replaces-services.md):** la imagen pertenece ahora al **producto** del maestro, no a cada oferta. `owner_table='products'`, `products.image_key`, endpoints `/v1/admin/products/{uuid}/image[/publish|/unpublish]`, permisos `PRODUCT_IMAGE_UPLOAD`/`PRODUCT_IMAGE_DELETE` (dominio `PRODUCTS`). Los endpoints de imagen bajo `/v1/admin/allies/{allyUuid}/products/{uuid}/image` (y su alias `.../services/...`) siguen respondiendo durante la transición y actúan sobre la imagen del producto de la oferta. V198 re-apuntó las filas de `attached_files`; `ProductImageKeyMigrationRunner` mueve los objetos de `…/ally_services/…` a `…/products/…`. El texto de abajo describe el diseño original.
 

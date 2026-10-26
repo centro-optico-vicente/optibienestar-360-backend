@@ -17,6 +17,7 @@ import com.fenixcore.optibienestar360.modules.product.repository.ProductReposito
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -77,6 +78,7 @@ public class PublicProductsService {
     private final AllyProductRepository offerRepository;
     private final AllyRepository allyRepository;
     private final ProductRepository productRepository;
+    private final PublicMediaEnricher enricher;
     private final AllyMapper mapper;
 
     @Value("${storage.r2.public-base-url:}")
@@ -146,8 +148,10 @@ public class PublicProductsService {
         if (PublicCatalogSearch.hasText(q)) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return offerRepository.findAll(spec, productSort(pageable))
+        Page<PublicAllyProductDto> page = offerRepository.findAll(spec, productSort(pageable))
                 .map(offer -> mapper.toPublicProductDto(offer, publicBaseUrl));
+        // Galleries of the page's offers (an offer without images shows its product's) in two queries.
+        return new PageImpl<>(enricher.allyProducts(page.getContent()), pageable, page.getTotalElements());
     }
 
     /**
@@ -184,7 +188,7 @@ public class PublicProductsService {
         BigDecimal maxDiscountPct = offers.stream().map(AllyProduct::getDiscountPct)
                 .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
 
-        return new PublicProductDetailDto(
+        PublicProductDetailDto detail = new PublicProductDetailDto(
                 product.getUuid(),
                 product.getName(),
                 product.getDescription(),
@@ -195,7 +199,9 @@ public class PublicProductsService {
                 offerDtos.size(),
                 minFinalPrice,
                 maxDiscountPct,
-                offerDtos);
+                offerDtos,
+                List.of());
+        return enricher.product(detail);
     }
 
     // ─── Specs ────────────────────────────────────────────────────────────────

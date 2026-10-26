@@ -29,6 +29,8 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeReposit
 import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
+import com.fenixcore.optibienestar360.modules.ally.media.AllyMediaOwner;
+import com.fenixcore.optibienestar360.modules.media.service.MediaItemsService;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
@@ -108,6 +110,8 @@ public class AlliesService {
     private final AllyAgreementRepository allyAgreementRepository;
     private final BenefitUsageRepository benefitUsageRepository;
 	private final DefaultSortResolver defaultSortResolver;
+    private final PublicMediaEnricher enricher;
+    private final MediaItemsService mediaItemsService;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
@@ -254,7 +258,7 @@ public class AlliesService {
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
-        return mapper.toPublicDetail(ally, publicBaseUrl);
+        return enricher.ally(mapper.toPublicDetail(ally, publicBaseUrl));
     }
 
     // ─── Mutations ──────────────────────────────────────────────────────────
@@ -286,7 +290,6 @@ public class AlliesService {
         ally.setCity(resolveCityOptional(req.cityUuid()));
         ally.setGoogleMapsUrl(req.googleMapsUrl());
         ally.setReferralCode(normalizeReferralCode(req.referralCode(), null));
-        ally.setLogoUrl(req.logoUrl());
         ally.setDescription(req.description());
         ally.setJoinedAt(req.joinedAt());
         if (req.published() != null) ally.setPublished(req.published());
@@ -299,6 +302,9 @@ public class AlliesService {
         ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
 
         Ally saved = repository.save(ally);
+        // logoUrl is deprecated (hub ADR 0027): the column mirrors the primary gallery image,
+        // so a given URL becomes that image instead of being written to the column.
+        applyDeprecatedLogoUrl(saved, req.logoUrl());
         return mapper.toDetail(saved);
     }
 
@@ -340,7 +346,6 @@ public class AlliesService {
         if (req.cityUuid()            != null) ally.setCity(resolveCityOptional(req.cityUuid()));
         if (req.googleMapsUrl()       != null) ally.setGoogleMapsUrl(req.googleMapsUrl());
         if (req.referralCode()        != null) ally.setReferralCode(normalizeReferralCode(req.referralCode(), ally.getId()));
-        if (req.logoUrl()             != null) ally.setLogoUrl(req.logoUrl());
         if (req.description()         != null) ally.setDescription(req.description());
         if (req.joinedAt()            != null) ally.setJoinedAt(req.joinedAt());
         if (req.published()           != null) ally.setPublished(req.published());
@@ -362,7 +367,20 @@ public class AlliesService {
             ally.getProfessions().addAll(resolved);
         }
 
+        applyDeprecatedLogoUrl(ally, req.logoUrl());
         return mapper.toDetail(ally);  // managed → dirty-check on commit
+    }
+
+    /**
+     * {@code logoUrl} of the ally API is deprecated (hub ADR 0027): a non-blank
+     * https URL becomes the ally's primary gallery image and the {@code logo_url}
+     * column follows by itself; blank / {@code null} leaves the gallery alone
+     * (remove images through {@code /media}).
+     */
+    private void applyDeprecatedLogoUrl(Ally ally, String logoUrl) {
+        if (logoUrl != null && !logoUrl.isBlank()) {
+            mediaItemsService.replacePrimaryExternal(AllyMediaOwner.KEY, ally.getUuid(), logoUrl);
+        }
     }
 
     /**

@@ -67,6 +67,19 @@ public class AllyProduct extends BaseEntity {
     @Column(columnDefinition = "text")
     private String exclusions;
 
+    /**
+     * URL of the offer's own primary image (hub ADR 0027), mirrored from
+     * {@code media_items}; {@code null} means "use the product's" — see
+     * {@link #getEffectiveLogoUrl()}. Never set by hand.
+     */
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
+    /** The offer's image if it has one, else its product's. */
+    public String getEffectiveLogoUrl() {
+        return logoUrl != null ? logoUrl : (product == null ? null : product.getLogoUrl());
+    }
+
     // ─── Review workflow ────────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)

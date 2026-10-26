@@ -14,7 +14,6 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductReviewL
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
-import com.fenixcore.optibienestar360.modules.product.service.ProductImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -61,7 +60,6 @@ public class AllyProductReviewService {
     private final AllyUserRepository allyUserRepository;
     private final UserRepository userRepository;
     private final AllyMapper mapper;
-    private final ProductImageService imageService;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
@@ -170,11 +168,6 @@ public class AllyProductReviewService {
         applyNegativeTransition(service, ReviewStatus.REMOVED, actor, reason);
         // A REMOVED service can't stay published (V11 CHECK is_published → APPROVED).
         service.setPublished(false);
-        // Nor keep a publicly-reachable image — spec §5. The image belongs to the
-        // product: only an exclusive one (no other ally shows it) is retracted.
-        if (service.getProduct().isExclusive()) {
-            imageService.unpublishIfPresent(service.getProduct().getUuid());
-        }
         log(service, from, ReviewStatus.REMOVED, actor, reason);
         return mapper.toAllyProductDto(service, publicBaseUrl);
     }

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -51,5 +53,8 @@ public record PublicAllyDetailDto(
 
         /** Same list as {@code products} — deprecated, kept while the landing moves over (ADR 0026). */
         @Deprecated
-        List<PublicAllyProductDto> services
+        List<PublicAllyProductDto> services,
+
+        /** The ally's gallery in display order; {@code logoUrl}'s image is the primary one. */
+        List<PublicImageDto> images
 ) {}

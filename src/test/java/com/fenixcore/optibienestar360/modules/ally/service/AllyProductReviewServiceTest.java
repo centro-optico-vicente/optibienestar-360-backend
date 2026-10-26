@@ -15,7 +15,6 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product;
-import com.fenixcore.optibienestar360.modules.product.service.ProductImageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -55,11 +54,10 @@ class AllyProductReviewServiceTest {
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private UserRepository userRepository;
     @Mock private AllyMapper mapper;
-    @Mock private ProductImageService imageService;
 
     private AllyProductReviewService sut() {
         return new AllyProductReviewService(serviceRepository, logRepository,
-                allyUserRepository, userRepository, mapper, imageService);
+                allyUserRepository, userRepository, mapper);
     }
 
     private final UUID actorUuid = UUID.randomUUID();
@@ -166,21 +164,6 @@ class AllyProductReviewServiceTest {
         assertThat(service.getReviewReason()).isEqualTo("contract ended");
         assertThat(service.getReviewedBy()).isSameAs(actor);
         assertThat(captureLog().getToStatus()).isEqualTo(ReviewStatus.REMOVED);
-        // The exclusive product has no other offer left — its public image is retracted.
-        verify(imageService).unpublishIfPresent(service.getProduct().getUuid());
-    }
-
-    @Test
-    void adminRemove_generalProduct_keepsItsImage() {
-        AllyProduct service = allyProduct(ReviewStatus.APPROVED);
-        service.getProduct().setOwnerAlly(null);
-        when(serviceRepository.findByUuid(service.getUuid())).thenReturn(Optional.of(service));
-        when(userRepository.findByUuid(actorUuid)).thenReturn(Optional.of(user()));
-
-        sut().adminRemove(service.getUuid(), actorUuid, "contract ended");
-
-        assertThat(service.getReviewStatus()).isEqualTo(ReviewStatus.REMOVED);
-        verify(imageService, never()).unpublishIfPresent(any());
     }
 
     @Test

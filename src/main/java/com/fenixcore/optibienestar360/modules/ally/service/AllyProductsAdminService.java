@@ -112,11 +112,6 @@ public class AllyProductsAdminService {
         return mapper.toAllyProductDto(findOfferUnderAlly(allyUuid, offerUuid), publicBaseUrl);
     }
 
-    /** The product behind an offer — lets the transitional image endpoints act on the product's image. */
-    public UUID productUuidOf(UUID allyUuid, UUID offerUuid) {
-        return findOfferUnderAlly(allyUuid, offerUuid).getProduct().getUuid();
-    }
-
     @Transactional
     @Auditable(entity = ENTITY_KEY, action = AuditAction.CREATE)
     public AllyProductDto create(UUID allyUuid, AllyProductCreateRequest req) {

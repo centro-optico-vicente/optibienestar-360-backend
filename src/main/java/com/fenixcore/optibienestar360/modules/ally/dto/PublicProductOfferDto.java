@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,5 +29,9 @@ public record PublicProductOfferDto(
         String allyCityName,
         String allyLogoUrl,
         String allyPhone,
-        String allyWhatsapp
+        String allyWhatsapp,
+        /** The offer's primary image (else the product's). */
+        String imageUrl,
+        /** The offer's gallery in display order; the product's when the offer has none. */
+        List<PublicImageDto> images
 ) {}

@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductSearch;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
+import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,18 +82,21 @@ class PublicProductControllerIT {
     private PublicAllyProductDto leanRow() {
         return new PublicAllyProductDto(
                 UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, true, "Optometría", "Examen de la vista",
-                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null);
+                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null,
+                List.of());
     }
 
     private PublicProductDetailDto detail() {
         PublicProductOfferDto cheapest = new PublicProductOfferDto(UUID.randomUUID(),
                 new BigDecimal("20.00"), new BigDecimal("25.00"), new BigDecimal("15.00"), null,
-                UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida", null, "+58 274 5550100", null);
+                UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida", null, "+58 274 5550100", null,
+                "https://cdn.example/optica.jpg", List.of(new PublicImageDto("https://cdn.example/optica.jpg", null, true)));
         PublicProductOfferDto other = new PublicProductOfferDto(UUID.randomUUID(),
                 new BigDecimal("18.00"), null, new BigDecimal("18.00"), "Solo de lunes a viernes",
-                UUID.randomUUID(), "Clínica Andes", List.of("Clínica"), "Mérida", null, null, null);
+                UUID.randomUUID(), "Clínica Andes", List.of("Clínica"), "Mérida", null, null, null, null, List.of());
         return new PublicProductDetailDto(UUID.randomUUID(), "Examen de la vista", null, ProductType.SERVICE,
-                "Optometría", true, null, 2, new BigDecimal("15.00"), new BigDecimal("25.00"), List.of(cheapest, other));
+                "Optometría", true, null, 2, new BigDecimal("15.00"), new BigDecimal("25.00"), List.of(cheapest, other),
+                List.of(new PublicImageDto("https://cdn.example/examen.jpg", "Examen", true)));
     }
 
     // ─── /v1/public/products (cross-ally) ────────────────────────────────────
@@ -157,7 +161,11 @@ class PublicProductControllerIT {
                 .andExpect(jsonPath("$.offers[0].allyName").value("Óptica Vicente"))
                 .andExpect(jsonPath("$.offers[0].discountPct").value(25.00))
                 .andExpect(jsonPath("$.offers[0].finalPrice").value(15.00))
-                .andExpect(jsonPath("$.offers[1].exclusions").value("Solo de lunes a viernes"));
+                .andExpect(jsonPath("$.offers[1].exclusions").value("Solo de lunes a viernes"))
+                // Galleries: the product's and each offer's (an offer's own, else the product's).
+                .andExpect(jsonPath("$.images[0].url").value("https://cdn.example/examen.jpg"))
+                .andExpect(jsonPath("$.offers[0].imageUrl").value("https://cdn.example/optica.jpg"))
+                .andExpect(jsonPath("$.offers[0].images[0].primary").value(true));
     }
 
     @Test
