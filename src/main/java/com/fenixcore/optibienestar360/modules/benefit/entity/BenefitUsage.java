@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -65,6 +66,14 @@ public class BenefitUsage extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "membership_id", nullable = false)
     private Membership membership;
+
+    /**
+     * Beneficiary who consumed the benefit (V195), or {@code null} when it was
+     * the holder. Always a beneficiary of {@code membership.member}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "beneficiary_id")
+    private Beneficiary beneficiary;
 
     // ─── Where + what ──────────────────────────────────────────────────────
 

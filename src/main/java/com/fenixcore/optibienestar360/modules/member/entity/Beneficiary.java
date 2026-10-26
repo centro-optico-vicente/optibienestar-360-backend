@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.member.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -10,11 +11,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.Instant;
 
 /**
  * Family member covered under a parent {@link Member}'s plan. N:1 with
@@ -38,6 +42,11 @@ import lombok.Setter;
  * or {@link SlotType#EXTRA} (between included and
  * {@code plan.max_beneficiaries}, billed with the extra inscription fee). It is
  * assigned when the beneficiary is added or reactivated.</p>
+ *
+ * <p>{@code user} + {@code accessInvitedAt} (V195) back "beneficiary access":
+ * the beneficiary's own AFILIADO login, granted by the holder or staff (see
+ * {@code BeneficiaryAccessService}). The link survives a revoke (the user is
+ * only deactivated), so granting again reactivates the same account.</p>
  */
 @Getter
 @Setter
@@ -74,6 +83,15 @@ public class Beneficiary extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "slot_type", length = 10, nullable = false)
     private SlotType slotType = SlotType.BASE;
+
+    /** The beneficiary's own login (V195), or {@code null} if access was never granted. */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
+
+    /** Last time the activation email was sent (V195). */
+    @Column(name = "access_invited_at")
+    private Instant accessInvitedAt;
 
     public enum Relationship {
         SPOUSE, CHILD, PARENT, SIBLING, OTHER
