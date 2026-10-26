@@ -294,7 +294,9 @@ Un archivo siempre se sube atado a su registro con visibilidad no pública (`INT
 
 Esto es distinto de `DELETE` (§4.2): `unpublish` retracta la visibilidad pública pero conserva el archivo; `delete` lo elimina definitivamente de donde esté.
 
-### 5. Imágenes públicas de catálogo (`AllyService`)
+### 5. Imágenes públicas de catálogo (`AllyService` → `Product`)
+
+> **Actualizado por el [ADR 0026 del hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0026-products-catalog-replaces-services.md):** la imagen pertenece ahora al **producto** del maestro, no a cada oferta. `owner_table='products'`, `products.image_key`, endpoints `/v1/admin/products/{uuid}/image[/publish|/unpublish]`, permisos `PRODUCT_IMAGE_UPLOAD`/`PRODUCT_IMAGE_DELETE` (dominio `PRODUCTS`). Los endpoints de imagen bajo `/v1/admin/allies/{allyUuid}/products/{uuid}/image` (y su alias `.../services/...`) siguen respondiendo durante la transición y actúan sobre la imagen del producto de la oferta. V198 re-apuntó las filas de `attached_files`; `ProductImageKeyMigrationRunner` mueve los objetos de `…/ally_services/…` a `…/products/…`. El texto de abajo describe el diseño original.
 
 - Migración: columna `image_key` (bucket público) en `ally_service`. No se persiste la URL completa — se deriva en el mapper como `publicBaseUrl + imageKey`. Se mantiene `NULL` hasta que la imagen se publique explícitamente (§4.3) — nunca se setea en el upload inicial.
 - `POST /v1/admin/ally-services/{uuid}/image` (multipart) sube la imagen como `attached_file` con `visibility=INTERNAL` (no personal de un usuario — es contenido de marketing en borrador, visible para cualquier staff con el permiso del dominio mientras se revisa). Esto cierra el hueco de seguridad que tenía la primera versión de este diseño: antes, la imagen de un servicio todavía en `PROPOSED`/`IN_REVIEW` (sin aprobar) ya quedaba en una URL pública adivinable desde el momento del upload.

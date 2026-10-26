@@ -45,7 +45,7 @@ public class AuditEntityAccess {
 		Map.entry("ally", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("ally_type", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("ally_agreement", "ALLY_RECORD_AUDIT_VIEW"),
-		Map.entry("ally_service", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("ally_product", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("ally_user", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("plan", "PLAN_RECORD_AUDIT_VIEW"),
 		Map.entry("membership", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
@@ -65,7 +65,8 @@ public class AuditEntityAccess {
 		Map.entry("marital_status", "MARITAL_STATUS_RECORD_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_RECORD_AUDIT_VIEW"),
 		Map.entry("profession", "PROFESSION_RECORD_AUDIT_VIEW"),
-		Map.entry("service_category", "SERVICE_CATEGORY_RECORD_AUDIT_VIEW"),
+		Map.entry("product_category", "PRODUCT_CATEGORY_RECORD_AUDIT_VIEW"),
+		Map.entry("product", "PRODUCT_RECORD_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"),
 		Map.entry("terms_version", "TERMS_RECORD_AUDIT_VIEW"),
 		Map.entry("terms_acceptance", "TERMS_RECORD_AUDIT_VIEW"))
@@ -90,7 +91,7 @@ public class AuditEntityAccess {
 		Map.entry("ally", "ALLY_REPORT_AUDIT_VIEW"),
 		Map.entry("ally_type", "ALLY_REPORT_AUDIT_VIEW"),
 		Map.entry("ally_agreement", "ALLY_REPORT_AUDIT_VIEW"),
-		Map.entry("ally_service", "ALLY_REPORT_AUDIT_VIEW"),
+		Map.entry("ally_product", "ALLY_REPORT_AUDIT_VIEW"),
 		Map.entry("ally_user", "ALLY_REPORT_AUDIT_VIEW"),
 		Map.entry("plan", "PLAN_REPORT_AUDIT_VIEW"),
 		Map.entry("membership", "MEMBERSHIP_REPORT_AUDIT_VIEW"),
@@ -110,7 +111,8 @@ public class AuditEntityAccess {
 		Map.entry("marital_status", "MARITAL_STATUS_REPORT_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_REPORT_AUDIT_VIEW"),
 		Map.entry("profession", "PROFESSION_REPORT_AUDIT_VIEW"),
-		Map.entry("service_category", "SERVICE_CATEGORY_REPORT_AUDIT_VIEW"),
+		Map.entry("product_category", "PRODUCT_CATEGORY_REPORT_AUDIT_VIEW"),
+		Map.entry("product", "PRODUCT_REPORT_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_REPORT_AUDIT_VIEW"))
 	;
 

@@ -27,7 +27,7 @@ import java.util.UUID;
 
 /**
  * Admin-side CRUD for the {@link AllyAgreement} entity scoped to a parent
- * {@link Ally}. Same pattern as {@link AllyServicesAdminService}: every
+ * {@link Ally}. Same pattern as {@link AllyProductsAdminService}: every
  * write resolves the parent ally + verifies the agreement actually belongs
  * to it before mutating.
  */

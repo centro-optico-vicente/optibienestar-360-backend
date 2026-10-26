@@ -16,4 +16,7 @@ public interface AttachedFileRepository extends JpaRepository<AttachedFile, Long
 
     List<AttachedFile> findByOwnerTableAndOwnerUuidAndCategoryAndActiveTrue(
             String ownerTable, UUID ownerUuid, String category);
+
+    /** Rows of an owner whose R2 key still sits under another prefix — see {@code ProductImageKeyMigrationRunner}. */
+    List<AttachedFile> findByOwnerTableAndFileKeyContaining(String ownerTable, String keyFragment);
 }

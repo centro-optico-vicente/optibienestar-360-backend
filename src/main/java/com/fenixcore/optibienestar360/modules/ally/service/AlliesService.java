@@ -17,7 +17,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
-import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRepository;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -31,6 +31,7 @@ import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -52,7 +53,7 @@ import java.util.UUID;
 /**
  * Application service for the {@link Ally} entity (the organizational
  * directory). Named {@code AlliesService} (plural) to avoid a class-name
- * collision with {@link com.fenixcore.optibienestar360.modules.ally.entity.AllyService}
+ * collision with {@link com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct}
  * (the offerings entity).
  *
  * <p>Read methods return DTOs; mutations return the updated detail DTO.
@@ -98,10 +99,13 @@ public class AlliesService {
     private final ProfessionRepository professionRepository;
     private final AllyMapper mapper;
     private final AllyUserRepository allyUserRepository;
-    private final AllyServiceRepository allyServiceRepository;
+    private final AllyProductRepository allyProductRepository;
     private final AllyAgreementRepository allyAgreementRepository;
     private final BenefitUsageRepository benefitUsageRepository;
 	private final DefaultSortResolver defaultSortResolver;
+
+    @Value("${storage.r2.public-base-url:}")
+    private String publicBaseUrl;
 
     // ─── Finders ────────────────────────────────────────────────────────────
 
@@ -206,7 +210,7 @@ public class AlliesService {
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
-        return mapper.toPublicDetail(ally);
+        return mapper.toPublicDetail(ally, publicBaseUrl);
     }
 
     // ─── Mutations ──────────────────────────────────────────────────────────
@@ -319,7 +323,7 @@ public class AlliesService {
 
     /**
      * Counts real, independent (non-cascade-owned) FK references to this
-     * ally: {@code ally_users} (memberships), {@code ally_services}
+     * ally: {@code ally_users} (memberships), {@code ally_products}
      * (offerings), {@code ally_agreements}, and {@code benefit_usages}. All
      * four are declared on {@link Ally} as plain {@code @OneToMany(mappedBy
      * = ...)} with NO {@code cascade}/{@code orphanRemoval} — i.e. Hibernate
@@ -332,10 +336,11 @@ public class AlliesService {
     public long countUsages(UUID uuid) {
         Ally ally = findManaged(uuid);
         long users = allyUserRepository.countByAllyId(ally.getId());
-        long services = allyServiceRepository.countByAllyId(ally.getId());
+        long offers = allyProductRepository.countByAllyId(ally.getId());
         long agreements = allyAgreementRepository.countByAllyId(ally.getId());
         long benefitUsages = benefitUsageRepository.countByAllyId(ally.getId());
-        return users + services + agreements + benefitUsages;
+        // The ally's exclusive products (products.owner_ally_id) cascade with it — not blockers.
+        return users + offers + agreements + benefitUsages;
     }
 
     public UsageDto getUsage(UUID uuid) {

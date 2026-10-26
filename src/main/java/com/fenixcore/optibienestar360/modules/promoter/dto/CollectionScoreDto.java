@@ -14,7 +14,7 @@ import java.util.UUID;
  *
  * <p>{@code scorePct} carries a localized {@code _Display} sibling (ADR 0014);
  * it's already a 0–100 percentage value, so it uses {@code NUMBER} (matching
- * {@code discountPct} in {@code PublicAllyServiceDto}).</p>
+ * {@code discountPct} in {@code PublicAllyProductDto}).</p>
  */
 public record CollectionScoreDto(
         UUID promoterUuid,

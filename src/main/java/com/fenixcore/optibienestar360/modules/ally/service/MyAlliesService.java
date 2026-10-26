@@ -16,8 +16,8 @@ import java.util.UUID;
  * Ally-side self-identification. Backs {@code GET /v1/me/allies}.
  *
  * <p>Split from {@link AllyUsersService} (admin-side management of the same
- * pivot) for the same reason {@link AllyServicesProposeService} is split from
- * {@link AllyServicesAdminService}: the admin surface is scoped by a parent
+ * pivot) for the same reason {@link AllyProductsProposeService} is split from
+ * {@link AllyProductsAdminService}: the admin surface is scoped by a parent
  * ally UUID taken from the path, this one is scoped by the JWT subject and
  * can never read another user's memberships.</p>
  *

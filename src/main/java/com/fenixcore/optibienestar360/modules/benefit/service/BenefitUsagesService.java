@@ -3,10 +3,10 @@ package com.fenixcore.optibienestar360.modules.benefit.service;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
-import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageDto;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageRegisterRequest;
@@ -14,8 +14,8 @@ import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage.UsageStatus;
 import com.fenixcore.optibienestar360.modules.benefit.mapper.BenefitUsageMapper;
 import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRepository;
-import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
-import com.fenixcore.optibienestar360.modules.catalog.repository.ServiceCategoryRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
+import com.fenixcore.optibienestar360.modules.catalog.repository.ProductCategoryRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -54,10 +54,10 @@ public class BenefitUsagesService {
     private final BenefitUsageRepository usageRepository;
     private final MembershipRepository membershipRepository;
     private final AllyRepository allyRepository;
-    private final AllyServiceRepository allyServiceRepository;
+    private final AllyProductRepository allyProductRepository;
     private final AllyUserRepository allyUserRepository;
     private final CurrencyRepository currencyRepository;
-    private final ServiceCategoryRepository serviceCategoryRepository;
+    private final ProductCategoryRepository productCategoryRepository;
     private final BenefitUsageMapper mapper;
 
     /**
@@ -103,10 +103,10 @@ public class BenefitUsagesService {
         Ally ally = allyRepository.findByUuid(request.allyUuid())
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
 
-        AllyService allyService = null;
-        if (request.allyServiceUuid() != null) {
-            allyService = allyServiceRepository.findByUuid(request.allyServiceUuid())
-                    .orElseThrow(() -> new NoSuchElementException("ally_service.not_found"));
+        AllyProduct allyProduct = null;
+        if (request.allyProductUuid() != null) {
+            allyProduct = allyProductRepository.findByUuid(request.allyProductUuid())
+                    .orElseThrow(() -> new NoSuchElementException("ally_product.not_found"));
         }
 
         AllyUser allyUser = null;
@@ -121,9 +121,9 @@ public class BenefitUsagesService {
         BenefitUsage usage = new BenefitUsage();
         usage.setMembership(membership);
         usage.setAlly(ally);
-        usage.setAllyService(allyService);
+        usage.setAllyProduct(allyProduct);
         usage.setAllyUser(allyUser);
-        usage.setServiceCategory(resolveServiceCategory(request, allyService));
+        usage.setProductCategory(resolveProductCategory(request, allyProduct));
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
         usage.setCopayAmount(request.copayAmount());
@@ -151,15 +151,15 @@ public class BenefitUsagesService {
      * avoids the two disagreeing. An explicit category is ignored when a
      * service is present, for that same reason.
      */
-    private ServiceCategory resolveServiceCategory(BenefitUsageRegisterRequest request, AllyService allyService) {
-        if (allyService != null) {
-            return allyService.getServiceCategory();
+    private ProductCategory resolveProductCategory(BenefitUsageRegisterRequest request, AllyProduct allyProduct) {
+        if (allyProduct != null) {
+            return allyProduct.getProduct().getProductCategory();
         }
-        if (request.serviceCategoryUuid() == null) {
-            throw new IllegalArgumentException("benefit_usage.service_category.required");
+        if (request.productCategoryUuid() == null) {
+            throw new IllegalArgumentException("benefit_usage.product_category.required");
         }
-        return serviceCategoryRepository.findByUuid(request.serviceCategoryUuid())
-                .orElseThrow(() -> new NoSuchElementException("service_category.not_found"));
+        return productCategoryRepository.findByUuid(request.productCategoryUuid())
+                .orElseThrow(() -> new NoSuchElementException("product_category.not_found"));
     }
 
     private static void ensureActiveMembership(Membership membership) {

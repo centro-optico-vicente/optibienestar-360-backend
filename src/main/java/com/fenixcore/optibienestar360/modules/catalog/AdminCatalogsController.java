@@ -11,9 +11,9 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionUpdateRequest;
-import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryCreateRequest;
-import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryDto;
-import com.fenixcore.optibienestar360.modules.catalog.dto.ServiceCategoryUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.ProductCategoryUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CountryUpdateRequest;
@@ -45,7 +45,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusServi
 import com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
 import com.fenixcore.optibienestar360.modules.catalog.service.PromoterTypeService;
-import com.fenixcore.optibienestar360.modules.catalog.service.ServiceCategoryService;
+import com.fenixcore.optibienestar360.modules.catalog.service.ProductCategoryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.StateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -123,10 +123,10 @@ public class AdminCatalogsController {
     private static final String PROFESSION_UPDATE = "hasAuthority('PROFESSION_UPDATE')";
     private static final String PROFESSION_DELETE = "hasAuthority('PROFESSION_DELETE')";
 
-    private static final String SERVICE_CATEGORY_VIEW   = "hasAuthority('SERVICE_CATEGORY_VIEW_ALL')";
-    private static final String SERVICE_CATEGORY_CREATE = "hasAuthority('SERVICE_CATEGORY_CREATE')";
-    private static final String SERVICE_CATEGORY_UPDATE = "hasAuthority('SERVICE_CATEGORY_UPDATE')";
-    private static final String SERVICE_CATEGORY_DELETE = "hasAuthority('SERVICE_CATEGORY_DELETE')";
+    private static final String PRODUCT_CATEGORY_VIEW   = "hasAuthority('PRODUCT_CATEGORY_VIEW_ALL')";
+    private static final String PRODUCT_CATEGORY_CREATE = "hasAuthority('PRODUCT_CATEGORY_CREATE')";
+    private static final String PRODUCT_CATEGORY_UPDATE = "hasAuthority('PRODUCT_CATEGORY_UPDATE')";
+    private static final String PRODUCT_CATEGORY_DELETE = "hasAuthority('PRODUCT_CATEGORY_DELETE')";
 
     private static final String ALLY_TYPE_VIEW   = "hasAuthority('ALLY_TYPE_VIEW_ALL')";
     private static final String ALLY_TYPE_CREATE = "hasAuthority('ALLY_TYPE_CREATE')";
@@ -146,7 +146,7 @@ public class AdminCatalogsController {
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
     private final ProfessionService professionService;
-    private final ServiceCategoryService serviceCategoryService;
+    private final ProductCategoryService productCategoryService;
     private final AllyTypeService allyTypeService;
     private final PromoterTypeService promoterTypeService;
 
@@ -603,50 +603,51 @@ public class AdminCatalogsController {
         return ResponseEntity.noContent().build();
     }
 
-    // ═══════════════ service-categories ═══════════════
-    @GetMapping("/service-categories")
-    @PreAuthorize(SERVICE_CATEGORY_VIEW)
-    public ResponseEntity<AppliedSortPage<ServiceCategoryDto>> listServiceCategories(
+    // ═══════════════ product-categories ═══════════════
+    // /service-categories is a deprecated alias kept while clients move over (ADR 0026).
+    @GetMapping({"/product-categories", "/service-categories"})
+    @PreAuthorize(PRODUCT_CATEGORY_VIEW)
+    public ResponseEntity<AppliedSortPage<ProductCategoryDto>> listProductCategories(
             @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<ServiceCategoryDto> page = serviceCategoryService.list(pageable, filter, q, includeInactive);
-        return ResponseEntity.ok(new AppliedSortPage<>(page, serviceCategoryService.effectiveSort(pageable)));
+        Page<ProductCategoryDto> page = productCategoryService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, productCategoryService.effectiveSort(pageable)));
     }
 
-    @GetMapping("/service-categories/{uuid}")
-    @PreAuthorize(SERVICE_CATEGORY_VIEW)
-    public ResponseEntity<ServiceCategoryDto> getServiceCategory(@PathVariable UUID uuid) {
-        return ResponseEntity.ok(serviceCategoryService.get(uuid));
+    @GetMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @PreAuthorize(PRODUCT_CATEGORY_VIEW)
+    public ResponseEntity<ProductCategoryDto> getProductCategory(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(productCategoryService.get(uuid));
     }
 
-    @PostMapping("/service-categories")
-    @PreAuthorize(SERVICE_CATEGORY_CREATE)
-    public ResponseEntity<ServiceCategoryDto> createServiceCategory(@Valid @RequestBody ServiceCategoryCreateRequest req) {
-        ServiceCategoryDto created = serviceCategoryService.create(req);
+    @PostMapping({"/product-categories", "/service-categories"})
+    @PreAuthorize(PRODUCT_CATEGORY_CREATE)
+    public ResponseEntity<ProductCategoryDto> createProductCategory(@Valid @RequestBody ProductCategoryCreateRequest req) {
+        ProductCategoryDto created = productCategoryService.create(req);
         return ResponseEntity.created(locationFor(created.uuid())).body(created);
     }
 
-    @PutMapping("/service-categories/{uuid}")
-    @PreAuthorize(SERVICE_CATEGORY_UPDATE)
-    public ResponseEntity<ServiceCategoryDto> updateServiceCategory(@PathVariable UUID uuid,
-                                                                    @Valid @RequestBody ServiceCategoryUpdateRequest req) {
-        return ResponseEntity.ok(serviceCategoryService.update(uuid, req));
+    @PutMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @PreAuthorize(PRODUCT_CATEGORY_UPDATE)
+    public ResponseEntity<ProductCategoryDto> updateProductCategory(@PathVariable UUID uuid,
+                                                                    @Valid @RequestBody ProductCategoryUpdateRequest req) {
+        return ResponseEntity.ok(productCategoryService.update(uuid, req));
     }
 
-    @GetMapping("/service-categories/{uuid}/usage")
-    @PreAuthorize(SERVICE_CATEGORY_VIEW)
-    public ResponseEntity<UsageDto> serviceCategoryUsage(@PathVariable UUID uuid) {
-        long count = serviceCategoryService.countUsages(uuid);
+    @GetMapping({"/product-categories/{uuid}/usage", "/service-categories/{uuid}/usage"})
+    @PreAuthorize(PRODUCT_CATEGORY_VIEW)
+    public ResponseEntity<UsageDto> productCategoryUsage(@PathVariable UUID uuid) {
+        long count = productCategoryService.countUsages(uuid);
         return ResponseEntity.ok(new UsageDto(count > 0, count));
     }
 
-    @DeleteMapping("/service-categories/{uuid}")
-    @PreAuthorize(SERVICE_CATEGORY_DELETE)
-    public ResponseEntity<Void> deleteServiceCategory(@PathVariable UUID uuid,
+    @DeleteMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @PreAuthorize(PRODUCT_CATEGORY_DELETE)
+    public ResponseEntity<Void> deleteProductCategory(@PathVariable UUID uuid,
                                                       @RequestParam(defaultValue = "false") boolean physical) {
-        serviceCategoryService.delete(uuid, physical);
+        productCategoryService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 

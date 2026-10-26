@@ -67,8 +67,8 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 - [x] [P0/C3] OWASP Top 10 audit con skill — ejecutado en Vertical 1 (owasp-security + api-security + spring-boot-engineer + redis-expert + postgresql-expert) — 2026-05-24
 - [ ] [P0/C3] **DB role `optibienestar360_public` (4to rol, post-modelado completo)** — least-privilege específico para el surface público. Cuando el modelado del schema esté congelado (V11..V27 aplicadas), agregar una nueva migración `V(N)__add_public_db_role.sql` que cree el rol y le otorgue acceso de SOLO LECTURA a la lista de tablas que aparecen en endpoints `/v1/public/*`:
-    - **Aliados:** `allies` (filtrado por `is_published`), `ally_services` (filtrado por `is_published AND review_status='APPROVED'`), `ally_specialties` (pivote).
-    - **Catálogos referenciados por el directorio público:** `ally_types`, `medical_specialties`, `service_categories`, `countries`, `states`, `cities`.
+    - **Aliados:** `allies` (filtrado por `is_published`), `ally_products` + `products` (filtrado por `is_published AND review_status='APPROVED'` y producto activo — antes `ally_services`, ADR 0026 del hub), `ally_specialties` (pivote).
+    - **Catálogos referenciados por el directorio público:** `ally_types`, `medical_specialties`, `product_categories`, `countries`, `states`, `cities`.
     - **Planes:** `plans` (filtrado por `is_published`) cuando V13 lo haga (vertical-5 ya tiene anotado que debe incluir el flag desde día 1).
     - **Cualquier tabla extra** que pida Centro Óptico Vicente (futuras secciones de la web como testimonios, FAQs, etc.).
     - **NO acceso a:** `users`, `persons`, `members`, `beneficiaries`, `medical_records`, `member_documents`, `payments`, `commissions`, `referrals`, `ally_agreements`, `ally_users`, `ally_service_review_log`, audit tables, ni nada con PII.

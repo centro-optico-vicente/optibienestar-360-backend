@@ -3,9 +3,9 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
-import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyServiceDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
-import com.fenixcore.optibienestar360.modules.ally.service.PublicServicesService;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,7 +39,7 @@ import java.util.UUID;
 public class PublicAllyController {
 
     private final AlliesService alliesService;
-    private final PublicServicesService publicServicesService;
+    private final PublicProductsService publicServicesService;
 
     @GetMapping
     public ResponseEntity<Page<PublicAllyListItemDto>> directory(
@@ -73,7 +73,7 @@ public class PublicAllyController {
      * {@code categoryUuid}, free-text {@code q}.
      */
     @GetMapping("/{uuid}/services")
-    public ResponseEntity<Page<PublicAllyServiceDto>> services(
+    public ResponseEntity<Page<PublicAllyProductDto>> services(
             @PathVariable UUID uuid,
             @RequestParam(required = false) UUID categoryUuid,
             @RequestParam(required = false) String q,

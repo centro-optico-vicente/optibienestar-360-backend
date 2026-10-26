@@ -2,9 +2,9 @@ package com.fenixcore.optibienestar360.modules.benefit.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
-import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
@@ -83,21 +83,21 @@ public class BenefitUsage extends BaseEntity {
 
     /**
      * Specific catalogued service the affiliate consumed. {@code null} when
-     * the usage doesn't map to a row in {@code ally_services} (generic
+     * the usage doesn't map to a row in {@code ally_products} (generic
      * pharmacy discount, unstructured consultation, etc.).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ally_service_id")
-    private AllyService allyService;
+    @JoinColumn(name = "ally_product_id")
+    private AllyProduct allyProduct;
 
     /**
-     * Rubro del consumo. Obligatorio aunque {@link #allyService} sea null: es
+     * Rubro del consumo. Obligatorio aunque {@link #allyProduct} sea null: es
      * el eje por el que se agrega el reporte de consumo, y dejarlo opcional
      * sacaba del reporte a todo consumo no catalogado (V158).
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "service_category_id", nullable = false)
-    private ServiceCategory serviceCategory;
+    @JoinColumn(name = "product_category_id", nullable = false)
+    private ProductCategory productCategory;
 
     /**
      * The ally-side operator who registered the row. {@code null} for

@@ -115,7 +115,7 @@ com.fenixcore.optibienestar360/
     │   ├── entity/
     │   │   ├── Ally.java
     │   │   ├── AllySpecialty.java
-    │   │   ├── AllyService.java
+    │   │   ├── AllyProduct.java        # oferta del aliado (ADR 0026 hub; antes AllyService)
     │   │   ├── AllyAgreement.java
     │   │   └── AllyUser.java
     │   ├── repository/

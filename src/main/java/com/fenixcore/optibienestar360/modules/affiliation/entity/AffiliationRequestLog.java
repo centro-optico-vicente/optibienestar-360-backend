@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Immutable history row of an {@link AffiliationRequest} (V190
  * {@code affiliation_request_logs}). Insert-only — like
- * {@code AllyServiceReviewLog} it does <b>not</b> extend {@code BaseEntity}.
+ * {@code AllyProductReviewLog} it does <b>not</b> extend {@code BaseEntity}.
  * A status change records {@code fromStatus → toStatus}; an edit records the
  * changed fields in {@link #changes}; both carry who, when and an optional
  * note (a rejection's reason).

@@ -38,7 +38,7 @@ import java.util.Set;
  *
  * <p>Public visibility controlled by {@link #isPublished()} +
  * {@link #getPublishedAt()} — orthogonal to the lifecycle of the services
- * it offers (each {@link AllyService} has its own {@code reviewStatus} and
+ * it offers (each {@link AllyProduct} has its own {@code reviewStatus} and
  * {@code isPublished}).</p>
  */
 @Getter
@@ -170,10 +170,10 @@ public class Ally extends BaseEntity {
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
     private List<AllyUser> users = new ArrayList<>();
 
-    // ─── Services offered ───────────────────────────────────────────────────
+    // ─── Products and services offered (ADR 0026) ───────────────────────────
 
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
-    private List<AllyService> services = new ArrayList<>();
+    private List<AllyProduct> products = new ArrayList<>();
 
     // ─── Agreements ─────────────────────────────────────────────────────────
 

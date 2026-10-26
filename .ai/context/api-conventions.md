@@ -22,7 +22,7 @@
   | Cobros/pagos del asesor | `/v1/me/advisor/payments…` | `/v1/advisors/me/payments…` |
   | Solicitudes de afiliación del asesor | `/v1/me/advisor/affiliation-requests` | `/v1/advisors/me/affiliation-requests` |
   | Mis aliados (N, plural como la colección) | `/v1/me/allies` | `/v1/allies/me` |
-  | Servicios del aliado | `/v1/me/allies/services…` | `/v1/allies/me/services…` |
+  | Productos y servicios del aliado ([ADR 0026 hub](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0026-products-catalog-replaces-services.md); `…/services` alias deprecado) | `/v1/me/allies/products…` | `/v1/allies/me/products…` |
   | Validador | `/v1/me/allies/validations/{document}` | `/v1/allies/me/validations/{document}` |
   | Registro de uso | `/v1/me/allies/benefit-usages` | `/v1/allies/me/benefit-usages` |
   | Historial de usos del aliado | `/v1/me/allies/usage-history` | `/v1/allies/me/usage-history` |

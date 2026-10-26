@@ -3,11 +3,12 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
-import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
-import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
+import com.fenixcore.optibienestar360.modules.product.entity.Product;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
@@ -53,7 +54,7 @@ class TermsVariableResolverTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private OrganizationRepository organizationRepository;
-    @Mock private AllyServiceRepository allyServiceRepository;
+    @Mock private AllyProductRepository allyProductRepository;
 
     private TermsVariableResolver resolver;
     private DisplayFormatter formatter;
@@ -66,7 +67,7 @@ class TermsVariableResolverTest {
         messageSource.setFallbackToSystemLocale(false);
         formatter = new DisplayFormatter(messageSource);
         resolver = new TermsVariableResolver(memberRepository, membershipRepository, beneficiaryRepository,
-                formatter, organizationRepository, allyServiceRepository);
+                formatter, organizationRepository, allyProductRepository);
     }
 
     // ─── MEMBER ─────────────────────────────────────────────────────────────
@@ -298,11 +299,11 @@ class TermsVariableResolverTest {
         ally.setId(9L);
         ally.setName("Clínica Ejemplo, C.A.");
         ally.setAllyTypes(Set.of(allyType(AllyType.Segment.B2P), allyType(AllyType.Segment.B2B)));
-        AllyService lab = service(2L, "laboratorio clínico", "Exámenes", new BigDecimal("10.50"), "Insumos de alto costo");
-        AllyService consult = service(1L, "Consulta oftalmológica", "Consultas", new BigDecimal("15.00"), null);
-        AllyService retired = service(3L, "Cirugía", "Cirugías", new BigDecimal("5"), null);
+        AllyProduct lab = service(2L, "laboratorio clínico", "Exámenes", new BigDecimal("10.50"), "Insumos de alto costo");
+        AllyProduct consult = service(1L, "Consulta oftalmológica", "Consultas", new BigDecimal("15.00"), null);
+        AllyProduct retired = service(3L, "Cirugía", "Cirugías", new BigDecimal("5"), null);
         retired.setActive(false);
-        when(allyServiceRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED))
+        when(allyProductRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED))
                 .thenReturn(List.of(lab, retired, consult));
         AllyAgreement agreement = new AllyAgreement();
         agreement.setAlly(ally);
@@ -323,7 +324,7 @@ class TermsVariableResolverTest {
     void ally_withoutApprovedServicesRendersTheRatesPendingNote() {
         Ally ally = new Ally();
         ally.setId(9L);
-        when(allyServiceRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED)).thenReturn(List.of());
+        when(allyProductRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED)).thenReturn(List.of());
         AllyAgreement agreement = new AllyAgreement();
         agreement.setAlly(ally);
 
@@ -340,7 +341,7 @@ class TermsVariableResolverTest {
         agreement.setAlly(new Ally());
 
         assertThat(resolver.forAlly(agreement).rows("agreement.rates")).isEmpty();
-        verifyNoInteractions(allyServiceRepository);
+        verifyNoInteractions(allyProductRepository);
     }
 
     // ─── Fixtures ───────────────────────────────────────────────────────────
@@ -394,13 +395,15 @@ class TermsVariableResolverTest {
         return type;
     }
 
-    private static AllyService service(Long id, String name, String category, BigDecimal discount, String exclusions) {
-        ServiceCategory serviceCategory = new ServiceCategory();
-        serviceCategory.setName(category);
-        AllyService service = new AllyService();
+    private static AllyProduct service(Long id, String name, String category, BigDecimal discount, String exclusions) {
+        ProductCategory productCategory = new ProductCategory();
+        productCategory.setName(category);
+        Product product = new Product();
+        product.setName(name);
+        product.setProductCategory(productCategory);
+        AllyProduct service = new AllyProduct();
         service.setId(id);
-        service.setName(name);
-        service.setServiceCategory(serviceCategory);
+        service.setProduct(product);
         service.setDiscountPct(discount);
         service.setExclusions(exclusions);
         service.setReviewStatus(ReviewStatus.APPROVED);
