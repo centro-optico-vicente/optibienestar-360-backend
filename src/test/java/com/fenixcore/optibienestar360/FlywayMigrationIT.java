@@ -64,17 +64,17 @@ class FlywayMigrationIT {
         var row = jdbc.queryForMap(
                 "SELECT convalidated, confdeltype::text AS del, confrelid::regclass::text AS target "
                         + "FROM pg_constraint WHERE conname = 'fk_commissions_tier' "
-                        + "AND conrelid = 'commissions'::regclass");
+                        + "AND conrelid = 'app.commissions'::regclass");
         assertEquals(Boolean.TRUE, row.get("convalidated"));
         assertEquals("a", row.get("del"));
-        assertEquals("commission_tiers", row.get("target"));
+        assertEquals("app.commission_tiers", row.get("target"));
     }
 
     @Test
     void commissionsTierForeignKeyColumnIsIndexed() {
         // V193: FK columns are not indexed automatically in PostgreSQL.
         String index = jdbc.queryForObject(
-                "SELECT indexname FROM pg_indexes WHERE tablename = 'commissions' "
+                "SELECT indexname FROM pg_indexes WHERE schemaname = 'app' AND tablename = 'commissions' "
                         + "AND indexname = 'idx_commissions_tier'", String.class);
         assertNotNull(index);
     }

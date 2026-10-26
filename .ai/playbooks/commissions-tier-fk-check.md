@@ -7,10 +7,10 @@
 ```sql
 SELECT conname, convalidated, confdeltype   -- esperado: true, 'a' (NO ACTION)
 FROM pg_constraint
-WHERE conname = 'fk_commissions_tier' AND conrelid = 'commissions'::regclass;
+WHERE conname = 'fk_commissions_tier' AND conrelid = 'app.commissions'::regclass;
 
 SELECT indexname FROM pg_indexes
-WHERE tablename = 'commissions' AND indexname = 'idx_commissions_tier';
+WHERE schemaname = 'app' AND tablename = 'commissions' AND indexname = 'idx_commissions_tier';
 ```
 
 ## 2. Diagnóstico de huérfanos (esperado: 0 filas)
