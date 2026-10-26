@@ -33,8 +33,7 @@ import java.util.UUID;
  * edit of the account, so it rides on {@code _UPDATE}.</p>
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/admin/advisors/{promoterUuid}/payout-accounts", "/v1/admin/promoters/{promoterUuid}/payout-accounts"})
+@RequestMapping("/v1/admin/advisors/{promoterUuid}/payout-accounts")
 @RequiredArgsConstructor
 public class AdminPromoterPayoutAccountsController {
 

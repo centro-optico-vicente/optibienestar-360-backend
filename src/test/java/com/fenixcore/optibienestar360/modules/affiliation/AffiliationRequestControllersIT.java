@@ -42,9 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * IT of the affiliation request endpoints (V190): the anonymous public submit
- * (and its deprecated {@code /v1/public/affiliations} alias), one granular
- * permission per admin action, the advisor's own list, and the 422 of a
+ * IT of the affiliation request endpoints (V190): the anonymous public submit,
+ * one granular permission per admin action, the advisor's own list, and the 422 of a
  * rejection without reason. {@link AffiliationRequestService} is mocked (H2
  * test profile, no Flyway).
  */
@@ -119,16 +118,6 @@ class AffiliationRequestControllersIT {
                 .andExpect(jsonPath("$.uuid").value(uuid.toString()))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.advisorName").value("Ana Ventas"));
-    }
-
-    @Test
-    void publicSubmit_deprecatedAlias_stillAnswers() throws Exception {
-        when(service.create(any(), any())).thenReturn(
-                new AffiliationRequestCreatedDto(UUID.randomUUID(), "PENDING", "maria@example.com", null));
-
-        mockMvc.perform(post("/v1/public/affiliations").contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     @Test

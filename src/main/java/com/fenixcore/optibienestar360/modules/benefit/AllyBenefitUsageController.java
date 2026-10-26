@@ -33,8 +33,7 @@ import java.net.URI;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #236 is deployed
-@RequestMapping({"/v1/me/allies/benefit-usages", "/v1/allies/me/benefit-usages", "/v1/ally/benefit-usage"})
+@RequestMapping({"/v1/me/allies/benefit-usages", "/v1/allies/me/benefit-usages"})
 @RequiredArgsConstructor
 public class AllyBenefitUsageController {
 

@@ -172,30 +172,4 @@ class AdminMemberPromoterControllerIT {
                         .with(principal("MEMBER_VIEW_ALL")))
                 .andExpect(status().isForbidden());
     }
-
-    // Deprecated aliases (pre-rename paths) must keep answering until the frontend is migrated.
-
-    @Test
-    void deprecatedAssignPromoterAlias_stillAnswers() throws Exception {
-        UUID memberUuid = UUID.randomUUID();
-        UUID toPromoter = UUID.randomUUID();
-        when(memberPromoterService.assign(any(UUID.class), any(UUID.class), any(), anyString(), any(UUID.class)))
-                .thenReturn(new MemberPromoterAssignmentDto(
-                        UUID.randomUUID(), memberUuid, "Juan Pérez",
-                        null, null, toPromoter, "Óptica Vicente",
-                        UUID.randomUUID(), "Cartera nueva", Instant.parse("2026-07-25T12:00:00Z")));
-
-        mockMvc.perform(post("/v1/admin/members/{uuid}/assign-promoter", memberUuid)
-                        .with(principal("MEMBER_ASSIGN_PROMOTER"))
-                        .contentType(MediaType.APPLICATION_JSON).content(body(toPromoter)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.toPromoterUuid").value(toPromoter.toString()));
-    }
-
-    @Test
-    void deprecatedPromoterHistoryAlias_keepsPermissionGate() throws Exception {
-        mockMvc.perform(get("/v1/admin/members/{uuid}/promoter-history", UUID.randomUUID())
-                        .with(principal("MEMBER_VIEW_ALL")))
-                .andExpect(status().isForbidden());
-    }
 }

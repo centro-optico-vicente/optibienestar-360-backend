@@ -38,8 +38,7 @@ import java.util.UUID;
  * rejected with 422 — it's seed-only.
  */
 @RestController
-// Deprecated alias, remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/admin/advisors", "/v1/admin/promoters"})
+@RequestMapping("/v1/admin/advisors")
 @RequiredArgsConstructor
 public class AdminPromoterController {
 

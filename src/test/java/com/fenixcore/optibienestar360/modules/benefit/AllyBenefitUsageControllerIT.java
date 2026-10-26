@@ -37,8 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * IT of the ally-side benefit usage paths: {@code POST /v1/me/allies/benefit-usages}
  * ({@link AllyBenefitUsageController}, {@code ALLY_REGISTER_USAGE}) and
  * {@code GET /v1/me/allies/usage-history} ({@link AllyUsageHistoryController},
- * {@code ALLY_VIEW_OWN}), plus the deprecated {@code /v1/ally/benefit-usage} and
- * {@code /v1/ally/usage-history} aliases. {@link BenefitUsagesService} is mocked.
+ * {@code ALLY_VIEW_OWN}), plus the secondary {@code /v1/allies/me/*} paths.
+ * {@link BenefitUsagesService} is mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -131,32 +131,6 @@ class AllyBenefitUsageControllerIT {
                 .thenReturn(new PageImpl<>(List.of(usage())));
 
         mockMvc.perform(get("/v1/me/allies/usage-history").with(principal("ALLY_VIEW_OWN")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1));
-    }
-
-    // ─── Deprecated aliases /v1/ally/* (kept for zero-downtime deploys) ───────
-
-    @Test
-    void deprecatedBenefitUsageAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(benefitUsagesService.register(any())).thenReturn(usage());
-
-        mockMvc.perform(post("/v1/ally/benefit-usage").with(principal("ALLY_VIEW_OWN"))
-                        .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(post("/v1/ally/benefit-usage").with(principal("ALLY_REGISTER_USAGE"))
-                        .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
-                .andExpect(status().isCreated());
-    }
-
-    @Test
-    void deprecatedUsageHistoryAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(usage())));
-
-        mockMvc.perform(get("/v1/ally/usage-history").with(principal("ALLY_REGISTER_USAGE")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/v1/ally/usage-history").with(principal("ALLY_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
     }

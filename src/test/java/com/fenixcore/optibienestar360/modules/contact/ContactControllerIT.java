@@ -21,8 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * IT of the public contact form endpoint ({@link ContactController}):
  * {@code POST /v1/public/contact-messages} is anonymous ({@code /v1/public/**}
- * is permitAll in SecurityConfig) and the deprecated {@code POST /v1/public/contact}
- * alias answers the same way. {@link ContactService} is mocked.
+ * is permitAll in SecurityConfig). {@link ContactService} is mocked.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -60,15 +59,5 @@ class ContactControllerIT {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"\"}"))
                 .andExpect(status().is4xxClientError());
         verify(contactService, times(0)).submit(any());
-    }
-
-    // ─── Deprecated alias /v1/public/contact ──────────────────────────────────
-
-    @Test
-    void deprecatedContactAlias_stillAnswers_anonymously() throws Exception {
-        mockMvc.perform(post("/v1/public/contact")
-                        .contentType(MediaType.APPLICATION_JSON).content(BODY))
-                .andExpect(status().isCreated());
-        verify(contactService, times(1)).submit(any());
     }
 }

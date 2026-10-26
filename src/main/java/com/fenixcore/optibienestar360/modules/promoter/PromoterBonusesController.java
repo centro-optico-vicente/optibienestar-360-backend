@@ -21,8 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// Deprecated alias (last entry), remove once frontend >= #235 is deployed
-@RequestMapping({"/v1/me/advisor/bonuses", "/v1/advisors/me/bonuses", "/v1/promoter/me/bonuses"})
+@RequestMapping({"/v1/me/advisor/bonuses", "/v1/advisors/me/bonuses"})
 @RequiredArgsConstructor
 public class PromoterBonusesController {
 

@@ -707,8 +707,7 @@ public class AdminCatalogsController {
     }
 
     // ═══════════════ advisor-types (PromoterType) ═══════════════
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @GetMapping({"/advisor-types", "/promoter-types"})
+    @GetMapping("/advisor-types")
     @PreAuthorize(PROMOTER_TYPE_VIEW)
     public ResponseEntity<AppliedSortPage<PromoterTypeDto>> listPromoterTypes(
             @PageableDefault(size = 50) Pageable pageable,
@@ -719,8 +718,7 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(new AppliedSortPage<>(page, promoterTypeService.effectiveSort(pageable)));
     }
 
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @GetMapping({"/advisor-types/options", "/promoter-types/options"})
+    @GetMapping("/advisor-types/options")
     @PreAuthorize(PROMOTER_TYPE_VIEW)
     public ResponseEntity<List<OptionDto>> promoterTypeOptions(
             @RequestParam(required = false) String q,
@@ -729,31 +727,27 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(promoterTypeService.listOptions(q, limit, currentValues));
     }
 
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @GetMapping({"/advisor-types/{uuid}", "/promoter-types/{uuid}"})
+    @GetMapping("/advisor-types/{uuid}")
     @PreAuthorize(PROMOTER_TYPE_VIEW)
     public ResponseEntity<PromoterTypeDto> getPromoterType(@PathVariable UUID uuid) {
         return ResponseEntity.ok(promoterTypeService.get(uuid));
     }
 
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @PostMapping({"/advisor-types", "/promoter-types"})
+    @PostMapping("/advisor-types")
     @PreAuthorize(PROMOTER_TYPE_CREATE)
     public ResponseEntity<PromoterTypeDto> createPromoterType(@Valid @RequestBody PromoterTypeCreateRequest req) {
         PromoterTypeDto created = promoterTypeService.create(req);
         return ResponseEntity.created(locationFor(created.uuid())).body(created);
     }
 
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @PutMapping({"/advisor-types/{uuid}", "/promoter-types/{uuid}"})
+    @PutMapping("/advisor-types/{uuid}")
     @PreAuthorize(PROMOTER_TYPE_UPDATE)
     public ResponseEntity<PromoterTypeDto> updatePromoterType(@PathVariable UUID uuid,
                                                       @Valid @RequestBody PromoterTypeUpdateRequest req) {
         return ResponseEntity.ok(promoterTypeService.update(uuid, req));
     }
 
-    // Deprecated alias, remove once frontend >= #235 is deployed
-    @DeleteMapping({"/advisor-types/{uuid}", "/promoter-types/{uuid}"})
+    @DeleteMapping("/advisor-types/{uuid}")
     @PreAuthorize(PROMOTER_TYPE_DELETE)
     public ResponseEntity<Void> deletePromoterType(@PathVariable UUID uuid) {
         promoterTypeService.delete(uuid);
