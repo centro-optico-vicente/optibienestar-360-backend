@@ -15,9 +15,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Wires {@link TermsGateInterceptor}: the advisor and ally self-service
  * endpoints stay closed until the caller accepts the contract of that kind.
  * Each portal is reachable under several aliases (primary {@code /v1/me/...},
- * {@code /v1/advisors/me}, {@code /v1/allies/me}, and the legacy
- * {@code /v1/promoter/me}, {@code /v1/ally}, {@code /v1/aliado}); every one is
- * gated so the lock can't be skipped by switching alias. Admin endpoints
+ * {@code /v1/advisors/me}, {@code /v1/allies/me}); every one is gated so the
+ * lock can't be skipped by switching alias. Removed legacy paths are not listed
+ * here: gating them would query the database before answering 404. Admin endpoints
  * ({@code /v1/admin/**}) and {@code /v1/me/terms} are never gated.
  *
  * <p>Tests: the gate queries the database (pending contracts), so an MVC IT that
@@ -40,13 +40,11 @@ public class TermsGateConfig implements WebMvcConfigurer {
         registry.addInterceptor(gate(TermType.ADVISOR))
                 .addPathPatterns(
                         "/v1/advisors/me", "/v1/advisors/me/**",
-                        "/v1/me/advisor", "/v1/me/advisor/**",
-                        "/v1/promoter/me", "/v1/promoter/me/**");
+                        "/v1/me/advisor", "/v1/me/advisor/**");
         registry.addInterceptor(gate(TermType.ALLY))
                 .addPathPatterns(
                         "/v1/allies/me", "/v1/allies/me/**",
-                        "/v1/me/allies", "/v1/me/allies/**",
-                        "/v1/ally/**", "/v1/aliado/**");
+                        "/v1/me/allies", "/v1/me/allies/**");
     }
 
     private TermsGateInterceptor gate(TermType type) {
