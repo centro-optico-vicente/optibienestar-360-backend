@@ -24,7 +24,7 @@
 | Cache | ✅ Spring Cache: `simple` en dev, Redis en prod; Caffeine disponible |
 | Storage | ✅ Spring Cloud AWS S3 → Cloudflare R2 (MinIO en dev) ([spec 08](../specs/08-storage-r2.md)) |
 | Correo | ✅ `EmailService` + plantillas Thymeleaf bilingües en `resources/templates/` |
-| API docs | ✅ springdoc: `/swagger-ui.html` (redirects de variantes `/swagger-ui*` → `/swagger-ui/index.html`), `/v3/api-docs` |
+| API docs | ✅ springdoc: `/swagger-ui.html` (redirects de variantes `/swagger-ui*` → `/swagger-ui/index.html`), `/v3/api-docs`; expuestos según `SPRINGDOC_ENABLED` (default `true` en dev, `false` en prod; staging lo activa) |
 | Tests | ✅ ~117 clases `*Test` (unitarias, JUnit 5 + Mockito) + ~37 `*IT` (integración contra PostgreSQL). **No correr en local** — CI los corre |
 | CI/CD | ✅ `.github/workflows/ci.yaml` (`./gradlew build` con servicio `postgres:15-alpine`) + `publish.yaml` (imagen Docker; requiere `target: runtime` + `no-cache`) |
 | Docker | ✅ `docker/alpine.Dockerfile` + `docker/debian.Dockerfile` |

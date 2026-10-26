@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.common;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,10 +19,13 @@ import org.springframework.web.servlet.view.RedirectView;
  *       breaks browser asset resolution (loads as blank page)</li>
  * </ul>
  *
- * <p>Public — no auth (covered by {@code /swagger-ui/**} and the explicit
- * {@code /swagger-ui} entry in {@link com.fenixcore.optibienestar360.security.SecurityConfig}).
+ * <p>Public — no auth (covered by the docs paths in
+ * {@link com.fenixcore.optibienestar360.security.SecurityConfig}). Registered only
+ * when {@code springdoc.swagger-ui.enabled} is true (default), so a closed prod
+ * has no redirect that advertises the UI.
  */
 @RestController
+@ConditionalOnProperty(name = "springdoc.swagger-ui.enabled", havingValue = "true", matchIfMissing = true)
 public class SwaggerRedirectController {
 
     @GetMapping({
