@@ -45,9 +45,4 @@ public record PublicAllyProductDto(
         String imageUrl,
         /** The offer's gallery in display order; the product's when the offer has none. */
         List<PublicImageDto> images
-) {
-    public PublicAllyProductDto withImages(List<PublicImageDto> images) {
-        return new PublicAllyProductDto(uuid, productUuid, productType, inCatalog, categoryName, name, description,
-                priceAmount, discountPct, finalPrice, exclusions, requiresAppointment, imageUrl, images);
-    }
-}
+) {}

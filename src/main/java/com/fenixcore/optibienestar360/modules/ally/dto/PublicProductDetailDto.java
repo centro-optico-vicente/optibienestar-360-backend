@@ -35,9 +35,4 @@ public record PublicProductDetailDto(
 
         /** The product's gallery in display order (primary first by default). */
         List<PublicImageDto> images
-) {
-    public PublicProductDetailDto withImages(List<PublicImageDto> images, List<PublicProductOfferDto> offers) {
-        return new PublicProductDetailDto(uuid, name, description, productType, categoryName, requiresAppointment,
-                imageUrl, offersCount, minFinalPrice, maxDiscountPct, offers, images);
-    }
-}
+) {}

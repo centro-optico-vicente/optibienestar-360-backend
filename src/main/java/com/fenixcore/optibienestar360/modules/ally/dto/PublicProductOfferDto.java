@@ -34,9 +34,4 @@ public record PublicProductOfferDto(
         String imageUrl,
         /** The offer's gallery in display order; the product's when the offer has none. */
         List<PublicImageDto> images
-) {
-    public PublicProductOfferDto withImages(List<PublicImageDto> images) {
-        return new PublicProductOfferDto(offerUuid, priceAmount, discountPct, finalPrice, exclusions, allyUuid, allyName,
-                allyTypeNames, allyCityName, allyLogoUrl, allyPhone, allyWhatsapp, imageUrl, images);
-    }
-}
+) {}

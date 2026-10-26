@@ -29,7 +29,10 @@ public class PublicMediaEnricher {
     /** An ally's public detail: its own gallery plus each offer's. */
     public PublicAllyDetailDto ally(PublicAllyDetailDto detail) {
         List<PublicAllyProductDto> products = allyProducts(detail.products());
-        return detail.withImages(media.forOwner(MediaTables.ALLIES, detail.uuid()), products);
+        return new PublicAllyDetailDto(detail.uuid(), detail.name(), detail.allyTypeNames(), detail.allySegments(),
+                detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
+                detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
+                detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
     }
 
     /** Offers of one ally (its detail or {@code /allies/{uuid}/products}). */
@@ -42,7 +45,7 @@ public class PublicMediaEnricher {
         Map<UUID, List<PublicImageDto>> productImages = media.forOwners(MediaTables.PRODUCTS,
                 offers.stream().map(PublicAllyProductDto::productUuid).distinct().toList());
         return offers.stream()
-                .map(o -> o.withImages(inherit(offerImages.get(o.uuid()), productImages.get(o.productUuid()))))
+                .map(o -> withImages(o, inherit(offerImages.get(o.uuid()), productImages.get(o.productUuid()))))
                 .toList();
     }
 
@@ -52,9 +55,24 @@ public class PublicMediaEnricher {
         Map<UUID, List<PublicImageDto>> offerImages = media.forOwners(MediaTables.ALLY_PRODUCTS,
                 detail.offers().stream().map(PublicProductOfferDto::offerUuid).toList());
         List<PublicProductOfferDto> offers = detail.offers().stream()
-                .map(o -> o.withImages(inherit(offerImages.get(o.offerUuid()), productImages)))
+                .map(o -> withImages(o, inherit(offerImages.get(o.offerUuid()), productImages)))
                 .toList();
-        return detail.withImages(productImages, offers);
+        return new PublicProductDetailDto(detail.uuid(), detail.name(), detail.description(), detail.productType(),
+                detail.categoryName(), detail.requiresAppointment(), detail.imageUrl(), detail.offersCount(),
+                detail.minFinalPrice(), detail.maxDiscountPct(), offers, productImages);
+    }
+
+    // Records are immutable: copy with the gallery filled in.
+    private static PublicAllyProductDto withImages(PublicAllyProductDto o, List<PublicImageDto> images) {
+        return new PublicAllyProductDto(o.uuid(), o.productUuid(), o.productType(), o.inCatalog(), o.categoryName(),
+                o.name(), o.description(), o.priceAmount(), o.discountPct(), o.finalPrice(), o.exclusions(),
+                o.requiresAppointment(), o.imageUrl(), images);
+    }
+
+    private static PublicProductOfferDto withImages(PublicProductOfferDto o, List<PublicImageDto> images) {
+        return new PublicProductOfferDto(o.offerUuid(), o.priceAmount(), o.discountPct(), o.finalPrice(),
+                o.exclusions(), o.allyUuid(), o.allyName(), o.allyTypeNames(), o.allyCityName(), o.allyLogoUrl(),
+                o.allyPhone(), o.allyWhatsapp(), o.imageUrl(), images);
     }
 
     private static List<PublicImageDto> inherit(List<PublicImageDto> own, List<PublicImageDto> fallback) {

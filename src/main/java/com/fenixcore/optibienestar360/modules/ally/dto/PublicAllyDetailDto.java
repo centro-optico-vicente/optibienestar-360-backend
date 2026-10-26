@@ -57,10 +57,4 @@ public record PublicAllyDetailDto(
 
         /** The ally's gallery in display order; {@code logoUrl}'s image is the primary one. */
         List<PublicImageDto> images
-) {
-    /** Fills the galleries (MapStruct builds this DTO without them). */
-    public PublicAllyDetailDto withImages(List<PublicImageDto> images, List<PublicAllyProductDto> products) {
-        return new PublicAllyDetailDto(uuid, name, allyTypeNames, allySegments, address, cityName, logoUrl, description,
-                website, phone, whatsapp, instagram, facebook, googleMapsUrl, professionNames, products, products, images);
-    }
-}
+) {}
