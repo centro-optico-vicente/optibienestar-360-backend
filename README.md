@@ -47,6 +47,7 @@ default** and are supplied as Docker file-secrets via the `*_FILE` variants
 | `SERVER_PORT` | `8080` | HTTP listen port. |
 | `VERSION` | `dev-0.0.1` | App version surfaced by the system-info endpoint (set by the Docker build). |
 | `VERSION_DATE` | — | App version date (set by the Docker build). |
+| `SPRINGDOC_ENABLED` | `true` (`dev`) / `false` (`prod`) | Exposes `/v3/api-docs` and the Swagger UI. Closed by default in `prod`; staging (which also runs the `prod` profile) sets it to `true`. When `false` the endpoints are not registered and the paths are no longer permitted anonymously (401). |
 
 ### Database (PostgreSQL)
 

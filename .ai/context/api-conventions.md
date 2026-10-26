@@ -170,8 +170,12 @@ Configurado en `core.config.CorsConfig`:
 
 ## Swagger
 
-`/swagger-ui/index.html` accesible en dev.
-En prod: protegido con basic auth + IP allowlist (config Traefik).
+`/swagger-ui/index.html` y `/v3/api-docs` accesibles en dev/test (`SPRINGDOC_ENABLED` default `true`).
+
+En prod el default es `false` (`application-prod.properties`): springdoc no registra los endpoints y `SecurityConfig` deja de
+permitir esas rutas (anónimo → 401, nunca el spec). El perfil `prod` también lo usa staging (el compose del hub mapea
+`staging` → `BACKEND_PROFILE=prod`), por eso se controla con la variable `SPRINGDOC_ENABLED` y no apagando el perfil: staging
+debe pasarla en `true` (el compose/`env_template.env` del hub tiene que propagarla). Tests: `SpringdocEnabledIT` / `SpringdocDisabledIT`.
 
 Anotaciones en controllers:
 ```java

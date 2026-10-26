@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.security;
 
 import com.fenixcore.optibienestar360.security.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -38,13 +39,26 @@ public class SecurityConfig {
 		"/v1/auth/refresh",
 		"/v1/auth/recover-password",
 		"/v1/auth/reset-password",
-		"/actuator/health/**",
+		"/actuator/health/**"
+	};
+
+	/**
+	 * OpenAPI spec + Swagger UI paths. Permitted anonymously ONLY when
+	 * {@code springdoc.api-docs.enabled=true} (env {@code SPRINGDOC_ENABLED});
+	 * otherwise they fall through to {@code anyRequest().authenticated()} so a
+	 * disabled spec is never reachable by anonymous callers.
+	 */
+	private static final String[] DOCS_PATHS = {
+		"/v3/api-docs",
 		"/v3/api-docs/**",
 		"/api-docs-ui/**",
 		"/swagger-ui",
 		"/swagger-ui/**",
 		"/swagger-ui.html"
 	};
+
+	@Value("${springdoc.api-docs.enabled:true}")
+	private boolean docsEnabled;
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -76,11 +90,14 @@ public class SecurityConfig {
 					.authenticationEntryPoint(authenticationEntryPoint)
 					.accessDeniedHandler(accessDeniedHandler)
 			)
-			.authorizeHttpRequests(auth -> auth
-					.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-					.requestMatchers(PUBLIC_PATHS).permitAll()
-					.anyRequest().authenticated()
-			)
+			.authorizeHttpRequests(auth -> {
+					auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+					auth.requestMatchers(PUBLIC_PATHS).permitAll();
+					if (docsEnabled) {
+						auth.requestMatchers(DOCS_PATHS).permitAll();
+					}
+					auth.anyRequest().authenticated();
+			})
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 			.build()
 		;
