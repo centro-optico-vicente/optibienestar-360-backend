@@ -56,8 +56,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class PublicProductsService {
 
-    /** Free-text {@code ?q=} fields — the offered product's name/description. */
-    private static final String[] SEARCHABLE_FIELDS = {"product.name", "product.description"};
+    /** Free-text {@code ?q=} fields inside one ally — the offered product's name, description and category. */
+    private static final String[] SEARCHABLE_FIELDS = {"product.name", "product.description", "product.productCategory.name"};
 
     /** Sortable properties that live on the product master, not on the offer. */
     private static final Set<String> PRODUCT_SORT_FIELDS = Set.of("name", "productType", "code");
@@ -80,28 +80,36 @@ public class PublicProductsService {
     private String publicBaseUrl;
 
     /**
-     * Cross-ally public catalog. Optional filters combine with AND:
-     * {@code categoryUuid} (product category), {@code cityUuid} (parent ally's
-     * city), {@code allyUuid}, {@code type} (service / product) and {@code q}
-     * (accent-insensitive free text over the product name + description).
+     * Cross-ally public catalog. Every filter of {@link PublicProductSearch} is
+     * optional and they combine with AND; text filters take plain words
+     * (city, ally name / RIF / number, category name, "servicio"/"producto").
      */
-    public Page<PublicProductListItemDto> search(UUID categoryUuid, UUID cityUuid, UUID allyUuid,
-                                                 ProductType type, String q, Pageable pageable) {
+    public Page<PublicProductListItemDto> search(PublicProductSearch search, Pageable pageable) {
         Specification<AllyProduct> spec = publiclyVisible();
-        if (categoryUuid != null) {
-            spec = spec.and(categoryEquals(categoryUuid));
+        if (search.categoryUuid() != null) {
+            spec = spec.and(categoryEquals(search.categoryUuid()));
         }
-        if (cityUuid != null) {
-            spec = spec.and(allyCityEquals(cityUuid));
+        if (PublicCatalogSearch.hasText(search.category())) {
+            spec = spec.and(PublicCatalogSearch.offerCategoryMatches(search.category()));
         }
-        if (allyUuid != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("ally").get("uuid"), allyUuid));
+        if (search.cityUuid() != null) {
+            spec = spec.and(allyCityEquals(search.cityUuid()));
         }
+        if (PublicCatalogSearch.hasText(search.city())) {
+            spec = spec.and(PublicCatalogSearch.offerCityMatches(search.city()));
+        }
+        if (search.allyUuid() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("ally").get("uuid"), search.allyUuid()));
+        }
+        if (PublicCatalogSearch.hasText(search.ally())) {
+            spec = spec.and(PublicCatalogSearch.offerAllyMatches(search.ally()));
+        }
+        ProductType type = PublicCatalogSearch.parseType(search.type());
         if (type != null) {
             spec = spec.and(typeEquals(type));
         }
-        if (q != null && !q.isBlank()) {
-            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (PublicCatalogSearch.hasText(search.q())) {
+            spec = spec.and(PublicCatalogSearch.offerMatchesAnything(search.q()));
         }
         return offerRepository.findAll(spec, productSort(pageable))
                 .map(offer -> mapper.toPublicProductListItem(offer, publicBaseUrl));
@@ -110,11 +118,11 @@ public class PublicProductsService {
     /**
      * One ally's public offers. 404s ({@code ally.not_found}) when the ally
      * doesn't exist OR is not publicly visible — an anonymous caller can't probe
-     * an unpublished ally's offers. Optional {@code categoryUuid} / {@code type} /
-     * {@code q} narrow the list.
+     * an unpublished ally's offers. Optional {@code categoryUuid} / {@code category}
+     * (name or code) / {@code type} ("servicio"/"producto") / {@code q} narrow the list.
      */
-    public Page<PublicAllyProductDto> listByAlly(UUID allyUuid, UUID categoryUuid, ProductType type,
-                                                 String q, Pageable pageable) {
+    public Page<PublicAllyProductDto> listByAlly(UUID allyUuid, UUID categoryUuid, String category,
+                                                 String type, String q, Pageable pageable) {
         Ally ally = allyRepository.findByUuid(allyUuid)
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
@@ -125,10 +133,14 @@ public class PublicProductsService {
         if (categoryUuid != null) {
             spec = spec.and(categoryEquals(categoryUuid));
         }
-        if (type != null) {
-            spec = spec.and(typeEquals(type));
+        if (PublicCatalogSearch.hasText(category)) {
+            spec = spec.and(PublicCatalogSearch.offerCategoryMatches(category));
         }
-        if (q != null && !q.isBlank()) {
+        ProductType productType = PublicCatalogSearch.parseType(type);
+        if (productType != null) {
+            spec = spec.and(typeEquals(productType));
+        }
+        if (PublicCatalogSearch.hasText(q)) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return offerRepository.findAll(spec, productSort(pageable))
@@ -137,12 +149,12 @@ public class PublicProductsService {
 
     /**
      * One product with every ally that offers it publicly — the price /
-     * discount comparison. Optional {@code cityUuid} keeps the allies of one
-     * city. 404s ({@code product.not_found}) when the product doesn't exist, is
+     * discount comparison. Optional {@code cityUuid} or {@code city} (city or
+     * state name) keeps the allies of one place. 404s ({@code product.not_found}) when the product doesn't exist, is
      * inactive or has no visible offer (after the city filter), so anonymous
      * callers never discover items nobody offers.
      */
-    public PublicProductDetailDto productDetail(UUID productUuid, UUID cityUuid) {
+    public PublicProductDetailDto productDetail(UUID productUuid, UUID cityUuid, String city) {
         Product product = productRepository.findByUuid(productUuid)
                 .filter(Product::isActive)
                 .orElseThrow(() -> new NoSuchElementException("product.not_found"));
@@ -151,6 +163,9 @@ public class PublicProductsService {
                 .and((root, query, cb) -> cb.equal(root.get("product").get("id"), product.getId()));
         if (cityUuid != null) {
             spec = spec.and(allyCityEquals(cityUuid));
+        }
+        if (PublicCatalogSearch.hasText(city)) {
+            spec = spec.and(PublicCatalogSearch.offerCityMatches(city));
         }
         List<AllyProduct> offers = offerRepository.findAll(spec).stream()
                 .sorted(BEST_OFFER_FIRST)

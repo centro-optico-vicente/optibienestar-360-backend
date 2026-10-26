@@ -4,10 +4,12 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicProductSearch;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageImpl;
@@ -23,7 +25,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -95,7 +99,7 @@ class PublicProductControllerIT {
 
     @Test
     void search_isPublic_returns200WithoutToken_andCarriesAllyIdentity() throws Exception {
-        when(publicProductsService.search(any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(publicProductsService.search(any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
 
         // No .with(user(...)) — a truly anonymous request must succeed.
@@ -112,8 +116,27 @@ class PublicProductControllerIT {
     }
 
     @Test
+    void search_takesPlainWords_notIds() throws Exception {
+        when(publicProductsService.search(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
+
+        mockMvc.perform(get("/v1/public/products")
+                        .param("q", "lentes")
+                        .param("type", "servicio")
+                        .param("category", "consulta")
+                        .param("city", "Acarigua")
+                        .param("ally", "J-12345678-9"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PublicProductSearch> captor = ArgumentCaptor.forClass(PublicProductSearch.class);
+        verify(publicProductsService).search(captor.capture(), any(Pageable.class));
+        assertThat(captor.getValue()).isEqualTo(new PublicProductSearch(
+                "lentes", "servicio", "consulta", null, "Acarigua", null, "J-12345678-9", null));
+    }
+
+    @Test
     void deprecatedServicesAlias_stillAnswers() throws Exception {
-        when(publicProductsService.search(any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(publicProductsService.search(any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
 
         mockMvc.perform(get("/v1/public/services"))
@@ -125,7 +148,7 @@ class PublicProductControllerIT {
 
     @Test
     void detail_isPublic_andListsEveryOfferingAllyWithItsPrice() throws Exception {
-        when(publicProductsService.productDetail(any(UUID.class), any())).thenReturn(detail());
+        when(publicProductsService.productDetail(any(UUID.class), any(), any())).thenReturn(detail());
 
         mockMvc.perform(get("/v1/public/products/{uuid}", UUID.randomUUID()))
                 .andExpect(status().isOk())
@@ -139,7 +162,7 @@ class PublicProductControllerIT {
 
     @Test
     void detail_returns404_whenNobodyOffersTheProductPublicly() throws Exception {
-        when(publicProductsService.productDetail(any(UUID.class), any()))
+        when(publicProductsService.productDetail(any(UUID.class), any(), any()))
                 .thenThrow(new NoSuchElementException("product.not_found"));
 
         mockMvc.perform(get("/v1/public/products/{uuid}", UUID.randomUUID()))
@@ -150,7 +173,7 @@ class PublicProductControllerIT {
 
     @Test
     void listByAlly_isPublic_returns200WithoutToken() throws Exception {
-        when(publicProductsService.listByAlly(any(UUID.class), any(), any(), any(), any(Pageable.class)))
+        when(publicProductsService.listByAlly(any(UUID.class), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(leanRow())));
 
         mockMvc.perform(get("/v1/public/allies/{uuid}/products", UUID.randomUUID()))
@@ -167,7 +190,7 @@ class PublicProductControllerIT {
 
     @Test
     void listByAlly_returns404_whenAllyIsNotPubliclyVisible() throws Exception {
-        when(publicProductsService.listByAlly(any(UUID.class), any(), any(), any(), any(Pageable.class)))
+        when(publicProductsService.listByAlly(any(UUID.class), any(), any(), any(), any(), any(Pageable.class)))
                 .thenThrow(new NoSuchElementException("ally.not_found"));
 
         mockMvc.perform(get("/v1/public/allies/{uuid}/products", UUID.randomUUID()))

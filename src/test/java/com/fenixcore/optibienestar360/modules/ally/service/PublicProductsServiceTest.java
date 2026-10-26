@@ -82,7 +82,7 @@ class PublicProductsServiceTest {
         ally.setPublished(false);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
 
-        assertThatThrownBy(() -> service.listByAlly(ally.getUuid(), null, null, null, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> service.listByAlly(ally.getUuid(), null, null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("ally.not_found");
 
@@ -95,7 +95,7 @@ class PublicProductsServiceTest {
         UUID missing = UUID.randomUUID();
         when(allyRepository.findByUuid(missing)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.listByAlly(missing, null, null, null, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> service.listByAlly(missing, null, null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("ally.not_found");
     }
@@ -108,7 +108,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(svc)));
 
-        Page<PublicAllyProductDto> page = service.listByAlly(ally.getUuid(), null, null, null, PageRequest.of(0, 20));
+        Page<PublicAllyProductDto> page = service.listByAlly(ally.getUuid(), null, null, null, null, PageRequest.of(0, 20));
 
         PublicAllyProductDto dto = page.getContent().getFirst();
         assertThat(dto.uuid()).isEqualTo(svc.getUuid());
@@ -126,7 +126,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        service.search(null, null, null, null, null, pageable);
+        service.search(PublicProductSearch.none(), pageable);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(serviceRepository).findAll(any(Specification.class), captor.capture());
@@ -146,7 +146,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(svc), pageable, 1));
 
-        Page<PublicProductListItemDto> page = service.search(null, null, null, null, null, pageable);
+        Page<PublicProductListItemDto> page = service.search(PublicProductSearch.none(), pageable);
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         PublicProductListItemDto row = page.getContent().getFirst();
@@ -176,7 +176,7 @@ class PublicProductsServiceTest {
         when(productRepository.findByUuid(dear.getProduct().getUuid())).thenReturn(Optional.of(dear.getProduct()));
         when(serviceRepository.findAll(any(Specification.class))).thenReturn(List.of(priceless, dear, cheap));
 
-        PublicProductDetailDto detail = service.productDetail(dear.getProduct().getUuid(), null);
+        PublicProductDetailDto detail = service.productDetail(dear.getProduct().getUuid(), null, null);
 
         assertThat(detail.offers()).extracting(PublicProductOfferDto::allyName)
                 .containsExactly("Clínica Andes", "Óptica Vicente", "Centro Visual");
@@ -194,7 +194,7 @@ class PublicProductsServiceTest {
         when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
         when(serviceRepository.findAll(any(Specification.class))).thenReturn(List.of());
 
-        assertThatThrownBy(() -> service.productDetail(productUuid, null))
+        assertThatThrownBy(() -> service.productDetail(productUuid, null, null))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("product.not_found");
     }
@@ -206,7 +206,7 @@ class PublicProductsServiceTest {
         UUID productUuid = offer.getProduct().getUuid();
         when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
 
-        assertThatThrownBy(() -> service.productDetail(productUuid, null))
+        assertThatThrownBy(() -> service.productDetail(productUuid, null, null))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("product.not_found");
         verify(serviceRepository, never()).findAll(any(Specification.class));

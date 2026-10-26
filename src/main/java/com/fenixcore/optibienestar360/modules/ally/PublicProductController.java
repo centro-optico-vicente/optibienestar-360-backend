@@ -3,8 +3,8 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicProductSearch;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
-import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,9 +27,17 @@ import java.util.UUID;
  *
  * <p>Only offers cleared for public view are returned (offer approved +
  * published + active, active product, parent ally active + published). The
- * list filters by category, product type, ally, the ally's city and free-text
- * {@code q} (accent-insensitive over the product name + description), all
- * optional and combined with AND; default order is product name ascending.
+ * list is built for leads and visitors, so every filter takes plain words —
+ * accent- and case-insensitive, all optional, combined with AND:</p>
+ * <ul>
+ *   <li>{@code q} — anything: product, category, ally, city or state name;</li>
+ *   <li>{@code type} — {@code servicio} / {@code producto};</li>
+ *   <li>{@code category} — category name or code;</li>
+ *   <li>{@code city} — the ally's city or state;</li>
+ *   <li>{@code ally} — the ally's name, RIF ({@code J-12345678-9}) or ally number.</li>
+ * </ul>
+ * <p>{@code categoryUuid} / {@code cityUuid} / {@code allyUuid} remain for
+ * clients that already hold ids. Default order is product name ascending.
  * The detail shows one product with every ally that offers it and its own
  * price and discount.</p>
  */
@@ -43,25 +51,31 @@ public class PublicProductController {
 
     @GetMapping
     public ResponseEntity<Page<PublicProductListItemDto>> search(
-            @RequestParam(required = false) UUID categoryUuid,
-            @RequestParam(required = false) UUID cityUuid,
-            @RequestParam(required = false) UUID allyUuid,
-            @RequestParam(required = false) ProductType type,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) UUID cityUuid,
+            @RequestParam(required = false) String ally,
+            @RequestParam(required = false) UUID allyUuid,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        PublicProductSearch search = new PublicProductSearch(q, type, category, categoryUuid, city, cityUuid, ally, allyUuid);
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
-                .body(publicProductsService.search(categoryUuid, cityUuid, allyUuid, type, q, pageable));
+                .body(publicProductsService.search(search, pageable));
     }
 
     /**
      * One product with the allies that offer it, best final price first.
-     * Optional {@code cityUuid} keeps the allies of one city. 404 when the
-     * product doesn't exist, is inactive or nobody offers it publicly.
+     * Optional {@code city} (city or state name) or {@code cityUuid} keeps the
+     * allies of one place. 404 when the product doesn't exist, is inactive or
+     * nobody offers it publicly.
      */
     @GetMapping("/{uuid}")
     public ResponseEntity<PublicProductDetailDto> detail(@PathVariable UUID uuid,
+                                                         @RequestParam(required = false) String city,
                                                          @RequestParam(required = false) UUID cityUuid) {
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
-                .body(publicProductsService.productDetail(uuid, cityUuid));
+                .body(publicProductsService.productDetail(uuid, cityUuid, city));
     }
 }
