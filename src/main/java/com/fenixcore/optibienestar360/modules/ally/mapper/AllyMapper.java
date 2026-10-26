@@ -14,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
@@ -74,8 +75,20 @@ public interface AllyMapper {
     @Mapping(target = "allySegments",   expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",       source = "city.name")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
+    @Mapping(target = "products",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     @Mapping(target = "services",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     PublicAllyDetailDto toPublicDetail(Ally ally, @Context String publicBaseUrl);
+
+    /** One row of the public product detail's ally comparison — see {@link PublicProductOfferDto}. */
+    @Mapping(target = "offerUuid",     source = "uuid")
+    @Mapping(target = "allyUuid",      source = "ally.uuid")
+    @Mapping(target = "allyName",      source = "ally.name")
+    @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(offer.getAlly().getAllyTypes()))")
+    @Mapping(target = "allyCityName",  source = "ally.city.name")
+    @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
+    @Mapping(target = "allyPhone",     source = "ally.phone")
+    @Mapping(target = "allyWhatsapp",  source = "ally.whatsapp")
+    PublicProductOfferDto toPublicProductOffer(AllyProduct offer);
 
     @Mapping(target = "productUuid",         source = "product.uuid")
     @Mapping(target = "productType",         source = "product.productType")

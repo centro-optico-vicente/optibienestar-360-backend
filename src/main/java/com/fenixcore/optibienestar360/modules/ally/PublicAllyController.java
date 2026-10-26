@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
+import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,9 +30,10 @@ import java.util.UUID;
  * (RIF, audit, status, email, manager, publishedAt, sub-collections) are
  * intentionally omitted; see that DTO's javadoc for the rationale.</p>
  *
- * <p>Filtering: by city UUID, by medical profession UUID, by free-text
- * {@code q} (accent-insensitive over {@code name + description}). All
- * optional; combined with AND.</p>
+ * <p>Filtering: by city UUID, by medical profession UUID, by what the ally
+ * publicly offers ({@code categoryUuid} / {@code type} of its products — hub
+ * ADR 0026), by free-text {@code q} (accent-insensitive over
+ * {@code name + description}). All optional; combined with AND.</p>
  */
 @RestController
 @RequestMapping("/v1/public/allies")
@@ -39,16 +41,18 @@ import java.util.UUID;
 public class PublicAllyController {
 
     private final AlliesService alliesService;
-    private final PublicProductsService publicServicesService;
+    private final PublicProductsService publicProductsService;
 
     @GetMapping
     public ResponseEntity<Page<PublicAllyListItemDto>> directory(
             @RequestParam(required = false) UUID cityUuid,
             @RequestParam(required = false) UUID professionUuid,
+            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) ProductType type,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
-                .body(alliesService.publicDirectory(cityUuid, professionUuid, q, pageable));
+                .body(alliesService.publicDirectory(cityUuid, professionUuid, categoryUuid, type, q, pageable));
     }
 
     /**
@@ -65,20 +69,21 @@ public class PublicAllyController {
     }
 
     /**
-     * One ally's public offerings as a dedicated, paginated, filterable list —
-     * the same data the detail nests, but standalone (useful when the detail
-     * payload would be too heavy or the client only needs the services). 404s
-     * when the ally doesn't exist or is not publicly visible. Services are
-     * pre-filtered to active + published + APPROVED. Optional filters:
-     * {@code categoryUuid}, free-text {@code q}.
+     * One ally's public products and services as a dedicated, paginated,
+     * filterable list — the same data the detail nests, but standalone. 404s
+     * when the ally doesn't exist or is not publicly visible. Offers are
+     * pre-filtered to active + published + APPROVED over an active product.
+     * Optional filters: {@code categoryUuid}, {@code type}, free-text {@code q}.
+     * {@code /services} is a deprecated alias kept while the landing moves over.
      */
-    @GetMapping("/{uuid}/services")
-    public ResponseEntity<Page<PublicAllyProductDto>> services(
+    @GetMapping({"/{uuid}/products", "/{uuid}/services"})
+    public ResponseEntity<Page<PublicAllyProductDto>> products(
             @PathVariable UUID uuid,
             @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) ProductType type,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
-                .body(publicServicesService.listByAlly(uuid, categoryUuid, q, pageable));
+                .body(publicProductsService.listByAlly(uuid, categoryUuid, type, q, pageable));
     }
 }

@@ -31,6 +31,8 @@ public record PublicProductListItemDto(
         String description,
         @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        /** {@code priceAmount} with the discount applied — the same number the product detail shows. */
+        @Display(Display.Kind.NUMBER) BigDecimal finalPrice,
         /** Where the preferential rate does NOT apply (V179) — affiliates must see it. */
         String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,

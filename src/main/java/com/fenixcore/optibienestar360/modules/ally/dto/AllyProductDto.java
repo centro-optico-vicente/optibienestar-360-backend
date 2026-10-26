@@ -40,6 +40,8 @@ public record AllyProductDto(
         // ─── Offer terms ───
         @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        /** {@code priceAmount} with the discount applied — what the affiliate pays. */
+        @Display(Display.Kind.NUMBER) BigDecimal finalPrice,
         /** Operational exclusions of the preferential rate (V179). */
         String exclusions,
 

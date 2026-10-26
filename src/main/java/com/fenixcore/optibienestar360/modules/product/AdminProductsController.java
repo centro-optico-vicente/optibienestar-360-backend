@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.product;
 
 import com.fenixcore.optibienestar360.common.storage.dto.AttachedFileDto;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyProductsAdminService;
 import com.fenixcore.optibienestar360.modules.product.dto.ProductCreateRequest;
 import com.fenixcore.optibienestar360.modules.product.dto.ProductDto;
 import com.fenixcore.optibienestar360.modules.product.dto.ProductListItemDto;
@@ -51,6 +53,7 @@ public class AdminProductsController {
 
     private final ProductsService productsService;
     private final ProductImageService imageService;
+    private final AllyProductsAdminService offersService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PRODUCT_VIEW_ALL')")
@@ -69,6 +72,14 @@ public class AdminProductsController {
     @PreAuthorize("hasAuthority('PRODUCT_VIEW_ALL')")
     public ResponseEntity<ProductDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(productsService.get(uuid));
+    }
+
+    /** Every ally offering this product, with its price, discount, review state and publication. */
+    @GetMapping("/{uuid}/offers")
+    @PreAuthorize("hasAuthority('ALLY_PRODUCT_VIEW_ALL')")
+    public ResponseEntity<Page<AllyProductDto>> offers(@PathVariable UUID uuid,
+                                                       @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(offersService.listForProduct(uuid, pageable));
     }
 
     @PostMapping

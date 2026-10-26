@@ -83,7 +83,7 @@ class PublicAllyControllerIT {
     void directory_isPublic_andBrieflyCacheable_andRevalidatesWithEtag() throws Exception {
         // Same instance on both calls: identical bodies are what yield the same ETag.
         PublicAllyListItemDto dto = clinicDto();
-        when(alliesService.publicDirectory(isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(alliesService.publicDirectory(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto)));
 
         // No .with(user(...)) — a truly anonymous request must succeed.

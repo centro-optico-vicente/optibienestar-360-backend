@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 
 /**
@@ -90,6 +91,23 @@ public class AllyProduct extends BaseEntity {
 
     @Column(name = "published_at")
     private Instant publishedAt;
+
+    /**
+     * Price the affiliate actually pays: {@code priceAmount × (1 − discountPct/100)},
+     * rounded to cents. {@code null} without a reference price; no discount means
+     * the full price. Derived, never persisted — public lists and the product
+     * detail all show this same number (hub ADR 0026).
+     */
+    public BigDecimal getFinalPrice() {
+        if (priceAmount == null) {
+            return null;
+        }
+        if (discountPct == null || discountPct.signum() == 0) {
+            return priceAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal factor = BigDecimal.ONE.subtract(discountPct.movePointLeft(2));
+        return priceAmount.multiply(factor).setScale(2, RoundingMode.HALF_UP);
+    }
 
     public enum ReviewStatus {
         PROPOSED, IN_REVIEW, APPROVED, REJECTED, REMOVED

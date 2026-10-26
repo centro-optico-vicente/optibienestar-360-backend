@@ -14,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
@@ -27,9 +28,13 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.CityRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
+import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -173,6 +178,8 @@ public class AlliesService {
      */
     public Page<PublicAllyListItemDto> publicDirectory(UUID cityUuid,
                                                        UUID professionUuid,
+                                                       UUID categoryUuid,
+                                                       ProductType type,
                                                        String q,
                                                        Pageable pageable) {
         Specification<Ally> spec = publishedOnly();
@@ -192,11 +199,41 @@ public class AlliesService {
             });
         }
 
+        if (categoryUuid != null || type != null) {
+            spec = spec.and(offersPublicly(categoryUuid, type));
+        }
+
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, "name", "description"));
         }
 
         return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
+    }
+
+    /**
+     * "Allies that publicly offer something of this category / type" (hub ADR
+     * 0026) — an EXISTS over {@code ally_products} with the same visibility rule
+     * as the public catalog, so an ally never matches through a hidden offer.
+     */
+    private static Specification<Ally> offersPublicly(UUID categoryUuid, ProductType type) {
+        return (root, query, cb) -> {
+            Subquery<Long> sub = query.subquery(Long.class);
+            Root<AllyProduct> offer = sub.from(AllyProduct.class);
+            List<Predicate> predicates = new ArrayList<>(List.of(
+                    cb.equal(offer.get("ally"), root),
+                    cb.isTrue(offer.get("active")),
+                    cb.isTrue(offer.get("published")),
+                    cb.equal(offer.get("reviewStatus"), AllyProduct.ReviewStatus.APPROVED),
+                    cb.isTrue(offer.get("product").get("active"))));
+            if (categoryUuid != null) {
+                predicates.add(cb.equal(offer.get("product").get("productCategory").get("uuid"), categoryUuid));
+            }
+            if (type != null) {
+                predicates.add(cb.equal(offer.get("product").get("productType"), type));
+            }
+            sub.select(cb.literal(1L)).where(predicates.toArray(Predicate[]::new));
+            return cb.exists(sub);
+        };
     }
 
     /**
