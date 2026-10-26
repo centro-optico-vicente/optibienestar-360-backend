@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .button { display: inline-block; background: #7a5cc9; color: #fff !important; padding: 10px 18px; border-radius: 6px; text-decoration: none; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Nueva solicitud de afiliación</h2>
+
+    <p>Llegó una solicitud de afiliación que espera revisión.</p>
+
+    <div class="field">
+        <span class="label">Solicitante:</span>
+        <span th:text="${fullName}"></span>
+    </div>
+    <div class="field" th:if="${applicantEmail}">
+        <span class="label">Correo:</span>
+        <span th:text="${applicantEmail}"></span>
+    </div>
+    <div class="field" th:if="${planName}">
+        <span class="label">Plan:</span>
+        <span th:text="${planName}"></span>
+    </div>
+    <div class="field">
+        <span class="label">Canal:</span>
+        <span th:text="${assisted} ? 'Afiliación asistida' : 'Autoafiliación (página pública)'"></span>
+    </div>
+    <div class="field" th:if="${advisorName}">
+        <span class="label">Asesor:</span>
+        <span th:text="${advisorName}"></span>
+    </div>
+
+    <p><a class="button" th:href="${reviewUrl}">Revisar la solicitud</a></p>
+    <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${reviewUrl}"></span></p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

@@ -134,4 +134,31 @@ class AuthServicePasswordRecoveryTest {
 
         verify(emailService, never()).sendTemplated(anyString(), anyString(), anyString(), any(), any());
     }
+
+    // ─── Password setup link (assisted affiliation approved without password) ───
+
+    @Test
+    void passwordSetupLink_storesOnlyTheHashWithTheGivenTtl_andLinksTheResetPage() {
+        User user = userWithLocale("es-VE");
+        java.time.Instant before = java.time.Instant.now();
+
+        String url = authService.issuePasswordSetupLink(user, java.time.Duration.ofHours(72), Locale.forLanguageTag("es"));
+
+        assertThat(url).startsWith(FRONTEND_URL + "/restablecer-clave?token=");
+        String token = url.substring(url.indexOf("token=") + "token=".length());
+        assertThat(user.getPasswordResetToken()).isNotBlank().isNotEqualTo(token).hasSize(64);
+        assertThat(user.getPasswordResetExpiresAt())
+                .isAfter(before.plus(java.time.Duration.ofHours(71)))
+                .isBefore(java.time.Instant.now().plus(java.time.Duration.ofHours(73)));
+        verify(userRepository).save(user);
+        verify(emailService, never()).sendTemplated(anyString(), anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void passwordSetupLink_inEnglish_usesTheEnglishResetPage() {
+        String url = authService.issuePasswordSetupLink(userWithLocale(null), java.time.Duration.ofHours(1),
+                Locale.ENGLISH);
+
+        assertThat(url).startsWith(FRONTEND_URL + "/en/reset-password?token=");
+    }
 }

@@ -22,7 +22,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * A public self-affiliation waiting for review (V190). Holds the applicant's
+ * An affiliation waiting for review (V190) — from the public form or, since
+ * V194, filled by an advisor from their portal ({@link Channel#ASSISTED}). Holds the applicant's
  * data, the BCrypt hash of the password they chose and the evidence of the
  * contract they accepted; nothing else exists until a reviewer approves it
  * ({@code AffiliationRequestService.approve} creates the user, the member and
@@ -41,6 +42,16 @@ public class AffiliationRequest extends BaseEntity {
 
     /** Values of {@code affiliation_requests.status} (V190 CHECK). */
     public enum Status { PENDING, APPROVED, REJECTED }
+
+    /**
+     * Values of {@code affiliation_requests.channel} (V194 CHECK): the public
+     * form ({@code SELF_SERVICE}) or the advisor portal, filled by the advisor
+     * with the family ({@code ASSISTED}).
+     */
+    public enum Channel { SELF_SERVICE, ASSISTED }
+
+    @Column(name = "channel", length = 20, nullable = false)
+    private String channel = Channel.SELF_SERVICE.name();
 
     @Column(name = "first_name", length = 50, nullable = false)
     private String firstName;
@@ -72,7 +83,11 @@ public class AffiliationRequest extends BaseEntity {
     @JoinColumn(name = "plan_id", nullable = false)
     private Plan plan;
 
-    /** Advisor of the referral code the applicant arrived with; {@code null} without one. */
+    /**
+     * Advisor of the request: the one of the referral code the applicant
+     * arrived with (public form; {@code null} without one), or the advisor who
+     * filled it in an assisted affiliation.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "promoter_id")
     private Promoter promoter;
@@ -80,8 +95,12 @@ public class AffiliationRequest extends BaseEntity {
     @Column(name = "referral_code", length = 20)
     private String referralCode;
 
-    /** Never exposed in any DTO; copied verbatim to {@code users.password_hash} on approval. */
-    @Column(name = "password_hash", length = 255, nullable = false)
+    /**
+     * Never exposed in any DTO; copied verbatim to {@code users.password_hash}
+     * on approval. {@code null} only in an assisted request where the family
+     * chose no password (V194 CHECK): approval then emails a link to create it.
+     */
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
     // ─── Contract evidence ──────────────────────────────────────────────────
@@ -130,6 +149,10 @@ public class AffiliationRequest extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "membership_id")
     private Membership membership;
+
+    public boolean isAssisted() {
+        return Channel.ASSISTED.name().equals(channel);
+    }
 
     public boolean isPending() {
         return Status.PENDING.name().equals(getStatus());

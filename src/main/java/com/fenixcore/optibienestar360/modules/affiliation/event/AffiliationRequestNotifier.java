@@ -15,7 +15,8 @@ import java.util.Map;
 
 /**
  * Emails the applicant of an affiliation request: received, approved (with
- * the link to log in) or rejected (with the reason). After-commit and
+ * the link to log in — or, for an assisted request without password, the
+ * link to create it) or rejected (with the reason). After-commit and
  * best-effort, like {@code MemberPromoterReassignedNotifier}: a mail failure
  * is logged and never undoes the request or the review.
  */
@@ -37,6 +38,10 @@ public class AffiliationRequestNotifier {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    /** Shown in the approval email next to the activation link; same property the service uses for the TTL. */
+    @Value("${app.affiliation-requests.activation-ttl-hours:72}")
+    private long activationTtlHours = 72;
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onEvent(AffiliationRequestEvent event) {
         if (event.email() == null || event.email().isBlank()) {
@@ -49,6 +54,9 @@ public class AffiliationRequestNotifier {
         vars.put("advisorName", event.advisorName());
         vars.put("reason", event.reason());
         vars.put("loginUrl", loginUrl(locale));
+        // Assisted approval without password: "create your password" link instead of the login one.
+        vars.put("activationUrl", event.activationUrl());
+        vars.put("activationTtlHours", activationTtlHours);
         String template = switch (event.kind()) {
             case RECEIVED -> TEMPLATE_RECEIVED;
             case APPROVED -> TEMPLATE_APPROVED;

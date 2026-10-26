@@ -392,6 +392,22 @@ public class TermsAcceptanceService {
     public void recordSelfServiceAcceptance(User user, TermsVersion version, Membership membership,
                                             ClientRequestMetadata client, Instant acceptedAt,
                                             String renderedContent) {
+        recordFormAcceptance(user, version, membership, client, acceptedAt, renderedContent, Channel.SELF_SERVICE);
+    }
+
+    /**
+     * {@link #recordSelfServiceAcceptance(User, TermsVersion, Membership, ClientRequestMetadata, Instant, String)}
+     * with an explicit {@code channel}: {@code SELF_SERVICE} for the public
+     * form, {@code ASSISTED} when the person accepted on the advisor's device
+     * (assisted affiliation, V194). Only those two form channels are allowed.
+     */
+    @Transactional
+    public void recordFormAcceptance(User user, TermsVersion version, Membership membership,
+                                     ClientRequestMetadata client, Instant acceptedAt,
+                                     String renderedContent, Channel channel) {
+        if (channel != Channel.SELF_SERVICE && channel != Channel.ASSISTED) {
+            throw new IllegalArgumentException("form acceptance channel must be SELF_SERVICE or ASSISTED: " + channel);
+        }
         if (termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(),
                 version.getId())) {
             return;
@@ -399,7 +415,7 @@ public class TermsAcceptanceService {
         String content = renderedContent != null
                 ? renderedContent
                 : renderer.render(version.getContentMarkdown(), variableResolver.forMember(user));
-        save(user, version, null, content, Channel.SELF_SERVICE, client, membership, acceptedAt);
+        save(user, version, null, content, channel, client, membership, acceptedAt);
     }
 
     private void save(User user, TermsVersion version, AllyAgreement agreement, String renderedContent,
