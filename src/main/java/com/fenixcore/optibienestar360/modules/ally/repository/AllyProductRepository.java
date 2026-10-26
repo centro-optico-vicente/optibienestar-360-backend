@@ -39,6 +39,15 @@ public interface AllyProductRepository extends JpaRepository<AllyProduct, Long>,
     @EntityGraph(attributePaths = {"ally", "ally.city", "product", "product.productCategory"})
     Page<AllyProduct> findAll(Specification<AllyProduct> spec, Pageable pageable);
 
+    /**
+     * Unpaged variant with the same eager graph — backs the public product
+     * detail, which lists every ally offering one product (a handful of rows)
+     * and reads each ally's identity.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"ally", "ally.city", "product", "product.productCategory"})
+    List<AllyProduct> findAll(Specification<AllyProduct> spec);
+
     List<AllyProduct> findByAllyIdAndActiveTrue(Long allyId, Sort sort);
 
     /** One offer per (ally, product) — mirrors {@code uq_ally_products_ally_product} (V197). */

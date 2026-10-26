@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
@@ -12,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.product.entity.Product;
+import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,12 +65,13 @@ class PublicProductsServiceTest {
 
     @Mock private AllyProductRepository serviceRepository;
     @Mock private AllyRepository allyRepository;
+    @Mock private ProductRepository productRepository;
 
     private PublicProductsService service;
 
     @BeforeEach
     void setup() {
-        service = new PublicProductsService(serviceRepository, allyRepository, new AllyMapperImpl());
+        service = new PublicProductsService(serviceRepository, allyRepository, productRepository, new AllyMapperImpl());
     }
 
     // ─── listByAlly ──────────────────────────────────────────────────────────
@@ -78,7 +82,7 @@ class PublicProductsServiceTest {
         ally.setPublished(false);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
 
-        assertThatThrownBy(() -> service.listByAlly(ally.getUuid(), null, null, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> service.listByAlly(ally.getUuid(), null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("ally.not_found");
 
@@ -91,7 +95,7 @@ class PublicProductsServiceTest {
         UUID missing = UUID.randomUUID();
         when(allyRepository.findByUuid(missing)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.listByAlly(missing, null, null, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> service.listByAlly(missing, null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("ally.not_found");
     }
@@ -104,7 +108,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(svc)));
 
-        Page<PublicAllyProductDto> page = service.listByAlly(ally.getUuid(), null, null, PageRequest.of(0, 20));
+        Page<PublicAllyProductDto> page = service.listByAlly(ally.getUuid(), null, null, null, PageRequest.of(0, 20));
 
         PublicAllyProductDto dto = page.getContent().getFirst();
         assertThat(dto.uuid()).isEqualTo(svc.getUuid());
@@ -122,7 +126,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        service.search(null, null, null, pageable);
+        service.search(null, null, null, null, null, pageable);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(serviceRepository).findAll(any(Specification.class), captor.capture());
@@ -142,7 +146,7 @@ class PublicProductsServiceTest {
         when(serviceRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(svc), pageable, 1));
 
-        Page<PublicProductListItemDto> page = service.search(null, null, null, pageable);
+        Page<PublicProductListItemDto> page = service.search(null, null, null, null, null, pageable);
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         PublicProductListItemDto row = page.getContent().getFirst();
@@ -159,7 +163,71 @@ class PublicProductsServiceTest {
         assertThat(row.allyPhone()).isEqualTo("+58 274 5550100");
     }
 
+    // ─── productDetail (ally comparison) ──────────────────────────────────────
+
+    @Test
+    void productDetail_sortsByFinalPrice_pricelessLast_andSummarizes() {
+        Ally a = ally("Óptica Vicente", "Óptica", "Mérida");
+        Ally b = ally("Clínica Andes", "Clínica", "Mérida");
+        Ally c = ally("Centro Visual", "Óptica", "Mérida");
+        AllyProduct dear = service("Examen de la vista", "Optometría", a);                 // 15.00, no discount
+        AllyProduct cheap = offerOf(dear.getProduct(), b, "20.00", "40.00");               // 12.00 final
+        AllyProduct priceless = offerOf(dear.getProduct(), c, null, "10.00");
+        when(productRepository.findByUuid(dear.getProduct().getUuid())).thenReturn(Optional.of(dear.getProduct()));
+        when(serviceRepository.findAll(any(Specification.class))).thenReturn(List.of(priceless, dear, cheap));
+
+        PublicProductDetailDto detail = service.productDetail(dear.getProduct().getUuid(), null);
+
+        assertThat(detail.offers()).extracting(PublicProductOfferDto::allyName)
+                .containsExactly("Clínica Andes", "Óptica Vicente", "Centro Visual");
+        assertThat(detail.offers().getFirst().finalPrice()).isEqualByComparingTo("12.00");
+        assertThat(detail.offersCount()).isEqualTo(3);
+        assertThat(detail.minFinalPrice()).isEqualByComparingTo("12.00");
+        assertThat(detail.maxDiscountPct()).isEqualByComparingTo("40.00");
+        assertThat(detail.name()).isEqualTo("Examen de la vista");
+    }
+
+    @Test
+    void productDetail_404s_whenNobodyOffersItPublicly() {
+        AllyProduct offer = service("Examen de la vista", "Optometría", ally("Óptica Vicente", "Óptica", "Mérida"));
+        UUID productUuid = offer.getProduct().getUuid();
+        when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
+        when(serviceRepository.findAll(any(Specification.class))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.productDetail(productUuid, null))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("product.not_found");
+    }
+
+    @Test
+    void productDetail_404s_whenProductIsInactive_andNeverQueriesOffers() {
+        AllyProduct offer = service("Examen de la vista", "Optometría", ally("Óptica Vicente", "Óptica", "Mérida"));
+        offer.getProduct().setActive(false);
+        UUID productUuid = offer.getProduct().getUuid();
+        when(productRepository.findByUuid(productUuid)).thenReturn(Optional.of(offer.getProduct()));
+
+        assertThatThrownBy(() -> service.productDetail(productUuid, null))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("product.not_found");
+        verify(serviceRepository, never()).findAll(any(Specification.class));
+    }
+
     // ─── Fixtures ────────────────────────────────────────────────────────────
+
+    private AllyProduct offerOf(Product product, Ally ally, String price, String discount) {
+        AllyProduct offer = new AllyProduct();
+        offer.setId(ally.getId() * 10);
+        offer.setUuid(UUID.randomUUID());
+        offer.setAlly(ally);
+        offer.setProduct(product);
+        offer.setPriceAmount(price == null ? null : new BigDecimal(price));
+        offer.setDiscountPct(discount == null ? null : new BigDecimal(discount));
+        offer.setReviewStatus(ReviewStatus.APPROVED);
+        offer.setActive(true);
+        offer.setPublished(true);
+        return offer;
+    }
+
 
     private Ally ally(String name, String typeName, String cityName) {
         AllyType type = new AllyType();

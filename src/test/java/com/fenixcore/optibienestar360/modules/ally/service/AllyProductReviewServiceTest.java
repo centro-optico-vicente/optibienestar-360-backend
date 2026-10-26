@@ -71,7 +71,7 @@ class AllyProductReviewServiceTest {
         AllyProductDto dto = new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), Product.ProductType.SERVICE, true, null,
                 "Consulta oftalmológica", null, false, null,
-                null, null, null,
+                null, null, null, null,
                 ReviewStatus.PROPOSED, null, null, null, false, null, true, null, null, null);
         AllyProduct service = allyProduct(ReviewStatus.PROPOSED);
         Pageable pageable = PageRequest.of(0, 20);

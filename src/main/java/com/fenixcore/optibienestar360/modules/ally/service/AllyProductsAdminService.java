@@ -17,11 +17,14 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.product.entity.Product;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
+import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
 import com.fenixcore.optibienestar360.modules.product.service.ProductsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +67,7 @@ public class AllyProductsAdminService {
     private final AllyProductRepository offerRepository;
     private final CurrencyRepository currencyRepository;
     private final ProductsService productsService;
+    private final ProductRepository productRepository;
     private final AllyMapper mapper;
     private final DefaultSortResolver defaultSortResolver;
 
@@ -85,6 +89,22 @@ public class AllyProductsAdminService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        return offerRepository.findAll(spec, resolved).map(offer -> mapper.toAllyProductDto(offer, publicBaseUrl));
+    }
+
+    /**
+     * Every ally's offer of one product — the internal side of the public
+     * comparison: all review states, published or not (only soft-deleted
+     * offers are left out). Paginated; default order is the ally's name.
+     */
+    public Page<AllyProductDto> listForProduct(UUID productUuid, Pageable pageable) {
+        Product product = productRepository.findByUuid(productUuid)
+                .orElseThrow(() -> new NoSuchElementException("product.not_found"));
+        Pageable resolved = pageable.getSort().isSorted() ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("ally.name"));
+        Specification<AllyProduct> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("product").get("id"), product.getId()),
+                cb.isTrue(root.get("active")));
         return offerRepository.findAll(spec, resolved).map(offer -> mapper.toAllyProductDto(offer, publicBaseUrl));
     }
 

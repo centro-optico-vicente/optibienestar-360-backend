@@ -47,5 +47,9 @@ public record PublicAllyDetailDto(
         List<String> professionNames,
 
         // Public offerings (already filtered to APPROVED + published + active)
+        List<PublicAllyProductDto> products,
+
+        /** Same list as {@code products} — deprecated, kept while the landing moves over (ADR 0026). */
+        @Deprecated
         List<PublicAllyProductDto> services
 ) {}

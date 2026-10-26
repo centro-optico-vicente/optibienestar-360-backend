@@ -9,7 +9,7 @@ import org.springframework.web.filter.ShallowEtagHeaderFilter;
 import java.time.Duration;
 
 /**
- * HTTP caching for the anonymous plan / ally catalog consumed by the public
+ * HTTP caching for the anonymous plan / ally / product catalog consumed by the public
  * landing ({@code centro-optico-vicente-web}), which fetches it client-side on
  * every visit.
  *
@@ -43,7 +43,8 @@ public class PublicHttpCacheConfig {
         FilterRegistrationBean<ShallowEtagHeaderFilter> registration =
                 new FilterRegistrationBean<>(new ShallowEtagHeaderFilter());
         // Servlet prefix patterns: each also matches the bare collection path.
-        registration.addUrlPatterns("/v1/public/plans/*", "/v1/public/allies/*");
+        registration.addUrlPatterns("/v1/public/plans/*", "/v1/public/allies/*",
+                "/v1/public/products/*", "/v1/public/services/*");
         registration.setName("publicCatalogEtagFilter");
         return registration;
     }
