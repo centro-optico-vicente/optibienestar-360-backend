@@ -5,9 +5,13 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductReviewLogDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.ProposeAllyProductRequest;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyProductReviewService;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyProductsProposeService;
+import com.fenixcore.optibienestar360.modules.product.dto.ProductListItemDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -60,6 +64,21 @@ public class AllyProductsController {
                 .buildAndExpand(request.allyUuid(), created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /**
+     * Products the ally may still offer — general ones plus its own exclusive
+     * ones, minus those it already offers. Feeds the portal's "offer an
+     * existing product" picker. Membership-based like the rest of this surface.
+     */
+    @GetMapping("/offerable")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<ProductListItemDto>> offerable(@RequestParam UUID allyUuid,
+                                                              @RequestParam(required = false) String q,
+                                                              @RequestParam(required = false) String type,
+                                                              @PageableDefault(size = 20) Pageable pageable,
+                                                              @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(proposeService.offerable(actor.getUuid(), allyUuid, q, type, pageable));
     }
 
     /**

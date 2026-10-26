@@ -1,19 +1,30 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.ProposeAllyProductRequest;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
-import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.product.dto.ProductListItemDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product;
+import com.fenixcore.optibienestar360.modules.product.mapper.ProductMapper;
+import com.fenixcore.optibienestar360.modules.product.repository.ProductRepository;
 import com.fenixcore.optibienestar360.modules.product.service.ProductsService;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,10 +53,51 @@ public class AllyProductsProposeService {
     private final AllyProductRepository offerRepository;
     private final CurrencyRepository currencyRepository;
     private final ProductsService productsService;
+    private final ProductRepository productRepository;
+    private final ProductMapper productMapper;
     private final AllyMapper mapper;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
+
+    /**
+     * What the ally may still offer (hub ADR 0026): active products that are
+     * general or exclusive to this ally, minus the ones it already offers
+     * (active offers). Backs the portal's product picker — the ally never
+     * holds {@code PRODUCT_VIEW_ALL}, so it can't browse the admin master.
+     * Any active membership on the ally may read it (VIEWER included).
+     * Optional free-text {@code q} over name / description / category and
+     * {@code type} ("servicio"/"producto"); default order is product name.
+     */
+    public Page<ProductListItemDto> offerable(UUID actorUserUuid, UUID allyUuid, String q, String type,
+                                              Pageable pageable) {
+        AllyUser membership = allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid)
+                .orElseThrow(() -> new AccessDeniedException("ally_product.propose.not_allowed"));
+        Long allyId = membership.getAlly().getId();
+
+        Specification<Product> spec = (root, query, cb) -> {
+            Subquery<Long> offered = query.subquery(Long.class);
+            Root<AllyProduct> offer = offered.from(AllyProduct.class);
+            offered.select(cb.literal(1L)).where(
+                    cb.equal(offer.get("product"), root),
+                    cb.equal(offer.get("ally").get("id"), allyId),
+                    cb.isTrue(offer.get("active")));
+            return cb.and(
+                    cb.isTrue(root.get("active")),
+                    cb.or(cb.isNull(root.get("ownerAlly")), cb.equal(root.get("ownerAlly").get("id"), allyId)),
+                    cb.not(cb.exists(offered)));
+        };
+        Product.ProductType productType = PublicCatalogSearch.parseType(type);
+        if (productType != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("productType"), productType));
+        }
+        if (PublicCatalogSearch.hasText(q)) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, "name", "description", "productCategory.name"));
+        }
+        Pageable sorted = pageable.getSort().isSorted() ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("name"));
+        return productRepository.findAll(spec, sorted).map(p -> productMapper.toListItem(p, publicBaseUrl));
+    }
 
     /**
      * Creates a new offer on behalf of the actor under the requested ally.

@@ -138,6 +138,7 @@ public interface AllyMapper {
     // ─── AllyProduct → DTO ─────────────────────────────────────────────────
 
     @Mapping(target = "allyUuid",            source = "ally.uuid")
+    @Mapping(target = "ally",                source = "ally")
     @Mapping(target = "productUuid",         source = "product.uuid")
     @Mapping(target = "productType",         source = "product.productType")
     @Mapping(target = "exclusive",           expression = "java(offer.getProduct().isExclusive())")
