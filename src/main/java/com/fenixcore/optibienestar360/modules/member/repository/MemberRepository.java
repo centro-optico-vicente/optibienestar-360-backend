@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.member.repository;
 
+import com.fenixcore.optibienestar360.core.util.AppTimeZone;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterEnrollmentEventRow;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow;
@@ -12,6 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -104,19 +106,37 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
                                                             @Param("includeSystem") boolean includeSystem);
 
     /**
-     * Commission-tier engine: how many new subscribers a single promoter enrolled
-     * within a period ({@code enrolled_at} inclusive). Drives tier qualification
-     * (threshold_count) when an approved payment is attributed.
+     * The single definition of a "confirmed enrollment" for the commission-tier count: an
+     * active member whose {@code confirmed_at} is stamped (V45) — automatically on the first
+     * APPROVED payment ({@code PaymentsService.confirmMemberOnFirstApprovedPayment}) or manually
+     * by an admin ({@code MEMBER_CONFIRM}, subsidized members that never pay). PENDING enrollments
+     * (no approved payment yet), rejected ones (never stamped) and cancelled/deactivated members
+     * ({@code active = false}) therefore do not count. Change the confirmation rule HERE only
+     * (hub ADR 0013 "Confirmados"; see {@code .ai/notes/2026-10-25-confirmed-enrollment-count.md}).
      */
-    @Query("""
-            SELECT COUNT(m) FROM Member m
-            WHERE m.active = true
-              AND m.promoter.id = :promoterId
-              AND m.enrolledAt BETWEEN :start AND :end
-            """)
-    long countNewSubscribersForPromoter(@Param("promoterId") Long promoterId,
-                                        @Param("start") LocalDate start,
-                                        @Param("end") LocalDate end);
+    String CONFIRMED_ENROLLMENT_PREDICATE = "m.active = true AND m.confirmedAt IS NOT NULL";
+
+    /**
+     * Commission-tier engine: how many <b>confirmed</b> new subscribers a single promoter
+     * obtained within a period — {@code confirmed_at} falling inside {@code [start, end]}
+     * (inclusive local dates in the app timezone), NOT {@code enrolled_at}. Drives tier
+     * qualification (threshold_count). {@code confirmed_at} is write-once, so a closed window's
+     * count is stable (hub ADR 0017: already-generated commissions are never recalculated).
+     * Delegates to {@link #countConfirmedSubscribersForPromoterBetween}.
+     */
+    default long countNewSubscribersForPromoter(Long promoterId, LocalDate start, LocalDate end) {
+        return countConfirmedSubscribersForPromoterBetween(promoterId,
+                start.atStartOfDay(AppTimeZone.ZONE).toInstant(),
+                end.plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant());
+    }
+
+    /** Instant-based half-open {@code [from, to)} form of {@link #countNewSubscribersForPromoter}; see {@link #CONFIRMED_ENROLLMENT_PREDICATE}. */
+    @Query("SELECT COUNT(m) FROM Member m WHERE m.promoter.id = :promoterId AND "
+            + CONFIRMED_ENROLLMENT_PREDICATE
+            + " AND m.confirmedAt >= :from AND m.confirmedAt < :to")
+    long countConfirmedSubscribersForPromoterBetween(@Param("promoterId") Long promoterId,
+                                                     @Param("from") Instant from,
+                                                     @Param("to") Instant to);
 
     /**
      * Hierarchy-override engine (V102): same as {@link
