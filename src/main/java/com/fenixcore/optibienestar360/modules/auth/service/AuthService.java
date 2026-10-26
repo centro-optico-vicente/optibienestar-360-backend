@@ -42,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -371,6 +372,24 @@ public class AuthService {
             );
         });
         // Always return void (don't reveal if email exists)
+    }
+
+    /**
+     * Issues a password-setup token for a user created without a password of
+     * their own (an assisted affiliation approved without one) and returns
+     * the link to the reset page that consumes it. Same mechanism as
+     * {@link #recoverPassword} — only the SHA-256 of the token is stored —
+     * with a caller-chosen TTL, since the link travels in a welcome email
+     * that may be opened days later. Joins the caller's transaction, so the
+     * token exists only if the approval commits.
+     */
+    @Transactional
+    public String issuePasswordSetupLink(User user, Duration ttl, Locale recipientLocale) {
+        String rawToken = generateSecureToken();
+        user.setPasswordResetToken(sha256(rawToken));
+        user.setPasswordResetExpiresAt(Instant.now().plus(ttl));
+        userRepository.save(user);
+        return buildResetUrl(rawToken, recipientLocale != null ? recipientLocale : DEFAULT_RECIPIENT_LOCALE);
     }
 
     /**

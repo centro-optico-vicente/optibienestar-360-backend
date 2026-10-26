@@ -18,6 +18,11 @@ import java.util.UUID;
  * contract shows (name, document, birth date, plan). Approving then creates
  * the member without the acceptance, and the member is asked to accept the
  * corrected text at first login. The password hash is never exposed.</p>
+ *
+ * <p>{@code channel} is {@code SELF_SERVICE} (public form) or {@code ASSISTED}
+ * (filled by {@code advisor} from their portal; {@code createdBy} is that
+ * advisor's user). {@code passwordPending} is {@code true} when no password
+ * was chosen: approval emails a link to create it instead of the login link.</p>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AffiliationRequestDetailDto(
@@ -36,6 +41,9 @@ public record AffiliationRequestDetailDto(
         @Display DisplayRef plan,
         @Display DisplayRef advisor,
         String referralCode,
+        @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.channel") String channel,
+        @Display DisplayRef createdBy,
+        boolean passwordPending,
 
         @Display DisplayRef termsVersion,
         String termsRenderedContent,

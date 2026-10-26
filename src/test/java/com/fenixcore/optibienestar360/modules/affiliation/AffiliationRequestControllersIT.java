@@ -93,6 +93,7 @@ class AffiliationRequestControllersIT {
                 "María", "Pérez", "María Pérez", "V", "12345678", LocalDate.of(1985, 3, 15),
                 "maria@example.com", null, "es",
                 null, null, null,
+                "SELF_SERVICE", null, false,
                 null, "Contrato", "abc", Instant.parse("2026-10-20T14:00:00Z"), null, null, false,
                 status, null, null, null,
                 null, null, null,
@@ -101,7 +102,7 @@ class AffiliationRequestControllersIT {
 
     private static Page<AffiliationRequestListItemDto> onePage() {
         return new PageImpl<>(List.of(new AffiliationRequestListItemDto(UUID.randomUUID(), "María Pérez", "V",
-                "12345678", "maria@example.com", null, null, null, "PENDING",
+                "12345678", "maria@example.com", null, null, null, "SELF_SERVICE", "PENDING",
                 Instant.parse("2026-10-20T14:00:00Z"), null)));
     }
 

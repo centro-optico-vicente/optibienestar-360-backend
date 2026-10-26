@@ -13,7 +13,9 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestLogDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest.Channel;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest.Status;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequestLog;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequestLog.Action;
@@ -26,6 +28,7 @@ import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.auth.service.AuthService;
 import com.fenixcore.optibienestar360.modules.auth.service.UserService;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
@@ -43,6 +46,7 @@ import com.fenixcore.optibienestar360.modules.membership.service.MembershipsServ
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.terms.entity.TermsAcceptance;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
 import com.fenixcore.optibienestar360.modules.terms.service.MemberContractService;
@@ -52,6 +56,7 @@ import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
 import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
@@ -61,6 +66,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -107,6 +113,8 @@ public class AffiliationRequestService {
 
     static final String ENTITY_KEY = "affiliation_request";
 
+    static final long DEFAULT_ACTIVATION_TTL_HOURS = 72;
+
     private static final String[] SEARCHABLE_FIELDS = {
             "firstName", "lastName", "documentNumber", "email", "phone"
     };
@@ -131,44 +139,91 @@ public class AffiliationRequestService {
     private final PasswordEncoder passwordEncoder;
     private final DefaultSortResolver defaultSortResolver;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuthService authService;
+
+    /** Hours the "create your password" link of an assisted approval stays valid. */
+    @Value("${app.affiliation-requests.activation-ttl-hours:72}")
+    private long activationTtlHours = DEFAULT_ACTIVATION_TTL_HOURS;
 
     // ─── Public form ────────────────────────────────────────────────────────
 
     @Transactional
     public AffiliationRequestCreatedDto create(AffiliationRequestCreateRequest req, ClientRequestMetadata client) {
-        String email = normalizeEmail(req.email());
-        String documentNumber = req.documentNumber().trim();
-        requireNotRegistered(req.documentType(), documentNumber, email);
-        if (repository.existsByDocumentTypeAndDocumentNumberAndStatus(req.documentType(), documentNumber, Status.PENDING.name())) {
+        String code = req.referralCode() == null || req.referralCode().isBlank()
+                ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
+        Applicant applicant = new Applicant(req.firstName(), req.lastName(), req.documentType(), req.documentNumber(),
+                req.birthDate(), req.email(), req.phone(), req.planUuid(), req.termsVersionUuid());
+        validateApplicant(applicant);
+        Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
+        return store(applicant, Channel.SELF_SERVICE, promoter, code, passwordEncoder.encode(req.password()),
+                client, null);
+    }
+
+    /**
+     * Assisted affiliation (advisor portal, V194): the advisor fills the form
+     * for a family on their own device and the family accepts the contract
+     * there. Same checks as {@link #create}; the request is attributed to the
+     * caller's active advisor record (404 {@code me.promoter.not_found}
+     * otherwise) — its referral code is stored so approval attributes the
+     * member the same way — and the password is optional (see
+     * {@link #approve}). The CREATED log row carries the advisor as actor.
+     */
+    @Transactional
+    public AffiliationRequestCreatedDto createAssisted(AssistedAffiliationRequestCreateRequest req, UUID advisorUserUuid,
+                                                       ClientRequestMetadata client) {
+        Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        if (!Boolean.TRUE.equals(req.contractAccepted())) {
+            throw new IllegalArgumentException("affiliation_request.contract.not_accepted");
+        }
+        Applicant applicant = new Applicant(req.firstName(), req.lastName(), req.documentType(), req.documentNumber(),
+                req.birthDate(), req.email(), req.phone(), req.planUuid(), req.termsVersionUuid());
+        validateApplicant(applicant);
+        String hash = req.password() == null || req.password().isBlank() ? null : passwordEncoder.encode(req.password());
+        return store(applicant, Channel.ASSISTED, advisor, advisor.getReferralCode(), hash, client,
+                actor(advisorUserUuid));
+    }
+
+    /** The applicant fields both forms share. */
+    private record Applicant(String firstName, String lastName, String documentType, String documentNumber,
+                             LocalDate birthDate, String email, String phone, UUID planUuid, UUID termsVersionUuid) {}
+
+    /** Not registered yet, and no other PENDING request with the same cédula / email. */
+    private void validateApplicant(Applicant a) {
+        String email = normalizeEmail(a.email());
+        String documentNumber = a.documentNumber().trim();
+        requireNotRegistered(a.documentType(), documentNumber, email);
+        if (repository.existsByDocumentTypeAndDocumentNumberAndStatus(a.documentType(), documentNumber, Status.PENDING.name())) {
             throw new IllegalArgumentException("affiliation_request.document.pending");
         }
         if (repository.existsByEmailIgnoreCaseAndStatus(email, Status.PENDING.name())) {
             throw new IllegalArgumentException("affiliation_request.email.pending");
         }
+    }
 
-        String code = req.referralCode() == null || req.referralCode().isBlank()
-                ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
-        Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
-
-        Plan plan = planRepository.findByUuid(req.planUuid()).orElse(null);
+    private AffiliationRequestCreatedDto store(Applicant a, Channel channel, Promoter promoter, String code,
+                                               String passwordHash, ClientRequestMetadata client, User actor) {
+        Plan plan = planRepository.findByUuid(a.planUuid()).orElse(null);
         requireSelfServicePlan(plan);
 
-        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.MEMBER, req.termsVersionUuid());
+        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.MEMBER, a.termsVersionUuid());
 
+        String email = normalizeEmail(a.email());
         AffiliationRequest request = new AffiliationRequest();
-        request.setFirstName(req.firstName().trim());
-        request.setLastName(req.lastName().trim());
-        request.setDocumentType(req.documentType());
-        request.setDocumentNumber(documentNumber);
-        request.setBirthDate(req.birthDate());
+        request.setChannel(channel.name());
+        request.setFirstName(a.firstName().trim());
+        request.setLastName(a.lastName().trim());
+        request.setDocumentType(a.documentType());
+        request.setDocumentNumber(a.documentNumber().trim());
+        request.setBirthDate(a.birthDate());
         request.setEmail(email);
-        request.setPhone(blankToNull(req.phone()));
+        request.setPhone(blankToNull(a.phone()));
         request.setLocale(LocaleContextHolder.getLocale().getLanguage().equals("en") ? "en" : "es");
         request.setPlan(plan);
         request.setPromoter(promoter);
         request.setReferralCode(code);
-        request.setPasswordHash(passwordEncoder.encode(req.password()));
+        request.setPasswordHash(passwordHash);
         request.setTermsVersion(terms);
         String content = memberContractService.render(terms, applicantOf(request));
         request.setTermsRenderedContent(content);
@@ -178,11 +233,15 @@ public class AffiliationRequestService {
         request.setIpAddress(evidence.ipAddress());
         request.setUserAgent(evidence.userAgent());
         request.setStatus(Status.PENDING.name());
+        if (actor != null) {
+            // Also filled by JPA auditing from the security context; explicit for clarity.
+            request.setCreatedBy(actor.getUuid());
+        }
         repository.save(request);
 
-        writeLog(request, Action.CREATED, null, Status.PENDING, null, null, null);
-        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.RECEIVED, request, null));
-        log.info("Affiliation request {} received (referral {})", request.getUuid(), code);
+        writeLog(request, Action.CREATED, null, Status.PENDING, null, null, actor);
+        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.RECEIVED, request, null, null));
+        log.info("Affiliation request {} received ({}, referral {})", request.getUuid(), channel, code);
         return new AffiliationRequestCreatedDto(request.getUuid(), request.getStatus(), email,
                 promoter != null ? promoter.getDisplayName() : null);
     }
@@ -300,18 +359,28 @@ public class AffiliationRequestService {
         Role memberRole = roleRepository.findByName(RoleNames.MEMBER)
                 .orElseThrow(() -> new IllegalStateException("role " + RoleNames.MEMBER + " missing"));
 
+        // Assisted request without password: an unusable random one until the
+        // member sets theirs through the activation link in the approval email.
+        boolean passwordPending = request.getPasswordHash() == null;
+        String passwordHash = passwordPending
+                ? passwordEncoder.encode(UUID.randomUUID() + ":" + UUID.randomUUID())
+                : request.getPasswordHash();
         UserDto createdUser = userService.createUserWithPasswordHash(new AdminCreateUserRequest(
                 request.getEmail(), request.getFirstName(), null, request.getLastName(), null, null,
                 request.getDocumentType(), request.getDocumentNumber(), null, null, request.getPhone(),
-                List.of(memberRole.getUuid()), memberRole.getUuid()), request.getPasswordHash(), actorUuid);
+                List.of(memberRole.getUuid()), memberRole.getUuid()), passwordHash, actorUuid);
 
         String code = request.getReferralCode();
+        String origin = request.isAssisted()
+                ? "Afiliación asistida por el asesor"
+                        + (request.getPromoter() != null ? " " + request.getPromoter().getDisplayName() : "")
+                : "Autoafiliación desde la página pública";
         MemberDetailDto memberDto = membersService.create(new MemberCreateRequest(
                 request.getFirstName(), null, request.getLastName(), null,
                 request.getDocumentType(), request.getDocumentNumber(), null, null,
                 request.getBirthDate(), null, null, null, null, null,
                 request.getPhone(), null, request.getEmail(), request.getLocale(), null, null, null, null, null, null,
-                null, "Autoafiliación desde la página pública" + (code != null ? " · código " + code : ""),
+                null, origin + (code != null ? " · código " + code : ""),
                 code));
 
         MembershipDto enrolled = membershipsService.enroll(memberDto.uuid(),
@@ -327,10 +396,15 @@ public class AffiliationRequestService {
 
         boolean termsUnchanged = !termsChanged(request);
         if (termsUnchanged) {
-            termsAcceptanceService.recordSelfServiceAcceptance(user, request.getTermsVersion(), membership,
+            termsAcceptanceService.recordFormAcceptance(user, request.getTermsVersion(), membership,
                     new ClientRequestMetadata(request.getIpAddress(), request.getUserAgent()),
-                    request.getTermsAcceptedAt(), request.getTermsRenderedContent());
+                    request.getTermsAcceptedAt(), request.getTermsRenderedContent(),
+                    request.isAssisted() ? TermsAcceptance.Channel.ASSISTED : TermsAcceptance.Channel.SELF_SERVICE);
         }
+        String activationUrl = passwordPending
+                ? authService.issuePasswordSetupLink(user, activationTtl(), Locale.forLanguageTag(
+                        request.getLocale() != null ? request.getLocale() : "es"))
+                : null;
 
         request.setUser(user);
         request.setMember(member);
@@ -340,7 +414,7 @@ public class AffiliationRequestService {
         request.setStatus(Status.APPROVED.name());
 
         writeLog(request, Action.APPROVED, Status.PENDING, Status.APPROVED, null, blankToNull(comment), reviewer);
-        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.APPROVED, request, null));
+        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.APPROVED, request, null, activationUrl));
         log.info("Affiliation request {} approved → member {} (terms acceptance {})", request.getUuid(),
                 member.getUuid(), termsUnchanged ? "recorded" : "pending at first login");
         return toDetail(request);
@@ -361,7 +435,7 @@ public class AffiliationRequestService {
         request.setStatus(Status.REJECTED.name());
 
         writeLog(request, Action.REJECTED, Status.PENDING, Status.REJECTED, null, finalReason, reviewer);
-        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.REJECTED, request, finalReason));
+        eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.REJECTED, request, finalReason, null));
         return toDetail(request);
     }
 
@@ -477,7 +551,7 @@ public class AffiliationRequestService {
     private AffiliationRequestListItemDto toListItem(AffiliationRequest r) {
         return new AffiliationRequestListItemDto(
                 r.getUuid(), r.getFullName(), r.getDocumentType(), r.getDocumentNumber(), r.getEmail(), r.getPhone(),
-                DisplayRefs.ref((Object) r.getPlan()), advisorRef(r.getPromoter()),
+                DisplayRefs.ref((Object) r.getPlan()), advisorRef(r.getPromoter()), r.getChannel(),
                 r.getStatus(), r.getCreatedAt(), r.getReviewedAt());
     }
 
@@ -493,6 +567,7 @@ public class AffiliationRequestService {
                 r.getFirstName(), r.getLastName(), r.getFullName(), r.getDocumentType(), r.getDocumentNumber(),
                 r.getBirthDate(), r.getEmail(), r.getPhone(), r.getLocale(),
                 DisplayRefs.ref((Object) r.getPlan()), advisorRef(r.getPromoter()), r.getReferralCode(),
+                r.getChannel(), createdByRef(r), r.getPasswordHash() == null,
                 terms == null ? null : DisplayRef.of(terms.getUuid(), null, terms.getTitle()),
                 r.getTermsRenderedContent(), r.getTermsContentSha256(), r.getTermsAcceptedAt(),
                 r.getIpAddress(), r.getUserAgent(), termsChanged(r),
@@ -506,6 +581,12 @@ public class AffiliationRequestService {
                 : DisplayRef.of(promoter.getUuid(), promoter.getReferralCode(), promoter.getDisplayName());
     }
 
+    /** Who submitted an assisted request (the advisor's user); {@code null} for the anonymous public form. */
+    private DisplayRef createdByRef(AffiliationRequest r) {
+        if (r.getCreatedBy() == null) return null;
+        return userRepository.findByUuid(r.getCreatedBy()).map(AffiliationRequestService::userRef).orElse(null);
+    }
+
     /** A user labelled by their person's full name (falls back to the login email). */
     private static DisplayRef userRef(User user) {
         if (user == null) return null;
@@ -513,11 +594,17 @@ public class AffiliationRequestService {
         return DisplayRef.of(user.getUuid(), null, name != null && !name.isBlank() ? name : user.getEmail());
     }
 
-    private static AffiliationRequestEvent event(AffiliationRequestEvent.Kind kind, AffiliationRequest r, String reason) {
-        return new AffiliationRequestEvent(kind, r.getEmail(), r.getFullName(), r.getLocale(),
+    private static AffiliationRequestEvent event(AffiliationRequestEvent.Kind kind, AffiliationRequest r, String reason,
+                                                 String activationUrl) {
+        return new AffiliationRequestEvent(kind, r.getUuid(), r.getChannel(), r.getEmail(), r.getFullName(), r.getLocale(),
                 r.getPlan() != null ? r.getPlan().getName() : null,
                 r.getPromoter() != null ? r.getPromoter().getDisplayName() : null,
-                reason);
+                reason, activationUrl);
+    }
+
+    /** TTL of the "create your password" link of an assisted approval ({@code app.affiliation-requests.activation-ttl-hours}). */
+    Duration activationTtl() {
+        return Duration.ofHours(activationTtlHours > 0 ? activationTtlHours : DEFAULT_ACTIVATION_TTL_HOURS);
     }
 
     private static String normalizeEmail(String email) {

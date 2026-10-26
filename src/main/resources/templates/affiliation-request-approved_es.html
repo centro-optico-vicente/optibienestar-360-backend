@@ -18,9 +18,14 @@
     <p>Hola <span th:text="${fullName}"></span>,</p>
 
     <div class="info-box">
-        <p>
+        <p th:if="${activationUrl == null}">
             ¡Bienvenido a OptiBienestar 360! Ya puedes iniciar sesión con tu correo y la contraseña
             que elegiste al registrarte.
+        </p>
+        <p th:if="${activationUrl != null}">
+            ¡Bienvenido a OptiBienestar 360! Para entrar, activa tu cuenta creando tu contraseña
+            con el botón de abajo. El enlace vence en <span th:text="${activationTtlHours}"></span> horas;
+            si vence, usa «¿Olvidaste tu contraseña?» en la página de inicio de sesión.
         </p>
     </div>
 
@@ -31,8 +36,14 @@
 
     <p>Tu membresía se activa cuando registremos tu primer pago.</p>
 
-    <p><a class="button" th:href="${loginUrl}">Iniciar sesión</a></p>
-    <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${loginUrl}"></span></p>
+    <th:block th:if="${activationUrl == null}">
+        <p><a class="button" th:href="${loginUrl}">Iniciar sesión</a></p>
+        <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${loginUrl}"></span></p>
+    </th:block>
+    <th:block th:if="${activationUrl != null}">
+        <p><a class="button" th:href="${activationUrl}">Activa tu cuenta / crea tu contraseña</a></p>
+        <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${activationUrl}"></span></p>
+    </th:block>
 
     <div class="footer">
         Centro Óptico Vicente — OptiBienestar 360<br>

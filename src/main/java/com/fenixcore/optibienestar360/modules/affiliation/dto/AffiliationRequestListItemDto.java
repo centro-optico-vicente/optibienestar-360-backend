@@ -10,7 +10,9 @@ import java.util.UUID;
  * Compact row of the admin requests list ({@code GET /v1/admin/affiliation-requests})
  * and of the advisor's own list ({@code GET /v1/me/advisor/affiliation-requests}).
  * The applicant's identity stays flat; plan and advisor follow the
- * {@code _Display} convention (hub ADR 0014).
+ * {@code _Display} convention (hub ADR 0014). {@code channel} tells a public
+ * self-affiliation ({@code SELF_SERVICE}) from one filled by the advisor
+ * ({@code ASSISTED}, V194).
  */
 public record AffiliationRequestListItemDto(
         UUID uuid,
@@ -21,6 +23,7 @@ public record AffiliationRequestListItemDto(
         String phone,
         @Display DisplayRef plan,
         @Display DisplayRef advisor,
+        @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.channel") String channel,
         @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant reviewedAt

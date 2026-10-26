@@ -427,6 +427,28 @@ class TermsAcceptanceServiceTest {
     }
 
     @Test
+    void formAcceptance_assisted_isStoredWithTheAssistedChannel() {
+        Instant acceptedAt = Instant.parse("2026-10-20T14:00:00Z");
+
+        service.recordFormAcceptance(user, memberTerms, null, null, acceptedAt, "Texto mostrado",
+                TermsAcceptance.Channel.ASSISTED);
+
+        ArgumentCaptor<TermsAcceptance> saved = ArgumentCaptor.forClass(TermsAcceptance.class);
+        verify(termsAcceptanceRepository).save(saved.capture());
+        assertThat(saved.getValue().getChannel()).isEqualTo(TermsAcceptance.Channel.ASSISTED);
+        assertThat(saved.getValue().getAcceptedAt()).isEqualTo(acceptedAt);
+        assertThat(saved.getValue().getRenderedContent()).isEqualTo("Texto mostrado");
+    }
+
+    @Test
+    void formAcceptance_rejectsNonFormChannels() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.recordFormAcceptance(user, memberTerms,
+                        null, null, null, "Texto", TermsAcceptance.Channel.PORTAL))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(termsAcceptanceRepository, never()).save(any());
+    }
+
+    @Test
     void sha256_isTheHexDigestOfTheUtf8Text() {
         assertThat(TermsAcceptanceService.sha256("abc"))
                 .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
