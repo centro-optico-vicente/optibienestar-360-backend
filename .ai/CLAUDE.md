@@ -102,3 +102,4 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 - [ADR LOC-0012 Convenciones HTTP para estado vacío](decisions/loc-0012-empty-state-http-conventions.md)
 - [ADR LOC-0013 Convención `?q=` + endpoint `/options`](decisions/loc-0013-options-endpoint-conventions.md)
 - [ADR LOC-0014 Service complexity refactor bajo demanda](decisions/loc-0014-service-complexity-refactor-on-demand.md)
+- [ADR LOC-0015 Contrato OpenAPI publicado por release](decisions/loc-0015-openapi-contract-per-release.md) (Propuesto)
