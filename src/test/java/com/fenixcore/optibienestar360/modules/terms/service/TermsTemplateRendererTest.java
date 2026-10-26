@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,5 +140,100 @@ class TermsTemplateRendererTest {
         assertThat(renderer.render("Sin variables")).isEqualTo("Sin variables");
         assertThat(renderer.render(null)).isNull();
         verifyNoInteractions(organizationRepository);
+    }
+
+    // ─── Repeated sections ({{#agreement.rates}}…{{/agreement.rates}}) ──────
+
+    private static final String RATES_TABLE = """
+            | Servicio | Descuento | Exclusiones |
+            |---|---|---|
+            {{#agreement.rates}}
+            | {{segment}}: {{serviceName}} | {{discountPct}} % | {{exclusions}} |
+            {{/agreement.rates}}
+
+            Firmado en {{org.city}}.""";
+
+    private static TermsRenderContext rates(List<Map<String, String>> rows) {
+        return new TermsRenderContext(Map.of(), Map.of("agreement.rates", rows));
+    }
+
+    @Test
+    void section_writesOneTableLinePerRowAndDropsTheTagLines() {
+        Map<String, String> consult = Map.of("segment", "B2P", "serviceName", "Consulta", "discountPct", "15",
+                "exclusions", "Cirugías mayores");
+        Map<String, String> lab = Map.of("segment", "B2P", "serviceName", "Laboratorio", "discountPct", "10,5");
+
+        String rendered = TermsTemplateRenderer.render(RATES_TABLE, organization(), rates(List.of(consult, lab)));
+
+        assertThat(rendered).isEqualTo("""
+                | Servicio | Descuento | Exclusiones |
+                |---|---|---|
+                | B2P: Consulta | 15 % | Cirugías mayores |
+                | B2P: Laboratorio | 10,5 % | Sin exclusiones |
+
+                Firmado en Acarigua.""");
+    }
+
+    @Test
+    void section_withoutRowsRendersItsPendingNoteOnce() {
+        String expected = """
+                | Servicio | Descuento | Exclusiones |
+                |---|---|---|
+                [Tarifas del convenio pendientes]
+
+                Firmado en Acarigua.""";
+
+        assertThat(TermsTemplateRenderer.render(RATES_TABLE, organization(), rates(List.of()))).isEqualTo(expected);
+        assertThat(TermsTemplateRenderer.render(RATES_TABLE, organization(), TermsRenderContext.EMPTY))
+                .isEqualTo(expected);
+        assertThat(TermsTemplateRenderer.render(RATES_TABLE, organization())).isEqualTo(expected);
+    }
+
+    @Test
+    void section_inlineBlockWritesRowsBackToBackAndResolvesScalarsInside() {
+        String template = "Tarifas en {{org.city}}:{{#agreement.rates}} {{serviceName}} ({{discountPct}} %, {{org.city}});"
+                + "{{/agreement.rates}} fin.";
+        Map<String, String> row = new HashMap<>();
+        row.put("serviceName", "Consulta");
+        row.put("discountPct", "");
+
+        assertThat(TermsTemplateRenderer.render(template, organization(), rates(List.of(row, Map.of("serviceName", "Lentes")))))
+                .isEqualTo("Tarifas en Acarigua: Consulta ([Descuento pendiente] %, Acarigua);"
+                        + " Lentes ([Descuento pendiente] %, Acarigua); fin.");
+        assertThat(TermsTemplateRenderer.render(template, organization(), rates(List.of())))
+                .isEqualTo("Tarifas en Acarigua:[Tarifas del convenio pendientes] fin.");
+    }
+
+    @Test
+    void section_rowFieldsOutsideTheBlockAndUnknownWordsInsideAreLeftUntouched() {
+        String template = "{{serviceName}} / {{#agreement.rates}}{{serviceName}} {{price}}{{/agreement.rates}}";
+
+        assertThat(TermsTemplateRenderer.render(template, organization(), rates(List.of(Map.of("serviceName", "Consulta")))))
+                .isEqualTo("{{serviceName}} / Consulta {{price}}");
+    }
+
+    @Test
+    void section_unknownSectionIsLeftAsWritten() {
+        String template = "{{#foo.bar}}{{serviceName}}{{/foo.bar}}";
+
+        assertThat(TermsTemplateRenderer.render(template, organization(), rates(List.of(Map.of("serviceName", "X")))))
+                .isEqualTo(template);
+    }
+
+    @Test
+    void section_rowValuesWithRegexSpecialCharactersAreInsertedLiterally() {
+        assertThat(TermsTemplateRenderer.render("{{#agreement.rates}}{{exclusions}}{{/agreement.rates}}",
+                organization(), rates(List.of(Map.of("exclusions", "$1 \\ licores")))))
+                .isEqualTo("$1 \\ licores");
+    }
+
+    @Test
+    void renderSample_fillsTheRatesSectionWithSampleRows() {
+        when(organizationRepository.findSingleton()).thenReturn(organization());
+        TermsTemplateRenderer renderer = new TermsTemplateRenderer(organizationRepository);
+
+        assertThat(renderer.renderSample("{{#agreement.rates}}\n| {{serviceName}} | {{discountPct}} % |\n{{/agreement.rates}}",
+                TermType.ALLY))
+                .isEqualTo("| Consulta oftalmológica | 15 % |\n| Exámenes de laboratorio | 10,5 % |\n");
     }
 }

@@ -111,6 +111,66 @@ class TermsVariablesTest {
         assertThat(rows).isEqualTo(3);
     }
 
+    // ─── Sections ───────────────────────────────────────────────────────────
+
+    @Test
+    void ally_offersTheAgreementRatesSectionWithItsRowFields() {
+        assertThat(TermsVariables.sectionsFor(TermType.ALLY)).singleElement().satisfies(section -> {
+            assertThat(section.key()).isEqualTo("agreement.rates");
+            assertThat(section.pendingNote()).isEqualTo("[Tarifas del convenio pendientes]");
+            assertThat(section.fields()).extracting(TermsVariables.Variable::key)
+                    .containsExactly("segment", "category", "serviceName", "discountPct", "exclusions");
+            assertThat(section.field("discountPct")).get().extracting(TermsVariables.Variable::kind)
+                    .isEqualTo(TermsVariables.Kind.NUMBER);
+            assertThat(section.sampleRows()).isNotEmpty();
+        });
+        assertThat(TermsVariables.sectionsFor(TermType.MEMBER)).isEmpty();
+        assertThat(TermsVariables.sectionsFor(TermType.ADVISOR)).isEmpty();
+        assertThat(keys(TermType.ALLY)).doesNotContain("agreement.rates");
+    }
+
+    @Test
+    void unknownIn_acceptsTheRatesBlockWithItsRowFieldsAndScalarsInside() {
+        String template = """
+                | Servicio | Descuento | Exclusiones |
+                |---|---|---|
+                {{#agreement.rates}}
+                | {{ segment }}: {{serviceName}} ({{category}}) | {{discountPct}} % | {{exclusions}} · {{ally.name}} |
+                {{/agreement.rates}}
+                {{# agreement.rates }}{{serviceName}}{{/ agreement.rates }}""";
+
+        assertThat(TermsVariables.unknownIn(template, TermType.ALLY)).isEmpty();
+    }
+
+    @Test
+    void unknownIn_rowFieldsAreOnlyValidInsideTheirBlock() {
+        assertThat(TermsVariables.unknownIn("{{serviceName}} {{#agreement.rates}}{{price}}{{/agreement.rates}}",
+                TermType.ALLY)).containsExactly("serviceName", "price");
+    }
+
+    @Test
+    void unknownIn_rejectsTheSectionKeyAloneUnknownOrUnpairedBlocksAndOtherKindsSections() {
+        assertThat(TermsVariables.unknownIn("{{agreement.rates}}", TermType.ALLY)).containsExactly("agreement.rates");
+        assertThat(TermsVariables.unknownIn("{{#foo.bar}}{{serviceName}}{{/foo.bar}}", TermType.ALLY))
+                .containsExactly("#foo.bar", "serviceName");
+        assertThat(TermsVariables.unknownIn("{{#agreement.rates}} {{serviceName}}", TermType.ALLY))
+                .containsExactly("#agreement.rates", "serviceName");
+        assertThat(TermsVariables.unknownIn("{{serviceName}} {{/agreement.rates}}", TermType.ALLY))
+                .containsExactly("serviceName", "/agreement.rates");
+        assertThat(TermsVariables.unknownIn("{{#agreement.rates}}{{serviceName}}{{/agreement.rates}}", TermType.MEMBER))
+                .containsExactly("#agreement.rates", "serviceName");
+    }
+
+    @Test
+    void sampleContextFor_ally_carriesTheScalarSamplesAndTheSampleRows() {
+        TermsRenderContext context = TermsVariables.sampleContextFor(TermType.ALLY);
+
+        assertThat(context.values()).containsEntry("agreement.noticeDays", "30");
+        assertThat(context.rows("agreement.rates")).isNotEmpty()
+                .allSatisfy(row -> assertThat(row).containsKeys("serviceName", "discountPct"));
+        assertThat(TermsVariables.sampleContextFor(TermType.MEMBER).sections()).isEmpty();
+    }
+
     private static List<String> keys(TermType type) {
         return TermsVariables.forType(type).stream().map(TermsVariables.Variable::key).toList();
     }

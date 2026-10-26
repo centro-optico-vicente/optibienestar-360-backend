@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,16 +63,27 @@ public class TermsVersionService {
 
     /**
      * {@code GET /v1/admin/terms/variables?type=} — the variables a template
-     * of {@code termType} may use (common ones first), each with its
+     * of {@code termType} may use (common ones first, its repeated sections
+     * last as {@code LIST} entries carrying their row fields), each with its
      * description in the request locale.
      */
     public List<TermsVariableDto> listVariables(TermType termType) {
         Locale locale = LocaleContextHolder.getLocale();
-        return TermsVariables.forType(termType).stream()
-                .map(v -> new TermsVariableDto(v.key(),
-                        messageSource.getMessage(TermsVariables.descriptionCode(v.key()), null, v.key(), locale),
-                        v.kind()))
-                .toList();
+        List<TermsVariableDto> variables = new ArrayList<>(TermsVariables.forType(termType).stream()
+                .map(v -> new TermsVariableDto(v.key(), describe(v.key(), locale), v.kind()))
+                .toList());
+        for (TermsVariables.Section section : TermsVariables.sectionsFor(termType)) {
+            List<TermsVariableDto> fields = section.fields().stream()
+                    .map(f -> new TermsVariableDto(f.key(), describe(section.key() + "." + f.key(), locale), f.kind()))
+                    .toList();
+            variables.add(new TermsVariableDto(section.key(), describe(section.key(), locale),
+                    TermsVariables.Kind.LIST, fields));
+        }
+        return List.copyOf(variables);
+    }
+
+    private String describe(String key, Locale locale) {
+        return messageSource.getMessage(TermsVariables.descriptionCode(key), null, key, locale);
     }
 
     public List<TermsVersionDto> listAll() {

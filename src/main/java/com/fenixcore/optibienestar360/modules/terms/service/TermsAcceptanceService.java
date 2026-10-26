@@ -158,10 +158,10 @@ public class TermsAcceptanceService {
     private final class Due {
         private final TermsVersion version;
         private final AllyAgreement agreement;
-        private final Supplier<Map<String, String>> values;
+        private final Supplier<TermsRenderContext> values;
         private String rendered;
 
-        private Due(TermsVersion version, AllyAgreement agreement, Supplier<Map<String, String>> values) {
+        private Due(TermsVersion version, AllyAgreement agreement, Supplier<TermsRenderContext> values) {
             this.version = version;
             this.agreement = agreement;
             this.values = values;
@@ -185,9 +185,11 @@ public class TermsAcceptanceService {
         Instant now = Instant.now();
         List<Due> required = new ArrayList<>();
         currentOf(TermType.MEMBER, now)
-                .ifPresent(v -> required.add(new Due(v, null, () -> variableResolver.forMember(user))));
+                .ifPresent(v -> required.add(new Due(v, null,
+                        () -> TermsRenderContext.of(variableResolver.forMember(user)))));
         activeAdvisor(user.getUuid()).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
-                .ifPresent(v -> required.add(new Due(v, null, () -> variableResolver.forAdvisor(advisor)))));
+                .ifPresent(v -> required.add(new Due(v, null,
+                        () -> TermsRenderContext.of(variableResolver.forAdvisor(advisor))))));
         for (AllyAgreement agreement : allyAgreementsWithVigentTemplate(user.getUuid(), now)) {
             required.add(new Due(agreement.getTermsVersion(), agreement, () -> variableResolver.forAlly(agreement)));
         }
@@ -253,11 +255,12 @@ public class TermsAcceptanceService {
             return acceptance.getRenderedContent();
         }
         TermsVersion version = acceptance.getTermsVersion();
-        Map<String, String> values = switch (version.getTermType()) {
-            case MEMBER -> variableResolver.forMember(user);
-            case ADVISOR -> activeAdvisor(user.getUuid()).map(variableResolver::forAdvisor).orElse(Map.of());
+        TermsRenderContext values = switch (version.getTermType()) {
+            case MEMBER -> TermsRenderContext.of(variableResolver.forMember(user));
+            case ADVISOR -> TermsRenderContext.of(
+                    activeAdvisor(user.getUuid()).map(variableResolver::forAdvisor).orElse(Map.of()));
             case ALLY -> acceptance.getAllyAgreement() == null
-                    ? Map.of() : variableResolver.forAlly(acceptance.getAllyAgreement());
+                    ? TermsRenderContext.EMPTY : variableResolver.forAlly(acceptance.getAllyAgreement());
         };
         return renderer.render(version.getContentMarkdown(), values);
     }

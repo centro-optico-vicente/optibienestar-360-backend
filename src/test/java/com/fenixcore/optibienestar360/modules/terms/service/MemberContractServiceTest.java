@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
@@ -47,6 +48,7 @@ class MemberContractServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
+    @Mock private AllyServiceRepository allyServiceRepository;
 
     private MemberContractService service;
     private TermsVersion version;
@@ -58,7 +60,8 @@ class MemberContractServiceTest {
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setFallbackToSystemLocale(false);
         TermsVariableResolver resolver = new TermsVariableResolver(memberRepository, membershipRepository,
-                beneficiaryRepository, new DisplayFormatter(messageSource), organizationRepository);
+                beneficiaryRepository, new DisplayFormatter(messageSource), organizationRepository,
+                allyServiceRepository);
         service = new MemberContractService(termsVersionService, new TermsTemplateRenderer(organizationRepository),
                 resolver, planRepository);
 

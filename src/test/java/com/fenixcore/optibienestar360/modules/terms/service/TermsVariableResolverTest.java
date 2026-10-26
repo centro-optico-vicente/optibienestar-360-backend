@@ -3,6 +3,11 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
@@ -25,8 +30,10 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +53,7 @@ class TermsVariableResolverTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private OrganizationRepository organizationRepository;
+    @Mock private AllyServiceRepository allyServiceRepository;
 
     private TermsVariableResolver resolver;
     private DisplayFormatter formatter;
@@ -58,7 +66,7 @@ class TermsVariableResolverTest {
         messageSource.setFallbackToSystemLocale(false);
         formatter = new DisplayFormatter(messageSource);
         resolver = new TermsVariableResolver(memberRepository, membershipRepository, beneficiaryRepository,
-                formatter, organizationRepository);
+                formatter, organizationRepository, allyServiceRepository);
     }
 
     // ─── MEMBER ─────────────────────────────────────────────────────────────
@@ -256,7 +264,7 @@ class TermsVariableResolverTest {
         agreement.setAutoRenew(false);
         agreement.setTerms("Descuento adicional los sábados.");
 
-        Map<String, String> values = resolver.forAlly(agreement);
+        Map<String, String> values = resolver.forAlly(agreement).values();
 
         assertThat(values).containsEntry("ally.name", "Clínica Ejemplo, C.A.")
                 .containsEntry("ally.taxId", "J-12345678-9")
@@ -277,11 +285,62 @@ class TermsVariableResolverTest {
         agreement.setAlly(ally);
         agreement.setAutoRenew(true);
 
-        Map<String, String> values = resolver.forAlly(agreement);
+        Map<String, String> values = resolver.forAlly(agreement).values();
 
         assertThat(render("{{agreement.autoRenew}} · {{ally.taxId}} · {{ally.representativeName}} · {{agreement.addendum}}",
                 values)).isEqualTo("Sí · [RIF del aliado pendiente] · [Representante pendiente] · "
                 + "[Condiciones particulares pendiente]");
+    }
+
+    @Test
+    void ally_ratesAreTheApprovedActiveServicesByNameWithSegmentCategoryDiscountAndExclusions() {
+        Ally ally = new Ally();
+        ally.setId(9L);
+        ally.setName("Clínica Ejemplo, C.A.");
+        ally.setAllyTypes(Set.of(allyType(AllyType.Segment.B2P), allyType(AllyType.Segment.B2B)));
+        AllyService lab = service(2L, "laboratorio clínico", "Exámenes", new BigDecimal("10.50"), "Insumos de alto costo");
+        AllyService consult = service(1L, "Consulta oftalmológica", "Consultas", new BigDecimal("15.00"), null);
+        AllyService retired = service(3L, "Cirugía", "Cirugías", new BigDecimal("5"), null);
+        retired.setActive(false);
+        when(allyServiceRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED))
+                .thenReturn(List.of(lab, retired, consult));
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+
+        List<Map<String, String>> rows = resolver.forAlly(agreement).rows("agreement.rates");
+
+        assertThat(rows).containsExactly(
+                Map.of("segment", "B2B/B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
+                        "discountPct", "15"),
+                Map.of("segment", "B2B/B2P", "category", "Exámenes", "serviceName", "laboratorio clínico",
+                        "discountPct", "10,50", "exclusions", "Insumos de alto costo"));
+        assertThat(render("{{#agreement.rates}}{{serviceName}}: {{exclusions}}. {{/agreement.rates}}",
+                resolver.forAlly(agreement)))
+                .isEqualTo("Consulta oftalmológica: Sin exclusiones. laboratorio clínico: Insumos de alto costo. ");
+    }
+
+    @Test
+    void ally_withoutApprovedServicesRendersTheRatesPendingNote() {
+        Ally ally = new Ally();
+        ally.setId(9L);
+        when(allyServiceRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED)).thenReturn(List.of());
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+
+        TermsRenderContext context = resolver.forAlly(agreement);
+
+        assertThat(context.rows("agreement.rates")).isEmpty();
+        assertThat(render("{{#agreement.rates}}{{serviceName}}{{/agreement.rates}}", context))
+                .isEqualTo("[Tarifas del convenio pendientes]");
+    }
+
+    @Test
+    void ally_notPersistedYetSkipsTheServicesLookup() {
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(new Ally());
+
+        assertThat(resolver.forAlly(agreement).rows("agreement.rates")).isEmpty();
+        verifyNoInteractions(allyServiceRepository);
     }
 
     // ─── Fixtures ───────────────────────────────────────────────────────────
@@ -322,6 +381,30 @@ class TermsVariableResolverTest {
 
     private static String render(String template, Map<String, String> values) {
         return TermsTemplateRenderer.render(template, new Organization(), values);
+    }
+
+    private static String render(String template, TermsRenderContext context) {
+        return TermsTemplateRenderer.render(template, new Organization(), context);
+    }
+
+    private static AllyType allyType(AllyType.Segment segment) {
+        AllyType type = new AllyType();
+        type.setCode("T-" + segment);
+        type.setSegment(segment);
+        return type;
+    }
+
+    private static AllyService service(Long id, String name, String category, BigDecimal discount, String exclusions) {
+        ServiceCategory serviceCategory = new ServiceCategory();
+        serviceCategory.setName(category);
+        AllyService service = new AllyService();
+        service.setId(id);
+        service.setName(name);
+        service.setServiceCategory(serviceCategory);
+        service.setDiscountPct(discount);
+        service.setExclusions(exclusions);
+        service.setReviewStatus(ReviewStatus.APPROVED);
+        return service;
     }
 
     private static User user(Person person) {

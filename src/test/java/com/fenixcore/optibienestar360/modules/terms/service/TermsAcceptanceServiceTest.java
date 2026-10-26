@@ -89,10 +89,11 @@ class TermsAcceptanceServiceTest {
         user.setUuid(UUID.randomUUID());
         lenient().when(userRepository.findByUuid(user.getUuid())).thenReturn(Optional.of(user));
         lenient().when(renderer.render(anyString(), anyMap())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(renderer.render(anyString(), any(TermsRenderContext.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(promoterRepository.findActiveByUserUuid(user.getUuid())).thenReturn(Optional.empty());
         lenient().when(variableResolver.forMember(any())).thenReturn(Map.of());
         lenient().when(variableResolver.forAdvisor(any())).thenReturn(Map.of());
-        lenient().when(variableResolver.forAlly(any())).thenReturn(Map.of());
+        lenient().when(variableResolver.forAlly(any())).thenReturn(TermsRenderContext.EMPTY);
         lenient().when(termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(anyLong(), anyLong()))
                 .thenReturn(false);
         lenient().when(termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementId(anyLong(), anyLong(),
@@ -167,8 +168,8 @@ class TermsAcceptanceServiceTest {
 
         service.pendingForUser(user.getUuid());
 
-        verify(renderer).render(memberTerms.getContentMarkdown(), memberValues);
-        verify(renderer).render(advisorTerms.getContentMarkdown(), advisorValues);
+        verify(renderer).render(memberTerms.getContentMarkdown(), TermsRenderContext.of(memberValues));
+        verify(renderer).render(advisorTerms.getContentMarkdown(), TermsRenderContext.of(advisorValues));
     }
 
     @Test
@@ -200,13 +201,13 @@ class TermsAcceptanceServiceTest {
         when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(List.of(ally.getId()), "ACTIVE"))
                 .thenReturn(List.of(linked, agreement(ally, null)));
         Map<String, String> allyValues = Map.of("ally.name", "Clínica");
-        when(variableResolver.forAlly(linked)).thenReturn(allyValues);
+        when(variableResolver.forAlly(linked)).thenReturn(TermsRenderContext.of(allyValues));
 
         List<PendingTermDto> pending = service.pendingForUser(user.getUuid());
 
         assertThat(pending).extracting(PendingTermDto::termsVersionUuid)
                 .containsExactly(memberTerms.getUuid(), template.getUuid());
-        verify(renderer).render(template.getContentMarkdown(), allyValues);
+        verify(renderer).render(template.getContentMarkdown(), TermsRenderContext.of(allyValues));
     }
 
     @Test
@@ -218,10 +219,10 @@ class TermsAcceptanceServiceTest {
         AllyAgreement south = agreement(second, template);
         when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
                 .thenReturn(List.of(south, north));
-        when(variableResolver.forAlly(north)).thenReturn(Map.of("ally.name", "Clínica Norte"));
-        when(variableResolver.forAlly(south)).thenReturn(Map.of("ally.name", "Clínica Sur"));
-        when(renderer.render(eq(template.getContentMarkdown()), anyMap()))
-                .thenAnswer(inv -> "Convenio con " + ((Map<?, ?>) inv.getArgument(1)).get("ally.name"));
+        when(variableResolver.forAlly(north)).thenReturn(TermsRenderContext.of(Map.of("ally.name", "Clínica Norte")));
+        when(variableResolver.forAlly(south)).thenReturn(TermsRenderContext.of(Map.of("ally.name", "Clínica Sur")));
+        when(renderer.render(eq(template.getContentMarkdown()), any(TermsRenderContext.class)))
+                .thenAnswer(inv -> "Convenio con " + ((TermsRenderContext) inv.getArgument(1)).values().get("ally.name"));
 
         List<PendingTermDto> allyItems = service.pendingForUser(user.getUuid()).stream()
                 .filter(p -> p.termType() == TermType.ALLY).toList();
@@ -273,9 +274,9 @@ class TermsAcceptanceServiceTest {
         AllyAgreement south = agreement(second, template);
         when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
                 .thenReturn(List.of(north, south));
-        when(variableResolver.forAlly(north)).thenReturn(Map.of("ally.name", "Clínica Norte"));
-        when(renderer.render(eq(template.getContentMarkdown()), anyMap()))
-                .thenAnswer(inv -> "Convenio con " + ((Map<?, ?>) inv.getArgument(1)).get("ally.name"));
+        when(variableResolver.forAlly(north)).thenReturn(TermsRenderContext.of(Map.of("ally.name", "Clínica Norte")));
+        when(renderer.render(eq(template.getContentMarkdown()), any(TermsRenderContext.class)))
+                .thenAnswer(inv -> "Convenio con " + ((TermsRenderContext) inv.getArgument(1)).values().get("ally.name"));
 
         service.accept(user.getUuid(), List.of(new TermsAcceptRequest.Item(template.getUuid(), north.getUuid())), null);
 
@@ -353,14 +354,14 @@ class TermsAcceptanceServiceTest {
         when(termsAcceptanceRepository.findFirstByUserIdAndAllyAgreementAllyIdOrderByAcceptedAtDescIdDesc(user.getId(),
                 ally.getId())).thenReturn(Optional.of(legacy));
         Map<String, String> oldValues = Map.of("ally.name", "Clínica Norte");
-        when(variableResolver.forAlly(oldAgreement)).thenReturn(oldValues);
+        when(variableResolver.forAlly(oldAgreement)).thenReturn(TermsRenderContext.of(oldValues));
 
         PendingTermDto item = service.pendingForUser(user.getUuid()).stream()
                 .filter(p -> p.termType() == TermType.ALLY).findFirst().orElseThrow();
 
         assertThat(item.previousAcceptance()).isNotNull();
         assertThat(item.previousAcceptance().renderedContent()).isEqualTo("Plantilla v1 {{ally.name}}");
-        verify(renderer).render("Plantilla v1 {{ally.name}}", oldValues);
+        verify(renderer).render("Plantilla v1 {{ally.name}}", TermsRenderContext.of(oldValues));
     }
 
     @Test
@@ -503,6 +504,7 @@ class TermsAcceptanceServiceTest {
         assertThat(service.hasPending(user.getUuid(), TermType.ADVISOR)).isFalse();
         assertThat(service.hasPending(user.getUuid(), TermType.ALLY)).isFalse();
         verify(renderer, never()).render(anyString(), anyMap());
+        verify(renderer, never()).render(anyString(), any(TermsRenderContext.class));
     }
 
     @Test
