@@ -165,10 +165,11 @@ public class AlliesService {
      * temporarily-unpublished ones. All inputs are optional — passing
      * everything null returns every published ally (paginated).
      *
-     * <p>{@code q} is a free-text search across {@code name} +
-     * {@code description}; reuses {@link SearchSpecifications#acrossFields}
-     * so accents are normalized ({@code "merida"} matches
-     * {@code "Mérida"}). The profession filter joins through the
+     * <p>Text filters take what a visitor types (see {@link PublicAllySearch}): {@code q} matches the ally's name,
+     * RIF, ally number, description, city or state; {@code city} a city or
+     * state name; {@code category} / {@code type} keep allies publicly offering
+     * something of that category / type. Accents are normalized
+     * ({@code "merida"} matches {@code "Mérida"}). The profession filter joins through the
      * {@code @ManyToMany ally_professions} pivot with
      * {@code query.distinct(true)} so an ally with multiple professions
      * doesn't duplicate in results.</p>
@@ -176,19 +177,19 @@ public class AlliesService {
      * @return paginated sanitized {@link PublicAllyListItemDto} — see that
      *         DTO for which fields are intentionally omitted.
      */
-    public Page<PublicAllyListItemDto> publicDirectory(UUID cityUuid,
-                                                       UUID professionUuid,
-                                                       UUID categoryUuid,
-                                                       ProductType type,
-                                                       String q,
-                                                       Pageable pageable) {
+    public Page<PublicAllyListItemDto> publicDirectory(PublicAllySearch search, Pageable pageable) {
         Specification<Ally> spec = publishedOnly();
 
+        UUID cityUuid = search.cityUuid();
         if (cityUuid != null) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("city").get("uuid"), cityUuid));
         }
+        if (PublicCatalogSearch.hasText(search.city())) {
+            spec = spec.and(PublicCatalogSearch.allyCityMatches(search.city()));
+        }
 
+        UUID professionUuid = search.professionUuid();
         if (professionUuid != null) {
             spec = spec.and((root, query, cb) -> {
                 if (query != null) {
@@ -199,12 +200,14 @@ public class AlliesService {
             });
         }
 
-        if (categoryUuid != null || type != null) {
-            spec = spec.and(offersPublicly(categoryUuid, type));
+        ProductType type = PublicCatalogSearch.parseType(search.type());
+        String category = PublicCatalogSearch.hasText(search.category()) ? search.category() : null;
+        if (search.categoryUuid() != null || category != null || type != null) {
+            spec = spec.and(offersPublicly(search.categoryUuid(), category, type));
         }
 
-        if (q != null && !q.isBlank()) {
-            spec = spec.and(SearchSpecifications.acrossFields(q, "name", "description"));
+        if (PublicCatalogSearch.hasText(search.q())) {
+            spec = spec.and(PublicCatalogSearch.allyMatchesAnything(search.q()));
         }
 
         return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
@@ -215,7 +218,7 @@ public class AlliesService {
      * 0026) — an EXISTS over {@code ally_products} with the same visibility rule
      * as the public catalog, so an ally never matches through a hidden offer.
      */
-    private static Specification<Ally> offersPublicly(UUID categoryUuid, ProductType type) {
+    private static Specification<Ally> offersPublicly(UUID categoryUuid, String category, ProductType type) {
         return (root, query, cb) -> {
             Subquery<Long> sub = query.subquery(Long.class);
             Root<AllyProduct> offer = sub.from(AllyProduct.class);
@@ -227,6 +230,10 @@ public class AlliesService {
                     cb.isTrue(offer.get("product").get("active"))));
             if (categoryUuid != null) {
                 predicates.add(cb.equal(offer.get("product").get("productCategory").get("uuid"), categoryUuid));
+            }
+            if (category != null) {
+                predicates.add(PublicCatalogSearch.categoryMatches(cb,
+                        offer.join("product").join("productCategory"), category));
             }
             if (type != null) {
                 predicates.add(cb.equal(offer.get("product").get("productType"), type));

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicAllySearch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +25,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -83,7 +84,7 @@ class PublicAllyControllerIT {
     void directory_isPublic_andBrieflyCacheable_andRevalidatesWithEtag() throws Exception {
         // Same instance on both calls: identical bodies are what yield the same ETag.
         PublicAllyListItemDto dto = clinicDto();
-        when(alliesService.publicDirectory(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(alliesService.publicDirectory(eq(PublicAllySearch.none()), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto)));
 
         // No .with(user(...)) — a truly anonymous request must succeed.
