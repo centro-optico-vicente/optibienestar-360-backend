@@ -3,8 +3,13 @@ package com.fenixcore.optibienestar360.modules.terms.service;
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyService;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyService.ReviewStatus;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyServiceRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
+import com.fenixcore.optibienestar360.modules.catalog.entity.ServiceCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
@@ -21,9 +26,13 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Builds the per-entity values of a T&C template ({@link TermsVariables})
@@ -64,6 +73,7 @@ public class TermsVariableResolver {
     private final BeneficiaryRepository beneficiaryRepository;
     private final DisplayFormatter displayFormatter;
     private final OrganizationRepository organizationRepository;
+    private final AllyServiceRepository allyServiceRepository;
 
     /**
      * MEMBER values for {@code user}. The holder is the user's member record;
@@ -141,8 +151,15 @@ public class TermsVariableResolver {
         return values;
     }
 
-    /** ALLY values from the agreement that links the template and its ally. */
-    public Map<String, String> forAlly(AllyAgreement agreement) {
+    /**
+     * ALLY values from the agreement that links the template and its ally,
+     * plus the {@code agreement.rates} rows: one per approved, active service
+     * of the ally (by name, case-insensitive), with the ally's segment
+     * ({@code B2B}/{@code B2P}, both when its types mix them), the service
+     * category, the service name, its discount (es-VE number, no {@code %})
+     * and its operational exclusions.
+     */
+    public TermsRenderContext forAlly(AllyAgreement agreement) {
         Map<String, String> values = new HashMap<>();
         Ally ally = agreement.getAlly();
         if (ally != null) {
@@ -157,7 +174,45 @@ public class TermsVariableResolver {
         put(values, "agreement.noticeDays", number(agreement.getNoticeDays()));
         put(values, "agreement.autoRenew", displayFormatter.bool(agreement.isAutoRenew(), CONTRACT_LOCALE));
         put(values, "agreement.addendum", agreement.getTerms());
-        return values;
+        return new TermsRenderContext(values, Map.of(TermsVariables.AGREEMENT_RATES.key(), rates(ally)));
+    }
+
+    /** The {@code agreement.rates} rows of {@code ally} (empty without a persisted ally). */
+    private List<Map<String, String>> rates(Ally ally) {
+        if (ally == null || ally.getId() == null) return List.of();
+        List<AllyService> services = allyServiceRepository.findByAllyIdAndReviewStatus(ally.getId(),
+                ReviewStatus.APPROVED);
+        if (services == null || services.isEmpty()) return List.of();
+        String segment = segmentOf(ally);
+        return services.stream()
+                .filter(AllyService::isActive)
+                .sorted(Comparator.comparing((AllyService s) -> s.getName() == null ? "" : s.getName(),
+                                String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(AllyService::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(service -> {
+                    Map<String, String> row = new HashMap<>();
+                    put(row, "segment", segment);
+                    ServiceCategory category = service.getServiceCategory();
+                    put(row, "category", category == null ? null : category.getName());
+                    put(row, "serviceName", service.getName());
+                    put(row, "discountPct", number(service.getDiscountPct()));
+                    put(row, "exclusions", service.getExclusions());
+                    return Map.copyOf(row);
+                })
+                .toList();
+    }
+
+    /** The segment(s) of the ally's types, sorted and joined ({@code "B2B"}, {@code "B2B/B2P"}); {@code null} without types. */
+    private static String segmentOf(Ally ally) {
+        if (ally.getAllyTypes() == null || ally.getAllyTypes().isEmpty()) return null;
+        String joined = ally.getAllyTypes().stream()
+                .map(AllyType::getSegment)
+                .filter(Objects::nonNull)
+                .map(Enum::name)
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining("/"));
+        return joined.isEmpty() ? null : joined;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

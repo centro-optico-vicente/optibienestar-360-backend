@@ -26,8 +26,16 @@ import java.util.stream.Stream;
  *   <li><b>MEMBER</b>: the affiliate holder, their active membership, its
  *   beneficiaries and its plan's fees and beneficiary limits ({@code plan.*}).</li>
  *   <li><b>ADVISOR</b>: the advisor's own record ({@code promoters}).</li>
- *   <li><b>ALLY</b>: the ally and the agreement that links the template.</li>
+ *   <li><b>ALLY</b>: the ally and the agreement that links the template,
+ *   plus the repeated section {@code agreement.rates} (one row per approved
+ *   service of the ally — the agreement's rates table).</li>
  * </ul>
+ *
+ * <p>A <b>section</b> ({@link Section}) is a block repeated once per row:
+ * {@code {{#agreement.rates}} | {{serviceName}} | {{discountPct}} % | {{/agreement.rates}}}.
+ * Inside it, the single-word placeholders are the row's fields
+ * ({@code {{serviceName}}}); they are only valid there. A section with no rows
+ * renders its pending note once.</p>
  *
  * <p>Each variable carries the Spanish note rendered when its value is
  * missing (e.g. {@code [RIF pendiente]}) and a sample value for the admin
@@ -40,9 +48,11 @@ public final class TermsVariables {
      * How a variable's value is formatted in the contract text (es-VE): plain
      * text, a {@code dd-MM-yyyy} date, a locale-formatted number, an amount in
      * its own currency (see {@link TermsVariableResolver#MONEY_PAYMENT_CLAUSE_VES})
-     * or {@code Sí}/{@code No}. Exposed to the admin editor as a hint.
+     * or {@code Sí}/{@code No}. {@code LIST} is a repeated {@link Section}
+     * (its rows' fields carry their own kind). Exposed to the admin editor as
+     * a hint.
      */
-    public enum Kind { TEXT, DATE, NUMBER, MONEY, BOOLEAN }
+    public enum Kind { TEXT, DATE, NUMBER, MONEY, BOOLEAN, LIST }
 
     /** One template variable: its key, value kind, the note shown when the value is missing, a preview sample. */
     public record Variable(String key, Kind kind, String pendingNote, String sample) {
@@ -50,6 +60,21 @@ public final class TermsVariables {
         /** A {@link Kind#TEXT} variable. */
         public Variable(String key, String pendingNote, String sample) {
             this(key, Kind.TEXT, pendingNote, sample);
+        }
+    }
+
+    /**
+     * A repeated block {@code {{#key}}…{{/key}}}: rendered once per row, its
+     * single-word placeholders ({@code {{serviceName}}}) resolved against the
+     * row's {@code fields} (a blank field shows that field's pending note).
+     * No rows = {@code pendingNote} once, in place of the whole block.
+     */
+    public record Section(String key, String pendingNote, List<Variable> fields,
+                          List<Map<String, String>> sampleRows) {
+
+        /** The row field {@code name}, if this section has it. */
+        public Optional<Variable> field(String name) {
+            return fields.stream().filter(f -> f.key().equals(name)).findFirst();
         }
     }
 
@@ -65,6 +90,21 @@ public final class TermsVariables {
 
     /** Anything between double braces — used to validate a template on save. */
     private static final Pattern ANY_PLACEHOLDER = Pattern.compile("\\{\\{\\s*([^{}]*?)\\s*}}");
+
+    /**
+     * A section block {@code {{#group.name}}…{{/group.name}}} (lazy, so
+     * consecutive blocks don't merge; no nesting). Group 1 = key, group 2 =
+     * the inner text, group 3 = the line break right after the closing tag.
+     */
+    static final Pattern SECTION = Pattern.compile(
+            "\\{\\{\\s*#\\s*([A-Za-z]+\\.[A-Za-z]+)\\s*}}(.*?)\\{\\{\\s*/\\s*\\1\\s*}}(\\r?\\n)?", Pattern.DOTALL);
+
+    /** Any block {@code {{#x}}…{{/x}}} whatever its key — used to validate a template on save; group 3 = closing tag. */
+    private static final Pattern ANY_SECTION = Pattern.compile(
+            "\\{\\{\\s*#\\s*([^{}]*?)\\s*}}(.*?)(\\{\\{\\s*/\\s*\\1\\s*}})", Pattern.DOTALL);
+
+    /** A row-field placeholder inside a section: a single word, {@code {{serviceName}}}. */
+    static final Pattern ROW_FIELD = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
     /** Organization values (V181) — resolved from the singleton organization, preview included. */
     static final List<Variable> COMMON = List.of(
@@ -115,6 +155,28 @@ public final class TermsVariables {
                     "Descuento adicional del 5 % en consultas los sábados.")
     );
 
+    /** Rates table of the ally agreement: one row per approved, active service of the ally, by name. */
+    static final Section AGREEMENT_RATES = new Section("agreement.rates", "[Tarifas del convenio pendientes]",
+            List.of(
+                    new Variable("segment", "[Segmento pendiente]", "B2P"),
+                    new Variable("category", "[Categoría pendiente]", "Consultas"),
+                    new Variable("serviceName", "[Servicio pendiente]", "Consulta oftalmológica"),
+                    new Variable("discountPct", Kind.NUMBER, "[Descuento pendiente]", "15"),
+                    new Variable("exclusions", "Sin exclusiones", "Intervenciones quirúrgicas mayores")
+            ),
+            List.of(
+                    Map.of("segment", "B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
+                            "discountPct", "15", "exclusions", "Intervenciones quirúrgicas mayores"),
+                    Map.of("segment", "B2P", "category", "Exámenes", "serviceName", "Exámenes de laboratorio",
+                            "discountPct", "10,5", "exclusions", "Insumos de alto costo")
+            ));
+
+    static final List<Section> ALLY_SECTIONS = List.of(AGREEMENT_RATES);
+
+    private static final Map<String, Section> SECTION_BY_KEY = Stream.of(ALLY_SECTIONS)
+            .flatMap(List::stream)
+            .collect(Collectors.toMap(Section::key, s -> s, (a, b) -> a, LinkedHashMap::new));
+
     /** Every per-entity variable (all kinds), by key. */
     private static final Map<String, Variable> ENTITY_BY_KEY = Stream.of(MEMBER, ADVISOR, ALLY)
             .flatMap(List::stream)
@@ -133,7 +195,16 @@ public final class TermsVariables {
         return List.copyOf(all);
     }
 
-    /** Message-bundle code of a variable's description ({@code terms.variable.<key>}). */
+    /** Repeated sections valid for {@code type} (only ALLY has one today). */
+    public static List<Section> sectionsFor(TermType type) {
+        return type == TermType.ALLY ? ALLY_SECTIONS : List.of();
+    }
+
+    /**
+     * Message-bundle code of a variable's description ({@code terms.variable.<key>});
+     * a section's row field is {@code <section key>.<field>}
+     * ({@code terms.variable.agreement.rates.serviceName}).
+     */
     public static String descriptionCode(String key) {
         return "terms.variable." + key;
     }
@@ -147,25 +218,79 @@ public final class TermsVariables {
         return samples;
     }
 
+    /** Sample values and section rows of {@code type}, for the admin preview. */
+    public static TermsRenderContext sampleContextFor(TermType type) {
+        Map<String, List<Map<String, String>>> rows = new HashMap<>();
+        for (Section section : sectionsFor(type)) {
+            rows.put(section.key(), section.sampleRows());
+        }
+        return new TermsRenderContext(samplesFor(type), rows);
+    }
+
     /**
      * Placeholders of {@code template} that are not valid for {@code type},
      * in order of first appearance, without duplicates. Empty = valid.
+     * A section's row fields ({@code serviceName}) are only valid inside a
+     * {@code {{#section}}…{{/section}}} block of a section of {@code type};
+     * the section key on its own ({@code {{agreement.rates}}}), a block of an
+     * unknown section ({@code #foo.bar}) or an unpaired tag are reported as
+     * written (without braces).
      */
     public static List<String> unknownIn(String template, TermType type) {
         if (template == null || !template.contains("{{")) return List.of();
         Set<String> allowed = forType(type).stream().map(Variable::key).collect(Collectors.toSet());
+        Map<String, Section> sections = sectionsFor(type).stream()
+                .collect(Collectors.toMap(Section::key, s -> s));
+        // Spans of the well-formed blocks: [open tag start, close tag end) + their section (null = unknown key).
+        List<int[]> spans = new ArrayList<>();
+        List<Section> spanSections = new ArrayList<>();
+        List<int[]> closeTags = new ArrayList<>();
+        Matcher block = ANY_SECTION.matcher(template);
+        while (block.find()) {
+            spans.add(new int[]{block.start(), block.end()});
+            spanSections.add(sections.get(block.group(1)));
+            closeTags.add(new int[]{block.start(3), block.end(3)});
+        }
         Set<String> unknown = new LinkedHashSet<>();
         Matcher matcher = ANY_PLACEHOLDER.matcher(template);
         while (matcher.find()) {
             String key = matcher.group(1).trim();
-            if (!allowed.contains(key)) unknown.add(key);
+            int span = spanAt(spans, matcher.start());
+            if (span >= 0 && closeTags.get(span)[0] == matcher.start()) {
+                continue; // closing tag of a block: its opening tag already decided
+            }
+            Section section = span >= 0 ? spanSections.get(span) : null;
+            if (key.startsWith("#")) {
+                boolean opensKnownBlock = span >= 0 && spans.get(span)[0] == matcher.start() && section != null;
+                if (!opensKnownBlock) unknown.add(key.replaceAll("\\s+", ""));
+                continue;
+            }
+            if (key.startsWith("/")) {
+                unknown.add(key.replaceAll("\\s+", "")); // a closing tag without its opening one
+                continue;
+            }
+            boolean rowField = section != null && section.field(key).isPresent();
+            if (!rowField && !allowed.contains(key)) unknown.add(key);
         }
         return List.copyOf(unknown);
+    }
+
+    /** Index of the span containing {@code position}, or -1. */
+    private static int spanAt(List<int[]> spans, int position) {
+        for (int i = 0; i < spans.size(); i++) {
+            if (position >= spans.get(i)[0] && position < spans.get(i)[1]) return i;
+        }
+        return -1;
     }
 
     /** The organization variable {@code key}, if it is one. */
     static Optional<Variable> common(String key) {
         return Optional.ofNullable(COMMON_BY_KEY.get(key));
+    }
+
+    /** The repeated section {@code key} (any kind), if it is one. */
+    static Optional<Section> section(String key) {
+        return Optional.ofNullable(SECTION_BY_KEY.get(key));
     }
 
     /** The per-entity variable {@code key} (any kind), if it is one. */
