@@ -200,17 +200,19 @@ public class MembersService {
         Specification<Member> reachable = (root, query, cb) -> {
             var advisor = root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT);
             return cb.or(cb.isNull(advisor.get("id")), cb.isTrue(advisor.get("system")),
-                    cb.equal(advisor.get("id"), promoter.getId()));
+                cb.equal(advisor.get("id"), promoter.getId()))
+            ;
         };
         Specification<Member> spec = activeOnly()
                 .and(SearchSpecifications.acrossFields(q, "person.fullName", "person.documentNumber")).and(reachable);
         int size = Math.max(1, Math.min(limit, 20));
         return memberRepository.findAll(spec, org.springframework.data.domain.PageRequest.of(0, size,
-                        org.springframework.data.domain.Sort.by("id")))
-                .map(m -> new com.fenixcore.optibienestar360.modules.member.dto.PortfolioCandidateDto(
-                        m.getUuid(), m.getPerson().getDocumentNumber(), m.getPerson().getFullName(),
-                        m.getPromoter() != null && m.getPromoter().getId().equals(promoter.getId())))
-                .getContent();
+                org.springframework.data.domain.Sort.by("id")))
+            .map(m -> new com.fenixcore.optibienestar360.modules.member.dto.PortfolioCandidateDto(
+                m.getUuid(), m.getPerson().getDocumentNumber(), m.getPerson().getFullName(),
+                m.getPromoter() != null && m.getPromoter().getId().equals(promoter.getId())))
+            .getContent()
+        ;
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────
