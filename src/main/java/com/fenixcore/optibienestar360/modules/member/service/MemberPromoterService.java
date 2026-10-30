@@ -188,6 +188,29 @@ public class MemberPromoterService {
                 .toList();
     }
 
+    /**
+     * The caller's own advisor and the advisors they had before ({@code GET /v1/me/member/advisor}).
+     * A user with no member record gets {@code exists=false} rather than a 404 (hub ADR 0012), since
+     * advisors and allies see this screen too. Audit-only details (actor, reason) are left out.
+     */
+    public com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto myAdvisor(UUID userUuid) {
+        Member member = memberRepository.findByUserUuid(userUuid).orElse(null);
+        if (member == null) {
+            return new com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto(false, null, null, List.of());
+        }
+        Promoter current = member.getPromoter();
+        List<com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto.Entry> history =
+                assignmentRepository.findByMember_UuidOrderByCreatedAtDesc(member.getUuid()).stream()
+                        .map(a -> new com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto.Entry(
+                                a.getFromPromoter() != null ? a.getFromPromoter().getDisplayName() : null,
+                                a.getToPromoter().getDisplayName(),
+                                a.getCreatedAt()))
+                        .toList();
+        return new com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto(true,
+                current != null ? current.getUuid() : null,
+                current != null ? current.getDisplayName() : null, history);
+    }
+
     private MemberPromoterAssignmentDto toDto(MemberPromoterAssignment a) {
         Promoter from = a.getFromPromoter();
         Promoter to = a.getToPromoter();

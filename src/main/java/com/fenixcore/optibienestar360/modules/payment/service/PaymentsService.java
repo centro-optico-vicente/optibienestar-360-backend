@@ -164,6 +164,9 @@ public class PaymentsService {
     private final NotificationChannelResolver notificationChannelResolver;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
+    private final PersonCreditService personCreditService;
+    private final com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
+    private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -310,7 +313,8 @@ public class PaymentsService {
                 ? userRepository.findByUuid(request.payerUserUuid())
                         .orElseThrow(() -> new NoSuchElementException("user.not_found"))
                 : null;
-        return registerInternal(membership, payer, request.amount(), request.currency(),
+        return registerInternal(membership.getMember().getPerson(), membership.getMember(), membership, payer,
+                request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -469,11 +473,17 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto registerOwn(UUID actorUserUuid, MyPaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
-        Member member = memberRepository.findByUserUuid(actorUserUuid)
-                .orElseThrow(() -> new NoSuchElementException("member.not_found"));
-        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
-                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
-        return registerInternal(membership, null, request.amount(), request.currency(),
+        User user = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        // No membership is needed to pay (V201): without one the payment becomes credit once approved.
+        Member member = memberRepository.findByUserUuid(actorUserUuid).orElse(null);
+        Person person = user.getPerson() != null ? user.getPerson() : member != null ? member.getPerson() : null;
+        if (person == null) {
+            throw new NoSuchElementException("person.not_found");
+        }
+        Membership membership = member == null ? null
+                : membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+        return registerInternal(person, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -504,12 +514,20 @@ public class PaymentsService {
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         Member member = memberRepository.findByUuid(request.memberUuid())
                 .orElseThrow(() -> new NoSuchElementException("member.not_found"));
-        if (member.getPromoter() == null || !member.getPromoter().getId().equals(promoter.getId())) {
+        Promoter owner = member.getPromoter();
+        boolean inPortfolio = owner != null && owner.getId().equals(promoter.getId());
+        // A member nobody advises (no promoter, or only the INSTITUCION system advisor) may be collected from
+        // by any advisor, who then takes them into their own portfolio; another advisor's member never.
+        boolean unassigned = owner == null || owner.isSystem();
+        if (!inPortfolio && !unassigned) {
             throw new NoSuchElementException("promoter.member.not_in_portfolio");
         }
-        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
-                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
-        return registerInternal(membership, null, request.amount(), request.currency(),
+        if (!inPortfolio) {
+            memberPromoterService.assign(member.getUuid(), promoter.getUuid(), "Assigned on first collection", actorUserUuid);
+        }
+        // Membership is optional (V201): a member without an active one pays an advance / credit.
+        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+        return registerInternal(member.getPerson(), member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -524,7 +542,8 @@ public class PaymentsService {
      * mandatory-flag validation (e.g. pago móvil requires a bank but not an
      * account number; cheque/transferencia require both).
      */
-    private PaymentDto registerInternal(Membership membership, User payer, BigDecimal amount, String currencyCode,
+    private PaymentDto registerInternal(Person person, Member member, Membership membership, User payer,
+                                        BigDecimal amount, String currencyCode,
                                         UUID methodUuid, UUID bankUuid, String identification,
                                         String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
                                         String phone, String email, String referenceNumber, Instant paymentDate,
@@ -585,6 +604,9 @@ public class PaymentsService {
         }
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
+        if (inscription && membership == null) {
+            throw new IllegalArgumentException("payment.inscription.requires_membership");
+        }
         payment.setInscription(inscription);
         LocalDate resolvedAppliedPeriod = resolveAppliedPeriod(inscription, appliedPeriod);
         payment.setAppliedPeriod(resolvedAppliedPeriod);
@@ -610,8 +632,9 @@ public class PaymentsService {
         // never a commission payout (OUT — CommissionPayoutService).
         payment.setDirection("IN");
         payment.setPaymentType(resolvePaymentCategory(inscription));
-        payment.setPerson(membership.getMember().getPerson());
-        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+        payment.setPerson(person);
+        payment.setPromoter(member == null ? null
+                : PromoterResolver.resolveForAttribution(member, promoterRepository).orElse(null));
         if (inscription) {
             promotionPricing.applyInscriptionDiscount(payment,
                     actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null));
@@ -707,6 +730,7 @@ public class PaymentsService {
         line.setPhone(req.phone());
         line.setEmail(req.email());
         line.setReferenceNumber(req.referenceNumber());
+        line.setCompanyBankAccount(companyBankAccountService.resolveActive(req.companyBankAccountUuid()));
         return line;
     }
 
@@ -718,6 +742,78 @@ public class PaymentsService {
             throw new IllegalArgumentException("payment.phone.required");
         if (method.isMandatoryEmail() && (email == null || email.isBlank()))
             throw new IllegalArgumentException("payment.email.required");
+    }
+
+    // ─── Membership-less payments: credit and assignment (V201) ──────────────
+
+    /** {@code GET /v1/me/payments/credit-balance} — the caller's credit ("saldo a favor") per currency. */
+    public com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto creditBalanceOf(UUID actorUserUuid) {
+        User user = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Person person = user.getPerson();
+        if (person == null) {
+            return new com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto(List.of());
+        }
+        return personCreditService.balanceOf(person.getId());
+    }
+
+    /**
+     * The payer points their own not-yet-approved payment at a membership — typically a relative paying the
+     * holder's plan. The reviewer still verifies the payment on approval, so no extra authority is needed.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto assignOwnToMembership(UUID actorUserUuid, UUID paymentUuid,
+                                            com.fenixcore.optibienestar360.modules.payment.dto.OwnPaymentMembershipRequest request) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        String status = payment.getStatus();
+        if (!PaymentStatus.DRAFT.name().equals(status) && !PaymentStatus.PENDING.name().equals(status)) {
+            throw new IllegalArgumentException("payment.membership.not_editable");
+        }
+        Membership membership = membershipRepository.findByUuid(request.membershipUuid())
+                .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
+        payment.setMembership(membership);
+        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Staff assigns an already APPROVED, membership-less collection (credit) to a membership: books the
+     * remaining credit as applied and runs the settlement effects the approval skipped (charges, commission,
+     * member confirmation).
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto assignToMembership(UUID paymentUuid,
+                                         com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request) {
+        Payment payment = findManaged(paymentUuid);
+        ensureCollection(payment);
+        if (!PaymentStatus.APPROVED.name().equals(payment.getStatus()) || payment.getMembership() != null) {
+            throw new IllegalArgumentException("payment.credit.not_assignable");
+        }
+        Membership membership = membershipRepository.findByUuid(request.membershipUuid())
+                .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
+        LocalDate applied = resolveAppliedPeriod(false, request.appliedPeriod());
+        LocalDate through = resolveCoverageThroughPeriod(false, applied, request.coverageThroughPeriod());
+
+        personCreditService.applyRemaining(payment, membership);
+        payment.setMembership(membership);
+        payment.setInscription(false);
+        payment.setAppliedPeriod(applied);
+        payment.setCoverageThroughPeriod(through);
+        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+
+        snapshotExchangeRate(payment);
+        validatorCacheService.evictForMembership(membership);
+        confirmMemberOnFirstApprovedPayment(payment);
+        attributeCommission(payment);
+        applyMembershipCharges(payment);
+        eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
+        return mapper.toDto(payment);
     }
 
     // ─── Lines lifecycle (DRAFT ⇄ PENDING, V117 lines feature) ──────────────
@@ -1057,6 +1153,8 @@ public class PaymentsService {
         if (!"OUT".equals(payment.getDirection())) {
             snapshotExchangeRate(payment);
             validatorCacheService.evictForMembership(payment.getMembership());
+            // No membership (V201): the money is the person's credit until it is assigned to one.
+            personCreditService.recordCreditIfUnassigned(payment);
             // Confirm BEFORE attributing: the commission tier count only counts confirmed
             // enrollments (MemberRepository.countNewSubscribersForPromoter), and this very
             // payment is what confirms the member — so the tier evaluation must see them.
@@ -1091,6 +1189,9 @@ public class PaymentsService {
      * here means this is the first one.
      */
     private void confirmMemberOnFirstApprovedPayment(Payment payment) {
+        if (payment.getMembership() == null) {
+            return;
+        }
         Member member = payment.getMembership().getMember();
         if (member.getConfirmedAt() != null) {
             return;
@@ -1199,6 +1300,9 @@ public class PaymentsService {
      * the payment-review workflow.
      */
     private void snapshotExchangeRate(Payment payment) {
+        if (payment.getMembership() == null) {
+            return;
+        }
         var membershipCurrency = payment.getMembership().getCurrency();
         if (membershipCurrency == null || membershipCurrency.getId().equals(payment.getCurrency().getId())) {
             return;

@@ -83,6 +83,11 @@ public class PaymentLine extends BaseEntity {
 	@Column(length = 160)
 	private String email;
 
+    /** Company account the payer says they paid into (V201); optional. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_bank_account_id")
+    private com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount companyBankAccount;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;

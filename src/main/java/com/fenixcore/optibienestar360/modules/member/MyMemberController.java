@@ -40,6 +40,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class MyMemberController {
 
     private final MembersService membersService;
+    private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
+
+    /** The caller's advisor and previous advisors (V201); {@code exists=false} when they have no member record. */
+    @GetMapping("/advisor")
+    @PreAuthorize("hasAuthority('MEMBER_ADVISOR_VIEW_OWN')")
+    public ResponseEntity<com.fenixcore.optibienestar360.modules.member.dto.MyAdvisorDto> myAdvisor(
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(memberPromoterService.myAdvisor(actor.getUuid()));
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_VIEW_OWN')")

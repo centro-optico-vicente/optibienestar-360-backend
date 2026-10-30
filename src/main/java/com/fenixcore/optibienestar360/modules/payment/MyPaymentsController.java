@@ -75,6 +75,24 @@ public class MyPaymentsController {
         return ResponseEntity.created(location).body(created);
     }
 
+    /** The caller's credit ("saldo a favor") per currency — they may hold some without any membership (V201). */
+    @GetMapping("/credit-balance")
+    @PreAuthorize("hasAuthority('COLLECTION_VIEW_OWN')")
+    public ResponseEntity<com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto> creditBalance(
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.creditBalanceOf(actor.getUuid()));
+    }
+
+    /** Points the caller's own not-yet-approved payment at a membership (e.g. paying a relative-holder's plan). */
+    @PutMapping("/{uuid}/membership")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<PaymentDto> assignMembership(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.OwnPaymentMembershipRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.assignOwnToMembership(actor.getUuid(), uuid, request));
+    }
+
     /** Replaces the lines of the caller's own {@code DRAFT} payment (V117 lines feature). */
     @PutMapping("/{uuid}/lines")
 	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
