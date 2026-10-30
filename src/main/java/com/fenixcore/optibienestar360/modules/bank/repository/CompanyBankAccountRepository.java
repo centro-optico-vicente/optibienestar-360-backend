@@ -16,4 +16,6 @@ public interface CompanyBankAccountRepository
     Optional<CompanyBankAccount> findByUuid(UUID uuid);
 
     List<CompanyBankAccount> findAllByActiveTrueOrderBySortOrderAscIdAsc();
+
+    List<CompanyBankAccount> findAllByActiveTrueAndPublicVisibleTrueOrderBySortOrderAscIdAsc();
 }

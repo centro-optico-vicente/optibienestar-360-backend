@@ -17,5 +17,6 @@ public record CompanyBankAccountDto(
         String holderDocument,
         String notes,
         int sortOrder,
+        boolean publicVisible,
         @Display(Display.Kind.BOOLEAN) boolean active
 ) {}

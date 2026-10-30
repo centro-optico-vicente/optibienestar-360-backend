@@ -17,5 +17,7 @@ public record CompanyBankAccountRequest(
         @NotBlank @Size(max = 30) String holderDocument,
         @Size(max = 255) String notes,
         Integer sortOrder,
+        /** Show it without authentication on the public endpoint; defaults to private on create. */
+        Boolean publicVisible,
         Boolean active
 ) {}

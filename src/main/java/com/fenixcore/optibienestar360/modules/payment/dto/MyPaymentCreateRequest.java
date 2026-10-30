@@ -61,5 +61,11 @@ public record MyPaymentCreateRequest(
         UUID beneficiaryMembershipUuid,
 
         /** Holder with no active membership, confirmed through the same lookup: the payment becomes their credit. */
-        UUID beneficiaryPersonUuid
+        UUID beneficiaryPersonUuid,
+
+        /**
+         * Remember the origin account of this payment (V204) so the next one can reuse it. Only the payer's own
+         * account is saved (bank + account number of the first line, or of the flat fields when there are no lines).
+         */
+        Boolean rememberOriginAccount
 ) {}
