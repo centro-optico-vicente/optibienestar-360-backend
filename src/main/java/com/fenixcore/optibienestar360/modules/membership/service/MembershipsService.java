@@ -129,7 +129,7 @@ public class MembershipsService {
                 && !m.getNextDueDate().isAfter(today.plusDays(DEFAULT_DUE_SOON_DAYS));
         String paymentStatus = !collectible ? null : overdue ? "OVERDUE" : dueSoon ? "DUE_SOON" : "UP_TO_DATE";
         return new com.fenixcore.optibienestar360.modules.membership.dto.MembershipListItemDto(
-                m.getUuid(), member.getUuid(),
+                m.getUuid(), member.getUuid(), m.getContractNumber(),
                 com.fenixcore.optibienestar360.core.display.DisplayRefs.ref(member),
                 advisor == null ? null : com.fenixcore.optibienestar360.core.display.DisplayRefs.ref(advisor),
                 m.getPlan().getUuid(), m.getPlan().getCode(), m.getPlan().getName(), m.getPlan().getType(),

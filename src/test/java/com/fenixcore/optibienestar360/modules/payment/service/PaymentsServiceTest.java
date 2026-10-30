@@ -203,6 +203,77 @@ class PaymentsServiceTest {
     }
 
     @Test
+    void lookupMembershipForPayer_returnsAnAbbreviatedHolderName() {
+        Person person = new Person();
+        person.setFirstName("Maria");
+        person.setLastName("Perez");
+        Member member = new Member();
+        member.setId(9L);
+        member.setPerson(person);
+        com.fenixcore.optibienestar360.modules.membership.entity.Plan plan =
+                new com.fenixcore.optibienestar360.modules.membership.entity.Plan();
+        plan.setName("Familiar");
+        Membership membership = new Membership();
+        membership.setUuid(UUID.randomUUID());
+        membership.setPlan(plan);
+        when(memberRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(member));
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(9L)).thenReturn(Optional.of(membership));
+
+        var found = sut().lookupMembershipForPayer(" 12345678 ", null);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).holderName()).isEqualTo("Maria P.");
+        assertThat(found.get(0).planName()).isEqualTo("Familiar");
+    }
+
+    @Test
+    void lookupMembershipForPayer_returnsAHolderWithoutAnActiveMembership_soTheirCreditCanBeTargeted() {
+        Person person = new Person();
+        person.setUuid(UUID.randomUUID());
+        person.setFirstName("Luis");
+        Member member = new Member();
+        member.setId(4L);
+        member.setPerson(person);
+        when(memberRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(member));
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(4L)).thenReturn(Optional.empty());
+
+        var found = sut().lookupMembershipForPayer("87654321", null);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).personUuid()).isEqualTo(person.getUuid());
+        assertThat(found.get(0).membershipUuid()).isNull();
+        assertThat(found.get(0).planName()).isNull();
+    }
+
+    @Test
+    void lookupMembershipForPayer_findsByContractNumber() {
+        Person person = new Person();
+        person.setFirstName("Ana");
+        person.setLastName("Gomez");
+        Member member = new Member();
+        member.setPerson(person);
+        com.fenixcore.optibienestar360.modules.membership.entity.Plan plan =
+                new com.fenixcore.optibienestar360.modules.membership.entity.Plan();
+        plan.setName("Individual");
+        Membership membership = new Membership();
+        membership.setUuid(UUID.randomUUID());
+        membership.setMember(member);
+        membership.setPlan(plan);
+        when(membershipRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(membership));
+
+        var found = sut().lookupMembershipForPayer(null, " ob-000123 ");
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).holderName()).isEqualTo("Ana G.");
+        assertThat(found.get(0).membershipUuid()).isEqualTo(membership.getUuid());
+    }
+
+    @Test
+    void lookupMembershipForPayer_isEmptyForABlankDocument() {
+        assertThat(sut().lookupMembershipForPayer("  ", null)).isEmpty();
+    }
+
+    @Test
     void registerForDownline_rejectsMemberOfAnotherAdvisor() {
         Promoter me = new Promoter();
         me.setId(1L);

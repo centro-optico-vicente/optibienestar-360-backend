@@ -37,6 +37,11 @@ public record PaymentDto(
         @Display DisplayRef person,
         @Display DisplayRef promoter,
 
+        /** Who the payment credits when the payer is not the holder (V203), with document / contract snapshots. */
+        @Display DisplayRef beneficiary,
+        String beneficiaryDocument,
+        String beneficiaryContractNumber,
+
         // Subject (flat refs — member/membership resolve to a readable
         // _Display via DisplayRefs, never a bare UUID; see ADR 0014). Null for
         // `direction=OUT` — a commission payout has no membership (V120).

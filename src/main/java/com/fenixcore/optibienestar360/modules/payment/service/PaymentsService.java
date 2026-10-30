@@ -313,7 +313,7 @@ public class PaymentsService {
                 ? userRepository.findByUuid(request.payerUserUuid())
                         .orElseThrow(() -> new NoSuchElementException("user.not_found"))
                 : null;
-        return registerInternal(membership.getMember().getPerson(), membership.getMember(), membership, payer,
+        return registerInternal(membership.getMember().getPerson(), null, membership.getMember(), membership, payer,
                 request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
@@ -483,7 +483,29 @@ public class PaymentsService {
         }
         Membership membership = member == null ? null
                 : membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
-        return registerInternal(person, member, membership, null, request.amount(), request.currency(),
+
+        // Paying for somebody else (V203): the beneficiary was found and confirmed by the payer through the lookup,
+        // so the payment settles THEIR membership (or, with none, becomes THEIR credit); the payer stays the origin.
+        Person beneficiary = null;
+        if (request.beneficiaryMembershipUuid() != null) {
+            Membership target = membershipRepository.findByUuid(request.beneficiaryMembershipUuid())
+                    .filter(Membership::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
+            membership = target;
+            member = target.getMember();
+            beneficiary = target.getMember().getPerson();
+        } else if (request.beneficiaryPersonUuid() != null) {
+            beneficiary = personRepository.findByUuid(request.beneficiaryPersonUuid())
+                    .filter(Person::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("person.not_found"));
+            member = memberRepository.findByPersonId(beneficiary.getId()).orElse(null);
+            membership = member == null ? null
+                    : membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+        }
+        if (beneficiary != null && beneficiary.getId().equals(person.getId())) {
+            beneficiary = null;   // paying for oneself is not a third-party payment
+        }
+        return registerInternal(person, beneficiary, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -527,7 +549,7 @@ public class PaymentsService {
         }
         // Membership is optional (V201): a member without an active one pays an advance / credit.
         Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
-        return registerInternal(member.getPerson(), member, membership, null, request.amount(), request.currency(),
+        return registerInternal(member.getPerson(), null, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -542,7 +564,7 @@ public class PaymentsService {
      * mandatory-flag validation (e.g. pago móvil requires a bank but not an
      * account number; cheque/transferencia require both).
      */
-    private PaymentDto registerInternal(Person person, Member member, Membership membership, User payer,
+    private PaymentDto registerInternal(Person person, Person beneficiary, Member member, Membership membership, User payer,
                                         BigDecimal amount, String currencyCode,
                                         UUID methodUuid, UUID bankUuid, String identification,
                                         String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
@@ -633,6 +655,13 @@ public class PaymentsService {
         payment.setDirection("IN");
         payment.setPaymentType(resolvePaymentCategory(inscription));
         payment.setPerson(person);
+        if (beneficiary != null) {
+            payment.setBeneficiaryPerson(beneficiary);
+            payment.setBeneficiaryDocument(beneficiary.getDocumentNumber());
+        }
+        if (membership != null && beneficiary != null) {
+            payment.setBeneficiaryContractNumber(membership.getContractNumber());
+        }
         payment.setPromoter(member == null ? null
                 : PromoterResolver.resolveForAttribution(member, promoterRepository).orElse(null));
         if (inscription) {
@@ -745,6 +774,53 @@ public class PaymentsService {
     }
 
     // ─── Membership-less payments: credit and assignment (V201) ──────────────
+
+    /**
+     * Confirmation step for paying on behalf of somebody (V203): finds the holder by exact document number or
+     * exact contract number, so the payer SEES who it is (abbreviated name, contract, plan) before sending the
+     * money — never a free-typed reference that a typo could send to the wrong person. An exact match only; this
+     * is not a way to browse affiliates. A holder with no active membership still comes back (membership fields
+     * null) so the payment can become their credit.
+     */
+    public List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto> lookupMembershipForPayer(
+            String documentNumber, String contractNumber) {
+        List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto> found = new java.util.ArrayList<>();
+        if (contractNumber != null && !contractNumber.isBlank()) {
+            String normalized = contractNumber.trim().toUpperCase();
+            Specification<Membership> bySpec = (root, query, cb) -> cb.and(
+                    cb.isTrue(root.get("active")), cb.equal(root.get("contractNumber"), normalized));
+            for (Membership m : membershipRepository.findAll(bySpec)) {
+                found.add(toLookup(m.getMember(), m));
+            }
+        } else if (documentNumber != null && !documentNumber.isBlank()) {
+            String normalized = documentNumber.trim();
+            Specification<Member> bySpec = (root, query, cb) -> cb.and(
+                    cb.isTrue(root.get("active")),
+                    cb.equal(root.get("person").get("documentNumber"), normalized));
+            for (Member member : memberRepository.findAll(bySpec)) {
+                found.add(toLookup(member,
+                        membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null)));
+            }
+        }
+        return found;
+    }
+
+    private static com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto toLookup(Member member, Membership membership) {
+        return new com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto(
+                member.getPerson().getUuid(),
+                membership == null ? null : membership.getUuid(),
+                membership == null ? null : membership.getContractNumber(),
+                abbreviatedName(member.getPerson()),
+                membership == null ? null : membership.getPlan().getName());
+    }
+
+    private static String abbreviatedName(Person person) {
+        if (person == null || person.getFirstName() == null) {
+            return "";
+        }
+        String last = person.getLastName();
+        return last == null || last.isBlank() ? person.getFirstName() : person.getFirstName() + " " + last.charAt(0) + ".";
+    }
 
     /** {@code GET /v1/me/payments/credit-balance} — the caller's credit ("saldo a favor") per currency. */
     public com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto creditBalanceOf(UUID actorUserUuid) {

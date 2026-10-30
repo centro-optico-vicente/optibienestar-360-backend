@@ -108,6 +108,20 @@ public class Payment extends BaseEntity {
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<PaymentLine> lines = new ArrayList<>();
 
+    /**
+     * Who the payment credits when the payer ({@link #person}) is not the holder, e.g. a relative paying (V203).
+     * {@code null} = credited to the payer. The document and contract number are snapshots for bank reconciliation.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "beneficiary_person_id")
+    private Person beneficiaryPerson;
+
+    @Column(name = "beneficiary_document", length = 30)
+    private String beneficiaryDocument;
+
+    @Column(name = "beneficiary_contract_number", length = 20)
+    private String beneficiaryContractNumber;
+
     // ─── Subject ───────────────────────────────────────────────────────────
 
     /** NOT NULL for {@code direction=IN}, always {@code null} for {@code OUT} (V120 CHECK). */

@@ -23,6 +23,7 @@ public interface PaymentMapper {
     @Mapping(target = "paymentType",              source = "paymentType")
     @Mapping(target = "person",                   source = "person")
     @Mapping(target = "promoter",                 source = "promoter")
+    @Mapping(target = "beneficiary",             source = "beneficiaryPerson")
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")

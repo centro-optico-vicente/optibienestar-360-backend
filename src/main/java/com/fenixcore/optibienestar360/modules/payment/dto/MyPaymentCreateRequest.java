@@ -52,5 +52,14 @@ public record MyPaymentCreateRequest(
         String adminNotes,
 
         /** See {@link PaymentCreateRequest#lines()}. */
-        @Valid List<PaymentLineRequest> lines
+        @Valid List<PaymentLineRequest> lines,
+
+        /**
+         * Pay for someone else (V203): the membership found and confirmed through
+         * {@code GET /v1/me/payments/membership-lookup}. When set, the payment settles that membership.
+         */
+        UUID beneficiaryMembershipUuid,
+
+        /** Holder with no active membership, confirmed through the same lookup: the payment becomes their credit. */
+        UUID beneficiaryPersonUuid
 ) {}
