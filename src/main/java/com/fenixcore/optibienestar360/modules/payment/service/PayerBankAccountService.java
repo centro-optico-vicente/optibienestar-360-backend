@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.PayerBankAccount;
 import com.fenixcore.optibienestar360.modules.payment.repository.PayerBankAccountRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -36,11 +37,61 @@ public class PayerBankAccountService {
                 .map(PayerBankAccountService::toDto).toList();
     }
 
+    public PayerBankAccountDto getMine(UUID userUuid, UUID accountUuid) {
+        return toDto(findMine(userUuid, accountUuid));
+    }
+
+    /** Adds one of the caller's own accounts; the same bank + number twice is rejected, not duplicated. */
+    @Transactional
+    public PayerBankAccountDto createMine(UUID userUuid, PayerBankAccountRequest request) {
+        Person person = personOf(userUuid);
+        Bank bank = activeBank(request.bankUuid());
+        String identifier = request.accountIdentifier().trim();
+        if (repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(person.getId(), bank.getId(), identifier).isPresent()) {
+            throw new IllegalArgumentException("payer_bank_account.duplicate");
+        }
+        PayerBankAccount account = new PayerBankAccount();
+        account.setPerson(person);
+        apply(account, bank, identifier, request);
+        return toDto(repository.save(account));
+    }
+
+    @Transactional
+    public PayerBankAccountDto updateMine(UUID userUuid, UUID accountUuid, PayerBankAccountRequest request) {
+        PayerBankAccount account = findMine(userUuid, accountUuid);
+        Bank bank = activeBank(request.bankUuid());
+        String identifier = request.accountIdentifier().trim();
+        repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(account.getPerson().getId(), bank.getId(), identifier)
+                .filter(other -> !other.getId().equals(account.getId()))
+                .ifPresent(other -> {
+                    throw new IllegalArgumentException("payer_bank_account.duplicate");
+                });
+        apply(account, bank, identifier, request);
+        return toDto(account);
+    }
+
+    private static void apply(PayerBankAccount account, Bank bank, String identifier, PayerBankAccountRequest request) {
+        account.setBank(bank);
+        account.setAccountIdentifier(identifier);
+        account.setAccountType(request.accountType());
+        account.setAccountCode(request.accountCode());
+        account.setIdentification(request.identification());
+        account.setAlias(request.alias());
+    }
+
+    private Bank activeBank(UUID bankUuid) {
+        return bankRepository.findByUuid(bankUuid).filter(Bank::isActive)
+                .orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+    }
+
+    private PayerBankAccount findMine(UUID userUuid, UUID accountUuid) {
+        return repository.findByUuidAndPersonIdAndActiveTrue(accountUuid, personOf(userUuid).getId())
+                .orElseThrow(() -> new NoSuchElementException("payer_bank_account.not_found"));
+    }
+
     @Transactional
     public void deleteMine(UUID userUuid, UUID accountUuid) {
-        PayerBankAccount account = repository.findByUuidAndPersonIdAndActiveTrue(accountUuid, personOf(userUuid).getId())
-                .orElseThrow(() -> new NoSuchElementException("person_bank_account.not_found"));
-        account.setActive(false);
+        findMine(userUuid, accountUuid).setActive(false);
     }
 
     /**
