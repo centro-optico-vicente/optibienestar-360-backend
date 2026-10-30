@@ -167,6 +167,7 @@ public class PaymentsService {
     private final PersonCreditService personCreditService;
     private final com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
     private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
+    private final PersonBankAccountService personBankAccountService;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -504,6 +505,17 @@ public class PaymentsService {
         }
         if (beneficiary != null && beneficiary.getId().equals(person.getId())) {
             beneficiary = null;   // paying for oneself is not a third-party payment
+        }
+        if (Boolean.TRUE.equals(request.rememberOriginAccount())) {
+            // The payer decided to remember where this money came from (V204): first line, or the flat fields.
+            if (request.lines() != null && !request.lines().isEmpty()) {
+                var first = request.lines().get(0);
+                personBankAccountService.remember(person, first.bankUuid(), first.bankAccountType(),
+                        first.bankAccountCode(), first.bankAccountIdentifier(), first.identification());
+            } else {
+                personBankAccountService.remember(person, request.bankUuid(), request.bankAccountType(),
+                        request.bankAccountCode(), request.bankAccountIdentifier(), request.identification());
+            }
         }
         return registerInternal(person, beneficiary, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),

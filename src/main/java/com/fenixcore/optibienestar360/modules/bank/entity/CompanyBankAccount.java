@@ -50,4 +50,8 @@ public class CompanyBankAccount extends BaseEntity {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    /** {@code true} = shown without authentication on {@code GET /v1/public/company-bank-accounts} (V204). */
+    @Column(name = "is_public", nullable = false)
+    private boolean publicVisible;
 }

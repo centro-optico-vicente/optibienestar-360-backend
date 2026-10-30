@@ -57,6 +57,12 @@ public class CompanyBankAccountService {
         return repository.findAll(spec, resolved).map(CompanyBankAccountService::toDto);
     }
 
+    /** Active accounts flagged public, in display order — what anyone may see without logging in. */
+    public List<CompanyBankAccountDto> listPublic() {
+        return repository.findAllByActiveTrueAndPublicVisibleTrueOrderBySortOrderAscIdAsc().stream()
+                .map(CompanyBankAccountService::toDto).toList();
+    }
+
     /** Active accounts in display order — what a payer picks from. */
     public List<CompanyBankAccountDto> listActive() {
         return repository.findAllByActiveTrueOrderBySortOrderAscIdAsc().stream()
@@ -119,6 +125,9 @@ public class CompanyBankAccountService {
         if (req.sortOrder() != null) {
             account.setSortOrder(req.sortOrder());
         }
+        if (req.publicVisible() != null) {
+            account.setPublicVisible(req.publicVisible());
+        }
     }
 
     private CompanyBankAccount find(UUID uuid) {
@@ -129,6 +138,6 @@ public class CompanyBankAccountService {
     public static CompanyBankAccountDto toDto(CompanyBankAccount a) {
         return new CompanyBankAccountDto(a.getUuid(), DisplayRefs.ref(a.getBank()), DisplayRefs.ref(a.getCurrency()),
                 a.getCurrency().getCode(), a.getAccountType(), a.getAccountNumber(), a.getHolderName(),
-                a.getHolderDocument(), a.getNotes(), a.getSortOrder(), a.isActive());
+                a.getHolderDocument(), a.getNotes(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
     }
 }
