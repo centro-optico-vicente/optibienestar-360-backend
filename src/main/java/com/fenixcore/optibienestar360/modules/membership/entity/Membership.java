@@ -77,6 +77,11 @@ public class Membership extends BaseEntity {
 
     // ─── Lifecycle dates ────────────────────────────────────────────────────
 
+    /** Human contract number ("OB-000123"), assigned by a DB trigger on insert (V203); read-only here. */
+    @Column(name = "contract_number", insertable = false, updatable = false)
+    @org.hibernate.annotations.Generated(event = org.hibernate.generator.EventType.INSERT)
+    private String contractNumber;
+
     @Column(name = "enrolled_at", nullable = false)
     private LocalDate enrolledAt = LocalDate.now();
 

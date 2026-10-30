@@ -39,7 +39,8 @@ public class PersonCreditService {
             return;
         }
         PersonCreditEntry entry = new PersonCreditEntry();
-        entry.setPerson(payment.getPerson());
+        // Credited to the beneficiary when somebody else paid for them (V203), otherwise to the payer.
+        entry.setPerson(payment.getBeneficiaryPerson() != null ? payment.getBeneficiaryPerson() : payment.getPerson());
         entry.setPayment(payment);
         entry.setCurrency(payment.getCurrency());
         entry.setEntryType(EntryType.CREDIT.name());
@@ -65,7 +66,7 @@ public class PersonCreditService {
             throw new IllegalArgumentException("payment.credit.nothing_to_apply");
         }
         PersonCreditEntry entry = new PersonCreditEntry();
-        entry.setPerson(payment.getPerson());
+        entry.setPerson(payment.getBeneficiaryPerson() != null ? payment.getBeneficiaryPerson() : payment.getPerson());
         entry.setPayment(payment);
         entry.setMembership(membership);
         entry.setCurrency(payment.getCurrency());

@@ -50,6 +50,21 @@ class PersonCreditServiceTest {
     }
 
     @Test
+    void recordCreditIfUnassigned_creditsTheBeneficiary_whenSomebodyElsePaid() {
+        Payment payment = collection(null);
+        com.fenixcore.optibienestar360.modules.person.entity.Person payer = new com.fenixcore.optibienestar360.modules.person.entity.Person();
+        com.fenixcore.optibienestar360.modules.person.entity.Person holder = new com.fenixcore.optibienestar360.modules.person.entity.Person();
+        payment.setPerson(payer);
+        payment.setBeneficiaryPerson(holder);
+
+        sut().recordCreditIfUnassigned(payment);
+
+        ArgumentCaptor<PersonCreditEntry> captor = ArgumentCaptor.forClass(PersonCreditEntry.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getPerson()).isSameAs(holder);
+    }
+
+    @Test
     void recordCreditIfUnassigned_skipsPaymentsThatHaveAMembership() {
         sut().recordCreditIfUnassigned(collection(new Membership()));
 

@@ -17,6 +17,7 @@ import java.util.UUID;
 public record MembershipListItemDto(
         UUID uuid,
         UUID memberUuid,
+        String contractNumber,
         @Display DisplayRef member,
         @Display DisplayRef advisor,
         UUID planUuid,

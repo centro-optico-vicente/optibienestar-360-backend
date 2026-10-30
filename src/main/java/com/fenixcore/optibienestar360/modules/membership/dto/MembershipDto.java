@@ -24,6 +24,9 @@ public record MembershipDto(
 
         UUID memberUuid,
 
+        /** Human contract number (V203) — what a payer quotes. */
+        String contractNumber,
+
         // Plan reference (flat)
         UUID planUuid,
         String planCode,
@@ -65,7 +68,7 @@ public record MembershipDto(
     /** Rebuilds this record with the live conversion of {@link #monthlyFee} populated — see {@code ConversionEnricher}. */
     public MembershipDto withConversion(BigDecimal amountConverted, String convertedCurrencyCode,
             BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
-        return new MembershipDto(uuid, memberUuid, planUuid, planCode, planName, planType, campaign,
+        return new MembershipDto(uuid, memberUuid, contractNumber, planUuid, planCode, planName, planType, campaign,
                 enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
                 inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate, gracePeriodDays,
