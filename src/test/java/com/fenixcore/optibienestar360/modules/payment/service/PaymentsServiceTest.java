@@ -97,6 +97,9 @@ class PaymentsServiceTest {
     @Mock private NotificationChannelResolver notificationChannelResolver;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
+    @Mock private PersonCreditService personCreditService;
+    @Mock private com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
+    @Mock private com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
@@ -104,7 +107,8 @@ class PaymentsServiceTest {
                 userRepository, currencyRepository, currencyConversionService, mapper, defaultSortResolver,
                 storageProvider, emailService, messageSource, validatorCacheService, commissionService,
                 hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver, eventPublisher, promotionPricing);
+                membershipChargeService, notificationChannelResolver, eventPublisher, promotionPricing,
+                personCreditService, companyBankAccountService, memberPromoterService);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();
@@ -190,6 +194,55 @@ class PaymentsServiceTest {
         promoter.setRank(rank);
         promoter.setPromoterType(type);
         return promoter;
+    }
+
+    private static com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest downlineRequest(UUID memberUuid) {
+        return new com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest(
+                memberUuid, new BigDecimal("10.00"), "USD", UUID.randomUUID(), null, null, null, null, null,
+                null, null, null, null, Instant.now(), null, null, null, null, null);
+    }
+
+    @Test
+    void registerForDownline_rejectsMemberOfAnotherAdvisor() {
+        Promoter me = new Promoter();
+        me.setId(1L);
+        me.setUuid(UUID.randomUUID());
+        Promoter other = new Promoter();
+        other.setId(2L);
+        Member member = new Member();
+        member.setUuid(UUID.randomUUID());
+        member.setPromoter(other);
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.of(me));
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> sut().registerForDownline(ACTOR, downlineRequest(member.getUuid()), null))
+                .isInstanceOf(java.util.NoSuchElementException.class)
+                .hasMessage("promoter.member.not_in_portfolio");
+        org.mockito.Mockito.verifyNoInteractions(memberPromoterService);
+    }
+
+    @Test
+    void registerForDownline_takesAnUnassignedMemberIntoThePortfolio() {
+        Promoter me = new Promoter();
+        me.setId(1L);
+        me.setUuid(UUID.randomUUID());
+        Promoter institucion = new Promoter();
+        institucion.setId(2L);
+        institucion.setSystem(true);
+        Member member = new Member();
+        member.setId(9L);
+        member.setUuid(UUID.randomUUID());
+        member.setPromoter(institucion);
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.of(me));
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        // Stops right after the assignment: the currency lookup is the first thing registerInternal does.
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(9L)).thenReturn(Optional.empty());
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut().registerForDownline(ACTOR, downlineRequest(member.getUuid()), null))
+                .isInstanceOf(java.util.NoSuchElementException.class)
+                .hasMessage("currency.not_found");
+        verify(memberPromoterService).assign(member.getUuid(), me.getUuid(), "Assigned on first collection", ACTOR);
     }
 
     @Test
@@ -552,9 +605,9 @@ class PaymentsServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentLineRequest exemptLine = new PaymentLineRequest(exemptUuid, null, new BigDecimal("5.00"), null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         PaymentLineRequest reviewedLine = new PaymentLineRequest(reviewedUuid, null, new BigDecimal("5.00"), null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         PaymentCreateRequest request = createRequestWithLines(membership.getUuid(), new BigDecimal("10.00"),
                 List.of(exemptLine, reviewedLine));
 
@@ -712,7 +765,7 @@ class PaymentsServiceTest {
 
     private static PaymentLineRequest line(String amount) {
         return new PaymentLineRequest(UUID.randomUUID(), null, new BigDecimal(amount), null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     private static PaymentCreateRequest createRequestWithLines(UUID membershipUuid, BigDecimal amount,

@@ -48,5 +48,8 @@ public record PaymentLineDto(
         @Display(value = Display.Kind.ENUM, enumScope = "payment.status") String status,
         @Display DisplayRef reviewedBy,
         @Display(Display.Kind.DATETIME) Instant reviewedAt,
-        String reviewReason
+        String reviewReason,
+
+        /** Company account the payer indicated (V201); {@code null} when not indicated. */
+        @Display DisplayRef companyBankAccount
 ) {}

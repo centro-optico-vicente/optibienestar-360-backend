@@ -92,7 +92,12 @@ public interface PaymentMapper {
                 line.getStatus(),
                 line.getReviewedBy() != null ? DisplayRefs.ref(line.getReviewedBy()) : null,
                 line.getReviewedAt(),
-                line.getReviewReason());
+                line.getReviewReason(),
+                line.getCompanyBankAccount() != null
+                        ? DisplayRef.of(line.getCompanyBankAccount().getUuid(),
+                                line.getCompanyBankAccount().getAccountNumber(),
+                                line.getCompanyBankAccount().getBank().getShortName())
+                        : null);
     }
 
     @Named("isPresent")

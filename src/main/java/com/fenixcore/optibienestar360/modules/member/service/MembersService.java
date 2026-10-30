@@ -192,6 +192,20 @@ public class MembersService {
     @Transactional
     @Auditable(entity = "member", action = AuditAction.CREATE)
     public MemberDetailDto create(MemberCreateRequest req) {
+        return enroll(req, null);
+    }
+
+    /**
+     * Enrolls a new person directly into {@code promoter}'s portfolio (V201 "Nuevo en mi cartera") —
+     * same flow as {@link #create} but the promoter is the caller, never taken from a referral code.
+     */
+    @Transactional
+    @Auditable(entity = "member", action = AuditAction.CREATE)
+    public MemberDetailDto createInPortfolio(MemberCreateRequest req, com.fenixcore.optibienestar360.modules.promoter.entity.Promoter promoter) {
+        return enroll(req, promoter);
+    }
+
+    private MemberDetailDto enroll(MemberCreateRequest req, com.fenixcore.optibienestar360.modules.promoter.entity.Promoter promoterOverride) {
         Person person = resolvePerson(req);
 
         // Member-side dedupe — UNIQUE(person_id) on V17 would catch it
@@ -201,7 +215,11 @@ public class MembersService {
             throw new IllegalArgumentException("member.person.already_enrolled");
         }
 
-        Member saved = memberRepository.save(buildMember(req, person));
+        Member toSave = buildMember(req, person);
+        if (promoterOverride != null) {
+            toSave.setPromoter(promoterOverride);
+        }
+        Member saved = memberRepository.save(toSave);
         enqueueWelcome(saved);
         eventPublisher.publishEvent(
                 new com.fenixcore.optibienestar360.modules.promoter.event.MembershipEnrolledEvent(saved.getId()));
