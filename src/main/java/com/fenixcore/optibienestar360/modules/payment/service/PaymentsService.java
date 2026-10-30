@@ -746,6 +746,36 @@ public class PaymentsService {
 
     // ─── Membership-less payments: credit and assignment (V201) ──────────────
 
+    /**
+     * Finds the active membership of the person with exactly this document number so a payer (e.g. a relative)
+     * can point their payment at it. Exact match only, and the holder's name comes back abbreviated, so this is a
+     * confirmation step, not a way to browse affiliates. Empty when nobody matches or they have no active membership.
+     */
+    public List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto> lookupMembershipForPayer(String documentNumber) {
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return List.of();
+        }
+        String normalized = documentNumber.trim();
+        Specification<Member> spec = (root, query, cb) -> cb.and(
+                cb.isTrue(root.get("active")),
+                cb.equal(root.get("person").get("documentNumber"), normalized));
+        return memberRepository.findAll(spec).stream()
+                .map(member -> membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
+                        .map(m -> new com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto(
+                                m.getUuid(), abbreviatedName(member.getPerson()), m.getPlan().getName()))
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private static String abbreviatedName(Person person) {
+        if (person == null || person.getFirstName() == null) {
+            return "";
+        }
+        String last = person.getLastName();
+        return last == null || last.isBlank() ? person.getFirstName() : person.getFirstName() + " " + last.charAt(0) + ".";
+    }
+
     /** {@code GET /v1/me/payments/credit-balance} — the caller's credit ("saldo a favor") per currency. */
     public com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto creditBalanceOf(UUID actorUserUuid) {
         User user = userRepository.findByUuid(actorUserUuid)

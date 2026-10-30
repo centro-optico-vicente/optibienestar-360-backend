@@ -83,6 +83,14 @@ public class MyPaymentsController {
         return ResponseEntity.ok(paymentsService.creditBalanceOf(actor.getUuid()));
     }
 
+    /** Confirms the membership of someone the caller pays for, by exact document number (abbreviated name only). */
+    @GetMapping("/membership-lookup")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<java.util.List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto>> membershipLookup(
+            @RequestParam String documentNumber) {
+        return ResponseEntity.ok(paymentsService.lookupMembershipForPayer(documentNumber));
+    }
+
     /** Points the caller's own not-yet-approved payment at a membership (e.g. paying a relative-holder's plan). */
     @PutMapping("/{uuid}/membership")
     @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
