@@ -8,12 +8,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -34,6 +40,32 @@ import java.util.UUID;
 public class AdminMembershipController {
 
     private final MembershipLifecycleService lifecycleService;
+    private final com.fenixcore.optibienestar360.modules.membership.service.MembershipsService membershipsService;
+
+    /**
+     * Cross-member list with filters: affiliate text, advisor, plan, plan type, status (lifecycle or
+     * derived OVERDUE / DUE_SOON) and enrollment / next-due date ranges. Dates are {@code yyyy-MM-dd}.
+     */
+    @GetMapping
+    @PreAuthorize("hasAuthority('MEMBERSHIP_VIEW_ALL')")
+    public ResponseEntity<org.springframework.data.domain.Page<com.fenixcore.optibienestar360.modules.membership.dto.MembershipListItemDto>> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID memberUuid,
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) UUID planUuid,
+            @RequestParam(required = false) String planType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer dueSoonDays,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate enrolledFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate enrolledTo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate nextDueFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate nextDueTo,
+            @PageableDefault(size = 20) Pageable pageable) {
+        var criteria = new com.fenixcore.optibienestar360.modules.membership.dto.MembershipSearchCriteria(
+                q, memberUuid, promoterUuid, planUuid, planType, status, dueSoonDays,
+                enrolledFrom, enrolledTo, nextDueFrom, nextDueTo);
+        return ResponseEntity.ok(membershipsService.search(criteria, pageable));
+    }
 
     @PutMapping("/{uuid}/cancel")
     @PreAuthorize("hasAuthority('MEMBERSHIP_CANCEL')")
