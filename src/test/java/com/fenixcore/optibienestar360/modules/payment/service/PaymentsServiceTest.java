@@ -199,7 +199,7 @@ class PaymentsServiceTest {
     private static com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest downlineRequest(UUID memberUuid) {
         return new com.fenixcore.optibienestar360.modules.payment.dto.DownlinePaymentCreateRequest(
                 memberUuid, new BigDecimal("10.00"), "USD", UUID.randomUUID(), null, null, null, null, null,
-                null, null, null, null, Instant.now(), null, null, null, null, null);
+                null, null, null, Instant.now(), null, null, null, null, null);
     }
 
     @Test
