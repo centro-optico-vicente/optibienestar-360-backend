@@ -1,7 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment;
 
-import com.fenixcore.optibienestar360.modules.payment.dto.PersonBankAccountDto;
-import com.fenixcore.optibienestar360.modules.payment.service.PersonBankAccountService;
+import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountDto;
+import com.fenixcore.optibienestar360.modules.payment.service.PayerBankAccountService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,11 +25,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MyBankAccountsController {
 
-    private final PersonBankAccountService service;
+    private final PayerBankAccountService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
-    public ResponseEntity<List<PersonBankAccountDto>> list(@AuthenticationPrincipal CustomUserDetails actor) {
+    public ResponseEntity<List<PayerBankAccountDto>> list(@AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(service.listMine(actor.getUuid()));
     }
 

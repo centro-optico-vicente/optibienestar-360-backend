@@ -167,7 +167,7 @@ public class PaymentsService {
     private final PersonCreditService personCreditService;
     private final com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
     private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
-    private final PersonBankAccountService personBankAccountService;
+    private final PayerBankAccountService payerBankAccountService;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -510,10 +510,10 @@ public class PaymentsService {
             // The payer decided to remember where this money came from (V204): first line, or the flat fields.
             if (request.lines() != null && !request.lines().isEmpty()) {
                 var first = request.lines().get(0);
-                personBankAccountService.remember(person, first.bankUuid(), first.bankAccountType(),
+                payerBankAccountService.remember(person, first.bankUuid(), first.bankAccountType(),
                         first.bankAccountCode(), first.bankAccountIdentifier(), first.identification());
             } else {
-                personBankAccountService.remember(person, request.bankUuid(), request.bankAccountType(),
+                payerBankAccountService.remember(person, request.bankUuid(), request.bankAccountType(),
                         request.bankAccountCode(), request.bankAccountIdentifier(), request.identification());
             }
         }

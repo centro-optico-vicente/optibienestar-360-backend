@@ -3,8 +3,8 @@ package com.fenixcore.optibienestar360.modules.payment.service;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
-import com.fenixcore.optibienestar360.modules.payment.entity.PersonBankAccount;
-import com.fenixcore.optibienestar360.modules.payment.repository.PersonBankAccountRepository;
+import com.fenixcore.optibienestar360.modules.payment.entity.PayerBankAccount;
+import com.fenixcore.optibienestar360.modules.payment.repository.PayerBankAccountRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,14 +22,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class PersonBankAccountServiceTest {
+class PayerBankAccountServiceTest {
 
-    @Mock private PersonBankAccountRepository repository;
+    @Mock private PayerBankAccountRepository repository;
     @Mock private BankRepository bankRepository;
     @Mock private UserRepository userRepository;
 
-    private PersonBankAccountService sut() {
-        return new PersonBankAccountService(repository, bankRepository, userRepository);
+    private PayerBankAccountService sut() {
+        return new PayerBankAccountService(repository, bankRepository, userRepository);
     }
 
     private static Person person() {
@@ -70,7 +70,7 @@ class PersonBankAccountServiceTest {
 
         sut().remember(person, bankUuid, "CORRIENTE", "0102", " 0102123 ", "V123");
 
-        ArgumentCaptor<PersonBankAccount> captor = ArgumentCaptor.forClass(PersonBankAccount.class);
+        ArgumentCaptor<PayerBankAccount> captor = ArgumentCaptor.forClass(PayerBankAccount.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getPerson()).isSameAs(person);
         assertThat(captor.getValue().getAccountIdentifier()).isEqualTo("0102123");
@@ -80,7 +80,7 @@ class PersonBankAccountServiceTest {
     @Test
     void remember_refreshesTheExistingAccount_insteadOfDuplicatingIt() {
         UUID bankUuid = UUID.randomUUID();
-        PersonBankAccount existing = new PersonBankAccount();
+        PayerBankAccount existing = new PayerBankAccount();
         existing.setAccountIdentifier("0102123");
         when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank(bankUuid)));
         when(repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(3L, 7L, "0102123"))

@@ -5,9 +5,9 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
-import com.fenixcore.optibienestar360.modules.payment.dto.PersonBankAccountDto;
-import com.fenixcore.optibienestar360.modules.payment.entity.PersonBankAccount;
-import com.fenixcore.optibienestar360.modules.payment.repository.PersonBankAccountRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountDto;
+import com.fenixcore.optibienestar360.modules.payment.entity.PayerBankAccount;
+import com.fenixcore.optibienestar360.modules.payment.repository.PayerBankAccountRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,20 +25,20 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PersonBankAccountService {
+public class PayerBankAccountService {
 
-    private final PersonBankAccountRepository repository;
+    private final PayerBankAccountRepository repository;
     private final BankRepository bankRepository;
     private final UserRepository userRepository;
 
-    public List<PersonBankAccountDto> listMine(UUID userUuid) {
+    public List<PayerBankAccountDto> listMine(UUID userUuid) {
         return repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(personOf(userUuid).getId()).stream()
-                .map(PersonBankAccountService::toDto).toList();
+                .map(PayerBankAccountService::toDto).toList();
     }
 
     @Transactional
     public void deleteMine(UUID userUuid, UUID accountUuid) {
-        PersonBankAccount account = repository.findByUuidAndPersonIdAndActiveTrue(accountUuid, personOf(userUuid).getId())
+        PayerBankAccount account = repository.findByUuidAndPersonIdAndActiveTrue(accountUuid, personOf(userUuid).getId())
                 .orElseThrow(() -> new NoSuchElementException("person_bank_account.not_found"));
         account.setActive(false);
     }
@@ -56,10 +56,10 @@ public class PersonBankAccountService {
         Bank bank = bankRepository.findByUuid(bankUuid).filter(Bank::isActive)
                 .orElseThrow(() -> new NoSuchElementException("bank.not_found"));
         String identifier = accountIdentifier.trim();
-        PersonBankAccount account = repository
+        PayerBankAccount account = repository
                 .findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(person.getId(), bank.getId(), identifier)
                 .orElseGet(() -> {
-                    PersonBankAccount created = new PersonBankAccount();
+                    PayerBankAccount created = new PayerBankAccount();
                     created.setPerson(person);
                     created.setBank(bank);
                     created.setAccountIdentifier(identifier);
@@ -81,8 +81,8 @@ public class PersonBankAccountService {
         return user.getPerson();
     }
 
-    static PersonBankAccountDto toDto(PersonBankAccount a) {
-        return new PersonBankAccountDto(a.getUuid(), DisplayRefs.ref(a.getBank()), a.getAccountType(),
+    static PayerBankAccountDto toDto(PayerBankAccount a) {
+        return new PayerBankAccountDto(a.getUuid(), DisplayRefs.ref(a.getBank()), a.getAccountType(),
                 a.getAccountCode(), a.getAccountIdentifier(), a.getIdentification(), a.getAlias());
     }
 }

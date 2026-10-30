@@ -24,9 +24,9 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "person_bank_accounts")
-@AttributeOverride(name = "id", column = @Column(name = "person_bank_accounts_id", nullable = false, updatable = false))
-public class PersonBankAccount extends BaseEntity {
+@Table(name = "payer_bank_accounts")
+@AttributeOverride(name = "id", column = @Column(name = "payer_bank_accounts_id", nullable = false, updatable = false))
+public class PayerBankAccount extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "person_id", nullable = false)
