@@ -1,11 +1,14 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
 import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.PayerBankAccount;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
 import com.fenixcore.optibienestar360.modules.payment.repository.PayerBankAccountRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,25 +16,34 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** A person's own accounts follow their payment method's is_mandatory_* flags, like the company accounts (V207). */
 @ExtendWith(MockitoExtension.class)
 class PayerBankAccountServiceTest {
 
     @Mock private PayerBankAccountRepository repository;
     @Mock private BankRepository bankRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PaymentMethodRepository paymentMethodRepository;
+
+    private final UUID methodUuid = UUID.randomUUID();
+    private final UUID bankUuid = UUID.randomUUID();
 
     private PayerBankAccountService sut() {
-        return new PayerBankAccountService(repository, bankRepository, userRepository);
+        return new PayerBankAccountService(repository, bankRepository, userRepository, paymentMethodRepository);
     }
 
     private static Person person() {
@@ -40,64 +52,113 @@ class PayerBankAccountServiceTest {
         return p;
     }
 
-    private static Bank bank(UUID uuid) {
-        Bank b = new Bank();
-        b.setId(7L);
-        b.setUuid(uuid);
-        b.setActive(true);
-        return b;
+    /** Pago Móvil: bank, holder document and phone; no account type or number. */
+    private PaymentMethod pagoMovil() {
+        PaymentMethod m = new PaymentMethod();
+        m.setId(11L);
+        m.setUuid(methodUuid);
+        m.setCode("PAGO_MOVIL");
+        m.setActive(true);
+        m.setMandatoryBank(true);
+        m.setMandatoryIdentification(true);
+        m.setMandatoryPhone(true);
+        return m;
     }
 
-    @Test
-    void remember_isANoOp_withoutAnAccountNumber() {
-        sut().remember(person(), UUID.randomUUID(), "CORRIENTE", null, "  ", "V123");
-
-        verify(repository, never()).save(any());
+    /** Bank transfer: bank, account type and account number; no phone. */
+    private PaymentMethod transfer() {
+        PaymentMethod m = new PaymentMethod();
+        m.setId(12L);
+        m.setUuid(methodUuid);
+        m.setCode("BANK_TRANSFER");
+        m.setActive(true);
+        m.setMandatoryBank(true);
+        m.setMandatoryAccountType(true);
+        m.setMandatoryBankAccount(true);
+        return m;
     }
 
-    @Test
-    void remember_isANoOp_withoutABank() {
-        sut().remember(person(), null, "CORRIENTE", null, "0102123", "V123");
-
-        verify(repository, never()).save(any());
-    }
-
-    @Test
-    void remember_savesANewAccount_scopedToThePerson() {
-        UUID bankUuid = UUID.randomUUID();
-        Person person = person();
-        when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank(bankUuid)));
-        when(repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(3L, 7L, "0102123"))
-                .thenReturn(Optional.empty());
-
-        sut().remember(person, bankUuid, "CORRIENTE", "0102", " 0102123 ", "V123");
-
-        ArgumentCaptor<PayerBankAccount> captor = ArgumentCaptor.forClass(PayerBankAccount.class);
-        verify(repository).save(captor.capture());
-        assertThat(captor.getValue().getPerson()).isSameAs(person);
-        assertThat(captor.getValue().getAccountIdentifier()).isEqualTo("0102123");
-        assertThat(captor.getValue().getIdentification()).isEqualTo("V123");
-    }
-
-    private PayerBankAccountRequest request(UUID bankUuid, String identifier) {
-        return new PayerBankAccountRequest(bankUuid, "CORRIENTE", "0102", identifier, "V123", "Mi cuenta");
+    private void stubCatalogs(PaymentMethod method) {
+        Bank bank = new Bank();
+        bank.setId(7L);
+        bank.setUuid(bankUuid);
+        bank.setCode("0105");
+        bank.setShortName("Mercantil");
+        bank.setActive(true);
+        lenient().when(paymentMethodRepository.findByUuid(methodUuid)).thenReturn(Optional.of(method));
+        lenient().when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank));
+        lenient().when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(eq(3L), any())).thenReturn(List.of());
+        lenient().when(repository.save(any(PayerBankAccount.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private void stubUser(Person person) {
-        com.fenixcore.optibienestar360.modules.auth.entity.User user = new com.fenixcore.optibienestar360.modules.auth.entity.User();
+        User user = new User();
         user.setPerson(person);
         when(userRepository.findByUuid(any())).thenReturn(Optional.of(user));
     }
 
-    @Test
-    void createMine_rejectsTheSameBankAndNumberTwice() {
-        UUID bankUuid = UUID.randomUUID();
-        stubUser(person());
-        when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank(bankUuid)));
-        when(repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(3L, 7L, "0102123"))
-                .thenReturn(Optional.of(new StoredAccountFactory().account()));
+    private PayerBankAccountRequest request(String type, String number, String document, String phone) {
+        return new PayerBankAccountRequest(methodUuid, bankUuid, type, null, number, document, phone, null, "Mi cuenta");
+    }
 
-        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), request(bankUuid, "0102123")))
+    // ─── Rules by method ────────────────────────────────────────────────────
+
+    @Test
+    void pagoMovil_needsAPhone() {
+        stubUser(person());
+        stubCatalogs(pagoMovil());
+
+        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), request(null, null, "V12345678", " ")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payer_bank_account.phone.required");
+    }
+
+    @Test
+    void pagoMovil_needsNoAccountTypeOrNumber() {
+        stubUser(person());
+        stubCatalogs(pagoMovil());
+
+        var created = sut().createMine(UUID.randomUUID(), request(null, null, "V12345678", " 04141234567 "));
+
+        assertThat(created.phone()).isEqualTo("04141234567");
+        assertThat(created.accountIdentifier()).isNull();
+        assertThat(created.paymentMethodCode()).isEqualTo("PAGO_MOVIL");
+    }
+
+    @Test
+    void transfer_needsAnAccountNumber() {
+        stubUser(person());
+        stubCatalogs(transfer());
+
+        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), request("CORRIENTE", " ", null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payer_bank_account.account_number.required");
+    }
+
+    @Test
+    void transfer_needsNoPhone() {
+        stubUser(person());
+        stubCatalogs(transfer());
+
+        var created = sut().createMine(UUID.randomUUID(), request("CORRIENTE", "01050000000000000000", null, null));
+
+        assertThat(created.phone()).isNull();
+        assertThat(created.accountIdentifier()).isEqualTo("01050000000000000000");
+    }
+
+    // ─── Duplicates and ownership ───────────────────────────────────────────
+
+    @Test
+    void createMine_rejectsTheSameAccountTwice() {
+        stubUser(person());
+        stubCatalogs(pagoMovil());
+        PayerBankAccount existing = new PayerBankAccount();
+        existing.setId(99L);
+        existing.setBank(bankOf(7L));
+        existing.setPhone("04141234567");
+        when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(3L, 11L)).thenReturn(List.of(existing));
+
+        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), request(null, null, "V12345678", "04141234567")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("payer_bank_account.duplicate");
     }
@@ -105,33 +166,64 @@ class PayerBankAccountServiceTest {
     @Test
     void updateMine_cannotTouchAnotherPersonsAccount() {
         stubUser(person());
-        when(repository.findByUuidAndPersonIdAndActiveTrue(any(), org.mockito.ArgumentMatchers.eq(3L)))
-                .thenReturn(Optional.empty());
+        when(repository.findByUuidAndPersonIdAndActiveTrue(any(), eq(3L))).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut().updateMine(UUID.randomUUID(), UUID.randomUUID(), request(UUID.randomUUID(), "1")))
-                .isInstanceOf(java.util.NoSuchElementException.class)
+        assertThatThrownBy(() -> sut().updateMine(UUID.randomUUID(), UUID.randomUUID(), request("CORRIENTE", "1", null, null)))
+                .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("payer_bank_account.not_found");
     }
 
-    /** Builds a stored account with an id, so it is never mistaken for a different row. */
-    private static final class StoredAccountFactory {
-        PayerBankAccount account() {
-            PayerBankAccount a = new PayerBankAccount();
-            a.setId(99L);
-            return a;
-        }
+    private static Bank bankOf(Long id) {
+        Bank b = new Bank();
+        b.setId(id);
+        return b;
+    }
+
+    // ─── Remembering from a payment ─────────────────────────────────────────
+
+    @Test
+    void remember_isANoOp_withoutAnythingThatIdentifiesTheAccount() {
+        stubCatalogs(pagoMovil());
+
+        sut().remember(person(), methodUuid, bankUuid, null, null, null, "V123", "  ", null);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void remember_isANoOp_whenTheMethodRequiresMoreThanWasGiven() {
+        stubCatalogs(pagoMovil());
+
+        // Pago Móvil needs the holder document too.
+        sut().remember(person(), methodUuid, bankUuid, null, null, null, null, "04141234567", null);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void remember_savesAPagoMovilAccount_scopedToThePerson() {
+        stubCatalogs(pagoMovil());
+        Person person = person();
+
+        sut().remember(person, methodUuid, bankUuid, null, null, null, "V123", " 04141234567 ", null);
+
+        ArgumentCaptor<PayerBankAccount> captor = ArgumentCaptor.forClass(PayerBankAccount.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getPerson()).isSameAs(person);
+        assertThat(captor.getValue().getPhone()).isEqualTo("04141234567");
+        assertThat(captor.getValue().getPaymentMethod().getCode()).isEqualTo("PAGO_MOVIL");
     }
 
     @Test
     void remember_refreshesTheExistingAccount_insteadOfDuplicatingIt() {
-        UUID bankUuid = UUID.randomUUID();
+        stubCatalogs(transfer());
         PayerBankAccount existing = new PayerBankAccount();
+        existing.setId(50L);
+        existing.setBank(bankOf(7L));
         existing.setAccountIdentifier("0102123");
-        when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank(bankUuid)));
-        when(repository.findByPersonIdAndBankIdAndAccountIdentifierAndActiveTrue(3L, 7L, "0102123"))
-                .thenReturn(Optional.of(existing));
+        when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(3L, 12L)).thenReturn(List.of(existing));
 
-        sut().remember(person(), bankUuid, "AHORRO", null, "0102123", "V999");
+        sut().remember(person(), methodUuid, bankUuid, "AHORRO", null, "0102123", "V999", null, null);
 
         verify(repository).save(existing);
         assertThat(existing.getAccountType()).isEqualTo("AHORRO");

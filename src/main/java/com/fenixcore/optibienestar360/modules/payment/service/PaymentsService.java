@@ -532,11 +532,13 @@ public class PaymentsService {
             // The payer decided to remember where this money came from (V204): first line, or the flat fields.
             if (request.lines() != null && !request.lines().isEmpty()) {
                 var first = request.lines().get(0);
-                payerBankAccountService.remember(person, first.bankUuid(), first.bankAccountType(),
-                        first.bankAccountCode(), first.bankAccountIdentifier(), first.identification());
+                payerBankAccountService.remember(person, first.paymentMethodUuid(), first.bankUuid(),
+                        first.bankAccountType(), first.bankAccountCode(), first.bankAccountIdentifier(),
+                        first.identification(), first.phone(), first.email());
             } else {
-                payerBankAccountService.remember(person, request.bankUuid(), request.bankAccountType(),
-                        request.bankAccountCode(), request.bankAccountIdentifier(), request.identification());
+                payerBankAccountService.remember(person, request.paymentMethodUuid(), request.bankUuid(),
+                        request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                        request.identification(), request.phone(), request.email());
             }
         }
         return registerInternal(person, beneficiary, member, membership, null, request.amount(), request.currency(),
