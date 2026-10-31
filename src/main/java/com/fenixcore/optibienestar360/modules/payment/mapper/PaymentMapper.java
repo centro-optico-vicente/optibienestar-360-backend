@@ -84,7 +84,7 @@ public interface PaymentMapper {
                 line.getCurrency() != null ? DisplayRefs.ref(line.getCurrency()) : null,
                 line.getReferenceNumber(),
                 line.getBank() != null
-                        ? DisplayRef.of(line.getBank().getUuid(), line.getBank().getCode(), line.getBank().getShortName())
+                        ? DisplayRefs.ref(line.getBank())
                         : null,
                 line.getIdentification(),
                 line.getBankAccountType(),
@@ -170,7 +170,7 @@ public interface PaymentMapper {
 	/** Line-level bank (V117 FK) — only populated when the method's {@code isMandatoryBank} is true. */
 	default DisplayRef bankRef(Payment payment) {
 		return firstLine(payment).map(PaymentLine::getBank)
-				.map(b -> DisplayRef.of(b.getUuid(), b.getCode(), b.getShortName()))
+				.map(DisplayRefs::ref)
 				.orElse(null);
 	}
 

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.core.display;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -36,6 +37,16 @@ public final class DisplayRefs {
 	};
 
 	private DisplayRefs() {
+	}
+
+	/**
+	 * Bank: SUDEBAN code in {@code code} (e.g. 0102) and the COMMERCIAL short name in {@code name}
+	 * ("Mercantil", not "Mercantil Banco, C.A. Banco Universal") — the name bank apps and Pago Móvil
+	 * use. Every screen and copied text shows this one; the legal name stays on the bank catalog for
+	 * fiscal documents.
+	 */
+	public static DisplayRef ref(Bank bank) {
+		return bank == null ? null : DisplayRef.of(bank.getUuid(), bank.getCode(), bank.getShortName());
 	}
 
 	/** Person-shaped: document number in {@code code}, full name in {@code name}. */
