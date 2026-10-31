@@ -9,13 +9,17 @@ import java.util.UUID;
 
 /** Create/update payload for a company bank account (V201); the same shape serves both verbs. */
 public record CompanyBankAccountRequest(
-        @NotNull UUID bankUuid,
+        /** The method decides which of the fields below are required (its is_mandatory_* flags). */
+        @NotNull UUID paymentMethodUuid,
+        UUID bankUuid,
         @NotBlank @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}") String currency,
-        @NotBlank @Size(max = 40) String accountType,
-        @NotBlank @Size(max = 40) String accountNumber,
+        @Size(max = 40) String accountType,
+        @Size(max = 40) String accountNumber,
         @NotBlank @Size(max = 160) String holderName,
-        @NotBlank @Size(max = 30) String holderDocument,
+        @Size(max = 30) String holderDocument,
         @Size(max = 255) String notes,
+        @Size(max = 30) String phone,
+        @Size(max = 160) String email,
         Integer sortOrder,
         /** Show it without authentication on the public endpoint; defaults to private on create. */
         Boolean publicVisible,
