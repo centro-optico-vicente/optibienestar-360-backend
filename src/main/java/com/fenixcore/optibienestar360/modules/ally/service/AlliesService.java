@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyOpeningHour;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
@@ -50,6 +51,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -117,6 +121,7 @@ public class AlliesService {
     private final PublicMediaEnricher enricher;
     private final MediaItemsService mediaItemsService;
     private final PersonService personService;
+    private final Clock clock;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
@@ -224,6 +229,10 @@ public class AlliesService {
             spec = spec.and(PublicCatalogSearch.allyMatchesAnything(search.q()));
         }
 
+        if (search.openNow() || search.openToday()) {
+            spec = spec.and(openAt(LocalDateTime.now(clock), search.openNow()));
+        }
+
         return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
     }
 
@@ -251,6 +260,27 @@ public class AlliesService {
             }
             if (type != null) {
                 predicates.add(cb.equal(offer.get("product").get("productType"), type));
+            }
+            sub.select(cb.literal(1L)).where(predicates.toArray(Predicate[]::new));
+            return cb.exists(sub);
+        };
+    }
+
+    /**
+     * "Allies with an opening-hours range today" — and, when {@code atThisTime},
+     * one that covers {@code now} ({@code opensAt <= time < closesAt}). {@code now}
+     * is the wall clock of the business zone (the injected {@link Clock}).
+     */
+    static Specification<Ally> openAt(LocalDateTime now, boolean atThisTime) {
+        return (root, query, cb) -> {
+            Subquery<Long> sub = query.subquery(Long.class);
+            Root<AllyOpeningHour> hour = sub.from(AllyOpeningHour.class);
+            List<Predicate> predicates = new ArrayList<>(List.of(
+                    cb.equal(hour.get("ally"), root),
+                    cb.equal(hour.get("dayOfWeek"), (short) now.getDayOfWeek().getValue())));
+            if (atThisTime) {
+                predicates.add(cb.lessThanOrEqualTo(hour.<LocalTime>get("opensAt"), now.toLocalTime()));
+                predicates.add(cb.greaterThan(hour.<LocalTime>get("closesAt"), now.toLocalTime()));
             }
             sub.select(cb.literal(1L)).where(predicates.toArray(Predicate[]::new));
             return cb.exists(sub);

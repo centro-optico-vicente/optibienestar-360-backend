@@ -33,6 +33,7 @@ public class PublicMediaEnricher {
                 detail.segment(), detail.hostName(), detail.officeNumber(), detail.appointmentPhone(),
                 detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
                 detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
+                detail.openingHours(), detail.openingHoursLabel(),
                 detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
     }
 

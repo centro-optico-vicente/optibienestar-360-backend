@@ -38,7 +38,9 @@ import java.util.UUID;
  * {@code servicio}/{@code producto} (hub ADR 0026). The id twins
  * ({@code cityUuid}, {@code professionUuid}, {@code categoryUuid}) remain for
  * clients that hold ids. {@code segment} ({@code B2B} / {@code B2P}, hub ADR
- * 0031) keeps only commercial or only professional allies.</p>
+ * 0031) keeps only commercial or only professional allies. {@code openNow} /
+ * {@code openToday} keep allies whose weekly opening hours cover the current
+ * time / day in the business zone (ADR 0031 §7).</p>
  */
 @RestController
 @RequestMapping("/v1/public/allies")
@@ -58,8 +60,11 @@ public class PublicAllyController {
             @RequestParam(required = false) UUID categoryUuid,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String segment,
+            @RequestParam(defaultValue = "false") boolean openNow,
+            @RequestParam(defaultValue = "false") boolean openToday,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, type, segment);
+        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, type, segment,
+                openNow, openToday);
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
                 .body(alliesService.publicDirectory(search, pageable));
     }

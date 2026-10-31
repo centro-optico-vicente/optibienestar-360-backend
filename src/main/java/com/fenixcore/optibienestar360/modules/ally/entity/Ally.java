@@ -18,6 +18,7 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.Generated;
@@ -246,4 +247,11 @@ public class Ally extends BaseEntity {
 
     @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
     private List<AllyAgreement> agreements = new ArrayList<>();
+
+    // ─── Weekly opening hours (V214, hub ADR 0031 §7) ───────────────────────
+    // Read-only from this side: AllyOpeningHoursService replaces the week.
+
+    @OneToMany(mappedBy = "ally", fetch = FetchType.LAZY)
+    @OrderBy("dayOfWeek ASC, opensAt ASC")
+    private List<AllyOpeningHour> openingHours = new ArrayList<>();
 }
