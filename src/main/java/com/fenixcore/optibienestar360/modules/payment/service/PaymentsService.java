@@ -169,6 +169,7 @@ public class PaymentsService {
     private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
     private final PayerBankAccountService payerBankAccountService;
     private final PaymentCreditClaimService paymentCreditClaimService;
+    private final com.fenixcore.optibienestar360.modules.promoter.repository.PromoterPayoutAccountRepository payoutAccountRepository;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -345,7 +346,7 @@ public class PaymentsService {
                 request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
                 request.identification(), request.bankAccountType(), request.bankAccountCode(),
                 request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
-                request.paymentDate(), request.adminNotes());
+                request.paymentDate(), request.adminNotes(), request.companyBankAccountUuid(), request.payoutAccountUuid());
         payment.setDirection("OUT");
         payment.setStatus(PaymentStatus.DRAFT.name());
         attachSupportFile(payment, supportFile);
@@ -361,7 +362,7 @@ public class PaymentsService {
                 request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
                 request.identification(), request.bankAccountType(), request.bankAccountCode(),
                 request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
-                request.paymentDate(), request.adminNotes());
+                request.paymentDate(), request.adminNotes(), request.companyBankAccountUuid(), request.payoutAccountUuid());
         return mapper.toDto(payment);
     }
 
@@ -400,7 +401,8 @@ public class PaymentsService {
                                 BigDecimal amount, String currencyCode, UUID methodUuid, UUID bankUuid,
                                 String identification, String bankAccountType, String bankAccountCode,
                                 String bankAccountIdentifier, String phone, String email, String referenceNumber,
-                                Instant paymentDate, String adminNotes) {
+                                Instant paymentDate, String adminNotes, UUID companyBankAccountUuid,
+                                UUID payoutAccountUuid) {
         PaymentCategory category = paymentCategoryRepository.findByUuid(categoryUuid)
                 .filter(PaymentCategory::isActive).filter(c -> "OUT".equals(c.getDirection()))
                 .orElseThrow(() -> new NoSuchElementException("payment_category.out_not_found"));
@@ -457,6 +459,12 @@ public class PaymentsService {
         line.setPhone(phone);
         line.setEmail(email);
         line.setReferenceNumber(referenceNumber);
+        // Both ends of a payout (V206): the company account it leaves from and the advisor account it goes to.
+        line.setCompanyBankAccount(companyBankAccountService.resolveActive(companyBankAccountUuid));
+        line.setPayoutAccount(payoutAccountUuid == null ? null : payoutAccountRepository.findByUuid(payoutAccountUuid)
+                .filter(com.fenixcore.optibienestar360.modules.promoter.entity.PromoterPayoutAccount::isActive)
+                .filter(a -> a.getPromoter() != null && a.getPromoter().getId().equals(promoter.getId()))
+                .orElseThrow(() -> new NoSuchElementException("promoter_payout_account.not_found")));
         line.setStatus(payment.getStatus() == null ? PaymentStatus.DRAFT.name() : payment.getStatus());
     }
 

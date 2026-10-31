@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.bank.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
@@ -35,9 +36,6 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class CompanyBankAccountService {
 
-    /** Account type whose payments go to a phone number instead of an account number (V206). */
-    static final String PAGO_MOVIL = "PAGO_MOVIL";
-
     private static final String[] SEARCHABLE_FIELDS = {"accountNumber", "holderName", "holderDocument"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(CompanyBankAccount.class, Map.of());
@@ -45,6 +43,7 @@ public class CompanyBankAccountService {
     private final CompanyBankAccountRepository repository;
     private final BankRepository bankRepository;
     private final CurrencyRepository currencyRepository;
+    private final com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository paymentMethodRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     public Page<CompanyBankAccountDto> list(Pageable pageable, String q, boolean includeInactive) {
@@ -112,24 +111,47 @@ public class CompanyBankAccountService {
     }
 
     private void apply(CompanyBankAccount account, CompanyBankAccountRequest req) {
-        // A Pago Móvil account is paid to a phone number, so the phone is not optional for that type.
-        if (PAGO_MOVIL.equalsIgnoreCase(req.accountType()) && blankToNull(req.mobilePaymentPhone()) == null) {
-            throw new IllegalArgumentException("company_bank_account.mobile_phone.required");
-        }
-        Bank bank = bankRepository.findByUuid(req.bankUuid())
+        var method = paymentMethodRepository.findByUuid(req.paymentMethodUuid())
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        Bank bank = req.bankUuid() == null ? null : bankRepository.findByUuid(req.bankUuid())
                 .filter(Bank::isActive)
                 .orElseThrow(() -> new NoSuchElementException("bank.not_found"));
         Currency currency = currencyRepository.findByCode(req.currency())
                 .filter(Currency::isActive)
                 .orElseThrow(() -> new NoSuchElementException("currency.not_found"));
+        String accountType = blankToNull(req.accountType());
+        String accountNumber = blankToNull(req.accountNumber());
+        String holderDocument = blankToNull(req.holderDocument());
+        String phone = blankToNull(req.phone());
+        String email = blankToNull(req.email());
+
+        // Required fields come from the method's flags, same rule as the advisor payout accounts:
+        // Pago Móvil asks for bank, document and phone (no account type / number); a transfer asks
+        // for account type and number (no phone); Zelle asks for an email.
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("company_bank_account.bank.required");
+        if (method.isMandatoryIdentification() && holderDocument == null)
+            throw new IllegalArgumentException("company_bank_account.holder_document.required");
+        if (method.isMandatoryAccountType() && accountType == null)
+            throw new IllegalArgumentException("company_bank_account.account_type.required");
+        if ((method.isMandatoryAccountCode() || method.isMandatoryBankAccount()) && accountNumber == null)
+            throw new IllegalArgumentException("company_bank_account.account_number.required");
+        if (method.isMandatoryPhone() && phone == null)
+            throw new IllegalArgumentException("company_bank_account.phone.required");
+        if (method.isMandatoryEmail() && email == null)
+            throw new IllegalArgumentException("company_bank_account.email.required");
+
+        account.setPaymentMethod(method);
         account.setBank(bank);
         account.setCurrency(currency);
-        account.setAccountType(req.accountType());
-        account.setAccountNumber(req.accountNumber());
+        account.setAccountType(accountType);
+        account.setAccountNumber(accountNumber);
         account.setHolderName(req.holderName());
-        account.setHolderDocument(req.holderDocument());
+        account.setHolderDocument(holderDocument);
         account.setNotes(req.notes());
-        account.setMobilePaymentPhone(blankToNull(req.mobilePaymentPhone()));
+        account.setPhone(phone);
+        account.setEmail(email);
         if (req.sortOrder() != null) {
             account.setSortOrder(req.sortOrder());
         }
@@ -148,8 +170,14 @@ public class CompanyBankAccountService {
     }
 
     public static CompanyBankAccountDto toDto(CompanyBankAccount a) {
-        return new CompanyBankAccountDto(a.getUuid(), DisplayRefs.ref(a.getBank()), DisplayRefs.ref(a.getCurrency()),
+        var method = a.getPaymentMethod();
+        return new CompanyBankAccountDto(a.getUuid(),
+                method == null ? null : DisplayRef.of(method.getUuid(), method.getCode(), method.getName()),
+                method == null ? null : method.getCode(),
+                a.getBank() == null ? null : DisplayRef.of(a.getBank().getUuid(), a.getBank().getCode(), a.getBank().getShortName()),
+                a.getBank() == null ? null : a.getBank().getCode(),
+                DisplayRefs.ref(a.getCurrency()),
                 a.getCurrency().getCode(), a.getAccountType(), a.getAccountNumber(), a.getHolderName(),
-                a.getHolderDocument(), a.getNotes(), a.getMobilePaymentPhone(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
+                a.getHolderDocument(), a.getNotes(), a.getPhone(), a.getEmail(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
     }
 }

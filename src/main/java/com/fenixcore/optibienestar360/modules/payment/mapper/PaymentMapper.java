@@ -98,9 +98,32 @@ public interface PaymentMapper {
                 line.getReviewReason(),
                 line.getCompanyBankAccount() != null
                         ? DisplayRef.of(line.getCompanyBankAccount().getUuid(),
-                                line.getCompanyBankAccount().getAccountNumber(),
-                                line.getCompanyBankAccount().getBank().getShortName())
-                        : null);
+                                companyAccountCode(line.getCompanyBankAccount()),
+                                companyAccountLabel(line.getCompanyBankAccount()))
+                        : null,
+                payoutAccountRef(line.getPayoutAccount()));
+    }
+
+    /** What identifies a company account at a glance: the account number, or the phone / email for methods without one. */
+    static String companyAccountCode(com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount a) {
+        if (a.getAccountNumber() != null) return a.getAccountNumber();
+        return a.getPhone() != null ? a.getPhone() : a.getEmail();
+    }
+
+    /** The bank's short name, or the method's name when the account has no bank (e.g. Zelle). */
+    static String companyAccountLabel(com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount a) {
+        if (a.getBank() != null) return a.getBank().getShortName();
+        return a.getPaymentMethod() != null ? a.getPaymentMethod().getName() : null;
+    }
+
+    /** The advisor payout account an OUT line was paid to (V206): its label (alias) or the method name, with the account / phone. */
+    static DisplayRef payoutAccountRef(com.fenixcore.optibienestar360.modules.promoter.entity.PromoterPayoutAccount a) {
+        if (a == null) return null;
+        String code = a.getAccountNumber() != null ? a.getAccountNumber()
+                : a.getPhone() != null ? a.getPhone() : a.getEmail();
+        String name = a.getLabel() != null ? a.getLabel()
+                : a.getPaymentMethod() != null ? a.getPaymentMethod().getName() : null;
+        return DisplayRef.of(a.getUuid(), code, name);
     }
 
     @Named("isPresent")

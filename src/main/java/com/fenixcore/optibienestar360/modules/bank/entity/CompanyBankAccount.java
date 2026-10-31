@@ -25,32 +25,41 @@ import lombok.Setter;
 @AttributeOverride(name = "id", column = @Column(name = "company_bank_accounts_id", nullable = false, updatable = false))
 public class CompanyBankAccount extends BaseEntity {
 
+    /** How money moves through this account (V206); its is_mandatory_* flags decide which fields below are required. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "bank_id", nullable = false)
+    @JoinColumn(name = "payment_method_id", nullable = false)
+    private com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod paymentMethod;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id")
     private Bank bank;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "currency_id", nullable = false)
     private Currency currency;
 
-    @Column(name = "account_type", length = 40, nullable = false)
+    @Column(name = "account_type", length = 40)
     private String accountType;
 
-    @Column(name = "account_number", length = 40, nullable = false)
+    @Column(name = "account_number", length = 40)
     private String accountNumber;
 
     @Column(name = "holder_name", length = 160, nullable = false)
     private String holderName;
 
-    @Column(name = "holder_document", length = 30, nullable = false)
+    @Column(name = "holder_document", length = 30)
     private String holderDocument;
 
     @Column(length = 255)
     private String notes;
 
-    /** Pago Móvil phone (V206); required when {@code accountType} is {@code PAGO_MOVIL}. */
-    @Column(name = "mobile_payment_phone", length = 30)
-    private String mobilePaymentPhone;
+    /** Phone of the account, e.g. Pago Móvil (V206). */
+    @Column(length = 30)
+    private String phone;
+
+    /** Email of the account, e.g. Zelle (V206). */
+    @Column(length = 160)
+    private String email;
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;

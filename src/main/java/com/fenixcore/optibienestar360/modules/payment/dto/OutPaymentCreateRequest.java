@@ -28,5 +28,9 @@ public record OutPaymentCreateRequest(
 	@Size(max = 160) String email,
 	@Size(max = 80) String referenceNumber,
 	@NotNull @PastOrPresent Instant paymentDate,
-	String adminNotes
+	String adminNotes,
+	/** Company account the money leaves from (V206); optional. */
+	UUID companyBankAccountUuid,
+	/** Advisor payout account the money goes to (V206); optional, must belong to the promoter. */
+	UUID payoutAccountUuid
 ) {}
