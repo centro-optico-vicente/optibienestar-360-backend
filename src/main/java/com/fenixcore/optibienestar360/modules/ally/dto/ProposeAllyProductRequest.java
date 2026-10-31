@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.DiscountType;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -43,6 +44,11 @@ public record ProposeAllyProductRequest(
         @DecimalMin(value = "0.0", inclusive = true)
         @DecimalMax(value = "100.0", inclusive = true)
         BigDecimal discountPct,
+        // FLAT | PERCENTAGE (V210); null = PERCENTAGE. FLAT takes discountAmount, in the price currency.
+        DiscountType discountType,
+        @Digits(integer = 8, fraction = 2)
+        @DecimalMin(value = "0.0", inclusive = false)
+        BigDecimal discountAmount,
 
         /** Operational exclusions of the preferential rate, free text (V179). */
         String exclusions

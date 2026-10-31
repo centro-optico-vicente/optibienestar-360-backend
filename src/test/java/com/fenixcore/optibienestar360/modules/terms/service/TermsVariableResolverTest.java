@@ -32,6 +32,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -312,12 +313,36 @@ class TermsVariableResolverTest {
 
         assertThat(rows).containsExactly(
                 Map.of("segment", "B2B/B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
-                        "discountPct", "15"),
+                        "discountPct", "15", "discountLabel", "15 %"),
                 Map.of("segment", "B2B/B2P", "category", "Exámenes", "serviceName", "laboratorio clínico",
-                        "discountPct", "10,50", "exclusions", "Insumos de alto costo"));
+                        "discountPct", "10,50", "discountLabel", "10,50 %", "exclusions", "Insumos de alto costo"));
         assertThat(render("{{#agreement.rates}}{{serviceName}}: {{exclusions}}. {{/agreement.rates}}",
                 resolver.forAlly(agreement)))
                 .isEqualTo("Consulta oftalmológica: Sin exclusiones. laboratorio clínico: Insumos de alto costo. ");
+    }
+
+    @Test
+    void ally_flatDiscountRowShowsTheAmountPriceFinalPriceAndEquivalentPercentage() {
+        Ally ally = new Ally();
+        ally.setId(9L);
+        ally.setAllyTypes(Set.of(allyType(AllyType.Segment.B2P)));
+        Currency usd = new Currency();
+        usd.setCode("USD");
+        AllyProduct consult = service(1L, "Consulta", "Consultas", null, null);
+        consult.setPriceAmount(new BigDecimal("40.00"));
+        consult.setPriceCurrency(usd);
+        consult.applyDiscount(AllyProduct.DiscountType.FLAT, null, new BigDecimal("5.00"));
+        when(allyProductRepository.findByAllyIdAndReviewStatus(9L, ReviewStatus.APPROVED)).thenReturn(List.of(consult));
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+        Locale esVe = Locale.forLanguageTag("es-VE");
+
+        Map<String, String> row = resolver.forAlly(agreement).rows("agreement.rates").getFirst();
+
+        assertThat(row).containsEntry("discountLabel", formatter.money(new BigDecimal("5.00"), "USD", esVe))
+                .containsEntry("priceLabel", formatter.money(new BigDecimal("40.00"), "USD", esVe))
+                .containsEntry("finalPriceLabel", formatter.money(new BigDecimal("35.00"), "USD", esVe))
+                .containsEntry("discountPct", "12,50");
     }
 
     @Test

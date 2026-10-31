@@ -65,12 +65,14 @@ public class PublicMediaEnricher {
     // Records are immutable: copy with the gallery filled in.
     private static PublicAllyProductDto withImages(PublicAllyProductDto o, List<PublicImageDto> images) {
         return new PublicAllyProductDto(o.uuid(), o.productUuid(), o.productType(), o.inCatalog(), o.categoryName(),
-                o.name(), o.description(), o.priceAmount(), o.discountPct(), o.finalPrice(), o.exclusions(),
+                o.name(), o.description(), o.priceAmount(), o.discountPct(), o.discountType(), o.discountAmount(),
+                o.effectiveDiscountPct(), o.finalPrice(), o.exclusions(),
                 o.requiresAppointment(), o.imageUrl(), images);
     }
 
     private static PublicProductOfferDto withImages(PublicProductOfferDto o, List<PublicImageDto> images) {
-        return new PublicProductOfferDto(o.offerUuid(), o.priceAmount(), o.discountPct(), o.finalPrice(),
+        return new PublicProductOfferDto(o.offerUuid(), o.priceAmount(), o.discountPct(), o.discountType(),
+                o.discountAmount(), o.effectiveDiscountPct(), o.finalPrice(),
                 o.exclusions(), o.allyUuid(), o.allyName(), o.allyTypeNames(), o.allyCityName(), o.allyLogoUrl(),
                 o.allyPhone(), o.allyWhatsapp(), o.imageUrl(), images);
     }

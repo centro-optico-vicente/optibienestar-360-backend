@@ -119,7 +119,8 @@ class TermsVariablesTest {
             assertThat(section.key()).isEqualTo("agreement.rates");
             assertThat(section.pendingNote()).isEqualTo("[Tarifas del convenio pendientes]");
             assertThat(section.fields()).extracting(TermsVariables.Variable::key)
-                    .containsExactly("segment", "category", "serviceName", "discountPct", "exclusions");
+                    .containsExactly("segment", "category", "serviceName", "discountPct", "discountLabel",
+                            "priceLabel", "finalPriceLabel", "exclusions");
             assertThat(section.field("discountPct")).get().extracting(TermsVariables.Variable::kind)
                     .isEqualTo(TermsVariables.Kind.NUMBER);
             assertThat(section.sampleRows()).isNotEmpty();

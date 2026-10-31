@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.ally.service.PublicProductSearch;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
 import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.DiscountType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -74,7 +75,8 @@ class PublicProductControllerIT {
     private PublicProductListItemDto crossAllyRow() {
         return new PublicProductListItemDto(
                 UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, "Optometría", "Examen de la vista",
-                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null,
+                "Evaluación optométrica completa", new BigDecimal("15.00"), null, null, null, null,
+                new BigDecimal("15.00"), null, true, null,
                 UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida",
                 "https://cdn.example/logo.png", "+58 274 5550100");
     }
@@ -82,17 +84,19 @@ class PublicProductControllerIT {
     private PublicAllyProductDto leanRow() {
         return new PublicAllyProductDto(
                 UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, true, "Optometría", "Examen de la vista",
-                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null,
+                "Evaluación optométrica completa", new BigDecimal("15.00"), null, null, null, null,
+                new BigDecimal("15.00"), null, true, null,
                 List.of());
     }
 
     private PublicProductDetailDto detail() {
         PublicProductOfferDto cheapest = new PublicProductOfferDto(UUID.randomUUID(),
-                new BigDecimal("20.00"), new BigDecimal("25.00"), new BigDecimal("15.00"), null,
+                new BigDecimal("20.00"), new BigDecimal("25.00"), DiscountType.PERCENTAGE, null, new BigDecimal("25.00"),
+                new BigDecimal("15.00"), null,
                 UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida", null, "+58 274 5550100", null,
                 "https://cdn.example/optica.jpg", List.of(new PublicImageDto("https://cdn.example/optica.jpg", null, true)));
         PublicProductOfferDto other = new PublicProductOfferDto(UUID.randomUUID(),
-                new BigDecimal("18.00"), null, new BigDecimal("18.00"), "Solo de lunes a viernes",
+                new BigDecimal("18.00"), null, DiscountType.PERCENTAGE, null, null, new BigDecimal("18.00"), "Solo de lunes a viernes",
                 UUID.randomUUID(), "Clínica Andes", List.of("Clínica"), "Mérida", null, null, null, null, List.of());
         return new PublicProductDetailDto(UUID.randomUUID(), "Examen de la vista", null, ProductType.SERVICE,
                 "Optometría", true, null, 2, new BigDecimal("15.00"), new BigDecimal("25.00"), List.of(cheapest, other),

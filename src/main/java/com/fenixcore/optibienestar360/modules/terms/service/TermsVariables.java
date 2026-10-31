@@ -162,13 +162,18 @@ public final class TermsVariables {
                     new Variable("category", "[Categoría pendiente]", "Consultas"),
                     new Variable("serviceName", "[Servicio pendiente]", "Consulta oftalmológica"),
                     new Variable("discountPct", Kind.NUMBER, "[Descuento pendiente]", "15"),
+                    new Variable("discountLabel", "[Tarifa preferencial pendiente]", "15 %"),
+                    new Variable("priceLabel", "[Precio pendiente]", "US$ 40,00"),
+                    new Variable("finalPriceLabel", "[Precio para el afiliado pendiente]", "US$ 34,00"),
                     new Variable("exclusions", "Sin exclusiones", "Intervenciones quirúrgicas mayores")
             ),
             List.of(
                     Map.of("segment", "B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
-                            "discountPct", "15", "exclusions", "Intervenciones quirúrgicas mayores"),
+                            "discountPct", "15", "discountLabel", "15 %", "priceLabel", "US$ 40,00",
+                            "finalPriceLabel", "US$ 34,00", "exclusions", "Intervenciones quirúrgicas mayores"),
                     Map.of("segment", "B2P", "category", "Exámenes", "serviceName", "Exámenes de laboratorio",
-                            "discountPct", "10,5", "exclusions", "Insumos de alto costo")
+                            "discountPct", "10,5", "discountLabel", "US$ 4,20", "priceLabel", "US$ 40,00",
+                            "finalPriceLabel", "US$ 35,80", "exclusions", "Insumos de alto costo")
             ));
 
     static final List<Section> ALLY_SECTIONS = List.of(AGREEMENT_RATES);
