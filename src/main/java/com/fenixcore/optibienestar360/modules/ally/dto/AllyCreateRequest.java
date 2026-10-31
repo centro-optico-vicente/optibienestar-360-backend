@@ -86,7 +86,7 @@ public record AllyCreateRequest(
         // ─── Agreement file + representative (V179) — allyNumber is never accepted ─
         /** Advisor (promoter) who captured the ally; null = none (create) / unchanged (update). */
         UUID capturedByPromoterUuid,
-        /** @deprecated V209 — use {@code holder}. */
+        // Deprecated since V209: use holder.
         @Size(max = 210) String representativeName,
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String representativeDocumentType,
