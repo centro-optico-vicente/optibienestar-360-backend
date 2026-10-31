@@ -41,7 +41,7 @@ import java.util.Set;
  * Each place a professional practices at is its own ally (one agreement per
  * ally), all sharing the same {@link #getHolderPerson() holder person}.
  *
- * <p>The holder person ({@code person_id}, V209) is the professional for B2P
+ * <p>The holder person ({@code person_id}, V211) is the professional for B2P
  * (required by {@code AlliesService}) and the representative who signs the
  * agreement for B2B. Users that operate the ally attach via {@link AllyUser}
  * (N:M pivot, V12).</p>
@@ -79,17 +79,17 @@ public class Ally extends BaseEntity {
     @JoinColumn(name = "captured_by_promoter_id")
     private Promoter capturedByPromoter;
 
-    /** B2B / B2P (V209, hub ADR 0031); the ally's types must belong to it. */
+    /** B2B / B2P (V211, hub ADR 0031); the ally's types must belong to it. */
     @Enumerated(EnumType.STRING)
     @Column(name = "segment", length = 3, nullable = false)
     private AllyType.Segment segment = AllyType.Segment.B2B;
 
-    /** Holder person (V209): the professional (B2P) or the representative who signs (B2B). */
+    /** Holder person (V211): the professional (B2P) or the representative who signs (B2B). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id")
     private Person holderPerson;
 
-    // ─── B2P practice site (V209, Convenio Profesional §III) ───────────────
+    // ─── B2P practice site (V211, Convenio Profesional §III) ───────────────
 
     /** Clinic the professional practices at, when that clinic is an ally too. */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -109,7 +109,7 @@ public class Ally extends BaseEntity {
     @Column(name = "assistant_name", length = 150)
     private String assistantName;
 
-    // ─── B2B commercial data (V209, Convenio Comercial §I–IV) ───────────────
+    // ─── B2B commercial data (V211, Convenio Comercial §I–IV) ───────────────
 
     @Column(name = "commercial_zone", length = 100)
     private String commercialZone;
@@ -135,7 +135,7 @@ public class Ally extends BaseEntity {
     private String representativePosition;
 
     // ─── Legal representative / physician who signs the agreement (V179) ───
-    // DEPRECATED since V209: the holder person (person_id) replaces these
+    // DEPRECATED since V211: the holder person (person_id) replaces these
     // free-text columns; kept read-only-ish until their data is migrated.
 
     @Column(name = "representative_name", length = 210)

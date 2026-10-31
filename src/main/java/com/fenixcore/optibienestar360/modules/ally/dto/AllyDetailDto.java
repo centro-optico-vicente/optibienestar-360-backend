@@ -36,12 +36,12 @@ public record AllyDetailDto(
         UUID uuid,
         String name,
         List<AllyTypeDto> allyTypes,
-        /** B2B / B2P (V209, hub ADR 0031); localized {@code segment_Display}. */
+        /** B2B / B2P (V211, hub ADR 0031); localized {@code segment_Display}. */
         @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
         /** Professional (B2P) or signing representative (B2B); {@code null} until loaded. */
         AllyHolderPersonDto holder,
 
-        // ─── B2P practice site (V209) ──────────────────────────────────────
+        // ─── B2P practice site (V211) ──────────────────────────────────────
         /** Host clinic when it is an ally: {@code hostAlly_Uuid} + {@code hostAlly_Display}. */
         @Display DisplayRef hostAlly,
         String hostName,
@@ -49,7 +49,7 @@ public record AllyDetailDto(
         String appointmentPhone,
         String assistantName,
 
-        // ─── B2B commercial data (V209) ────────────────────────────────────
+        // ─── B2B commercial data (V211) ────────────────────────────────────
         String commercialZone,
         String tradeName,
         Short foundedYear,
@@ -63,7 +63,7 @@ public record AllyDetailDto(
         String fileNumber,
         @Display DisplayRef capturedByPromoter,
 
-        // ─── Legal representative / signing physician (V179) — DEPRECATED (V209: holder) ─
+        // ─── Legal representative / signing physician (V179) — DEPRECATED (V211: holder) ─
         String representativeName,
         String representativeDocumentType,
         String representativeDocumentNumber,

@@ -11,7 +11,7 @@ import java.util.UUID;
  * @param city     city or state name
  * @param category allies offering something of this category (name or code)
  * @param type     allies offering {@code servicios} / {@code productos}
- * @param segment  {@code B2B} / {@code B2P} (the ally's own segment, V209)
+ * @param segment  {@code B2B} / {@code B2P} (the ally's own segment, V211)
  */
 public record PublicAllySearch(
         String q,

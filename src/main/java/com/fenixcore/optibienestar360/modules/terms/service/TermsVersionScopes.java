@@ -20,7 +20,7 @@ import java.util.Set;
  * <p>A template applies to an ally when every scope field it sets matches:
  * its {@code ally} is that ally, its {@code allyType} is one of the ally's
  * types, its {@code segment} is the ally's own segment ({@code allies.segment},
- * V209 / hub ADR 0031). A template with no scope applies to every ally.</p>
+ * V211 / hub ADR 0031). A template with no scope applies to every ally.</p>
  */
 public final class TermsVersionScopes {
 

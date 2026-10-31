@@ -164,7 +164,7 @@ public class AllyProductsProposeService {
             offer.setPriceCurrency(currencyRepository.findByCode("USD")
                     .orElseThrow(() -> new IllegalStateException("currency.usd_not_seeded")));
         }
-        offer.setDiscountPct(req.discountPct());
+        offer.applyDiscount(req.discountType(), req.discountPct(), req.discountAmount());
         offer.setExclusions(req.exclusions() == null || req.exclusions().isBlank() ? null : req.exclusions().trim());
         // reviewStatus stays at PROPOSED (V11 column default). reviewedBy /
         // reviewedAt remain null until an admin moves it to APPROVED /

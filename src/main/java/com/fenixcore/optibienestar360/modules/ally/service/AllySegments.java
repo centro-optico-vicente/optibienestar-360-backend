@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.UUID;
 
 /**
- * Segment rules of an ally (V209, hub ADR 0031), stateless so plain unit
+ * Segment rules of an ally (V211, hub ADR 0031), stateless so plain unit
  * tests can call them:
  *
  * <ul>
@@ -26,7 +26,7 @@ public final class AllySegments {
     private AllySegments() {
     }
 
-    /** B2P when every type is B2P, else B2B (also the V209 backfill rule). */
+    /** B2P when every type is B2P, else B2B (also the V211 backfill rule). */
     public static Segment derive(Collection<AllyType> types) {
         boolean allProfessional = types != null && !types.isEmpty()
                 && types.stream().allMatch(t -> t.getSegment() == Segment.B2P);

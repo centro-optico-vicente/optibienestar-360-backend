@@ -60,7 +60,7 @@ public record AllyCreateRequest(
         Instant publishedAt,
 
 
-        // ─── Segment + holder person (V209, hub ADR 0031) ──────────────────
+        // ─── Segment + holder person (V211, hub ADR 0031) ──────────────────
         /** B2B / B2P. Null = derived from the types (all B2P → B2P, else B2B). */
         Segment segment,
         /** Professional (B2P, required) or signing representative (B2B); find-or-create by cédula.  */
@@ -86,7 +86,7 @@ public record AllyCreateRequest(
         // ─── Agreement file + representative (V179) — allyNumber is never accepted ─
         /** Advisor (promoter) who captured the ally; null = none (create) / unchanged (update). */
         UUID capturedByPromoterUuid,
-        // Deprecated since V209: use holder.
+        // Deprecated since V211: use holder.
         @Size(max = 210) String representativeName,
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String representativeDocumentType,

@@ -193,16 +193,45 @@ public class TermsVariableResolver {
                     put(row, "category", category == null ? null : category.getName());
                     // Placeholder kept as {{serviceName}}: stored agreement templates already use it (ADR 0026).
                     put(row, "serviceName", service.getProduct().getName());
-                    put(row, "discountPct", number(service.getDiscountPct()));
+                    // discountPct stays a plain percentage for templates written before V210:
+                    // a FLAT discount shows its equivalent percentage there.
+                    put(row, "discountPct", number(service.getEffectiveDiscountPct()));
+                    put(row, "discountLabel", discountLabel(service));
+                    String currencyCode = service.getPriceCurrency() == null ? null : service.getPriceCurrency().getCode();
+                    put(row, "priceLabel", plainMoney(service.getPriceAmount(), currencyCode));
+                    put(row, "finalPriceLabel", plainMoney(service.getFinalPrice(), currencyCode));
                     put(row, "exclusions", service.getExclusions());
                     return Map.copyOf(row);
                 })
                 .toList();
     }
 
-    /** The ally's own segment ({@code allies.segment}, V209 / hub ADR 0031): {@code "B2B"} or {@code "B2P"}. */
+    /** The ally's own segment ({@code allies.segment}, V211 / hub ADR 0031): {@code "B2B"} or {@code "B2P"}. */
     private static String segmentOf(Ally ally) {
         return ally.getSegment() == null ? null : ally.getSegment().name();
+    }
+
+    /**
+     * The preferential rate as the agreement shows it: {@code "10 %"} for a
+     * percentage, {@code "US$ 5,00"} for a fixed amount (hub ADR 0031 §8);
+     * {@code null} (pending note) without a discount.
+     */
+    String discountLabel(AllyProduct offer) {
+        if (offer.getDiscountType() == AllyProduct.DiscountType.FLAT) {
+            String code = offer.getPriceCurrency() == null ? null : offer.getPriceCurrency().getCode();
+            return plainMoney(offer.getDiscountAmount(), code);
+        }
+        String pct = number(offer.getDiscountPct());
+        return pct == null ? null : pct + " %";
+    }
+
+    /**
+     * A rates-table amount in its own currency, without the official-rate
+     * clause of {@link #money}: the table repeats it on every row, and the
+     * rates are commercial terms, not an amount the ally owes.
+     */
+    private String plainMoney(BigDecimal amount, String currencyCode) {
+        return amount == null ? null : displayFormatter.money(amount, currencyCode, CONTRACT_LOCALE);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 -- ====================================================
--- V209__ally_segment_and_holder_person.sql
+-- V211__ally_segment_and_holder_person.sql
 --
 -- Hub ADR 0031 (professional ally, B2P) — step 3 of the plan
 -- `.ai/plans/2026-10-31-professional-ally.md`:
@@ -76,7 +76,7 @@ BEGIN
                   JOIN ally_types t ON t.ally_types_id = aat.ally_type_id
                   WHERE aat.ally_id = a.allies_id AND aat.is_active AND t.segment = 'B2B')
     LOOP
-        RAISE NOTICE 'V209: ally % (Nº %, "%") has B2B and B2P types; segment set to B2B — review by hand',
+        RAISE NOTICE 'V211: ally % (Nº %, "%") has B2B and B2P types; segment set to B2B — review by hand',
             mixed.allies_id, mixed.ally_number, mixed.name;
     END LOOP;
 END $$;
@@ -95,6 +95,6 @@ COMMENT ON COLUMN allies.cash_registers_count IS 'B2B: number of cash registers'
 COMMENT ON COLUMN allies.branches_count IS 'B2B: number of branches';
 COMMENT ON COLUMN allies.has_pos IS 'B2B: whether it runs a POS system';
 COMMENT ON COLUMN allies.representative_position IS 'B2B: position (cargo) of the representative who signs';
-COMMENT ON COLUMN allies.representative_name IS 'DEPRECATED (V209): use person_id';
-COMMENT ON COLUMN allies.representative_document_type IS 'DEPRECATED (V209): use person_id';
-COMMENT ON COLUMN allies.representative_document_number IS 'DEPRECATED (V209): use person_id';
+COMMENT ON COLUMN allies.representative_name IS 'DEPRECATED (V211): use person_id';
+COMMENT ON COLUMN allies.representative_document_type IS 'DEPRECATED (V211): use person_id';
+COMMENT ON COLUMN allies.representative_document_number IS 'DEPRECATED (V211): use person_id';

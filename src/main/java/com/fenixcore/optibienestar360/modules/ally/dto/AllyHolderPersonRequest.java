@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
 /**
- * Holder person of an ally (V209, hub ADR 0031): the professional of a B2P
+ * Holder person of an ally (V211, hub ADR 0031): the professional of a B2P
  * ally or the representative who signs for a B2B ally.
  *
  * <p>Find-or-create by cédula ({@code documentType} + {@code documentNumber}):

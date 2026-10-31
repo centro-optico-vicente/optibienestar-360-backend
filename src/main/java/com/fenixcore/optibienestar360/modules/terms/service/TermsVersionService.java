@@ -262,7 +262,7 @@ public class TermsVersionService {
         if (allyType != null && segment != null && allyType.getSegment() != segment) {
             throw new IllegalArgumentException("terms_version.scope.segment_mismatch");
         }
-        // The ally's own segment (V209) must match too, or the template could never apply.
+        // The ally's own segment (V211) must match too, or the template could never apply.
         if (ally != null && segment != null && ally.getSegment() != segment) {
             throw new IllegalArgumentException("terms_version.scope.segment_mismatch");
         }

@@ -79,7 +79,7 @@ class AllyProductsRemovalControllerIT {
     private AllyProductDto removedDto() {
         return new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 UUID.randomUUID(), ProductType.SERVICE, true, null, "Consulta", null, false, null,
-                null, null, null, null,
+                null, null, null, null, null, null, null,
                 ReviewStatus.REMOVED, null, null, "Retirado por el aliado", false, null, true, null, null, null);
     }
 

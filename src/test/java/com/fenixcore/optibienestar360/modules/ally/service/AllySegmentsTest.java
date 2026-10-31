@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Segment rules of an ally (V209, hub ADR 0031): derivation from the types,
+ * Segment rules of an ally (V211, hub ADR 0031): derivation from the types,
  * types matching the segment, the B2P holder person and the segment-specific
  * fields.
  */

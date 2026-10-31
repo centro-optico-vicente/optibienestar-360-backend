@@ -28,7 +28,7 @@ public record PublicAllyListItemDto(
         List<String> allyTypeNames,
         /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). Superseded by {@code segment}. */
         List<String> allySegments,
-        /** The ally's own segment (V209, hub ADR 0031); localized {@code segment_Display}. */
+        /** The ally's own segment (V211, hub ADR 0031); localized {@code segment_Display}. */
         @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
         /** B2P: clinic the professional practices at (the host ally's name or the free-text name). */
         String hostName,

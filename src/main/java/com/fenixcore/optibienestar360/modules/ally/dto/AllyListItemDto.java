@@ -25,7 +25,7 @@ public record AllyListItemDto(
         String name,
         /** Sequential "Nº DE ALIADO" (V179). */
         Integer allyNumber,
-        /** B2B / B2P (V209, hub ADR 0031); localized {@code segment_Display}. */
+        /** B2B / B2P (V211, hub ADR 0031); localized {@code segment_Display}. */
         @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
 
         List<String> allyTypeNames,

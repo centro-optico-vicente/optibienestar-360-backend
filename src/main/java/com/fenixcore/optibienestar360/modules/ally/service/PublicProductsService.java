@@ -68,11 +68,12 @@ public class PublicProductsService {
 
     /**
      * Comparison order of a product's offers: best final price first (offers
-     * without a price last), then higher discount, then ally name.
+     * without a price last), then higher discount (as a percentage, whatever
+     * its type), then ally name.
      */
     private static final Comparator<AllyProduct> BEST_OFFER_FIRST =
             Comparator.comparing(AllyProduct::getFinalPrice, Comparator.nullsLast(Comparator.naturalOrder()))
-                    .thenComparing(AllyProduct::getDiscountPct, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(AllyProduct::getEffectiveDiscountPct, Comparator.nullsLast(Comparator.reverseOrder()))
                     .thenComparing(offer -> offer.getAlly().getName(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
 
     private final AllyProductRepository offerRepository;
@@ -185,7 +186,7 @@ public class PublicProductsService {
         List<PublicProductOfferDto> offerDtos = offers.stream().map(mapper::toPublicProductOffer).toList();
         BigDecimal minFinalPrice = offers.stream().map(AllyProduct::getFinalPrice)
                 .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
-        BigDecimal maxDiscountPct = offers.stream().map(AllyProduct::getDiscountPct)
+        BigDecimal maxDiscountPct = offers.stream().map(AllyProduct::getEffectiveDiscountPct)
                 .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
 
         PublicProductDetailDto detail = new PublicProductDetailDto(

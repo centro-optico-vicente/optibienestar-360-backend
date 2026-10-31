@@ -247,7 +247,7 @@ public interface AllyMapper {
         return AllyFileNumbers.of(ally);
     }
 
-    /** Holder person of the ally (V209) — admin projection, never used by the public DTOs. */
+    /** Holder person of the ally (V211) — admin projection, never used by the public DTOs. */
     default AllyHolderPersonDto holderDto(Person person) {
         if (person == null) return null;
         return new AllyHolderPersonDto(person.getUuid(), person.getDocumentType(), person.getDocumentNumber(),

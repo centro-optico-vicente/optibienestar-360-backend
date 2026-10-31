@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Holder person of an ally as shown to staff (V209, hub ADR 0031). Admin-only:
+ * Holder person of an ally as shown to staff (V211, hub ADR 0031). Admin-only:
  * the public directory never exposes the document or the birth date.
  */
 public record AllyHolderPersonDto(

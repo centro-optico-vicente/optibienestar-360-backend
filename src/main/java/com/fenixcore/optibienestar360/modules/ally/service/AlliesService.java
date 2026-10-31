@@ -288,7 +288,7 @@ public class AlliesService {
         Ally ally = new Ally();
         ally.setName(req.name());
         ally.setAllyTypes(resolveAllyTypes(req.allyTypeUuids()));
-        // Segment (V209, hub ADR 0031): explicit, or derived from the types.
+        // Segment (V211, hub ADR 0031): explicit, or derived from the types.
         ally.setSegment(req.segment() != null ? req.segment() : AllySegments.derive(ally.getAllyTypes()));
         AllySegments.requireTypesOf(ally);
         AllySegments.rejectForeignFields(ally.getSegment(), AllySegments.SiteFields.of(req));
@@ -376,7 +376,7 @@ public class AlliesService {
         if (req.representativeDocumentType()   != null) ally.setRepresentativeDocumentType(req.representativeDocumentType());
         if (req.representativeDocumentNumber() != null) ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
 
-        // Segment rules (V209, hub ADR 0031): the types belong to the ally's
+        // Segment rules (V211, hub ADR 0031): the types belong to the ally's
         // segment; the other segment's fields are rejected when sent and wiped
         // when the segment changes; a B2P ally needs its professional — checked
         // when the segment becomes B2P or the holder is touched, so existing
