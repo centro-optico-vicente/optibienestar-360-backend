@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStatus;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
+import com.fenixcore.optibienestar360.modules.ally.service.OpeningHoursRules;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -166,6 +167,8 @@ public class TermsVariableResolver {
             put(values, "ally.representativeDocument",
                     document(ally.getRepresentativeDocumentType(), ally.getRepresentativeDocumentNumber()));
             put(values, "ally.fileNumber", AllyFileNumbers.of(ally));
+            put(values, "ally.openingHours",
+                    OpeningHoursRules.label(OpeningHoursRules.of(ally.getOpeningHours()), CONTRACT_LOCALE));
         }
         put(values, "agreement.startDate", date(agreement.getStartDate()));
         put(values, "agreement.noticeDays", number(agreement.getNoticeDays()));

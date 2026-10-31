@@ -79,6 +79,8 @@ public interface AllyMapper {
     @Mapping(target = "cityName",       source = "city.name")
     @Mapping(target = "hostName",       expression = "java(hostName(ally))")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
+    @Mapping(target = "openingHours",   expression = "java(com.fenixcore.optibienestar360.modules.ally.service.AllyOpeningHoursService.toDtos(ally.getOpeningHours()))")
+    @Mapping(target = "openingHoursLabel", expression = "java(com.fenixcore.optibienestar360.modules.ally.service.OpeningHoursRules.label(com.fenixcore.optibienestar360.modules.ally.service.OpeningHoursRules.of(ally.getOpeningHours()), org.springframework.context.i18n.LocaleContextHolder.getLocale()))")
     @Mapping(target = "products",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     @Mapping(target = "services",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     @Mapping(target = "images",         ignore = true)

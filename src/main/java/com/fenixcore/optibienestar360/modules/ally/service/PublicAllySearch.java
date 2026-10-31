@@ -21,9 +21,13 @@ public record PublicAllySearch(
         String category,
         UUID categoryUuid,
         String type,
-        String segment
+        String segment,
+        /** Only allies with an opening-hours range covering "now" in the business zone (ADR 0031 §7). */
+        boolean openNow,
+        /** Only allies with at least one opening-hours range today in the business zone. */
+        boolean openToday
 ) {
     public static PublicAllySearch none() {
-        return new PublicAllySearch(null, null, null, null, null, null, null, null);
+        return new PublicAllySearch(null, null, null, null, null, null, null, null, false, false);
     }
 }

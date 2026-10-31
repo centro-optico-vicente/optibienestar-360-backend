@@ -148,6 +148,8 @@ public final class TermsVariables {
             new Variable("ally.representativeName", "[Representante pendiente]", "Ana López"),
             new Variable("ally.representativeDocument", "[Documento del representante pendiente]", "V-9876543"),
             new Variable("ally.fileNumber", "[Nº de expediente pendiente]", "ASE001-0007"),
+            new Variable("ally.openingHours", "[Horario de atención pendiente]",
+                    "Lun–Vie 08:00–12:00, 14:00–18:00; Sáb 08:00–12:00"),
             new Variable("agreement.startDate", Kind.DATE, "[Fecha de inicio del convenio pendiente]", "01-10-2026"),
             new Variable("agreement.noticeDays", Kind.NUMBER, "[Días de preaviso pendiente]", "30"),
             new Variable("agreement.autoRenew", Kind.BOOLEAN, "[Renovación automática pendiente]", "Sí"),
