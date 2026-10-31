@@ -21,6 +21,9 @@ public record PublicProductOfferDto(
         @Display(Display.Kind.NUMBER) BigDecimal finalPrice,
         /** Where the preferential rate does NOT apply (V179). */
         String exclusions,
+        /** Average affiliate stars (1..5) for this offer; {@code null} with no ratings (V201). */
+        BigDecimal ratingAvg,
+        int ratingCount,
 
         // ─── Ally (public identity slice) ───
         UUID allyUuid,
@@ -30,6 +33,8 @@ public record PublicProductOfferDto(
         String allyLogoUrl,
         String allyPhone,
         String allyWhatsapp,
+        BigDecimal allyRatingAvg,
+        int allyRatingCount,
         /** The offer's primary image (else the product's). */
         String imageUrl,
         /** The offer's gallery in display order; the product's when the offer has none. */

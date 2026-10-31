@@ -16,6 +16,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 import java.time.Instant;
 
 /**
@@ -71,6 +73,15 @@ public class Product extends BaseEntity {
      */
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
+
+    // ─── Affiliate ratings (V201) — kept in sync by BenefitUsageRatingsService ─
+
+    /** Average product stars across every ally's offer; {@code null} with no ratings. */
+    @Column(name = "rating_avg", precision = 3, scale = 2)
+    private BigDecimal ratingAvg;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount = 0;
 
     /**
      * Listed in the public cross-ally catalog and product comparison (V199).

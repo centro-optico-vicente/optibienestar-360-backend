@@ -60,7 +60,7 @@ class MyDigitalCardControllerIT {
     private DigitalCardDto card() {
         return new DigitalCardDto(UUID.randomUUID(), "Ana Pérez", "V", "12345678",
                 "Familiar", "ACTIVE", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 1, 15),
-                "data:image/png;base64,QR");
+                "data:image/png;base64,QR", null, null);
     }
 
     @Test

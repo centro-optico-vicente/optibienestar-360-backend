@@ -17,4 +17,7 @@ public interface DigitalCardRepository extends Repository<DigitalCardRow, UUID> 
 
     /** The card of the affiliate owning the given user account (1:1 person↔user). */
     Optional<DigitalCardRow> findByUserUuid(UUID userUuid);
+
+    /** The holder's card — the plan/coverage a beneficiary's card is built on. */
+    Optional<DigitalCardRow> findByMemberUuid(UUID memberUuid);
 }

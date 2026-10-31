@@ -10,6 +10,8 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductReposit
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageDto;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageRegisterRequest;
+import com.fenixcore.optibienestar360.modules.benefit.dto.UsagePersonSummaryDto;
+import com.fenixcore.optibienestar360.modules.benefit.dto.UsageServiceSummaryDto;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage;
 import com.fenixcore.optibienestar360.modules.benefit.entity.BenefitUsage.UsageStatus;
 import com.fenixcore.optibienestar360.modules.benefit.mapper.BenefitUsageMapper;
@@ -18,6 +20,8 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProductCategoryRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
+import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
@@ -29,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -58,6 +63,7 @@ public class BenefitUsagesService {
     private final AllyUserRepository allyUserRepository;
     private final CurrencyRepository currencyRepository;
     private final ProductCategoryRepository productCategoryRepository;
+    private final BeneficiaryRepository beneficiaryRepository;
     private final BenefitUsageMapper mapper;
 
     /**
@@ -93,6 +99,35 @@ public class BenefitUsagesService {
         return usageRepository.findByMemberUserUuid(userUuid, pageable).map(mapper::toDto);
     }
 
+    /**
+     * {@link #listForMemberUser} narrowed by who consumed (holder or one
+     * beneficiary) and by service. Without filters it is the plain feed.
+     */
+    public Page<BenefitUsageDto> listForMemberUser(UUID userUuid, UsageFilter filter, Pageable pageable) {
+        if (filter.isEmpty()) {
+            return listForMemberUser(userUuid, pageable);
+        }
+        return usageRepository.findByMemberUserUuidFiltered(userUuid, filter.holderOnly(), filter.beneficiaryUuid(),
+                filter.productUuid(), filter.productCategoryUuid(), pageable).map(mapper::toDto);
+    }
+
+    /** Powers {@code GET /v1/me/usage-history/summary}: consumption grouped by service. */
+    public List<UsageServiceSummaryDto> summarizeForMemberUser(UUID userUuid, boolean holderOnly, UUID beneficiaryUuid) {
+        return usageRepository.summarizeByServiceForMemberUser(userUuid, holderOnly, beneficiaryUuid);
+    }
+
+    /** Powers {@code GET /v1/me/usage-history/by-person}: consumption count per family member. */
+    public List<UsagePersonSummaryDto> summarizeByPersonForMemberUser(UUID userUuid) {
+        return usageRepository.summarizeByPersonForMemberUser(userUuid);
+    }
+
+    /** Optional filters of the affiliate's consumption history. */
+    public record UsageFilter(boolean holderOnly, UUID beneficiaryUuid, UUID productUuid, UUID productCategoryUuid) {
+        public boolean isEmpty() {
+            return !holderOnly && beneficiaryUuid == null && productUuid == null && productCategoryUuid == null;
+        }
+    }
+
     @Transactional
     @Auditable(entity = "benefit_usage", action = AuditAction.CREATE)
     public BenefitUsageDto register(BenefitUsageRegisterRequest request) {
@@ -123,6 +158,7 @@ public class BenefitUsagesService {
         usage.setAlly(ally);
         usage.setAllyProduct(allyProduct);
         usage.setAllyUser(allyUser);
+        usage.setBeneficiary(resolveBeneficiary(request.beneficiaryUuid(), membership));
         usage.setProductCategory(resolveProductCategory(request, allyProduct));
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
@@ -135,6 +171,19 @@ public class BenefitUsagesService {
         usage.setStatus(UsageStatus.REGISTERED.name());
 
         return mapper.toDto(usageRepository.save(usage));
+    }
+
+    /**
+     * The beneficiary who consumed, or {@code null} for the holder. It must be
+     * an active beneficiary of the membership's own member — anyone else is a
+     * 404, so a usage can never be booked on another family's person.
+     */
+    private Beneficiary resolveBeneficiary(UUID beneficiaryUuid, Membership membership) {
+        if (beneficiaryUuid == null) return null;
+        return beneficiaryRepository.findByUuid(beneficiaryUuid)
+                .filter(Beneficiary::isActive)
+                .filter(b -> b.getMember().getId().equals(membership.getMember().getId()))
+                .orElseThrow(() -> new NoSuchElementException("beneficiary.not_found"));
     }
 
     /** Both money columns are nullable and paired with their amount (V24 / V158 CHECKs). */

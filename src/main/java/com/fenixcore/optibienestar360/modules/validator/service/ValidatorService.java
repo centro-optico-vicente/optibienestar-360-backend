@@ -2,7 +2,9 @@ package com.fenixcore.optibienestar360.modules.validator.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
@@ -11,15 +13,18 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto;
+import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto.CoveredPerson;
 import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto.ValidationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -66,6 +71,7 @@ public class ValidatorService {
 
     private final PersonRepository personRepository;
     private final MemberRepository memberRepository;
+    private final BeneficiaryRepository beneficiaryRepository;
     private final MembershipRepository membershipRepository;
     private final ValidatorCacheService cacheService;
     private final ObjectProvider<StringRedisTemplate> redisProvider;
@@ -110,34 +116,55 @@ public class ValidatorService {
 
         Optional<Member> memberOpt = memberRepository.findByPersonId(person.getId());
         if (memberOpt.isEmpty() || !memberOpt.get().isActive()) {
+            // Not a holder: a beneficiary is covered by their holder's membership (V195).
+            Optional<Beneficiary> asBeneficiary = beneficiaryRepository.findByPersonIdAndActiveTrue(person.getId())
+                    .stream()
+                    .filter(b -> b.getMember() != null && b.getMember().isActive())
+                    .findFirst();
+            if (asBeneficiary.isPresent()) {
+                return forMember(asBeneficiary.get().getMember(), parts)
+                        .withBeneficiary(asBeneficiary.get())
+                        .build(false);
+            }
             return base(ValidationStatus.NOT_ENROLLED, parts)
                     .withPerson(person)
                     .build(false);
         }
-        Member member = memberOpt.get();
+        return forMember(memberOpt.get(), parts).build(false);
+    }
 
+    /**
+     * The membership-driven part of the answer, shared by the holder and the
+     * beneficiary paths: holder identity, coverage and the people it covers.
+     */
+    private Builder forMember(Member member, DocumentParts parts) {
         Optional<Membership> membershipOpt = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId());
         if (membershipOpt.isEmpty()) {
             return base(ValidationStatus.NO_ACTIVE_MEMBERSHIP, parts)
-                    .withPerson(person)
-                    .withMember(member)
-                    .build(false);
+                    .withPerson(member.getPerson())
+                    .withMember(member);
         }
         Membership membership = membershipOpt.get();
-
-        ValidationStatus status = mapLifecycle(membership.getStatus());
-        return base(status, parts)
-                .withPerson(person)
+        return base(mapLifecycle(membership.getStatus()), parts)
+                .withPerson(member.getPerson())
                 .withMember(member)
                 .withMembership(membership)
-                .build(false);
+                .withCovered(beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId(), Sort.unsorted()));
     }
 
     /** Same funnel as {@link #resolve}, entered from a member UUID (QR scan) instead of a typed document. */
     private ValidationResultDto resolveByMemberUuid(UUID memberUuid) {
         Optional<Member> memberOpt = memberRepository.findByUuid(memberUuid);
         if (memberOpt.isEmpty() || !memberOpt.get().isActive()) {
-            return new Builder().build(false);
+            // A beneficiary's own card (V195) encodes their beneficiary UUID.
+            return beneficiaryRepository.findByUuid(memberUuid)
+                    .filter(Beneficiary::isActive)
+                    .filter(b -> b.getMember() != null && b.getMember().isActive() && b.getPerson() != null)
+                    .map(b -> forMember(b.getMember(),
+                            new DocumentParts(b.getPerson().getDocumentType(), b.getPerson().getDocumentNumber()))
+                            .withBeneficiary(b)
+                            .build(false))
+                    .orElseGet(() -> new Builder().build(false));
         }
         Member member = memberOpt.get();
         Person person = member.getPerson();
@@ -148,22 +175,7 @@ public class ValidatorService {
         if (person == null || !person.isActive()) {
             return base(ValidationStatus.NOT_FOUND, parts).build(false);
         }
-
-        Optional<Membership> membershipOpt = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId());
-        if (membershipOpt.isEmpty()) {
-            return base(ValidationStatus.NO_ACTIVE_MEMBERSHIP, parts)
-                    .withPerson(person)
-                    .withMember(member)
-                    .build(false);
-        }
-        Membership membership = membershipOpt.get();
-
-        ValidationStatus status = mapLifecycle(membership.getStatus());
-        return base(status, parts)
-                .withPerson(person)
-                .withMember(member)
-                .withMembership(membership)
-                .build(false);
+        return forMember(member, parts).build(false);
     }
 
     private static ValidationStatus mapLifecycle(String lifecycleStatus) {
@@ -227,6 +239,8 @@ public class ValidatorService {
                 source.planUuid(), source.planCode(), source.planName(),
                 source.membershipUuid(), source.enrolledAt(), source.nextDueDate(),
                 source.lastPaidThrough(), source.gracePeriodDays(),
+                source.beneficiaryUuid(), source.beneficiaryFullName(), source.beneficiaryRelationship(),
+                source.beneficiaries(),
                 cached);
     }
 
@@ -265,9 +279,30 @@ public class ValidatorService {
         java.time.LocalDate nextDueDate;
         java.time.LocalDate lastPaidThrough;
         Integer gracePeriodDays;
+        java.util.UUID beneficiaryUuid;
+        String beneficiaryFullName;
+        String beneficiaryRelationship;
+        List<CoveredPerson> beneficiaries;
 
         Builder withPerson(Person p) {
-            this.memberFullName = p.getFullName();
+            if (p != null) this.memberFullName = p.getFullName();
+            return this;
+        }
+
+        /** The person at the counter is this beneficiary, covered by the holder's membership. */
+        Builder withBeneficiary(Beneficiary b) {
+            this.beneficiaryUuid = b.getUuid();
+            this.beneficiaryFullName = b.getPerson() != null ? b.getPerson().getFullName() : null;
+            this.beneficiaryRelationship = b.getRelationship() != null ? b.getRelationship().name() : null;
+            return this;
+        }
+
+        Builder withCovered(List<Beneficiary> covered) {
+            this.beneficiaries = covered.stream()
+                    .map(b -> new CoveredPerson(b.getUuid(),
+                            b.getPerson() != null ? b.getPerson().getFullName() : null,
+                            b.getRelationship() != null ? b.getRelationship().name() : null))
+                    .toList();
             return this;
         }
 
@@ -297,6 +332,7 @@ public class ValidatorService {
                     memberUuid, memberFullName,
                     planUuid, planCode, planName,
                     membershipUuid, enrolledAt, nextDueDate, lastPaidThrough, gracePeriodDays,
+                    beneficiaryUuid, beneficiaryFullName, beneficiaryRelationship, beneficiaries,
                     cached);
         }
     }

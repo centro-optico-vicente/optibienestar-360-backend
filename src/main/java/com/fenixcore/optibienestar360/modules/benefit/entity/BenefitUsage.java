@@ -150,6 +150,22 @@ public class BenefitUsage extends BaseEntity {
     @Column(columnDefinition = "text")
     private String notes;
 
+    // ─── Affiliate's rating (V201) ─────────────────────────────────────────
+
+    /** Stars 1..5 for the ally; {@code null} until the affiliate rates the usage. */
+    @Column(name = "ally_rating")
+    private Short allyRating;
+
+    /** Stars 1..5 for the consumed product — only when {@link #allyProduct} is set. */
+    @Column(name = "product_rating")
+    private Short productRating;
+
+    @Column(name = "rating_comment", length = 500)
+    private String ratingComment;
+
+    @Column(name = "rated_at")
+    private Instant ratedAt;
+
     /** Workflow values that may land in {@link BaseEntity#getStatus()}. */
     public enum UsageStatus {
         REGISTERED, REVERSED, DISPUTED

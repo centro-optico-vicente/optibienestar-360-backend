@@ -32,7 +32,7 @@ public class PublicMediaEnricher {
         return new PublicAllyDetailDto(detail.uuid(), detail.name(), detail.allyTypeNames(), detail.allySegments(),
                 detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
                 detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
-                detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
+                detail.ratingAvg(), detail.ratingCount(), detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
     }
 
     /** Offers of one ally (its detail or {@code /allies/{uuid}/products}). */
@@ -58,7 +58,8 @@ public class PublicMediaEnricher {
                 .map(o -> withImages(o, inherit(offerImages.get(o.offerUuid()), productImages)))
                 .toList();
         return new PublicProductDetailDto(detail.uuid(), detail.name(), detail.description(), detail.productType(),
-                detail.categoryName(), detail.requiresAppointment(), detail.imageUrl(), detail.offersCount(),
+                detail.categoryName(), detail.requiresAppointment(), detail.imageUrl(),
+                detail.ratingAvg(), detail.ratingCount(), detail.offersCount(),
                 detail.minFinalPrice(), detail.maxDiscountPct(), offers, productImages);
     }
 
@@ -66,13 +67,14 @@ public class PublicMediaEnricher {
     private static PublicAllyProductDto withImages(PublicAllyProductDto o, List<PublicImageDto> images) {
         return new PublicAllyProductDto(o.uuid(), o.productUuid(), o.productType(), o.inCatalog(), o.categoryName(),
                 o.name(), o.description(), o.priceAmount(), o.discountPct(), o.finalPrice(), o.exclusions(),
-                o.requiresAppointment(), o.imageUrl(), images);
+                o.requiresAppointment(), o.ratingAvg(), o.ratingCount(), o.imageUrl(), images);
     }
 
     private static PublicProductOfferDto withImages(PublicProductOfferDto o, List<PublicImageDto> images) {
         return new PublicProductOfferDto(o.offerUuid(), o.priceAmount(), o.discountPct(), o.finalPrice(),
-                o.exclusions(), o.allyUuid(), o.allyName(), o.allyTypeNames(), o.allyCityName(), o.allyLogoUrl(),
-                o.allyPhone(), o.allyWhatsapp(), o.imageUrl(), images);
+                o.exclusions(), o.ratingAvg(), o.ratingCount(), o.allyUuid(), o.allyName(), o.allyTypeNames(),
+                o.allyCityName(), o.allyLogoUrl(), o.allyPhone(), o.allyWhatsapp(), o.allyRatingAvg(),
+                o.allyRatingCount(), o.imageUrl(), images);
     }
 
     private static List<PublicImageDto> inherit(List<PublicImageDto> own, List<PublicImageDto> fallback) {

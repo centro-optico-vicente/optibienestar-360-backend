@@ -80,6 +80,15 @@ public class AllyProduct extends BaseEntity {
         return logoUrl != null ? logoUrl : (product == null ? null : product.getLogoUrl());
     }
 
+    // ─── Affiliate ratings (V201) — kept in sync by BenefitUsageRatingsService ─
+
+    /** Average product stars of this offer's rated usages; {@code null} with no ratings. */
+    @Column(name = "rating_avg", precision = 3, scale = 2)
+    private BigDecimal ratingAvg;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount = 0;
+
     // ─── Review workflow ────────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)

@@ -64,7 +64,8 @@ class AllyValidatorControllerIT {
 
     private ValidationResultDto notFound() {
         return new ValidationResultDto(ValidationStatus.NOT_FOUND, "V", "12345678",
-                null, null, null, null, null, null, null, null, null, null, false);
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, false);
     }
 
     @Test

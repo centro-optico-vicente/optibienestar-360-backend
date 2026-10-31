@@ -7,8 +7,11 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestRejectRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -56,6 +60,21 @@ public class AdminAffiliationRequestController {
     @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_ALL')")
     public ResponseEntity<AffiliationRequestDetailDto> get(@PathVariable UUID uuid) {
         return ResponseEntity.ok(service.get(uuid));
+    }
+
+    /**
+     * Short-lived presigned URL of the proof attached to the inscription
+     * payment reported on the form — same contract as
+     * {@code GET /v1/admin/payments/{uuid}/support} ({@code ttlMinutes} clamped
+     * to [1, 60], default 5). 404 when no proof was stored.
+     */
+    @GetMapping("/{uuid}/payment-support")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_ALL')")
+    public ResponseEntity<PaymentSupportUrlDto> getPaymentSupportUrl(
+            @PathVariable UUID uuid,
+            @RequestParam(value = "ttlMinutes", required = false) @Min(1) @Max(60) Integer ttlMinutes) {
+        Duration ttl = ttlMinutes != null ? Duration.ofMinutes(ttlMinutes) : null;
+        return ResponseEntity.ok(service.paymentSupportUrl(uuid, ttl));
     }
 
     @PutMapping("/{uuid}")

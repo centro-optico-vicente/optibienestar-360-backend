@@ -89,6 +89,8 @@ public interface AllyMapper {
     @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
     @Mapping(target = "allyPhone",     source = "ally.phone")
     @Mapping(target = "allyWhatsapp",  source = "ally.whatsapp")
+    @Mapping(target = "allyRatingAvg",   source = "ally.ratingAvg")
+    @Mapping(target = "allyRatingCount", source = "ally.ratingCount")
     @Mapping(target = "imageUrl",      expression = "java(offer.getEffectiveLogoUrl())")
     @Mapping(target = "images",        ignore = true)
     PublicProductOfferDto toPublicProductOffer(AllyProduct offer);
@@ -122,6 +124,8 @@ public interface AllyMapper {
     @Mapping(target = "allyCityName",  source = "ally.city.name")
     @Mapping(target = "allyLogoUrl",   source = "ally.logoUrl")
     @Mapping(target = "allyPhone",     source = "ally.phone")
+    @Mapping(target = "allyRatingAvg",   source = "ally.ratingAvg")
+    @Mapping(target = "allyRatingCount", source = "ally.ratingCount")
     PublicProductListItemDto toPublicProductListItem(AllyProduct offer, @Context String publicBaseUrl);
 
     @Mapping(target = "allyTypes",   expression = "java(toAllyTypeDtoList(ally.getAllyTypes()))")

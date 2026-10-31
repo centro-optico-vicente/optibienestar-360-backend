@@ -41,6 +41,9 @@ public record PublicAllyProductDto(
         /** Where the preferential rate does NOT apply (V179) — affiliates must see it. */
         String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
+        /** Average affiliate stars (1..5) for this offer; {@code null} with no ratings (V201). */
+        BigDecimal ratingAvg,
+        int ratingCount,
         /** The offer's primary image (else its product's). */
         String imageUrl,
         /** The offer's gallery in display order; the product's when the offer has none. */

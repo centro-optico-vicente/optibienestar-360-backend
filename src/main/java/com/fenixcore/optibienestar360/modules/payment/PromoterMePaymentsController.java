@@ -81,7 +81,7 @@ public class PromoterMePaymentsController {
 
     /** {@code ?draft=true} starts the payment at {@code DRAFT} — see {@code AdminPaymentController.register}. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_DOWNLINE', 'COLLECTION_CREATE_DOWNLINE')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") DownlinePaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
@@ -97,7 +97,7 @@ public class PromoterMePaymentsController {
 
     /** Replaces the lines of a {@code DRAFT} collection from the caller's own downline (V117 lines feature). */
     @PutMapping("/{uuid}/lines")
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_DOWNLINE', 'COLLECTION_CREATE_DOWNLINE')")
     public ResponseEntity<PaymentDto> updateLines(
             @PathVariable UUID uuid,
             @Valid @RequestBody PaymentLinesUpdateRequest request,
@@ -107,20 +107,20 @@ public class PromoterMePaymentsController {
 
     /** {@code DRAFT → PENDING} for a downline collection. */
     @PutMapping("/{uuid}/submit")
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_DOWNLINE', 'COLLECTION_CREATE_DOWNLINE')")
     public ResponseEntity<PaymentDto> submit(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.submitForDownline(actor.getUuid(), uuid));
     }
 
     /** {@code PENDING → DRAFT} for a downline collection. */
     @PutMapping("/{uuid}/reactivate")
-	@PreAuthorize("hasAuthority('COLLECTION_DELETE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_DELETE_DOWNLINE', 'COLLECTION_DELETE_DOWNLINE')")
     public ResponseEntity<PaymentDto> reactivate(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.reactivateToDraftForDownline(actor.getUuid(), uuid));
     }
 
     @PutMapping("/{uuid}/approve")
-	@PreAuthorize("hasAuthority('COLLECTION_APPROVE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_APPROVE_DOWNLINE', 'COLLECTION_APPROVE_DOWNLINE')")
     public ResponseEntity<PaymentDto> approve(
             @PathVariable UUID uuid,
             @Valid @RequestBody(required = false) PaymentApproveRequest request,
@@ -129,7 +129,7 @@ public class PromoterMePaymentsController {
     }
 
     @PutMapping("/{uuid}/reject")
-	@PreAuthorize("hasAuthority('COLLECTION_REJECT_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_REJECT_DOWNLINE', 'COLLECTION_REJECT_DOWNLINE')")
     public ResponseEntity<PaymentDto> reject(
             @PathVariable UUID uuid,
             @Valid @RequestBody PaymentRejectRequest request,
@@ -138,7 +138,7 @@ public class PromoterMePaymentsController {
     }
 
     @DeleteMapping("/{uuid}")
-	@PreAuthorize("hasAuthority('COLLECTION_DELETE_DOWNLINE')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_DELETE_DOWNLINE', 'COLLECTION_DELETE_DOWNLINE')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         paymentsService.removeForDownline(actor.getUuid(), uuid);
         return ResponseEntity.noContent().build();

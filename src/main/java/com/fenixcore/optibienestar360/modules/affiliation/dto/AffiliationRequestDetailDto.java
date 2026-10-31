@@ -62,6 +62,9 @@ public record AffiliationRequestDetailDto(
         @Display DisplayRef member,
         @Display DisplayRef membership,
 
+        /** Inscription payment reported on the form; {@code null} when none was reported. */
+        AffiliationRequestPaymentDto payment,
+
         @Display(Display.Kind.DATETIME) Instant createdAt,
         List<AffiliationRequestLogDto> log
 ) {}

@@ -1,7 +1,12 @@
 package com.fenixcore.optibienestar360.modules.affiliation.service;
 
+import com.fenixcore.optibienestar360.common.service.StorageService;
+import com.fenixcore.optibienestar360.common.storage.FileValidationService;
+import com.fenixcore.optibienestar360.common.storage.FileVisibility;
+import com.fenixcore.optibienestar360.common.storage.PresignedUrlPolicy;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationPaymentRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreatedDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
@@ -30,6 +35,13 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipsService;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -47,9 +59,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.io.InputStream;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -63,6 +79,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -98,6 +115,11 @@ class AffiliationRequestServiceTest {
     @Mock private DefaultSortResolver defaultSortResolver;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuthService authService;
+    @Mock private PaymentsService paymentsService;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private FileValidationService fileValidationService;
+    @Mock private ObjectProvider<StorageService> storageProvider;
+    @Mock private PresignedUrlPolicy presignedUrlPolicy;
 
     @InjectMocks
     private AffiliationRequestService service;
@@ -114,6 +136,10 @@ class AffiliationRequestServiceTest {
         plan.setType(PlanType.INDIVIDUAL);
         plan.setActive(true);
         plan.setPublished(true);
+        plan.setInscriptionFee(new BigDecimal("25.00"));
+        Currency usd = new Currency();
+        usd.setCode("USD");
+        plan.setCurrency(usd);
 
         terms = new TermsVersion();
         terms.setId(9L);
@@ -126,7 +152,18 @@ class AffiliationRequestServiceTest {
     private AffiliationRequestCreateRequest createRequest(String referralCode) {
         return new AffiliationRequestCreateRequest("María", "Pérez", "V", "12345678",
                 LocalDate.of(1985, 3, 15), " Maria@Example.com ", "0414-1234567", "s3cret-pass",
-                plan.getUuid(), referralCode, terms.getUuid());
+                plan.getUuid(), referralCode, terms.getUuid(), null);
+    }
+
+    private AffiliationRequestCreateRequest createRequestWithPayment(AffiliationPaymentRequest payment) {
+        return new AffiliationRequestCreateRequest("María", "Pérez", "V", "12345678",
+                LocalDate.of(1985, 3, 15), " Maria@Example.com ", "0414-1234567", "s3cret-pass",
+                plan.getUuid(), null, terms.getUuid(), payment);
+    }
+
+    private static AffiliationPaymentRequest paymentRequest(UUID methodUuid, String reference) {
+        return new AffiliationPaymentRequest(methodUuid, null, "V12345678", null, null, null,
+                "0414-1234567", null, reference, Instant.parse("2026-10-19T10:00:00Z"));
     }
 
     private AffiliationRequest pending() {
@@ -235,6 +272,107 @@ class AffiliationRequestServiceTest {
 
         assertThatThrownBy(() -> service.create(createRequest("nope"), ClientRequestMetadata.EMPTY))
                 .hasMessage("affiliation.referral.not_found");
+    }
+
+    // ─── Create with reported inscription payment (V203) ──────────────────
+
+    private void stubStoreUpToThePayment() {
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+        when(termsVersionService.requireCurrentPublic(TermType.MEMBER, terms.getUuid())).thenReturn(terms);
+        when(passwordEncoder.encode("s3cret-pass")).thenReturn("$2a$10$hash");
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+    }
+
+    @Test
+    void create_withPayment_runsThePaymentRules_missingReferenceIs422() {
+        UUID methodUuid = UUID.randomUUID();
+        stubStoreUpToThePayment();
+        when(paymentsService.resolveMethodSelection(methodUuid, null, null, "0414-1234567", null, null))
+                .thenThrow(new IllegalArgumentException("payment.reference.required"));
+
+        assertThatThrownBy(() -> service.create(createRequestWithPayment(paymentRequest(methodUuid, null)),
+                ClientRequestMetadata.EMPTY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.reference.required");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_withPayment_storesThePlanInscriptionFee_andUploadsTheProofUnderTheRequest() throws Exception {
+        PaymentMethod method = new PaymentMethod();
+        method.setUuid(UUID.randomUUID());
+        method.setName("Pago móvil");
+        stubStoreUpToThePayment();
+        when(paymentsService.resolveMethodSelection(method.getUuid(), null, " REF-123 ", "0414-1234567", null, null))
+                .thenReturn(new PaymentsService.MethodSelection(method, null));
+        StorageService storage = mock(StorageService.class);
+        when(storageProvider.getIfAvailable()).thenReturn(storage);
+        MockMultipartFile proof = new MockMultipartFile("support", "comprobante.pdf", "application/pdf",
+                new byte[]{1, 2, 3});
+
+        service.create(createRequestWithPayment(paymentRequest(method.getUuid(), " REF-123 ")), proof,
+                ClientRequestMetadata.EMPTY);
+
+        ArgumentCaptor<AffiliationRequest> saved = ArgumentCaptor.forClass(AffiliationRequest.class);
+        verify(repository).save(saved.capture());
+        AffiliationRequest r = saved.getValue();
+        assertThat(r.getPaymentMethod()).isSameAs(method);
+        assertThat(r.getPaymentAmount()).isEqualByComparingTo("25.00");
+        assertThat(r.getPaymentCurrencyCode()).isEqualTo("USD");
+        assertThat(r.getPaymentReferenceNumber()).isEqualTo("REF-123");
+        assertThat(r.getPaymentDate()).isEqualTo(Instant.parse("2026-10-19T10:00:00Z"));
+        assertThat(r.getPaymentSupportFileName()).isEqualTo("comprobante.pdf");
+        assertThat(r.getPaymentSupportFileSizeBytes()).isEqualTo(3L);
+        assertThat(r.getPaymentSupportFileUrl()).contains("/affiliation_requests/" + r.getUuid() + "/");
+        verify(fileValidationService).validate(FileVisibility.CONFIDENTIAL, proof);
+        verify(storage).upload(eq(r.getPaymentSupportFileUrl()), any(InputStream.class), eq(3L), eq("application/pdf"));
+    }
+
+    @Test
+    void create_withADirectReceiptMethod_is422_soAnApplicantCannotSelfApprove() {
+        PaymentMethod cash = new PaymentMethod();
+        cash.setUuid(UUID.randomUUID());
+        cash.setRequiresApproval(false);
+        stubStoreUpToThePayment();
+        when(paymentsService.resolveMethodSelection(cash.getUuid(), null, "REF-1", "0414-1234567", null, null))
+                .thenReturn(new PaymentsService.MethodSelection(cash, null));
+
+        assertThatThrownBy(() -> service.create(createRequestWithPayment(paymentRequest(cash.getUuid(), "REF-1")),
+                ClientRequestMetadata.EMPTY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("affiliation_request.payment.method_not_allowed");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_storesTheProofWithTheTypeOfItsExtension_notTheClientsDeclaredOne() throws Exception {
+        PaymentMethod method = new PaymentMethod();
+        method.setUuid(UUID.randomUUID());
+        stubStoreUpToThePayment();
+        when(paymentsService.resolveMethodSelection(method.getUuid(), null, "REF-1", "0414-1234567", null, null))
+                .thenReturn(new PaymentsService.MethodSelection(method, null));
+        StorageService storage = mock(StorageService.class);
+        when(storageProvider.getIfAvailable()).thenReturn(storage);
+        // A page disguised as an image: served as text/html it would run when staff open it.
+        MockMultipartFile proof = new MockMultipartFile("support", "comprobante.png", "text/html",
+                "<script>alert(1)</script>".getBytes());
+
+        service.create(createRequestWithPayment(paymentRequest(method.getUuid(), "REF-1")), proof,
+                ClientRequestMetadata.EMPTY);
+
+        verify(storage).upload(any(String.class), any(InputStream.class), any(Long.class), eq("image/png"));
+    }
+
+    @Test
+    void create_withAProofButNoPayment_is422() {
+        MockMultipartFile proof = new MockMultipartFile("support", "comprobante.pdf", "application/pdf",
+                new byte[]{1});
+
+        assertThatThrownBy(() -> service.create(createRequest(null), proof, ClientRequestMetadata.EMPTY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("affiliation_request.payment.support_without_payment");
+        verify(repository, never()).save(any());
+        verify(fileValidationService, never()).validate(any(), any(org.springframework.web.multipart.MultipartFile.class));
     }
 
     // ─── Update ─────────────────────────────────────────────────────────────
@@ -425,6 +563,72 @@ class AffiliationRequestServiceTest {
         assertThat(event.getValue().activationUrl()).isNull();
         assertThat(event.getValue().channel()).isEqualTo("SELF_SERVICE");
         verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    void approve_withAReportedPayment_registersTheInscriptionPayment_andLinksIt() {
+        AffiliationRequest r = pending();
+        PaymentMethod method = new PaymentMethod();
+        method.setUuid(UUID.randomUUID());
+        r.setPaymentMethod(method);
+        r.setPaymentAmount(new BigDecimal("25.00"));
+        r.setPaymentCurrencyCode("USD");
+        r.setPaymentReferenceNumber("REF-123");
+        r.setPaymentDate(Instant.parse("2026-10-19T10:00:00Z"));
+        r.setPaymentSupportFileUrl("confidential/affiliation_requests/" + r.getUuid() + "/x-comprobante.pdf");
+        r.setPaymentSupportFileName("comprobante.pdf");
+        r.setPaymentSupportFileContentType("application/pdf");
+        r.setPaymentSupportFileSizeBytes(3L);
+        User reviewer = new User();
+        reviewer.setUuid(UUID.randomUUID());
+        User created = stubApprovalCreation(r, reviewer);
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+        Payment payment = new Payment();
+        payment.setUuid(UUID.randomUUID());
+        PaymentDto paymentDto = mock(PaymentDto.class);
+        when(paymentDto.uuid()).thenReturn(payment.getUuid());
+        when(paymentsService.register(any(PaymentCreateRequest.class), isNull(), eq(false), eq(reviewer.getUuid())))
+                .thenReturn(paymentDto);
+        when(paymentRepository.findByUuid(payment.getUuid())).thenReturn(Optional.of(payment));
+
+        service.approve(r.getUuid(), null, reviewer.getUuid());
+
+        ArgumentCaptor<PaymentCreateRequest> registered = ArgumentCaptor.forClass(PaymentCreateRequest.class);
+        verify(paymentsService).register(registered.capture(), isNull(), eq(false), eq(reviewer.getUuid()));
+        PaymentCreateRequest p = registered.getValue();
+        assertThat(p.membershipUuid()).isEqualTo(r.getMembership().getUuid());
+        assertThat(p.amount()).isEqualByComparingTo("25.00");
+        assertThat(p.currency()).isEqualTo("USD");
+        assertThat(p.paymentMethodUuid()).isEqualTo(method.getUuid());
+        assertThat(p.referenceNumber()).isEqualTo("REF-123");
+        assertThat(p.inscription()).isTrue();
+        assertThat(p.payerUserUuid()).isEqualTo(created.getUuid());
+        assertThat(p.adminNotes()).isEqualTo("Pago reportado en la solicitud de afiliación");
+        verify(paymentsService).linkSupportFile(payment.getUuid(), r.getPaymentSupportFileUrl(), "comprobante.pdf",
+                "application/pdf", 3L);
+        assertThat(r.getPayment()).isSameAs(payment);
+        assertThat(r.getStatus()).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void approve_whenThePaymentFails_failsTheApproval() {
+        AffiliationRequest r = pending();
+        PaymentMethod method = new PaymentMethod();
+        method.setUuid(UUID.randomUUID());
+        r.setPaymentMethod(method);
+        r.setPaymentAmount(new BigDecimal("25.00"));
+        r.setPaymentCurrencyCode("USD");
+        r.setPaymentDate(Instant.parse("2026-10-19T10:00:00Z"));
+        User reviewer = new User();
+        reviewer.setUuid(UUID.randomUUID());
+        stubApprovalCreation(r, reviewer);
+        when(paymentsService.register(any(PaymentCreateRequest.class), isNull(), eq(false), eq(reviewer.getUuid())))
+                .thenThrow(new java.util.NoSuchElementException("payment_method.not_found"));
+
+        assertThatThrownBy(() -> service.approve(r.getUuid(), null, reviewer.getUuid()))
+                .hasMessage("payment_method.not_found");
+        assertThat(r.getStatus()).isEqualTo("PENDING");
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     // ─── Assisted create ────────────────────────────────────────────────────

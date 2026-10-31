@@ -51,5 +51,8 @@ public record BeneficiaryDto(
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(value = Display.Kind.ENUM, enumScope = "beneficiary.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
-        @Display(Display.Kind.DATETIME) Instant updatedAt
+        @Display(Display.Kind.DATETIME) Instant updatedAt,
+
+        /** The beneficiary has an active login of their own (V195). */
+        @Display(Display.Kind.BOOLEAN) boolean hasAccess
 ) {}

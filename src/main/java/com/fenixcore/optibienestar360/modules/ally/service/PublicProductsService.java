@@ -196,6 +196,8 @@ public class PublicProductsService {
                 product.getProductCategory() == null ? null : product.getProductCategory().getName(),
                 product.isRequiresAppointment(),
                 ProductMapper.imageUrl(product, publicBaseUrl),
+                product.getRatingAvg(),
+                product.getRatingCount(),
                 offerDtos.size(),
                 minFinalPrice,
                 maxDiscountPct,

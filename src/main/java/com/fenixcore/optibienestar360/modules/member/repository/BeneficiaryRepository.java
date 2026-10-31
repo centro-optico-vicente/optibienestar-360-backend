@@ -15,6 +15,9 @@ public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long>,
 
     Optional<Beneficiary> findByUuid(UUID uuid);
 
+    /** The active beneficiary whose own login (V195) is this user — the beneficiary portal context. */
+    Optional<Beneficiary> findByUser_UuidAndActiveTrue(UUID userUuid);
+
     List<Beneficiary> findByMemberIdAndActiveTrue(Long memberId, org.springframework.data.domain.Sort sort);
 
     /** Where else is this person a beneficiary? (validator + digital card flows). */

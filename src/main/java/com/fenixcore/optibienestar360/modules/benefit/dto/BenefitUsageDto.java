@@ -28,10 +28,18 @@ public record BenefitUsageDto(
         UUID planUuid,
         String planCode,
 
+        // Who consumed: the holder (beneficiaryUuid null) or one of their beneficiaries (V195)
+        UUID beneficiaryUuid,
+        String consumedByName,
+        /** Beneficiary's relationship to the holder; {@code null} when the holder consumed. */
+        String beneficiaryRelationship,
+
         // Where + what
         UUID allyUuid,
         String allyName,
         UUID allyProductUuid,
+        /** Name of the consumed product; {@code null} for uncatalogued usages. */
+        String allyProductName,
         UUID allyUserUuid,
         UUID productCategoryUuid,
         String productCategoryName,
@@ -51,6 +59,12 @@ public record BenefitUsageDto(
         // Detail
         Map<String, Object> metadata,
         String notes,
+
+        // Affiliate's rating (V201) — all null until rated
+        Integer allyRating,
+        Integer productRating,
+        String ratingComment,
+        @Display(Display.Kind.DATETIME) Instant ratedAt,
 
         // Audit
         @Display(value = Display.Kind.ENUM, enumScope = "benefit_usage.status") String status,

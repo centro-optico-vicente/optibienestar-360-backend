@@ -77,9 +77,11 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      */
     @Query("""
             SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow(
-                m.uuid, m.person.fullName, ms.status, ms.nextDueDate, ms.monthlyFee)
+                m.uuid, m.person.fullName, m.person.documentNumber, m.person.phone, pl.name, m.enrolledAt,
+                ms.status, ms.nextDueDate, ms.lastPaidThrough, ms.monthlyFee)
             FROM Member m
             LEFT JOIN Membership ms ON ms.member = m AND ms.active = true
+            LEFT JOIN ms.plan pl
             WHERE m.active = true AND m.promoter.id = :promoterId
             ORDER BY m.person.fullName
             """)

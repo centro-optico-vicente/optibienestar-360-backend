@@ -1,5 +1,10 @@
 package com.fenixcore.optibienestar360.modules.affiliation.service;
 
+import com.fenixcore.optibienestar360.common.storage.FileValidationService;
+import com.fenixcore.optibienestar360.common.storage.FileVisibility;
+import com.fenixcore.optibienestar360.common.storage.PresignedUrlPolicy;
+import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
+import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
@@ -7,11 +12,13 @@ import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationPaymentRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreatedDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestLogDto;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestPaymentDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest;
@@ -43,6 +50,12 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipsService;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -56,6 +69,7 @@ import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
 import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -65,7 +79,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -101,6 +118,11 @@ import java.util.UUID;
  *   {@code pendingForUser} asks for the corrected text at first login.</li>
  *   <li><b>Reject</b>: reason required, emailed to the applicant.</li>
  * </ol>
+ * The public form may also report the payment of the plan's inscription fee
+ * (V203): validated with the payments rules on submit and stored on the request
+ * (amount/currency = the plan's inscription fee), its proof uploaded under the
+ * {@code affiliation_requests} owner key. Approval registers it as the new
+ * membership's inscription payment, which then follows the normal review.
  * Only individually sold plans are accepted (see {@link #requireSelfServicePlan}).
  * A cédula or email that already exists is rejected: attaching a new login to
  * an existing Person would hand a stranger that person's data.
@@ -114,6 +136,10 @@ public class AffiliationRequestService {
     static final String ENTITY_KEY = "affiliation_request";
 
     static final long DEFAULT_ACTIVATION_TTL_HOURS = 72;
+
+    private static final String OWNER_TABLE = "affiliation_requests";
+    /** Same visibility as the payments' own proofs ({@code PaymentsService}). */
+    private static final FileVisibility SUPPORT_VISIBILITY = FileVisibility.CONFIDENTIAL;
 
     private static final String[] SEARCHABLE_FIELDS = {
             "firstName", "lastName", "documentNumber", "email", "phone"
@@ -140,6 +166,11 @@ public class AffiliationRequestService {
     private final DefaultSortResolver defaultSortResolver;
     private final ApplicationEventPublisher eventPublisher;
     private final AuthService authService;
+    private final PaymentsService paymentsService;
+    private final PaymentRepository paymentRepository;
+    private final FileValidationService fileValidationService;
+    private final ObjectProvider<StorageService> storageProvider;
+    private final PresignedUrlPolicy presignedUrlPolicy;
 
     /** Hours the "create your password" link of an assisted approval stays valid. */
     @Value("${app.affiliation-requests.activation-ttl-hours:72}")
@@ -149,6 +180,21 @@ public class AffiliationRequestService {
 
     @Transactional
     public AffiliationRequestCreatedDto create(AffiliationRequestCreateRequest req, ClientRequestMetadata client) {
+        return create(req, null, client);
+    }
+
+    /**
+     * Public form with an optional proof of the reported inscription payment
+     * ({@code support}, the multipart variant). A proof without
+     * {@code payment} is a 422 {@code affiliation_request.payment.support_without_payment}.
+     */
+    @Transactional
+    public AffiliationRequestCreatedDto create(AffiliationRequestCreateRequest req, MultipartFile support,
+                                               ClientRequestMetadata client) {
+        boolean hasSupport = support != null && !support.isEmpty();
+        if (hasSupport && req.payment() == null) {
+            throw new IllegalArgumentException("affiliation_request.payment.support_without_payment");
+        }
         String code = req.referralCode() == null || req.referralCode().isBlank()
                 ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
         Applicant applicant = new Applicant(req.firstName(), req.lastName(), req.documentType(), req.documentNumber(),
@@ -157,7 +203,7 @@ public class AffiliationRequestService {
         Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
         return store(applicant, Channel.SELF_SERVICE, promoter, code, passwordEncoder.encode(req.password()),
-                client, null);
+                client, null, req.payment(), hasSupport ? support : null);
     }
 
     /**
@@ -182,7 +228,7 @@ public class AffiliationRequestService {
         validateApplicant(applicant);
         String hash = req.password() == null || req.password().isBlank() ? null : passwordEncoder.encode(req.password());
         return store(applicant, Channel.ASSISTED, advisor, advisor.getReferralCode(), hash, client,
-                actor(advisorUserUuid));
+                actor(advisorUserUuid), null, null);
     }
 
     /** The applicant fields both forms share. */
@@ -203,7 +249,8 @@ public class AffiliationRequestService {
     }
 
     private AffiliationRequestCreatedDto store(Applicant a, Channel channel, Promoter promoter, String code,
-                                               String passwordHash, ClientRequestMetadata client, User actor) {
+                                               String passwordHash, ClientRequestMetadata client, User actor,
+                                               AffiliationPaymentRequest payment, MultipartFile support) {
         Plan plan = planRepository.findByUuid(a.planUuid()).orElse(null);
         requireSelfServicePlan(plan);
 
@@ -236,6 +283,10 @@ public class AffiliationRequestService {
         if (actor != null) {
             // Also filled by JPA auditing from the security context; explicit for clarity.
             request.setCreatedBy(actor.getUuid());
+        }
+        if (payment != null) {
+            applyReportedPayment(request, plan, payment);
+            storeSupportFile(request, support);
         }
         repository.save(request);
 
@@ -363,7 +414,9 @@ public class AffiliationRequestService {
         // member sets theirs through the activation link in the approval email.
         boolean passwordPending = request.getPasswordHash() == null;
         String passwordHash = passwordPending
-                ? passwordEncoder.encode(UUID.randomUUID() + ":" + UUID.randomUUID())
+                // 64 hex chars: BCrypt rejects inputs over 72 bytes
+                ? passwordEncoder.encode(UUID.randomUUID().toString().replace("-", "")
+                        + UUID.randomUUID().toString().replace("-", ""))
                 : request.getPasswordHash();
         UserDto createdUser = userService.createUserWithPasswordHash(new AdminCreateUserRequest(
                 request.getEmail(), request.getFirstName(), null, request.getLastName(), null, null,
@@ -393,6 +446,9 @@ public class AffiliationRequestService {
                 .orElseThrow(() -> new IllegalStateException("user just created not found"));
         Member member = memberRepository.findByUuid(memberDto.uuid())
                 .orElseThrow(() -> new IllegalStateException("member just created not found"));
+        if (request.hasReportedPayment()) {
+            request.setPayment(registerReportedPayment(request, membership, user, actorUuid));
+        }
 
         boolean termsUnchanged = !termsChanged(request);
         if (termsUnchanged) {
@@ -437,6 +493,120 @@ public class AffiliationRequestService {
         writeLog(request, Action.REJECTED, Status.PENDING, Status.REJECTED, null, finalReason, reviewer);
         eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.REJECTED, request, finalReason, null));
         return toDetail(request);
+    }
+
+    // ─── Reported inscription payment ───────────────────────────────────────
+
+    /**
+     * Short-lived presigned URL of the proof attached to the reported payment;
+     * same shape and TTL clamp as {@code GET /v1/admin/payments/{uuid}/support}.
+     * 404 {@code payment.support.not_available} when no proof was stored in R2.
+     */
+    public PaymentSupportUrlDto paymentSupportUrl(UUID uuid, Duration requestedTtl) {
+        AffiliationRequest request = repository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        String key = request.getPaymentSupportFileUrl();
+        if (key == null || key.isBlank()) {
+            throw new NoSuchElementException("payment.support.not_available");
+        }
+        StorageService storage = storageProvider.getIfAvailable();
+        if (storage == null) {
+            throw new IllegalArgumentException("payment.support.storage_unavailable");
+        }
+        Duration ttl = presignedUrlPolicy.clamp(requestedTtl);
+        return new PaymentSupportUrlDto(storage.generatePresignedUrl(key, ttl), Instant.now().plus(ttl),
+                ttl.toSeconds(), request.getPaymentSupportFileName(), request.getPaymentSupportFileContentType(),
+                request.getPaymentSupportFileSizeBytes());
+    }
+
+    /**
+     * Validates the reported payment with the payments rules (method active +
+     * its mandatory fields, bank active) and stores it on the request. Amount
+     * and currency are the plan's inscription fee; a plan without one has
+     * nothing to pay ({@code affiliation_request.payment.no_inscription_fee}).
+     */
+    private void applyReportedPayment(AffiliationRequest request, Plan plan, AffiliationPaymentRequest p) {
+        PaymentsService.MethodSelection selection = paymentsService.resolveMethodSelection(p.paymentMethodUuid(),
+                p.bankUuid(), p.referenceNumber(), p.phone(), p.email(), p.bankAccountIdentifier());
+        // A direct-receipt method (cash) is auto-approved on registration: an
+        // anonymous applicant claiming one would get an active membership and a
+        // commission for money nobody received. Only reviewable methods here.
+        if (!selection.method().isRequiresApproval()) {
+            throw new IllegalArgumentException("affiliation_request.payment.method_not_allowed");
+        }
+        if (plan.getInscriptionFee() == null || plan.getInscriptionFee().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("affiliation_request.payment.no_inscription_fee");
+        }
+        request.setPaymentMethod(selection.method());
+        request.setPaymentBank(selection.bank());
+        request.setPaymentAmount(plan.getInscriptionFee());
+        request.setPaymentCurrencyCode(plan.getCurrency() != null ? plan.getCurrency().getCode() : null);
+        request.setPaymentIdentification(blankToNull(p.identification()));
+        request.setPaymentBankAccountType(blankToNull(p.bankAccountType()));
+        request.setPaymentBankAccountCode(blankToNull(p.bankAccountCode()));
+        request.setPaymentBankAccountIdentifier(blankToNull(p.bankAccountIdentifier()));
+        request.setPaymentPhone(blankToNull(p.phone()));
+        request.setPaymentEmail(blankToNull(p.email()));
+        request.setPaymentReferenceNumber(blankToNull(p.referenceNumber()));
+        request.setPaymentDate(p.paymentDate());
+    }
+
+    /**
+     * Same validation and storage as a payment's own proof
+     * ({@code PaymentsService.attachSupportFile}), keyed under the request:
+     * without R2 only the metadata is kept.
+     */
+    private void storeSupportFile(AffiliationRequest request, MultipartFile file) {
+        if (file == null || file.isEmpty()) return;
+        fileValidationService.validate(SUPPORT_VISIBILITY, file);
+        request.setPaymentSupportFileName(file.getOriginalFilename());
+        request.setPaymentSupportFileContentType(FileValidationService.safeContentType(file.getOriginalFilename()));
+        request.setPaymentSupportFileSizeBytes(file.getSize());
+
+        StorageService storage = storageProvider.getIfAvailable();
+        if (storage == null) {
+            log.info("R2 storage disabled — affiliation request support file metadata captured but bytes discarded");
+            return;
+        }
+        // @PrePersist assigns the UUID only at flush time; the owner key needs it now.
+        if (request.getUuid() == null) {
+            request.setUuid(UUID.randomUUID());
+        }
+        String key = StorageKeyBuilder.build(SUPPORT_VISIBILITY, OWNER_TABLE, request.getUuid(),
+                file.getOriginalFilename());
+        try {
+            storage.upload(key, file.getInputStream(), file.getSize(), FileValidationService.safeContentType(file.getOriginalFilename()));
+            request.setPaymentSupportFileUrl(key);
+        } catch (IOException ex) {
+            log.error("Failed to read support file stream for affiliation request", ex);
+            throw new IllegalArgumentException("payment.support.upload_failed");
+        }
+    }
+
+    /**
+     * Registers the reported payment as the new membership's inscription
+     * payment through the normal payments flow (PENDING review, or
+     * auto-approved for a direct-receipt method) and links the stored proof
+     * to it. Any payments error propagates and rolls the approval back.
+     */
+    private Payment registerReportedPayment(AffiliationRequest request, Membership membership, User payer,
+                                            UUID actorUuid) {
+        PaymentDto created = paymentsService.register(new PaymentCreateRequest(
+                membership.getUuid(), request.getPaymentAmount(), request.getPaymentCurrencyCode(),
+                request.getPaymentMethod().getUuid(),
+                request.getPaymentBank() != null ? request.getPaymentBank().getUuid() : null,
+                request.getPaymentIdentification(), request.getPaymentBankAccountType(),
+                request.getPaymentBankAccountCode(), request.getPaymentBankAccountIdentifier(),
+                request.getPaymentPhone(), request.getPaymentEmail(), request.getPaymentReferenceNumber(),
+                request.getPaymentDate(), true, null, null, payer.getUuid(),
+                "Pago reportado en la solicitud de afiliación", null), null, false, actorUuid);
+        if (request.getPaymentSupportFileName() != null) {
+            paymentsService.linkSupportFile(created.uuid(), request.getPaymentSupportFileUrl(),
+                    request.getPaymentSupportFileName(), request.getPaymentSupportFileContentType(),
+                    request.getPaymentSupportFileSizeBytes());
+        }
+        return paymentRepository.findByUuid(created.uuid())
+                .orElseThrow(() -> new IllegalStateException("payment just created not found"));
     }
 
     // ─── Rules ──────────────────────────────────────────────────────────────
@@ -514,6 +684,7 @@ public class AffiliationRequestService {
                 )));
         fields.remove("passwordHash");
         fields.remove("termsRenderedContent");
+        fields.remove("paymentSupportFileUrl");
         return Map.copyOf(fields);
     }
 
@@ -573,7 +744,19 @@ public class AffiliationRequestService {
                 r.getIpAddress(), r.getUserAgent(), termsChanged(r),
                 r.getStatus(), userRef(r.getReviewedBy()), r.getReviewedAt(), r.getRejectionReason(),
                 userRef(r.getUser()), DisplayRefs.ref(r.getMember()), DisplayRefs.ref(r.getMembership()),
-                r.getCreatedAt(), history);
+                paymentOf(r), r.getCreatedAt(), history);
+    }
+
+    private static AffiliationRequestPaymentDto paymentOf(AffiliationRequest r) {
+        if (!r.hasReportedPayment()) return null;
+        return new AffiliationRequestPaymentDto(
+                r.getPaymentMethod().getName(),
+                r.getPaymentBank() != null ? r.getPaymentBank().getName() : null,
+                r.getPaymentReferenceNumber(), r.getPaymentAmount(), r.getPaymentCurrencyCode(), r.getPaymentDate(),
+                r.getPaymentIdentification(), r.getPaymentPhone(), r.getPaymentEmail(),
+                r.getPaymentBankAccountIdentifier(), r.getPaymentSupportFileName(),
+                r.getPaymentSupportFileUrl() != null && !r.getPaymentSupportFileUrl().isBlank(),
+                r.getPayment() != null ? r.getPayment().getUuid() : null);
     }
 
     private static DisplayRef advisorRef(Promoter promoter) {

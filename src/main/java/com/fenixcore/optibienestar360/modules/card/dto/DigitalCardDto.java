@@ -22,5 +22,10 @@ public record DigitalCardDto(
         @Display(value = Display.Kind.ENUM, enumScope = "membership.status") String membershipStatus,
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate memberSince,
-        String qrCodeDataUri
+        String qrCodeDataUri,
+
+        // Beneficiary card (V195): the holder covering this person and the
+        // relationship to them. Both null on the holder's own card.
+        String holderName,
+        String relationship
 ) {}

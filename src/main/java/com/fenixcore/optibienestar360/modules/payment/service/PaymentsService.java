@@ -556,22 +556,13 @@ public class PaymentsService {
             }
             payment.setAmount(amount);
 
-            var method = paymentMethodRepository.findByUuid(methodUuid)
-                    .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
-                    .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
-            validateMandatoryFields(method, referenceNumber, phone, email);
-            Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
-                    .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
-            if (method.isMandatoryBank() && bank == null)
-                throw new IllegalArgumentException("payment.bank.required");
-            if (method.isMandatoryBankAccount() &&
-                    (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
-                throw new IllegalArgumentException("payment.bank_account.required");
+            MethodSelection selection = resolveMethodSelection(methodUuid, bankUuid, referenceNumber, phone, email,
+                    bankAccountIdentifier);
 
             PaymentLine line = new PaymentLine();
             line.setPayment(payment);
-            line.setPaymentType(method);
-            line.setBank(bank);
+            line.setPaymentType(selection.method());
+            line.setBank(selection.bank());
             line.setAmount(payment.getAmount());
             line.setCurrency(currency);
             line.setIdentification(identification);
@@ -629,6 +620,19 @@ public class PaymentsService {
             line.setStatus(initialStatus.name());
         }
 
+        // chk_payments_review_consistency: an APPROVED row must carry its
+        // reviewer — on auto-approval that is whoever registered it.
+        if (autoApprove) {
+            User reviewer = actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null);
+            Instant now = Instant.now();
+            payment.setReviewedBy(reviewer);
+            payment.setReviewedAt(now);
+            for (PaymentLine line : payment.getLines()) {
+                line.setReviewedBy(reviewer);
+                line.setReviewedAt(now);
+            }
+        }
+
         Payment saved = paymentRepository.save(payment);
         if (autoApprove) {
             // Effects run against the saved, managed entity — same precondition
@@ -677,17 +681,8 @@ public class PaymentsService {
      */
     private PaymentLine buildLine(Payment payment, PaymentLineRequest req,
                                   com.fenixcore.optibienestar360.modules.currency.entity.Currency headerCurrency) {
-        var method = paymentMethodRepository.findByUuid(req.paymentMethodUuid())
-                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
-        validateMandatoryFields(method, req.referenceNumber(), req.phone(), req.email());
-        Bank bank = req.bankUuid() == null ? null : bankRepository.findByUuid(req.bankUuid())
-                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
-        if (method.isMandatoryBank() && bank == null)
-            throw new IllegalArgumentException("payment.bank.required");
-        if (method.isMandatoryBankAccount() &&
-                (req.bankAccountIdentifier() == null || req.bankAccountIdentifier().isBlank()))
-            throw new IllegalArgumentException("payment.bank_account.required");
+        MethodSelection selection = resolveMethodSelection(req.paymentMethodUuid(), req.bankUuid(),
+                req.referenceNumber(), req.phone(), req.email(), req.bankAccountIdentifier());
         var currency = req.currencyUuid() != null
                 ? currencyRepository.findByUuid(req.currencyUuid())
                         .filter(com.fenixcore.optibienestar360.modules.currency.entity.Currency::isActive)
@@ -696,8 +691,8 @@ public class PaymentsService {
 
         PaymentLine line = new PaymentLine();
         line.setPayment(payment);
-        line.setPaymentType(method);
-        line.setBank(bank);
+        line.setPaymentType(selection.method());
+        line.setBank(selection.bank());
         line.setAmount(req.amount());
         line.setCurrency(currency);
         line.setIdentification(req.identification());
@@ -708,6 +703,35 @@ public class PaymentsService {
         line.setEmail(req.email());
         line.setReferenceNumber(req.referenceNumber());
         return line;
+    }
+
+    /** A payment method resolved from the catalog plus its bank (when given), both active. */
+    public record MethodSelection(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method, Bank bank) {}
+
+    /**
+     * Resolves and validates the method/bank fields of one collection line:
+     * method exists and is active ({@code payment_method.not_found}), its
+     * {@code mandatory*} flags are honored ({@code payment.reference.required},
+     * {@code payment.phone.required}, {@code payment.email.required},
+     * {@code payment.bank.required}, {@code payment.bank_account.required}) and
+     * the bank, when given, exists and is active ({@code bank.not_found}).
+     * Shared by the create/lines paths here and by the payment reported on a
+     * public affiliation request ({@code AffiliationRequestService}).
+     */
+    public MethodSelection resolveMethodSelection(UUID methodUuid, UUID bankUuid, String referenceNumber,
+                                                  String phone, String email, String bankAccountIdentifier) {
+        var method = paymentMethodRepository.findByUuid(methodUuid)
+                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
+                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        validateMandatoryFields(method, referenceNumber, phone, email);
+        Bank bank = bankUuid == null ? null : bankRepository.findByUuid(bankUuid)
+                .filter(Bank::isActive).orElseThrow(() -> new NoSuchElementException("bank.not_found"));
+        if (method.isMandatoryBank() && bank == null)
+            throw new IllegalArgumentException("payment.bank.required");
+        if (method.isMandatoryBankAccount() &&
+                (bankAccountIdentifier == null || bankAccountIdentifier.isBlank()))
+            throw new IllegalArgumentException("payment.bank_account.required");
+        return new MethodSelection(method, bank);
     }
 
     private static void validateMandatoryFields(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method,
@@ -1301,7 +1325,7 @@ public class PaymentsService {
         fileValidationService.validate(VISIBILITY, file);
 
         payment.setSupportFileName(file.getOriginalFilename());
-        payment.setSupportFileContentType(file.getContentType());
+        payment.setSupportFileContentType(FileValidationService.safeContentType(file.getOriginalFilename()));
         payment.setSupportFileSizeBytes(file.getSize());
 
         StorageService storage = storageProvider.getIfAvailable();
@@ -1319,12 +1343,29 @@ public class PaymentsService {
         }
         String key = StorageKeyBuilder.build(VISIBILITY, OWNER_TABLE, payment.getUuid(), file.getOriginalFilename());
         try {
-            storage.upload(key, file.getInputStream(), file.getSize(), file.getContentType());
+            storage.upload(key, file.getInputStream(), file.getSize(), FileValidationService.safeContentType(file.getOriginalFilename()));
             payment.setSupportFileUrl(key);
         } catch (IOException ex) {
             log.error("Failed to read support file stream for payment registration", ex);
             throw new IllegalArgumentException("payment.support.upload_failed");
         }
+    }
+
+    /**
+     * Links a proof file that was already validated and stored elsewhere (the
+     * payment reported on a public affiliation request, uploaded under the
+     * {@code affiliation_requests} owner key) to a just-registered payment, so
+     * {@link #generateSupportUrl} and the review screen serve it as usual.
+     * {@code key} may be {@code null} when R2 was off at upload time — the
+     * metadata still lands, exactly as {@link #attachSupportFile} does.
+     */
+    @Transactional
+    public void linkSupportFile(UUID paymentUuid, String key, String fileName, String contentType, Long sizeBytes) {
+        Payment payment = findManaged(paymentUuid);
+        payment.setSupportFileUrl(key);
+        payment.setSupportFileName(fileName);
+        payment.setSupportFileContentType(contentType);
+        payment.setSupportFileSizeBytes(sizeBytes);
     }
 
     /**

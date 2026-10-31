@@ -37,6 +37,9 @@ public record PublicProductListItemDto(
         String exclusions,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
         String imageUrl,
+        /** Average affiliate stars (1..5) for this offer; {@code null} with no ratings (V201). */
+        BigDecimal ratingAvg,
+        int ratingCount,
 
         // ─── Parent ally (public identity slice) ───
         UUID allyUuid,
@@ -44,5 +47,7 @@ public record PublicProductListItemDto(
         List<String> allyTypeNames,
         String allyCityName,
         String allyLogoUrl,
-        String allyPhone
+        String allyPhone,
+        BigDecimal allyRatingAvg,
+        int allyRatingCount
 ) {}

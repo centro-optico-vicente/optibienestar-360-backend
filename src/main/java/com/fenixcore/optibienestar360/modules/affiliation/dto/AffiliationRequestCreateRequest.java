@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.affiliation.dto;
 
 import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,6 +19,11 @@ import java.util.UUID;
  * follows the user-creation policy (8–128 characters) and is stored only as
  * its BCrypt hash; {@code termsVersionUuid} is the current public AFILIADO
  * contract the applicant accepted.
+ *
+ * <p>{@code payment} (optional) reports the payment of the plan's inscription
+ * fee; its proof file is the {@code support} part when the form is sent as
+ * {@code multipart/form-data}. Approval registers it as the membership's
+ * inscription payment.</p>
  */
 public record AffiliationRequestCreateRequest(
         @NotBlank @Size(max = 50) String firstName,
@@ -30,5 +36,6 @@ public record AffiliationRequestCreateRequest(
         @NotBlank @Size(min = 8, max = 128) String password,
         @NotNull UUID planUuid,
         @Size(max = 20) String referralCode,
-        @NotNull UUID termsVersionUuid
+        @NotNull UUID termsVersionUuid,
+        @Valid AffiliationPaymentRequest payment
 ) {}

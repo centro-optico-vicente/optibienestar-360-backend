@@ -760,6 +760,67 @@ class PaymentsServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
+    // ─── resolveMethodSelection / linkSupportFile (affiliation request payment) ─
+
+    private PaymentMethod method(boolean mandatoryReference, boolean mandatoryBank) {
+        PaymentMethod m = new PaymentMethod();
+        m.setUuid(UUID.randomUUID());
+        m.setActive(true);
+        m.setMandatoryReferenceNumber(mandatoryReference);
+        m.setMandatoryBank(mandatoryBank);
+        when(paymentMethodRepository.findByUuid(m.getUuid())).thenReturn(Optional.of(m));
+        return m;
+    }
+
+    @Test
+    void resolveMethodSelection_requiresTheReference_whenTheMethodSaysSo() {
+        PaymentMethod m = method(true, false);
+
+        assertThatThrownBy(() -> sut().resolveMethodSelection(m.getUuid(), null, " ", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payment.reference.required");
+    }
+
+    @Test
+    void resolveMethodSelection_requiresTheBank_andResolvesIt() {
+        PaymentMethod m = method(false, true);
+        assertThatThrownBy(() -> sut().resolveMethodSelection(m.getUuid(), null, null, null, null, null))
+                .hasMessage("payment.bank.required");
+
+        com.fenixcore.optibienestar360.modules.bank.entity.Bank bank = new com.fenixcore.optibienestar360.modules.bank.entity.Bank();
+        bank.setUuid(UUID.randomUUID());
+        bank.setActive(true);
+        when(bankRepository.findByUuid(bank.getUuid())).thenReturn(Optional.of(bank));
+        PaymentsService.MethodSelection selection =
+                sut().resolveMethodSelection(m.getUuid(), bank.getUuid(), null, null, null, null);
+        assertThat(selection.method()).isSameAs(m);
+        assertThat(selection.bank()).isSameAs(bank);
+    }
+
+    @Test
+    void resolveMethodSelection_rejectsAnInactiveMethod() {
+        PaymentMethod m = method(false, false);
+        m.setActive(false);
+
+        assertThatThrownBy(() -> sut().resolveMethodSelection(m.getUuid(), null, null, null, null, null))
+                .isInstanceOf(java.util.NoSuchElementException.class)
+                .hasMessage("payment_method.not_found");
+    }
+
+    @Test
+    void linkSupportFile_copiesTheStoredProofOntoThePayment() {
+        Payment p = pending(new BigDecimal("10.00"));
+        when(paymentRepository.findByUuid(p.getUuid())).thenReturn(Optional.of(p));
+
+        sut().linkSupportFile(p.getUuid(), "confidential/affiliation_requests/x/proof.pdf", "proof.pdf",
+                "application/pdf", 2048L);
+
+        assertThat(p.getSupportFileUrl()).isEqualTo("confidential/affiliation_requests/x/proof.pdf");
+        assertThat(p.getSupportFileName()).isEqualTo("proof.pdf");
+        assertThat(p.getSupportFileContentType()).isEqualTo("application/pdf");
+        assertThat(p.getSupportFileSizeBytes()).isEqualTo(2048L);
+    }
+
     private static PaymentCreateRequest createRequest(UUID membershipUuid, boolean inscription,
                                                        LocalDate appliedPeriod, LocalDate coverageThroughPeriod) {
         return new PaymentCreateRequest(membershipUuid, new BigDecimal("10.00"), "USD",

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +45,10 @@ public record PublicAllyDetailDto(
         String instagram,
         String facebook,
         String googleMapsUrl,
+
+        /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V201). */
+        BigDecimal ratingAvg,
+        int ratingCount,
 
         // Professions (just labels)
         List<String> professionNames,

@@ -52,7 +52,7 @@ public class MyPaymentsController {
     private final PaymentsService paymentsService;
 
     @GetMapping
-	@PreAuthorize("hasAuthority('COLLECTION_VIEW_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_VIEW_OWN', 'COLLECTION_VIEW_OWN')")
     public ResponseEntity<Page<PaymentDto>> list(
             @PageableDefault(size = 20, sort = "receivedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
@@ -61,7 +61,7 @@ public class MyPaymentsController {
 
     /** {@code ?draft=true} starts the payment at {@code DRAFT} — see {@code AdminPaymentController.register}. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_OWN', 'COLLECTION_CREATE_OWN')")
     public ResponseEntity<PaymentDto> register(
             @Valid @RequestPart("payment") MyPaymentCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile supportFile,
@@ -77,7 +77,7 @@ public class MyPaymentsController {
 
     /** Replaces the lines of the caller's own {@code DRAFT} payment (V117 lines feature). */
     @PutMapping("/{uuid}/lines")
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_OWN', 'COLLECTION_CREATE_OWN')")
     public ResponseEntity<PaymentDto> updateLines(
             @PathVariable UUID uuid,
             @Valid @RequestBody PaymentLinesUpdateRequest request,
@@ -87,20 +87,20 @@ public class MyPaymentsController {
 
     /** {@code DRAFT → PENDING} for the caller's own payment. */
     @PutMapping("/{uuid}/submit")
-	@PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_CREATE_OWN', 'COLLECTION_CREATE_OWN')")
     public ResponseEntity<PaymentDto> submit(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.submitOwn(actor.getUuid(), uuid));
     }
 
     /** {@code PENDING → DRAFT} for the caller's own payment. */
     @PutMapping("/{uuid}/reactivate")
-	@PreAuthorize("hasAuthority('COLLECTION_DELETE_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_DELETE_OWN', 'COLLECTION_DELETE_OWN')")
     public ResponseEntity<PaymentDto> reactivate(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(paymentsService.reactivateToDraftOwn(actor.getUuid(), uuid));
     }
 
     @DeleteMapping("/{uuid}")
-	@PreAuthorize("hasAuthority('COLLECTION_DELETE_OWN')")
+	@PreAuthorize("hasAnyAuthority('PAYMENT_DELETE_OWN', 'COLLECTION_DELETE_OWN')")
     public ResponseEntity<Void> delete(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
         paymentsService.removeOwn(actor.getUuid(), uuid);
         return ResponseEntity.noContent().build();

@@ -71,11 +71,13 @@ class AllyBenefitUsageControllerIT {
         return new BenefitUsageDto(UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "Juan Pérez", "V", "12345678",
                 UUID.randomUUID(), "INDIVIDUAL",
-                UUID.randomUUID(), "Clínica Ejemplo", null, null, null, null,
+                null, "Juan Pérez", null,
+                UUID.randomUUID(), "Clínica Ejemplo", null, null, null, null, null,
                 LocalDate.of(2026, 10, 20), null,
                 null, null,
                 null, null,
                 null, null,
+                null, null, null, null,
                 null, null, null);
     }
 

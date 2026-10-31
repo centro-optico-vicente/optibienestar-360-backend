@@ -75,27 +75,28 @@ class PublicProductControllerIT {
         return new PublicProductListItemDto(
                 UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, "Optometría", "Examen de la vista",
                 "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null,
+                new BigDecimal("4.50"), 2,
                 UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida",
-                "https://cdn.example/logo.png", "+58 274 5550100");
+                "https://cdn.example/logo.png", "+58 274 5550100", new BigDecimal("4.20"), 5);
     }
 
     private PublicAllyProductDto leanRow() {
         return new PublicAllyProductDto(
                 UUID.randomUUID(), UUID.randomUUID(), ProductType.SERVICE, true, "Optometría", "Examen de la vista",
-                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null,
+                "Evaluación optométrica completa", new BigDecimal("15.00"), null, new BigDecimal("15.00"), null, true, null, 0, null,
                 List.of());
     }
 
     private PublicProductDetailDto detail() {
         PublicProductOfferDto cheapest = new PublicProductOfferDto(UUID.randomUUID(),
-                new BigDecimal("20.00"), new BigDecimal("25.00"), new BigDecimal("15.00"), null,
+                new BigDecimal("20.00"), new BigDecimal("25.00"), new BigDecimal("15.00"), null, new BigDecimal("5.00"), 1,
                 UUID.randomUUID(), "Óptica Vicente", List.of("Óptica"), "Mérida", null, "+58 274 5550100", null,
-                "https://cdn.example/optica.jpg", List.of(new PublicImageDto("https://cdn.example/optica.jpg", null, true)));
+                new BigDecimal("4.20"), 5, "https://cdn.example/optica.jpg", List.of(new PublicImageDto("https://cdn.example/optica.jpg", null, true)));
         PublicProductOfferDto other = new PublicProductOfferDto(UUID.randomUUID(),
-                new BigDecimal("18.00"), null, new BigDecimal("18.00"), "Solo de lunes a viernes",
-                UUID.randomUUID(), "Clínica Andes", List.of("Clínica"), "Mérida", null, null, null, null, List.of());
+                new BigDecimal("18.00"), null, new BigDecimal("18.00"), "Solo de lunes a viernes", null, 0,
+                UUID.randomUUID(), "Clínica Andes", List.of("Clínica"), "Mérida", null, null, null, null, 0, null, List.of());
         return new PublicProductDetailDto(UUID.randomUUID(), "Examen de la vista", null, ProductType.SERVICE,
-                "Optometría", true, null, 2, new BigDecimal("15.00"), new BigDecimal("25.00"), List.of(cheapest, other),
+                "Optometría", true, null, new BigDecimal("5.00"), 1, 2, new BigDecimal("15.00"), new BigDecimal("25.00"), List.of(cheapest, other),
                 List.of(new PublicImageDto("https://cdn.example/examen.jpg", "Examen", true)));
     }
 

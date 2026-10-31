@@ -96,6 +96,7 @@ class AffiliationRequestControllersIT {
                 null, "Contrato", "abc", Instant.parse("2026-10-20T14:00:00Z"), null, null, false,
                 status, null, null, null,
                 null, null, null,
+                null,
                 Instant.parse("2026-10-20T14:00:00Z"), List.of());
     }
 
@@ -137,7 +138,37 @@ class AffiliationRequestControllersIT {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    @Test
+    void publicSubmit_multipart_passesTheRequestPartAndTheProof() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        when(service.create(any(), any(org.springframework.web.multipart.MultipartFile.class), any())).thenReturn(
+                new AffiliationRequestCreatedDto(uuid, "PENDING", "maria@example.com", null));
+        org.springframework.mock.web.MockMultipartFile request = new org.springframework.mock.web.MockMultipartFile(
+                "request", "", MediaType.APPLICATION_JSON_VALUE, CREATE_BODY.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.springframework.mock.web.MockMultipartFile support = new org.springframework.mock.web.MockMultipartFile(
+                "support", "comprobante.pdf", "application/pdf", new byte[]{1, 2, 3});
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/v1/public/affiliation-requests").file(request).file(support))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.uuid").value(uuid.toString()));
+        verify(service).create(any(), any(org.springframework.web.multipart.MultipartFile.class), any());
+    }
+
     // ─── Admin ──────────────────────────────────────────────────────────────
+
+    @Test
+    void adminPaymentSupport_requiresViewAll() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        mockMvc.perform(get("/v1/admin/affiliation-requests/{uuid}/payment-support", uuid)
+                        .with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
+                .andExpect(status().isForbidden());
+        when(service.paymentSupportUrl(eq(uuid), isNull())).thenThrow(
+                new java.util.NoSuchElementException("payment.support.not_available"));
+        mockMvc.perform(get("/v1/admin/affiliation-requests/{uuid}/payment-support", uuid)
+                        .with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void adminList_requiresViewAll() throws Exception {

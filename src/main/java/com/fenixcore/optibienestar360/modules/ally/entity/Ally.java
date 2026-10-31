@@ -23,6 +23,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -140,6 +141,15 @@ public class Ally extends BaseEntity {
 
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
+
+    // ─── Affiliate ratings (V201) — kept in sync by BenefitUsageRatingsService ─
+
+    /** Average stars of its rated usages; {@code null} with no ratings. Never set by hand. */
+    @Column(name = "rating_avg", precision = 3, scale = 2)
+    private BigDecimal ratingAvg;
+
+    @Column(name = "rating_count", nullable = false)
+    private int ratingCount = 0;
 
     @Column(columnDefinition = "text")
     private String description;

@@ -125,8 +125,28 @@ public class BeneficiariesService {
     @Transactional
     @Auditable(entity = "beneficiary", action = AuditAction.CREATE)
     public BeneficiaryDto add(UUID memberUuid, BeneficiaryCreateRequest req) {
-        Member member = findMember(memberUuid);
+        return addTo(findMember(memberUuid), req);
+    }
 
+    /**
+     * Self-service add ({@code POST /v1/me/family}): same rules as {@link #add}
+     * on the caller's own member. {@code extraInscriptionPaid} is an admin
+     * decision, so the affiliate's value is dropped — an extra slot is billed.
+     */
+    @Transactional
+    @Auditable(entity = "beneficiary", action = AuditAction.CREATE)
+    public BeneficiaryDto addForUser(UUID userUuid, BeneficiaryCreateRequest req) {
+        Member member = memberRepository.findByUserUuid(userUuid)
+                .filter(Member::isActive)
+                .orElseThrow(() -> new NoSuchElementException("me.member.not_enrolled"));
+        BeneficiaryCreateRequest selfServe = new BeneficiaryCreateRequest(
+                req.firstName(), req.middleName(), req.lastName(), req.secondLastName(),
+                req.documentType(), req.documentNumber(), req.birthDate(), req.phone(), req.email(),
+                req.relationship(), null);
+        return addTo(member, selfServe);
+    }
+
+    private BeneficiaryDto addTo(Member member, BeneficiaryCreateRequest req) {
         // A beneficiary is covered under the titular's plan — resolve it from
         // the active membership. Without one there is no plan to price the cap
         // or the extra inscription against, so adding is rejected.
