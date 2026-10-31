@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 
 import java.time.Instant;
@@ -24,6 +25,8 @@ public record AllyListItemDto(
         String name,
         /** Sequential "Nº DE ALIADO" (V179). */
         Integer allyNumber,
+        /** B2B / B2P (V209, hub ADR 0031); localized {@code segment_Display}. */
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
 
         List<String> allyTypeNames,
         @Display DisplayRef city,

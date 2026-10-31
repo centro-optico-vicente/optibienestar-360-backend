@@ -5,10 +5,13 @@ import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -31,10 +34,17 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Commercial / medical ally — organizational entity (clinic, pharmacy,
- * optical store, hardware store, vet, etc.). Does NOT reference
- * {@code persons}: an ally is an organization, not a human. Users that
- * operate it attach via {@link AllyUser} (N:M pivot, V12).
+ * Ally of the network (hub ADR 0026 / 0031). Its {@link #getSegment() segment}
+ * says what it is: {@code B2B} "Aliado Comercial" — an organization (clinic,
+ * pharmacy, optical store, hardware store, funeral home…) — or {@code B2P}
+ * "Aliado Profesional" — a professional (physician, psychologist, lawyer…).
+ * Each place a professional practices at is its own ally (one agreement per
+ * ally), all sharing the same {@link #getHolderPerson() holder person}.
+ *
+ * <p>The holder person ({@code person_id}, V209) is the professional for B2P
+ * (required by {@code AlliesService}) and the representative who signs the
+ * agreement for B2B. Users that operate the ally attach via {@link AllyUser}
+ * (N:M pivot, V12).</p>
  *
  * <p>Public visibility controlled by {@link #isPublished()} +
  * {@link #getPublishedAt()} — orthogonal to the lifecycle of the services
@@ -69,7 +79,64 @@ public class Ally extends BaseEntity {
     @JoinColumn(name = "captured_by_promoter_id")
     private Promoter capturedByPromoter;
 
+    /** B2B / B2P (V209, hub ADR 0031); the ally's types must belong to it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "segment", length = 3, nullable = false)
+    private AllyType.Segment segment = AllyType.Segment.B2B;
+
+    /** Holder person (V209): the professional (B2P) or the representative who signs (B2B). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "person_id")
+    private Person holderPerson;
+
+    // ─── B2P practice site (V209, Convenio Profesional §III) ───────────────
+
+    /** Clinic the professional practices at, when that clinic is an ally too. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "host_ally_id")
+    private Ally hostAlly;
+
+    /** Clinic name when it is not an ally. */
+    @Column(name = "host_name", length = 200)
+    private String hostName;
+
+    @Column(name = "office_number", length = 20)
+    private String officeNumber;
+
+    @Column(name = "appointment_phone", length = 30)
+    private String appointmentPhone;
+
+    @Column(name = "assistant_name", length = 150)
+    private String assistantName;
+
+    // ─── B2B commercial data (V209, Convenio Comercial §I–IV) ───────────────
+
+    @Column(name = "commercial_zone", length = 100)
+    private String commercialZone;
+
+    /** Nombre comercial; {@link #getName() name} is the legal name (razón social). */
+    @Column(name = "trade_name", length = 200)
+    private String tradeName;
+
+    @Column(name = "founded_year")
+    private Short foundedYear;
+
+    @Column(name = "cash_registers_count")
+    private Integer cashRegistersCount;
+
+    @Column(name = "branches_count")
+    private Integer branchesCount;
+
+    @Column(name = "has_pos")
+    private Boolean hasPos;
+
+    /** Position (cargo) of the B2B representative who signs. */
+    @Column(name = "representative_position", length = 100)
+    private String representativePosition;
+
     // ─── Legal representative / physician who signs the agreement (V179) ───
+    // DEPRECATED since V209: the holder person (person_id) replaces these
+    // free-text columns; kept read-only-ish until their data is migrated.
 
     @Column(name = "representative_name", length = 210)
     private String representativeName;

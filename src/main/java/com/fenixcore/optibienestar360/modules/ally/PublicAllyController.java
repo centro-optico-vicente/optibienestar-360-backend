@@ -37,7 +37,8 @@ import java.util.UUID;
  * publicly offering something of that category or of type
  * {@code servicio}/{@code producto} (hub ADR 0026). The id twins
  * ({@code cityUuid}, {@code professionUuid}, {@code categoryUuid}) remain for
- * clients that hold ids.</p>
+ * clients that hold ids. {@code segment} ({@code B2B} / {@code B2P}, hub ADR
+ * 0031) keeps only commercial or only professional allies.</p>
  */
 @RestController
 @RequestMapping("/v1/public/allies")
@@ -56,8 +57,9 @@ public class PublicAllyController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) UUID categoryUuid,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) String segment,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, type);
+        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, type, segment);
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
                 .body(alliesService.publicDirectory(search, pageable));
     }

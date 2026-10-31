@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyHolderPersonRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
@@ -31,7 +32,10 @@ import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepos
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 import com.fenixcore.optibienestar360.modules.ally.media.AllyMediaOwner;
 import com.fenixcore.optibienestar360.modules.media.service.MediaItemsService;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
+import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import io.github.perplexhub.rsql.RSQLJPASupport;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -75,7 +79,7 @@ import java.util.UUID;
 public class AlliesService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
-            "name", "allyNumber", "email", "phone", "website",
+            "name", "allyNumber", "segment", "email", "phone", "website",
             "taxDocumentType", "taxDocumentNumber",
             "published", "publishedAt", "joinedAt",
             "createdAt", "updatedAt", "active", "status"
@@ -112,6 +116,7 @@ public class AlliesService {
 	private final DefaultSortResolver defaultSortResolver;
     private final PublicMediaEnricher enricher;
     private final MediaItemsService mediaItemsService;
+    private final PersonService personService;
 
     @Value("${storage.r2.public-base-url:}")
     private String publicBaseUrl;
@@ -183,6 +188,11 @@ public class AlliesService {
      */
     public Page<PublicAllyListItemDto> publicDirectory(PublicAllySearch search, Pageable pageable) {
         Specification<Ally> spec = publishedOnly();
+
+        Segment segment = parseSegment(search.segment());
+        if (segment != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("segment"), segment));
+        }
 
         UUID cityUuid = search.cityUuid();
         if (cityUuid != null) {
@@ -278,6 +288,12 @@ public class AlliesService {
         Ally ally = new Ally();
         ally.setName(req.name());
         ally.setAllyTypes(resolveAllyTypes(req.allyTypeUuids()));
+        // Segment (V209, hub ADR 0031): explicit, or derived from the types.
+        ally.setSegment(req.segment() != null ? req.segment() : AllySegments.derive(ally.getAllyTypes()));
+        AllySegments.requireTypesOf(ally);
+        AllySegments.rejectForeignFields(ally.getSegment(), AllySegments.SiteFields.of(req));
+        if (req.holder() != null) ally.setHolderPerson(resolveHolder(req.holder()));
+        applySiteFields(ally, AllySegments.SiteFields.of(req), null);
         ally.setTaxDocumentType(req.taxDocumentType());
         ally.setTaxDocumentNumber(req.taxDocumentNumber());
         ally.setEmail(req.email());
@@ -300,6 +316,7 @@ public class AlliesService {
         ally.setRepresentativeName(req.representativeName());
         ally.setRepresentativeDocumentType(req.representativeDocumentType());
         ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
+        AllySegments.requireHolder(ally);
 
         Ally saved = repository.save(ally);
         // logoUrl is deprecated (hub ADR 0027): the column mirrors the primary gallery image,
@@ -323,7 +340,9 @@ public class AlliesService {
                     });
         }
 
+        Segment previousSegment = ally.getSegment();
         if (req.name()                != null) ally.setName(req.name());
+        if (req.segment()             != null) ally.setSegment(req.segment());
         // allyTypeUuids: null = leave untouched; non-null = replace, but never
         // to an empty set — an ally must always keep at least one type.
         if (req.allyTypeUuids() != null) {
@@ -356,6 +375,19 @@ public class AlliesService {
         if (req.representativeName()  != null) ally.setRepresentativeName(req.representativeName());
         if (req.representativeDocumentType()   != null) ally.setRepresentativeDocumentType(req.representativeDocumentType());
         if (req.representativeDocumentNumber() != null) ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());
+
+        // Segment rules (V209, hub ADR 0031): the types belong to the ally's
+        // segment; the other segment's fields are rejected when sent and wiped
+        // when the segment changes; a B2P ally needs its professional — checked
+        // when the segment becomes B2P or the holder is touched, so existing
+        // B2P allies without a person stay editable until it is loaded.
+        AllySegments.requireTypesOf(ally);
+        AllySegments.SiteFields site = AllySegments.SiteFields.of(req);
+        AllySegments.rejectForeignFields(ally.getSegment(), site);
+        if (req.holder() != null) ally.setHolderPerson(resolveHolder(req.holder()));
+        applySiteFields(ally, site, ally.getId());
+        if (ally.getSegment() != previousSegment) AllySegments.clearForeignFields(ally);
+        if (ally.getSegment() != previousSegment || req.holder() != null) AllySegments.requireHolder(ally);
 
         // professionUuids: null = leave untouched; non-null = replace.
         // Reuse the existing collection instance (clear + addAll) instead of
@@ -565,6 +597,7 @@ public class AlliesService {
         Ally ally = findManaged(allyUuid);
         AllyType allyType = allyTypeRepository.findByUuid(allyTypeUuid)
                 .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+        AllySegments.requireTypeOf(ally.getSegment(), allyType);
         ally.getAllyTypes().add(allyType);  // Set semantics → idempotent
     }
 
@@ -623,6 +656,83 @@ public class AlliesService {
             throw new IllegalArgumentException("ally.referral_code.taken");
         }
         return code;
+    }
+
+    /**
+     * Find-or-create the holder person by cédula ({@link PersonService#findOrCreate}).
+     * An existing person is linked as-is: only its empty fields are filled, so
+     * an ally form never overwrites data owned by the member / advisor side.
+     * A new person needs first and last name (NOT NULL on {@code persons}).
+     */
+    private Person resolveHolder(AllyHolderPersonRequest holder) {
+        String documentType = holder.documentType().trim();
+        String documentNumber = holder.documentNumber().trim();
+        return personService.findByDocument(documentType, documentNumber)
+                .map(existing -> {
+                    if (existing.getBirthDate() == null) existing.setBirthDate(holder.birthDate());
+                    if (isBlank(existing.getPhone())) existing.setPhone(blankToNull(holder.phone()));
+                    if (isBlank(existing.getEmail())) existing.setEmail(blankToNull(holder.email()));
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    if (isBlank(holder.firstName()) || isBlank(holder.lastName())) {
+                        throw new IllegalArgumentException("ally.holder.name_required");
+                    }
+                    Person seed = new Person();
+                    seed.setDocumentType(documentType);
+                    seed.setDocumentNumber(documentNumber);
+                    seed.setFirstName(holder.firstName().trim());
+                    seed.setLastName(holder.lastName().trim());
+                    seed.setBirthDate(holder.birthDate());
+                    seed.setPhone(blankToNull(holder.phone()));
+                    seed.setEmail(blankToNull(holder.email()));
+                    return personService.findOrCreate(seed);
+                });
+    }
+
+    /**
+     * Writes the segment-specific fields (PATCH semantics: {@code null} =
+     * unchanged, blank text = cleared). The host clinic must be another ally
+     * of the B2B segment.
+     */
+    private void applySiteFields(Ally ally, AllySegments.SiteFields f, Long currentAllyId) {
+        if (f.hostAllyUuid() != null) {
+            Ally host = repository.findByUuid(f.hostAllyUuid())
+                    .orElseThrow(() -> new NoSuchElementException("ally.host.not_found"));
+            if (host.getId().equals(currentAllyId) || host.getSegment() != Segment.B2B) {
+                throw new IllegalArgumentException("ally.host.invalid");
+            }
+            ally.setHostAlly(host);
+        }
+        if (f.hostName() != null)               ally.setHostName(blankToNull(f.hostName()));
+        if (f.officeNumber() != null)           ally.setOfficeNumber(blankToNull(f.officeNumber()));
+        if (f.appointmentPhone() != null)       ally.setAppointmentPhone(blankToNull(f.appointmentPhone()));
+        if (f.assistantName() != null)          ally.setAssistantName(blankToNull(f.assistantName()));
+        if (f.commercialZone() != null)         ally.setCommercialZone(blankToNull(f.commercialZone()));
+        if (f.tradeName() != null)              ally.setTradeName(blankToNull(f.tradeName()));
+        if (f.foundedYear() != null)            ally.setFoundedYear(f.foundedYear());
+        if (f.cashRegistersCount() != null)     ally.setCashRegistersCount(f.cashRegistersCount());
+        if (f.branchesCount() != null)          ally.setBranchesCount(f.branchesCount());
+        if (f.hasPos() != null)                 ally.setHasPos(f.hasPos());
+        if (f.representativePosition() != null) ally.setRepresentativePosition(blankToNull(f.representativePosition()));
+    }
+
+    /** {@code "B2B"} / {@code "B2P"} (any case) → segment; blank → no filter; anything else → 422. */
+    private static Segment parseSegment(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Segment.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("ally.segment.invalid");
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static String blankToNull(String value) {
+        return isBlank(value) ? null : value.trim();
     }
 
     private City resolveCityOptional(UUID cityUuid) {

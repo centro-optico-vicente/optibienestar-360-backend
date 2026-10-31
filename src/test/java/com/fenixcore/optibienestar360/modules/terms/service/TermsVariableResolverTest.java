@@ -258,6 +258,8 @@ class TermsVariableResolverTest {
         ally.setRepresentativeDocumentNumber("9876543");
         ally.setAllyNumber(7);
         ally.setCapturedByPromoter(capturer);
+        // B2P file number carries the advisor code (hub ADR 0031 §10).
+        ally.setSegment(AllyType.Segment.B2P);
         AllyAgreement agreement = new AllyAgreement();
         agreement.setAlly(ally);
         agreement.setStartDate(LocalDate.of(2026, 10, 1));
@@ -298,7 +300,8 @@ class TermsVariableResolverTest {
         Ally ally = new Ally();
         ally.setId(9L);
         ally.setName("Clínica Ejemplo, C.A.");
-        ally.setAllyTypes(Set.of(allyType(AllyType.Segment.B2P), allyType(AllyType.Segment.B2B)));
+        ally.setSegment(AllyType.Segment.B2P);
+        ally.setAllyTypes(Set.of(allyType(AllyType.Segment.B2P)));
         AllyProduct lab = service(2L, "laboratorio clínico", "Exámenes", new BigDecimal("10.50"), "Insumos de alto costo");
         AllyProduct consult = service(1L, "Consulta oftalmológica", "Consultas", new BigDecimal("15.00"), null);
         AllyProduct retired = service(3L, "Cirugía", "Cirugías", new BigDecimal("5"), null);
@@ -311,9 +314,9 @@ class TermsVariableResolverTest {
         List<Map<String, String>> rows = resolver.forAlly(agreement).rows("agreement.rates");
 
         assertThat(rows).containsExactly(
-                Map.of("segment", "B2B/B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
+                Map.of("segment", "B2P", "category", "Consultas", "serviceName", "Consulta oftalmológica",
                         "discountPct", "15"),
-                Map.of("segment", "B2B/B2P", "category", "Exámenes", "serviceName", "laboratorio clínico",
+                Map.of("segment", "B2P", "category", "Exámenes", "serviceName", "laboratorio clínico",
                         "discountPct", "10,50", "exclusions", "Insumos de alto costo"));
         assertThat(render("{{#agreement.rates}}{{serviceName}}: {{exclusions}}. {{/agreement.rates}}",
                 resolver.forAlly(agreement)))

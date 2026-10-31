@@ -8,7 +8,6 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.ReviewStat
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyFileNumbers;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
-import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
@@ -31,8 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * Builds the per-entity values of a T&C template ({@link TermsVariables})
@@ -203,17 +200,9 @@ public class TermsVariableResolver {
                 .toList();
     }
 
-    /** The segment(s) of the ally's types, sorted and joined ({@code "B2B"}, {@code "B2B/B2P"}); {@code null} without types. */
+    /** The ally's own segment ({@code allies.segment}, V209 / hub ADR 0031): {@code "B2B"} or {@code "B2P"}. */
     private static String segmentOf(Ally ally) {
-        if (ally.getAllyTypes() == null || ally.getAllyTypes().isEmpty()) return null;
-        String joined = ally.getAllyTypes().stream()
-                .map(AllyType::getSegment)
-                .filter(Objects::nonNull)
-                .map(Enum::name)
-                .distinct()
-                .sorted()
-                .collect(Collectors.joining("/"));
-        return joined.isEmpty() ? null : joined;
+        return ally.getSegment() == null ? null : ally.getSegment().name();
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

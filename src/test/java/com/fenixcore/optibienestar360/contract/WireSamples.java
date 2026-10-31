@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.contract;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CommissionDto;
@@ -37,7 +38,7 @@ final class WireSamples {
     static Map<String, Object> all() throws Exception {
         Map<String, Object> samples = new LinkedHashMap<>();
         samples.put(ALLY_LIST_ITEM, new AllyListItemDto(
-                UUID.fromString("00000000-0000-0000-0000-000000000001"), "Optica Sample", 7,
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "Optica Sample", 7, AllyType.Segment.B2B,
                 List.of("Optica"),
                 new DisplayRef(UUID.fromString("00000000-0000-0000-0000-0000000000c1"), "CCS", "Caracas"),
                 "J", "123456789", null, null,

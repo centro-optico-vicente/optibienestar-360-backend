@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.service.AllySegments;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
@@ -46,7 +47,7 @@ class TermsVersionScopesTest {
     }
 
     @Test
-    void segmentScope_matchesTheSegmentOfAnyOfTheAllysTypes() {
+    void segmentScope_matchesTheAllysOwnSegment() {
         TermsVersion b2b = template(1L, null, Segment.B2B, null, 10);
 
         assertThat(TermsVersionScopes.isApplicableTo(b2b, ally)).isTrue();
@@ -126,6 +127,7 @@ class TermsVersionScopesTest {
         ally.setId(id);
         ally.setUuid(UUID.randomUUID());
         ally.getAllyTypes().addAll(List.of(types));
+        ally.setSegment(AllySegments.derive(ally.getAllyTypes()));
         return ally;
     }
 }
