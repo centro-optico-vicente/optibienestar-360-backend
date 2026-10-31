@@ -50,6 +50,7 @@ public class SystemConfigController {
 			config.isLoginAuditEnabled(),
 			config.getLoginSessionExpirationDays(),
 			config.getDefaultSort(),
+			config.isPatientMedicalAccessEnabled(),
 			config.getUpdatedAt()
         );
     }
