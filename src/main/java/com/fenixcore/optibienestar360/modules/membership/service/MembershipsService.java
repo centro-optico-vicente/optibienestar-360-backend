@@ -45,6 +45,8 @@ public class MembershipsService {
     private final MembershipMapper mapper;
     private final ConversionEnricher conversionEnricher;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionAssignmentService promotionAssignmentService;
+    /** Provider, not a direct reference: the credit application depends on payments, and this keeps the graph acyclic. */
+    private final org.springframework.beans.factory.ObjectProvider<com.fenixcore.optibienestar360.modules.payment.service.CreditApplicationService> creditApplicationProvider;
 
     // ─── Cross-member search (filters) ──────────────────────────────────────
 
@@ -208,7 +210,27 @@ public class MembershipsService {
             promotionAssignmentService.assign(saved, req.promotionUuid(), req.promotionCode(),
                     com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Origin.ENROLLMENT, actorUuid);
         }
+        scheduleCreditApplication(saved.getId());
         return mapper.toDto(saved);
+    }
+
+    /**
+     * The new membership may already have credit waiting (a person who paid before enrolling): apply it once the
+     * enrollment is committed, in its own transaction, so a failure there can never undo the enrollment.
+     */
+    private void scheduleCreditApplication(Long membershipId) {
+        Runnable apply = () -> creditApplicationProvider.ifAvailable(service -> service.applyCreditSafely(membershipId));
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            apply.run();
+                        }
+                    });
+        } else {
+            apply.run();
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

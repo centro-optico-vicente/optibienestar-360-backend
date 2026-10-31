@@ -48,6 +48,25 @@ public class PersonCreditEntry extends BaseEntity {
     @JoinColumn(name = "currency_id", nullable = false)
     private Currency currency;
 
+    /** The charge an automatic {@code APPLIED} row covered (V205); null for manual assignments and refunds. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "charge_id")
+    private com.fenixcore.optibienestar360.modules.membership.entity.MembershipCharge charge;
+
+    /** Conversion snapshot (ADR 0015 section 5): the charge amount in its own currency, the rate used and its date. */
+    @Column(name = "converted_amount", precision = 12, scale = 2)
+    private BigDecimal convertedAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "converted_currency_id")
+    private Currency convertedCurrency;
+
+    @Column(name = "exchange_rate_used", precision = 18, scale = 8)
+    private BigDecimal exchangeRateUsed;
+
+    @Column(name = "exchange_rate_date")
+    private java.time.LocalDate exchangeRateDate;
+
     @Column(name = "entry_type", length = 20, nullable = false)
     private String entryType;
 

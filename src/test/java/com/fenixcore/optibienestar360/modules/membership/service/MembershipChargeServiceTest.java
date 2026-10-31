@@ -203,6 +203,47 @@ class MembershipChargeServiceTest {
 
     // ─── helpers ────────────────────────────────────────────────────────────
 
+    // ─── coverWithCredit (V205) ─────────────────────────────────────────────
+
+    @Test
+    void coverWithCredit_coversOneMonth_advancesTheMembershipAndPublishesOnce() {
+        Membership membership = membership(1L, LocalDate.of(2026, 1, 15), null, LifecycleStatus.ACTIVE);
+        MembershipCharge pending = new MembershipCharge();
+        pending.setStatus(ChargeStatus.PENDING.name());
+        pending.setPeriodStart(LocalDate.of(2026, 1, 1));
+        pending.setPeriodEnd(LocalDate.of(2026, 1, 31));
+        when(chargeRepository.findByMembership_IdAndPeriodStart(1L, LocalDate.of(2026, 1, 1)))
+                .thenReturn(Optional.of(pending));
+        com.fenixcore.optibienestar360.modules.payment.entity.Payment payment =
+                new com.fenixcore.optibienestar360.modules.payment.entity.Payment();
+
+        MembershipCharge covered = service.coverWithCredit(membership, LocalDate.of(2026, 1, 1), payment);
+
+        assertThat(covered).isSameAs(pending);
+        assertThat(pending.getStatus()).isEqualTo(ChargeStatus.COVERED.name());
+        assertThat(pending.getCoveredByPayment()).isSameAs(payment);
+        assertThat(membership.getLastPaidThrough()).isEqualTo(LocalDate.of(2026, 1, 31));
+        assertThat(membership.getNextDueDate()).isEqualTo(LocalDate.of(2026, 2, 15));
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
+        verify(membershipStatusService).applyTransition(eq(membership), any());
+    }
+
+    @Test
+    void coverWithCredit_skipsAMonthAlreadyCovered() {
+        Membership membership = membership(1L, LocalDate.of(2026, 1, 15), null, LifecycleStatus.ACTIVE);
+        MembershipCharge done = new MembershipCharge();
+        done.setStatus(ChargeStatus.COVERED.name());
+        when(chargeRepository.findByMembership_IdAndPeriodStart(1L, LocalDate.of(2026, 1, 1)))
+                .thenReturn(Optional.of(done));
+
+        MembershipCharge result = service.coverWithCredit(membership, LocalDate.of(2026, 1, 1),
+                new com.fenixcore.optibienestar360.modules.payment.entity.Payment());
+
+        assertThat(result).isNull();
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(membershipStatusService, never()).applyTransition(any(), any());
+    }
+
     private static Membership membership(Long id, LocalDate enrolledAt, Integer billingStartDay, LifecycleStatus status) {
         Member member = new Member();
         member.setId(id);

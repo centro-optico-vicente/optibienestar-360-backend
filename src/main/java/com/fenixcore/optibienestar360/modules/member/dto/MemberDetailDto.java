@@ -84,5 +84,10 @@ public record MemberDetailDto(
         String status,
         Instant createdAt,
         Instant updatedAt,
-        Instant confirmedAt
+        Instant confirmedAt,
+
+        // ─── Automatic credit application (V205) — false while staff hold the person's credit ───
+        boolean creditAutoApply,
+        String creditHoldReason,
+        @com.fenixcore.optibienestar360.core.display.Display(com.fenixcore.optibienestar360.core.display.Display.Kind.DATETIME) Instant creditHoldAt
 ) {}

@@ -40,13 +40,18 @@ public class PersonCreditService {
         }
         PersonCreditEntry entry = new PersonCreditEntry();
         // Credited to the beneficiary when somebody else paid for them (V203), otherwise to the payer.
-        entry.setPerson(payment.getBeneficiaryPerson() != null ? payment.getBeneficiaryPerson() : payment.getPerson());
+        entry.setPerson(ownerOf(payment));
         entry.setPayment(payment);
         entry.setCurrency(payment.getCurrency());
         entry.setEntryType(EntryType.CREDIT.name());
         entry.setAmount(amount);
         entry.setNote("Approved collection without membership");
         repository.save(entry);
+    }
+
+    /** Whether the payment ever held credit (has any ledger row). */
+    public boolean hasLedger(Payment payment) {
+        return payment.getId() != null && repository.existsByPaymentId(payment.getId());
     }
 
     /** Remaining credit of one payment (CREDIT minus what was already applied). */
@@ -66,7 +71,7 @@ public class PersonCreditService {
             throw new IllegalArgumentException("payment.credit.nothing_to_apply");
         }
         PersonCreditEntry entry = new PersonCreditEntry();
-        entry.setPerson(payment.getBeneficiaryPerson() != null ? payment.getBeneficiaryPerson() : payment.getPerson());
+        entry.setPerson(ownerOf(payment));
         entry.setPayment(payment);
         entry.setMembership(membership);
         entry.setCurrency(payment.getCurrency());
@@ -75,6 +80,49 @@ public class PersonCreditService {
         entry.setNote("Assigned to membership");
         repository.save(entry);
         return remaining;
+    }
+
+    /** Whom a payment's credit belongs to: the beneficiary when somebody else paid, otherwise the payer. */
+    public static com.fenixcore.optibienestar360.modules.person.entity.Person ownerOf(Payment payment) {
+        return payment.getBeneficiaryPerson() != null ? payment.getBeneficiaryPerson() : payment.getPerson();
+    }
+
+    /**
+     * Books the credit one automatic application consumed: a negative {@code APPLIED} row in the payment's own
+     * currency, tied to the covered charge, with the conversion snapshot (charge amount in its currency, rate used,
+     * rate date) when the charge is in another currency (ADR 0015 section 5).
+     */
+    @Transactional
+    public void applyForCharge(Payment payment, Membership membership,
+                               com.fenixcore.optibienestar360.modules.membership.entity.MembershipCharge charge,
+                               BigDecimal creditCost, java.math.BigDecimal rate, java.time.LocalDate rateDate) {
+        PersonCreditEntry entry = new PersonCreditEntry();
+        entry.setPerson(ownerOf(payment));
+        entry.setPayment(payment);
+        entry.setMembership(membership);
+        entry.setCharge(charge);
+        entry.setCurrency(payment.getCurrency());
+        entry.setEntryType(EntryType.APPLIED.name());
+        entry.setAmount(creditCost.negate());
+        entry.setConvertedAmount(charge.getAmount());
+        entry.setConvertedCurrency(charge.getCurrency());
+        entry.setExchangeRateUsed(rate);
+        entry.setExchangeRateDate(rateDate);
+        entry.setNote("Applied automatically to the charge of " + charge.getPeriodStart());
+        repository.save(entry);
+    }
+
+    /** Books a refund agreed on a claim: a negative {@code REVERSED} row. The transfer itself is finance's, outside the system. */
+    @Transactional
+    public void recordReversal(Payment payment, BigDecimal amount, String note) {
+        PersonCreditEntry entry = new PersonCreditEntry();
+        entry.setPerson(ownerOf(payment));
+        entry.setPayment(payment);
+        entry.setCurrency(payment.getCurrency());
+        entry.setEntryType(EntryType.REVERSED.name());
+        entry.setAmount(amount.negate());
+        entry.setNote(note);
+        repository.save(entry);
     }
 
     public CreditBalanceDto balanceOf(Long personId) {

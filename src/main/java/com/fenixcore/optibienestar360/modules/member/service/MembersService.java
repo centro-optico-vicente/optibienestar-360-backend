@@ -510,7 +510,8 @@ public class MembersService {
                 beneficiariesCount, documentsCount, hasMedicalRecord,
                 baseSlotsUsed, baseSlotsTotal, extraSlotsUsed, extraSlotsTotal,
                 base.currentPromoterUuid(), base.currentPromoterName(),
-                base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt()
+                base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt(),
+                base.creditAutoApply(), base.creditHoldReason(), base.creditHoldAt()
         );
     }
 
