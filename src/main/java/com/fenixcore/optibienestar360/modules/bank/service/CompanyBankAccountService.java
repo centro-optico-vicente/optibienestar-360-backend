@@ -35,6 +35,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class CompanyBankAccountService {
 
+    /** Account type whose payments go to a phone number instead of an account number (V206). */
+    static final String PAGO_MOVIL = "PAGO_MOVIL";
+
     private static final String[] SEARCHABLE_FIELDS = {"accountNumber", "holderName", "holderDocument"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(CompanyBankAccount.class, Map.of());
@@ -109,6 +112,10 @@ public class CompanyBankAccountService {
     }
 
     private void apply(CompanyBankAccount account, CompanyBankAccountRequest req) {
+        // A Pago Móvil account is paid to a phone number, so the phone is not optional for that type.
+        if (PAGO_MOVIL.equalsIgnoreCase(req.accountType()) && blankToNull(req.mobilePaymentPhone()) == null) {
+            throw new IllegalArgumentException("company_bank_account.mobile_phone.required");
+        }
         Bank bank = bankRepository.findByUuid(req.bankUuid())
                 .filter(Bank::isActive)
                 .orElseThrow(() -> new NoSuchElementException("bank.not_found"));
@@ -122,12 +129,17 @@ public class CompanyBankAccountService {
         account.setHolderName(req.holderName());
         account.setHolderDocument(req.holderDocument());
         account.setNotes(req.notes());
+        account.setMobilePaymentPhone(blankToNull(req.mobilePaymentPhone()));
         if (req.sortOrder() != null) {
             account.setSortOrder(req.sortOrder());
         }
         if (req.publicVisible() != null) {
             account.setPublicVisible(req.publicVisible());
         }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private CompanyBankAccount find(UUID uuid) {
@@ -138,6 +150,6 @@ public class CompanyBankAccountService {
     public static CompanyBankAccountDto toDto(CompanyBankAccount a) {
         return new CompanyBankAccountDto(a.getUuid(), DisplayRefs.ref(a.getBank()), DisplayRefs.ref(a.getCurrency()),
                 a.getCurrency().getCode(), a.getAccountType(), a.getAccountNumber(), a.getHolderName(),
-                a.getHolderDocument(), a.getNotes(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
+                a.getHolderDocument(), a.getNotes(), a.getMobilePaymentPhone(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
     }
 }

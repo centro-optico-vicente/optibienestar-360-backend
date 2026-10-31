@@ -48,6 +48,10 @@ public class CompanyBankAccount extends BaseEntity {
     @Column(length = 255)
     private String notes;
 
+    /** Pago Móvil phone (V206); required when {@code accountType} is {@code PAGO_MOVIL}. */
+    @Column(name = "mobile_payment_phone", length = 30)
+    private String mobilePaymentPhone;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 

@@ -16,6 +16,7 @@ public record CompanyBankAccountDto(
         String holderName,
         String holderDocument,
         String notes,
+        String mobilePaymentPhone,
         int sortOrder,
         boolean publicVisible,
         @Display(Display.Kind.BOOLEAN) boolean active

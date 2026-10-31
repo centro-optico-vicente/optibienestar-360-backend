@@ -16,6 +16,8 @@ public record CompanyBankAccountRequest(
         @NotBlank @Size(max = 160) String holderName,
         @NotBlank @Size(max = 30) String holderDocument,
         @Size(max = 255) String notes,
+        /** Pago Móvil phone; required when {@code accountType} is {@code PAGO_MOVIL}. */
+        @Size(max = 30) String mobilePaymentPhone,
         Integer sortOrder,
         /** Show it without authentication on the public endpoint; defaults to private on create. */
         Boolean publicVisible,
