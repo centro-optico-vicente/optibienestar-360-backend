@@ -47,6 +47,7 @@ public class MembershipsService {
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionAssignmentService promotionAssignmentService;
     /** Provider, not a direct reference: the credit application depends on payments, and this keeps the graph acyclic. */
     private final org.springframework.beans.factory.ObjectProvider<com.fenixcore.optibienestar360.modules.payment.service.CreditApplicationService> creditApplicationProvider;
+    private final InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
 
     // ─── Cross-member search (filters) ──────────────────────────────────────
 
@@ -153,10 +154,15 @@ public class MembershipsService {
         return enrich(findUnderMember(memberUuid, membershipUuid));
     }
 
-    /** Live-converts {@link Membership#getMonthlyFee()} to the org's official currency (ADR 0015 §6 Caso B). */
+    /**
+     * Live-converts {@link Membership#getMonthlyFee()} to the org's official currency (ADR 0015 §6 Caso B)
+     * and adds the inscription payment method ("Modalidad de pago", hub ADR 0031 §14).
+     */
     private MembershipDto enrich(Membership membership) {
         var conv = conversionEnricher.toOfficial(membership.getMonthlyFee(), membership.getCurrency());
-        return mapper.toDto(membership).withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate());
+        return mapper.toDto(membership)
+                .withConversion(conv.amountConverted(), conv.currencyCode(), conv.rate(), conv.rateDate())
+                .withInscriptionPaymentMethod(inscriptionPaymentMethodResolver.resolve(membership));
     }
 
     // ─── Enroll ─────────────────────────────────────────────────────────────

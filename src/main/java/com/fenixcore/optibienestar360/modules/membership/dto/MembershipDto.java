@@ -55,6 +55,13 @@ public record MembershipDto(
         @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
         int gracePeriodDays,
 
+        /**
+         * "Modalidad de pago" of the B2C dossier (hub ADR 0031 §14): the payment
+         * method of the first approved inscription payment line — read-only,
+         * derived, {@code null} until the inscription is approved.
+         */
+        @Display DisplayRef inscriptionPaymentMethod,
+
         // Status
         @Display(value = Display.Kind.ENUM, enumScope = "membership.status") String status,
         @Display(Display.Kind.DATETIME) Instant lastStatusChangeAt,
@@ -71,7 +78,17 @@ public record MembershipDto(
         return new MembershipDto(uuid, memberUuid, contractNumber, planUuid, planCode, planName, planType, campaign,
                 enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
                 inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
-                exchangeRateUsed, exchangeRateDate, gracePeriodDays,
+                exchangeRateUsed, exchangeRateDate, gracePeriodDays, inscriptionPaymentMethod,
+                status, lastStatusChangeAt, lastStatusChangeReason,
+                active, createdAt, updatedAt);
+    }
+
+    /** Rebuilds this record with the derived {@link #inscriptionPaymentMethod}. */
+    public MembershipDto withInscriptionPaymentMethod(DisplayRef method) {
+        return new MembershipDto(uuid, memberUuid, contractNumber, planUuid, planCode, planName, planType, campaign,
+                enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
+                inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrency_Code,
+                exchangeRateUsed, exchangeRateDate, gracePeriodDays, method,
                 status, lastStatusChangeAt, lastStatusChangeReason,
                 active, createdAt, updatedAt);
     }

@@ -42,7 +42,8 @@ class MembershipsServiceSearchTest {
 
     private MembershipsService sut() {
         return new MembershipsService(memberRepository, planRepository, membershipRepository, mapper,
-                conversionEnricher, promotionAssignmentService, null);
+                conversionEnricher, promotionAssignmentService, null,
+                org.mockito.Mockito.mock(InscriptionPaymentMethodResolver.class));
     }
 
     private static MembershipSearchCriteria byStatus(String status) {
