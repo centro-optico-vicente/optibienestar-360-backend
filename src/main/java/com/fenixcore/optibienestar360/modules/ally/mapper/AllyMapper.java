@@ -219,7 +219,8 @@ public interface AllyMapper {
     default ProfessionDto toProfessionDto(Profession ms) {
         if (ms == null) return null;
         return new ProfessionDto(ms.getUuid(), ms.getCode(),
-                ms.getName(), ms.getDescription(), ms.isActive());
+                ms.getName(), ms.getDescription(),
+                com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService.parentRef(ms), ms.isActive());
     }
 
     default ProductCategoryDto toProductCategoryDto(ProductCategory sc) {
@@ -304,8 +305,14 @@ public interface AllyMapper {
         if (professions == null) return List.of();
         return professions.stream()
                 .filter(Profession::isActive)
-                .map(Profession::getName)
+                .map(AllyMapper::professionLabel)
                 .toList();
+    }
+
+    /** "Traumatología — Artroscopia" for a sub-specialty (V213), the plain name otherwise. */
+    static String professionLabel(Profession p) {
+        Profession parent = p.getParent();
+        return parent == null ? p.getName() : parent.getName() + " — " + p.getName();
     }
 
     /** Distinct segment codes ({@code B2B} / {@code B2P}) of the active types, in a stable order. */
