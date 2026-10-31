@@ -161,6 +161,8 @@ class AllyAgreementsServiceTermsVersionTest {
 
     @Test
     void create_withTemplateScopedToTheAllysSegment_linksIt() {
+        // The ally's own segment (V209) decides which segment-scoped templates apply.
+        ally.setSegment(AllyType.Segment.B2P);
         ally.getAllyTypes().add(allyType(AllyType.Segment.B2P));
         TermsVersion version = version(TermType.ALLY);
         version.setSegment(AllyType.Segment.B2P);
