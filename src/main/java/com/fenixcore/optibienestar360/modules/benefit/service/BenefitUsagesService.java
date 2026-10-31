@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
@@ -24,6 +25,7 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +47,11 @@ import java.util.UUID;
  * pre-condition. We still re-check {@link Membership#getStatus()} here so a
  * stale request (or an unauthorized POST that skipped the validator) can't
  * register a usage against a non-ACTIVE membership.</p>
+ *
+ * <p><b>Ally membership:</b> the caller must actively work for the ally the
+ * usage is registered at, as OWNER or STAFF (VIEWER is read-only) — the same
+ * rule as proposing offers ({@code AllyProductsProposeService}). The offer,
+ * when sent, must belong to that same ally.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -95,7 +102,9 @@ public class BenefitUsagesService {
 
     @Transactional
     @Auditable(entity = "benefit_usage", action = AuditAction.CREATE)
-    public BenefitUsageDto register(BenefitUsageRegisterRequest request) {
+    public BenefitUsageDto register(BenefitUsageRegisterRequest request, UUID actorUserUuid) {
+        AllyUser operator = requireOperator(request, actorUserUuid);
+
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
         ensureActiveMembership(membership);
@@ -107,12 +116,9 @@ public class BenefitUsagesService {
         if (request.allyProductUuid() != null) {
             allyProduct = allyProductRepository.findByUuid(request.allyProductUuid())
                     .orElseThrow(() -> new NoSuchElementException("ally_product.not_found"));
-        }
-
-        AllyUser allyUser = null;
-        if (request.allyUserUuid() != null) {
-            allyUser = allyUserRepository.findByUuid(request.allyUserUuid())
-                    .orElseThrow(() -> new NoSuchElementException("ally_user.not_found"));
+            if (!ally.getUuid().equals(allyProduct.getAlly().getUuid())) {
+                throw new IllegalArgumentException("benefit_usage.ally_product.other_ally");
+            }
         }
 
         validateCopay(request);
@@ -122,7 +128,7 @@ public class BenefitUsagesService {
         usage.setMembership(membership);
         usage.setAlly(ally);
         usage.setAllyProduct(allyProduct);
-        usage.setAllyUser(allyUser);
+        usage.setAllyUser(operator);
         usage.setProductCategory(resolveProductCategory(request, allyProduct));
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
@@ -135,6 +141,24 @@ public class BenefitUsagesService {
         usage.setStatus(UsageStatus.REGISTERED.name());
 
         return mapper.toDto(usageRepository.save(usage));
+    }
+
+    /**
+     * The caller's active OWNER/STAFF membership on the target ally. An unknown
+     * ally answers the same 403 as a foreign one, so the endpoint does not
+     * reveal which allies exist. An explicit {@code allyUserUuid} must be the
+     * caller's own membership: the usage is always stamped with who registered it.
+     */
+    private AllyUser requireOperator(BenefitUsageRegisterRequest request, UUID actorUserUuid) {
+        AllyUser operator = actorUserUuid == null ? null
+                : allyUserRepository.findActiveByAllyUuidAndUserUuid(request.allyUuid(), actorUserUuid).orElse(null);
+        if (operator == null || operator.getAllyRole() == AllyRole.VIEWER) {
+            throw new AccessDeniedException("benefit_usage.ally.not_allowed");
+        }
+        if (request.allyUserUuid() != null && !request.allyUserUuid().equals(operator.getUuid())) {
+            throw new AccessDeniedException("benefit_usage.ally.not_allowed");
+        }
+        return operator;
     }
 
     /** Both money columns are nullable and paired with their amount (V24 / V158 CHECKs). */
