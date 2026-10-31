@@ -263,7 +263,7 @@ public class PromoterPayoutAccountsService {
                 DisplayRefs.ref((Object) a.getPaymentMethod()),
                 a.getPaymentMethod().getCode(),
                 a.getLabel(),
-                DisplayRefs.ref((Object) a.getBank()),
+                DisplayRefs.ref(a.getBank()),
                 a.getAccountType(),
                 a.getAccountNumber(),
                 a.getAccountIdentifier(),

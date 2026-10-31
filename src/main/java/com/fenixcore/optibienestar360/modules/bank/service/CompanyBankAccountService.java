@@ -174,7 +174,7 @@ public class CompanyBankAccountService {
         return new CompanyBankAccountDto(a.getUuid(),
                 method == null ? null : DisplayRef.of(method.getUuid(), method.getCode(), method.getName()),
                 method == null ? null : method.getCode(),
-                a.getBank() == null ? null : DisplayRef.of(a.getBank().getUuid(), a.getBank().getCode(), a.getBank().getShortName()),
+                DisplayRefs.ref(a.getBank()),
                 a.getBank() == null ? null : a.getBank().getCode(),
                 DisplayRefs.ref(a.getCurrency()),
                 a.getCurrency().getCode(), a.getAccountType(), a.getAccountNumber(), a.getHolderName(),
