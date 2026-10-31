@@ -30,6 +30,7 @@ public class PublicMediaEnricher {
     public PublicAllyDetailDto ally(PublicAllyDetailDto detail) {
         List<PublicAllyProductDto> products = allyProducts(detail.products());
         return new PublicAllyDetailDto(detail.uuid(), detail.name(), detail.allyTypeNames(), detail.allySegments(),
+                detail.segment(), detail.hostName(), detail.officeNumber(), detail.appointmentPhone(),
                 detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
                 detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
                 detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));

@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicAllySearch;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,7 +77,7 @@ class PublicAllyControllerIT {
     private PublicAllyListItemDto clinicDto() {
         return new PublicAllyListItemDto(
                 UUID.randomUUID(), "Clínica Demo",
-                List.of("Clínica"), List.of(), "Acarigua",
+                List.of("Clínica"), List.of(), Segment.B2B, null, null, null, "Acarigua",
                 null, "Atención integral", null, null, null, null, null, null);
     }
 

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
@@ -35,13 +36,34 @@ public record AllyDetailDto(
         UUID uuid,
         String name,
         List<AllyTypeDto> allyTypes,
+        /** B2B / B2P (V211, hub ADR 0031); localized {@code segment_Display}. */
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
+        /** Professional (B2P) or signing representative (B2B); {@code null} until loaded. */
+        AllyHolderPersonDto holder,
+
+        // ─── B2P practice site (V211) ──────────────────────────────────────
+        /** Host clinic when it is an ally: {@code hostAlly_Uuid} + {@code hostAlly_Display}. */
+        @Display DisplayRef hostAlly,
+        String hostName,
+        String officeNumber,
+        String appointmentPhone,
+        String assistantName,
+
+        // ─── B2B commercial data (V211) ────────────────────────────────────
+        String commercialZone,
+        String tradeName,
+        Short foundedYear,
+        Integer cashRegistersCount,
+        Integer branchesCount,
+        Boolean hasPos,
+        String representativePosition,
 
         // ─── Agreement file (V179) — read-only ─────────────────────────────
         Integer allyNumber,
         String fileNumber,
         @Display DisplayRef capturedByPromoter,
 
-        // ─── Legal representative / signing physician (V179) ───────────────
+        // ─── Legal representative / signing physician (V179) — DEPRECATED (V211: holder) ─
         String representativeName,
         String representativeDocumentType,
         String representativeDocumentNumber,

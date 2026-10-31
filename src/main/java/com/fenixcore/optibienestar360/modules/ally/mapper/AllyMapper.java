@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyAgreementDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyHolderPersonDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserDto;
@@ -16,6 +17,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicProductOfferDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
@@ -63,6 +65,7 @@ public interface AllyMapper {
     @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
     @Mapping(target = "allySegments",  expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",      source = "city.name")
+    @Mapping(target = "hostName",      expression = "java(hostName(ally))")
     PublicAllyListItemDto toPublicListItem(Ally ally);
 
     /**
@@ -74,6 +77,7 @@ public interface AllyMapper {
     @Mapping(target = "allyTypeNames",   expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
     @Mapping(target = "allySegments",   expression = "java(extractAllySegments(ally.getAllyTypes()))")
     @Mapping(target = "cityName",       source = "city.name")
+    @Mapping(target = "hostName",       expression = "java(hostName(ally))")
     @Mapping(target = "professionNames", expression = "java(extractProfessionNames(ally.getProfessions()))")
     @Mapping(target = "products",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
     @Mapping(target = "services",       expression = "java(extractPublicProducts(ally.getProducts(), publicBaseUrl))")
@@ -132,6 +136,8 @@ public interface AllyMapper {
     @Mapping(target = "activeAgreementsCount", expression = "java(countActive(ally.getAgreements()))")
     @Mapping(target = "capturedByPromoter",    expression = "java(promoterRef(ally.getCapturedByPromoter()))")
     @Mapping(target = "fileNumber",            expression = "java(fileNumber(ally))")
+    @Mapping(target = "holder",                expression = "java(holderDto(ally.getHolderPerson()))")
+    @Mapping(target = "hostAlly",              expression = "java(allyRef(ally.getHostAlly()))")
     AllyDetailDto toDetail(Ally ally);
 
     // ─── AllyAgreement → DTO ───────────────────────────────────────────────
@@ -239,6 +245,26 @@ public interface AllyMapper {
     /** Agreement file number "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]" — see {@link AllyFileNumbers#of}. */
     default String fileNumber(Ally ally) {
         return AllyFileNumbers.of(ally);
+    }
+
+    /** Holder person of the ally (V211) — admin projection, never used by the public DTOs. */
+    default AllyHolderPersonDto holderDto(Person person) {
+        if (person == null) return null;
+        return new AllyHolderPersonDto(person.getUuid(), person.getDocumentType(), person.getDocumentNumber(),
+                person.getFirstName(), person.getLastName(), person.getFullName(), person.getBirthDate(),
+                person.getPhone(), person.getEmail());
+    }
+
+    /** {@code hostAlly_Display} is the host clinic's name. */
+    default DisplayRef allyRef(Ally ally) {
+        return ally == null ? null : DisplayRef.of(ally.getUuid(), null, ally.getName());
+    }
+
+    /** B2P host clinic for the public pages: the host ally's name, else the free-text name. */
+    default String hostName(Ally ally) {
+        if (ally == null) return null;
+        Ally host = ally.getHostAlly();
+        return host != null ? host.getName() : ally.getHostName();
     }
 
     /** {@code capturedByPromoter_Code} carries the referral code (Promoter has no generic {@code getCode()}). */

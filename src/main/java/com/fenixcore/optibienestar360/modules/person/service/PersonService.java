@@ -42,6 +42,11 @@ public class PersonService {
         return existing.orElseGet(() -> repository.save(seed));
     }
 
+    /** Person with that cédula, if any. */
+    public Optional<Person> findByDocument(String documentType, String documentNumber) {
+        return repository.findByDocumentTypeAndDocumentNumber(documentType, documentNumber);
+    }
+
     @Transactional
     public Person update(Person managed) {
         // Managed entity → dirty-check on tx commit. Method exists for clarity

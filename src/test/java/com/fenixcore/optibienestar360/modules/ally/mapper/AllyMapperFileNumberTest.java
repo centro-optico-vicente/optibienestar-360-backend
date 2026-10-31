@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally.mapper;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import org.junit.jupiter.api.Test;
 
@@ -10,9 +11,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Agreement file number "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]" (V179) — built
- * by {@link AllyMapper#fileNumber} from the capturing promoter's referral
- * code and the zero-padded ally number. Uses the real generated mapper.
+ * Agreement file number (V179, hub ADR 0031 §10) — built by
+ * {@link AllyMapper#fileNumber}: a professional (B2P) ally prints
+ * "[CÓDIGO DE ASESOR]-[Nº DE ALIADO]", a commercial (B2B) ally just the
+ * zero-padded number. Uses the real generated mapper.
  */
 class AllyMapperFileNumberTest {
 
@@ -23,6 +25,14 @@ class AllyMapperFileNumberTest {
         Ally ally = ally(7, promoter("ABC123", "Ana Pérez"));
 
         assertThat(mapper.fileNumber(ally)).isEqualTo("ABC123-0007");
+    }
+
+    @Test
+    void commercialAlly_isJustThePaddedNumber_evenWithCapturingPromoter() {
+        Ally ally = ally(7, promoter("ABC123", "Ana Pérez"));
+        ally.setSegment(AllyType.Segment.B2B);
+
+        assertThat(mapper.fileNumber(ally)).isEqualTo("0007");
     }
 
     @Test
@@ -72,6 +82,7 @@ class AllyMapperFileNumberTest {
         ally.setName("Óptica Vicente");
         ally.setAllyNumber(number);
         ally.setCapturedByPromoter(promoter);
+        ally.setSegment(AllyType.Segment.B2P);
         return ally;
     }
 

@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Scope rules of ALIADO contract templates (V183), stateless so both
@@ -20,8 +19,8 @@ import java.util.stream.Collectors;
  *
  * <p>A template applies to an ally when every scope field it sets matches:
  * its {@code ally} is that ally, its {@code allyType} is one of the ally's
- * types, its {@code segment} is the segment of one of the ally's types. A
- * template with no scope applies to every ally.</p>
+ * types, its {@code segment} is the ally's own segment ({@code allies.segment},
+ * V211 / hub ADR 0031). A template with no scope applies to every ally.</p>
  */
 public final class TermsVersionScopes {
 
@@ -44,12 +43,8 @@ public final class TermsVersionScopes {
             Long typeId = version.getAllyType().getId();
             if (types.stream().noneMatch(t -> Objects.equals(t.getId(), typeId))) return false;
         }
-        if (version.getSegment() != null) {
-            Set<AllyType.Segment> segments = types.stream()
-                    .map(AllyType::getSegment)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-            if (!segments.contains(version.getSegment())) return false;
+        if (version.getSegment() != null && version.getSegment() != ally.getSegment()) {
+            return false;
         }
         return true;
     }
