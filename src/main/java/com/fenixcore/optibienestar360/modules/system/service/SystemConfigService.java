@@ -124,6 +124,20 @@ public class SystemConfigService {
 	}
 
 	/**
+	 * Whether medical allies may read their patients' medical history
+	 * (V215, hub ADR 0032). Fail-safe: {@code false} if the singleton row is
+	 * missing — the feature stays off until explicitly enabled.
+	 */
+	@Transactional(readOnly = true)
+	public boolean isPatientMedicalAccessEnabled() {
+		return systemConfigRepository
+			.findFirstByActiveTrue()
+			.map(SystemConfig::isPatientMedicalAccessEnabled)
+			.orElse(false)
+		;
+	}
+
+	/**
 	 * The global fallback default sort (V82), empty (never {@code null})
 	 * when unconfigured — the caller (e.g. {@code AlliesService}) decides
 	 * its own final hard fallback ({@code createdAt DESC}).
@@ -184,6 +198,9 @@ public class SystemConfigService {
 		}
 		if (request.defaultSort() != null) {
 			config.setDefaultSort(validateCommonSort(request.defaultSort()));
+		}
+		if (request.patientMedicalAccessEnabled() != null) {
+			config.setPatientMedicalAccessEnabled(request.patientMedicalAccessEnabled());
 		}
 
         return systemConfigRepository.save(config);
