@@ -21,6 +21,11 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
     /** Pre-check before INSERT — the V21 partial UNIQUE on (member_id) WHERE is_active=TRUE only allows one. */
     boolean existsByMemberIdAndActiveTrue(Long memberId);
 
+    /** ACTIVE memberships of a person (V205 automatic credit application). */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM Membership m WHERE m.active = true "
+            + "AND m.status = 'ACTIVE' AND m.member.person.id = :personId")
+    List<Membership> findActiveByPersonId(@org.springframework.data.repository.query.Param("personId") Long personId);
+
     /** Currently-active subscription of the member. */
     Optional<Membership> findFirstByMemberIdAndActiveTrue(Long memberId);
 

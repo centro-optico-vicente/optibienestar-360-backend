@@ -50,6 +50,7 @@ import java.util.UUID;
 public class MyPaymentsController {
 
     private final PaymentsService paymentsService;
+    private final com.fenixcore.optibienestar360.modules.payment.service.PaymentCreditClaimService claimService;
 
     @GetMapping
 	@PreAuthorize("hasAuthority('COLLECTION_VIEW_OWN')")
@@ -90,6 +91,27 @@ public class MyPaymentsController {
             @RequestParam(required = false) String documentNumber,
             @RequestParam(required = false) String contractNumber) {
         return ResponseEntity.ok(paymentsService.lookupMembershipForPayer(documentNumber, contractNumber));
+    }
+
+    /**
+     * Reports a problem with the remaining credit of the caller's own approved payment (error, overpaid, refund
+     * request) with the amount at stake. While the claim is open that amount is not used automatically (V205).
+     */
+    @PostMapping("/{uuid}/claim")
+    @PreAuthorize("hasAuthority('COLLECTION_CLAIM_CREATE_OWN')")
+    public ResponseEntity<com.fenixcore.optibienestar360.modules.payment.dto.PaymentClaimDto> openClaim(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.PaymentClaimRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(claimService.openOwn(actor.getUuid(), uuid, request));
+    }
+
+    /** Withdraws the caller's own open claim on that payment. */
+    @DeleteMapping("/{uuid}/claim")
+    @PreAuthorize("hasAuthority('COLLECTION_CLAIM_CREATE_OWN')")
+    public ResponseEntity<Void> withdrawClaim(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        claimService.withdrawOwn(actor.getUuid(), uuid);
+        return ResponseEntity.noContent().build();
     }
 
     /** Points the caller's own not-yet-approved payment at a membership (e.g. paying a relative-holder's plan). */

@@ -168,6 +168,7 @@ public class PaymentsService {
     private final com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
     private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
     private final PayerBankAccountService payerBankAccountService;
+    private final PaymentCreditClaimService paymentCreditClaimService;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -176,7 +177,20 @@ public class PaymentsService {
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public PaymentDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        return toDtoWithCredit(findManaged(uuid));
+    }
+
+    /**
+     * Maps a payment and, when it ever held credit (V205), adds what is left of it and its OPEN claim so the
+     * person and staff can see them without extra calls.
+     */
+    private PaymentDto toDtoWithCredit(Payment payment) {
+        PaymentDto dto = mapper.toDto(payment);
+        if (dto == null || payment.getId() == null || !personCreditService.hasLedger(payment)) {
+            return dto;
+        }
+        return dto.withCredit(paymentCreditClaimService.openClaimOf(payment).orElse(null),
+                personCreditService.remaining(payment));
     }
 
     /**
@@ -187,7 +201,7 @@ public class PaymentsService {
      * the full history, not a curated query.
      */
     public Page<PaymentDto> listForUser(UUID userUuid, Pageable pageable) {
-        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(mapper::toDto);
+        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(this::toDtoWithCredit);
     }
 
     /**
@@ -209,7 +223,7 @@ public class PaymentsService {
         Specification<Payment> spec = activeOnly()
                 .and(directionIs(direction))
                 .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), promoter.getId()));
-        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
     }
 
     /**
@@ -248,7 +262,7 @@ public class PaymentsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
     }
 
     private static Specification<Payment> directionIs(String direction) {
@@ -870,17 +884,22 @@ public class PaymentsService {
     }
 
     /**
-     * Staff assigns an already APPROVED, membership-less collection (credit) to a membership: books the
-     * remaining credit as applied and runs the settlement effects the approval skipped (charges, commission,
-     * member confirmation).
+     * Staff assigns the remaining credit of an APPROVED collection to a membership by hand: books it as applied and
+     * runs the settlement effects the approval skipped (charges, commission, member confirmation). This is allowed
+     * even when the payment has an OPEN claim or the person's credit is on hold: assigning by hand means the person
+     * agreed to use those funds, so the claim is closed as used by agreement.
+     *
+     * <p>A payment still without a membership is attached to it (first application); one already attached by the
+     * automatic application keeps its membership and only covers the requested months.</p>
      */
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PaymentDto assignToMembership(UUID paymentUuid,
-                                         com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request) {
+                                         com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request,
+                                         UUID actorUserUuid) {
         Payment payment = findManaged(paymentUuid);
         ensureCollection(payment);
-        if (!PaymentStatus.APPROVED.name().equals(payment.getStatus()) || payment.getMembership() != null) {
+        if (!PaymentStatus.APPROVED.name().equals(payment.getStatus())) {
             throw new IllegalArgumentException("payment.credit.not_assignable");
         }
         Membership membership = membershipRepository.findByUuid(request.membershipUuid())
@@ -888,7 +907,33 @@ public class PaymentsService {
         LocalDate applied = resolveAppliedPeriod(false, request.appliedPeriod());
         LocalDate through = resolveCoverageThroughPeriod(false, applied, request.coverageThroughPeriod());
 
-        personCreditService.applyRemaining(payment, membership);
+        if (payment.getMembership() == null) {
+            personCreditService.applyRemaining(payment, membership);
+            attachCreditPaymentToMembership(payment, membership, applied, through, true);
+        } else {
+            if (!payment.getMembership().getId().equals(membership.getId())) {
+                throw new IllegalArgumentException("payment.credit.not_assignable");
+            }
+            personCreditService.applyRemaining(payment, membership);
+            LocalDate last = through != null ? through : applied;
+            for (LocalDate month = applied; !month.isAfter(last); month = month.plusMonths(1)) {
+                membershipChargeService.coverWithCredit(membership, month, payment);
+            }
+        }
+        paymentCreditClaimService.closeAsUsedByAgreement(payment, actorUserUuid);
+        return toDtoWithCredit(payment);
+    }
+
+    /**
+     * First application of a credit payment to a membership (V201 manual assignment, V205 automatic application):
+     * attaches the payment, fixes the period it covers and runs the effects its approval skipped — exchange-rate
+     * snapshot, member confirmation, <b>one</b> commission for the payment (never fractioned across months) and the
+     * approved event. {@code coverByPeriod} also settles the covered months period-by-period (manual assignment); the
+     * automatic application covers each month itself, one at a time, so it passes {@code false}.
+     */
+    @Transactional
+    public void attachCreditPaymentToMembership(Payment payment, Membership membership,
+                                                LocalDate applied, LocalDate through, boolean coverByPeriod) {
         payment.setMembership(membership);
         payment.setInscription(false);
         payment.setAppliedPeriod(applied);
@@ -899,9 +944,10 @@ public class PaymentsService {
         validatorCacheService.evictForMembership(membership);
         confirmMemberOnFirstApprovedPayment(payment);
         attributeCommission(payment);
-        applyMembershipCharges(payment);
+        if (coverByPeriod) {
+            applyMembershipCharges(payment);
+        }
         eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
-        return mapper.toDto(payment);
     }
 
     // ─── Lines lifecycle (DRAFT ⇄ PENDING, V117 lines feature) ──────────────

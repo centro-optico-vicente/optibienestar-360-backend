@@ -101,6 +101,7 @@ class PaymentsServiceTest {
     @Mock private com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
     @Mock private com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
     @Mock private PayerBankAccountService payerBankAccountService;
+    @Mock private PaymentCreditClaimService paymentCreditClaimService;
 
     private PaymentsService sut() {
         return new PaymentsService(paymentRepository, paymentCategoryRepository, paymentMethodRepository,
@@ -109,7 +110,7 @@ class PaymentsServiceTest {
                 storageProvider, emailService, messageSource, validatorCacheService, commissionService,
                 hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
                 membershipChargeService, notificationChannelResolver, eventPublisher, promotionPricing,
-                personCreditService, companyBankAccountService, memberPromoterService, payerBankAccountService);
+                personCreditService, companyBankAccountService, memberPromoterService, payerBankAccountService, paymentCreditClaimService);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();

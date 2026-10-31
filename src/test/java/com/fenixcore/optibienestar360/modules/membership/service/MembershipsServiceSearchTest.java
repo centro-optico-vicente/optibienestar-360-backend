@@ -42,7 +42,7 @@ class MembershipsServiceSearchTest {
 
     private MembershipsService sut() {
         return new MembershipsService(memberRepository, planRepository, membershipRepository, mapper,
-                conversionEnricher, promotionAssignmentService);
+                conversionEnricher, promotionAssignmentService, null);
     }
 
     private static MembershipSearchCriteria byStatus(String status) {

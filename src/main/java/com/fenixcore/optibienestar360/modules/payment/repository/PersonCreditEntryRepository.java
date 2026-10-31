@@ -26,6 +26,30 @@ public interface PersonCreditEntryRepository extends JpaRepository<PersonCreditE
             """)
     BigDecimal balanceOf(@Param("personId") Long personId, @Param("currencyId") Long currencyId);
 
+    /**
+     * Payments of a person that still hold credit: {@code [payment id, remaining amount]} rows with a positive
+     * remainder, oldest payment first. Keyed by the ledger (not by {@code payment.membership}) because a payment
+     * may be partly applied to a membership and still keep a remainder.
+     */
+    @Query("""
+            SELECT e.payment.id, SUM(e.amount) FROM PersonCreditEntry e
+            WHERE e.person.id = :personId AND e.active = true
+            GROUP BY e.payment.id HAVING SUM(e.amount) > 0
+            ORDER BY e.payment.id
+            """)
+    List<Object[]> paymentsWithCredit(@Param("personId") Long personId);
+
+    /** People with a positive balance in at least one currency (a person can repeat when they hold several). */
+    @Query("""
+            SELECT e.person.id FROM PersonCreditEntry e
+            WHERE e.active = true
+            GROUP BY e.person.id, e.currency.id HAVING SUM(e.amount) > 0
+            """)
+    List<Long> personIdsWithCredit();
+
+    /** Whether the payment has any credit-ledger row at all (i.e. it was ever credit). */
+    boolean existsByPaymentId(Long paymentId);
+
     boolean existsByPaymentIdAndEntryType(Long paymentId, String entryType);
 
     @Query("""

@@ -19,17 +19,19 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
     Optional<Payment> findByUuid(UUID uuid);
 
     /**
-     * Powers {@code GET /v1/me/payments} — walks
-     * {@code Payment → Membership → Member → Person} back to the User's
-     * person, matching by {@code user.uuid}. Same single-JPQL shape as
+     * Powers {@code GET /v1/me/payments} — the collections the user paid (payer person), the ones credited to them
+     * (beneficiary person, V203) and the ones settling their own membership, matched by {@code user.uuid}. Membership
+     * is optional (V201), so it is LEFT-joined: a payment with no membership still shows to its payer. Same single-JPQL shape as
      * {@code MemberRepository.findByUserUuid} so the path is index-friendly
      * (no fetch joins, the controller maps to a DTO that doesn't need the
      * nested associations).
      */
     @Query("SELECT p FROM Payment p " +
-           "WHERE p.active = true " +
-           "  AND p.membership.member.person.id = " +
-           "      (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)")
+           "LEFT JOIN p.membership m LEFT JOIN m.member mm " +
+           "WHERE p.active = true AND p.direction = 'IN' " +
+           "  AND (p.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
+           "    OR p.beneficiaryPerson.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
+           "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid))")
     Page<Payment> findOwnByUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
 
     /**

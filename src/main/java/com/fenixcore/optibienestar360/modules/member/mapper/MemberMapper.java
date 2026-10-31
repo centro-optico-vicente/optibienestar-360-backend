@@ -68,6 +68,9 @@ public interface MemberMapper {
     @Mapping(target = "extraSlotsTotal",          ignore = true)
     @Mapping(target = "currentPromoterUuid",      source = "promoter.uuid")
     @Mapping(target = "currentPromoterName",      source = "promoter.displayName")
+    @Mapping(target = "creditAutoApply",          source = "person.creditAutoApply")
+    @Mapping(target = "creditHoldReason",         source = "person.creditHoldReason")
+    @Mapping(target = "creditHoldAt",             source = "person.creditHoldAt")
     MemberDetailDto toDetail(Member member);
 
     // ─── Beneficiary → DTO ──────────────────────────────────────────────────

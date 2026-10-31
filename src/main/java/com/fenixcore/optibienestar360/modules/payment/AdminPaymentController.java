@@ -203,8 +203,9 @@ public class AdminPaymentController {
 	@PreAuthorize("hasAuthority('COLLECTION_ASSIGN_MEMBERSHIP')")
 	public ResponseEntity<PaymentDto> assignMembership(
 			@PathVariable UUID uuid,
-			@Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request) {
-		return ResponseEntity.ok(paymentsService.assignToMembership(uuid, request));
+			@Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request,
+			@AuthenticationPrincipal CustomUserDetails actor) {
+		return ResponseEntity.ok(paymentsService.assignToMembership(uuid, request, actor.getUuid()));
 	}
 
 	@PutMapping("/{uuid}/approve")
