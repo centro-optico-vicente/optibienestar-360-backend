@@ -51,7 +51,8 @@ class MembershipPricingInvariantsTest {
 
     @BeforeEach
     void setup() {
-        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher, null, null);
+        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher, null,
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class));
     }
 
     @Test
