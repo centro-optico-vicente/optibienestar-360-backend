@@ -32,8 +32,13 @@ public class PayerBankAccount extends BaseEntity {
     @JoinColumn(name = "person_id", nullable = false)
     private Person person;
 
+    /** How money moves through this account (V207); its is_mandatory_* flags decide which fields are required. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "bank_id", nullable = false)
+    @JoinColumn(name = "payment_method_id", nullable = false)
+    private PaymentMethod paymentMethod;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id")
     private Bank bank;
 
     @Column(name = "account_type", length = 40)
@@ -42,8 +47,16 @@ public class PayerBankAccount extends BaseEntity {
     @Column(name = "account_code", length = 40)
     private String accountCode;
 
-    @Column(name = "account_identifier", length = 120, nullable = false)
+    @Column(name = "account_identifier", length = 120)
     private String accountIdentifier;
+
+    /** Phone of the account, e.g. Pago Móvil (V207). */
+    @Column(length = 30)
+    private String phone;
+
+    /** Email of the account, e.g. Zelle (V207). */
+    @Column(length = 160)
+    private String email;
 
     /** Document of the account holder, as typed on the payment line. */
     @Column(length = 80)
