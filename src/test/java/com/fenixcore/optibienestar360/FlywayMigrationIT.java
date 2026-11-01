@@ -141,4 +141,17 @@ class FlywayMigrationIT {
         assertEquals(2, grants);
     }
 
+    @Test
+    void familyPlanHasTheSingleProgramPricing() {
+        // V222: $25 inscription, $5 monthly, holder + 4 included, up to 6, $5 per extra slot.
+        var row = jdbc.queryForMap("SELECT inscription_fee, monthly_fee, included_beneficiaries, "
+                + "max_beneficiaries, extra_beneficiary_inscription_fee FROM app.plans WHERE code = 'FAMILIAR'");
+        assertEquals(0, new java.math.BigDecimal("25.00").compareTo((java.math.BigDecimal) row.get("inscription_fee")));
+        assertEquals(0, new java.math.BigDecimal("5.00").compareTo((java.math.BigDecimal) row.get("monthly_fee")));
+        assertEquals(4, ((Number) row.get("included_beneficiaries")).intValue());
+        assertEquals(6, ((Number) row.get("max_beneficiaries")).intValue());
+        assertEquals(0, new java.math.BigDecimal("5.00")
+                .compareTo((java.math.BigDecimal) row.get("extra_beneficiary_inscription_fee")));
+    }
+
 }
