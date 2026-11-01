@@ -30,7 +30,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** A person's own accounts follow their payment method's is_mandatory_* flags, like the company accounts (V207). */
+/** A person's own accounts need the sum of the is_mandatory_* flags of the methods they accept, like the company accounts (V217). */
 @ExtendWith(MockitoExtension.class)
 class PayerBankAccountServiceTest {
 
@@ -87,7 +87,7 @@ class PayerBankAccountServiceTest {
         bank.setActive(true);
         lenient().when(paymentMethodRepository.findByUuid(methodUuid)).thenReturn(Optional.of(method));
         lenient().when(bankRepository.findByUuid(bankUuid)).thenReturn(Optional.of(bank));
-        lenient().when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(eq(3L), any())).thenReturn(List.of());
+        lenient().when(repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(3L)).thenReturn(List.of());
         lenient().when(repository.save(any(PayerBankAccount.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -98,7 +98,7 @@ class PayerBankAccountServiceTest {
     }
 
     private PayerBankAccountRequest request(String type, String number, String document, String phone) {
-        return new PayerBankAccountRequest(methodUuid, bankUuid, type, null, number, document, phone, null, "Mi cuenta");
+        return new PayerBankAccountRequest(List.of(methodUuid), bankUuid, type, null, number, document, phone, null, "Mi cuenta");
     }
 
     // ─── Rules by method ────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ class PayerBankAccountServiceTest {
 
         assertThat(created.phone()).isEqualTo("04141234567");
         assertThat(created.accountIdentifier()).isNull();
-        assertThat(created.paymentMethodCode()).isEqualTo("PAGO_MOVIL");
+        assertThat(created.paymentMethodCodes()).containsExactly("PAGO_MOVIL");
     }
 
     @Test
@@ -156,7 +156,7 @@ class PayerBankAccountServiceTest {
         existing.setId(99L);
         existing.setBank(bankOf(7L));
         existing.setPhone("04141234567");
-        when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(3L, 11L)).thenReturn(List.of(existing));
+        when(repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(3L)).thenReturn(List.of(existing));
 
         assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), request(null, null, "V12345678", "04141234567")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -211,7 +211,7 @@ class PayerBankAccountServiceTest {
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getPerson()).isSameAs(person);
         assertThat(captor.getValue().getPhone()).isEqualTo("04141234567");
-        assertThat(captor.getValue().getPaymentMethod().getCode()).isEqualTo("PAGO_MOVIL");
+        assertThat(captor.getValue().getPaymentMethods()).extracting(PaymentMethod::getCode).containsExactly("PAGO_MOVIL");
     }
 
     @Test
@@ -221,12 +221,80 @@ class PayerBankAccountServiceTest {
         existing.setId(50L);
         existing.setBank(bankOf(7L));
         existing.setAccountIdentifier("0102123");
-        when(repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(3L, 12L)).thenReturn(List.of(existing));
+        when(repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(3L)).thenReturn(List.of(existing));
 
         sut().remember(person(), methodUuid, bankUuid, "AHORRO", null, "0102123", "V999", null, null);
 
         verify(repository).save(existing);
         assertThat(existing.getAccountType()).isEqualTo("AHORRO");
         assertThat(existing.getIdentification()).isEqualTo("V999");
+    }
+
+    @Test
+    void remember_addsTheMethodToTheExistingAccount_andFillsInWhatItLacked() {
+        stubCatalogs(pagoMovil());
+        PaymentMethod transfer = transfer();
+        PayerBankAccount existing = new PayerBankAccount();
+        existing.setId(50L);
+        existing.setBank(bankOf(7L));
+        existing.setAccountIdentifier("0102123");
+        existing.setAccountType("CORRIENTE");
+        existing.getPaymentMethods().add(transfer);
+        when(repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(3L)).thenReturn(List.of(existing));
+
+        // The same account is now paid by Pago Móvil: same bank and number, plus a phone and the holder document.
+        sut().remember(person(), methodUuid, bankUuid, null, null, "0102123", "V999", "04141234567", null);
+
+        verify(repository).save(existing);
+        assertThat(existing.getPaymentMethods()).extracting(PaymentMethod::getCode)
+                .containsExactlyInAnyOrder("BANK_TRANSFER", "PAGO_MOVIL");
+        assertThat(existing.getPhone()).isEqualTo("04141234567");
+        assertThat(existing.getAccountType()).isEqualTo("CORRIENTE");
+    }
+
+    @Test
+    void remember_doesNotAddAMethod_theAccountCannotSatisfy() {
+        stubCatalogs(pagoMovil());
+        PayerBankAccount existing = new PayerBankAccount();
+        existing.setId(50L);
+        existing.setBank(bankOf(7L));
+        existing.setAccountIdentifier("0102123");
+        existing.getPaymentMethods().add(transfer());
+        when(repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(3L)).thenReturn(List.of(existing));
+
+        // Pago Móvil asks for a phone and none is known for this account.
+        sut().remember(person(), methodUuid, bankUuid, null, null, "0102123", "V999", null, null);
+
+        verify(repository, never()).save(any());
+        assertThat(existing.getPaymentMethods()).hasSize(1);
+    }
+
+    @Test
+    void severalMethods_needTheSumOfWhatEachAsks() {
+        stubUser(person());
+        PaymentMethod pagoMovil = pagoMovil();
+        PaymentMethod transfer = transfer();
+        UUID transferUuid = UUID.randomUUID();
+        transfer.setUuid(transferUuid);
+        stubCatalogs(pagoMovil);
+        lenient().when(paymentMethodRepository.findByUuid(transferUuid)).thenReturn(Optional.of(transfer));
+        PayerBankAccountRequest noPhone = new PayerBankAccountRequest(List.of(methodUuid, transferUuid), bankUuid,
+                "CORRIENTE", null, "01050000000000000000", "V12345678", null, null, null);
+
+        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), noPhone))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payer_bank_account.phone.required");
+    }
+
+    @Test
+    void anAccountWithoutMethods_isRejected() {
+        stubUser(person());
+        stubCatalogs(pagoMovil());
+        PayerBankAccountRequest none = new PayerBankAccountRequest(List.of(), bankUuid, null, null, null, "V1",
+                "04141234567", null, null);
+
+        assertThatThrownBy(() -> sut().createMine(UUID.randomUUID(), none))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("payer_bank_account.payment_methods.required");
     }
 }

@@ -1,17 +1,19 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Create / update payload for one of the caller's own accounts ({@code /v1/me/bank-accounts}, V204/V207). The
- * payment method decides which of the other fields are required (its is_mandatory_* flags): Pago Móvil needs bank,
+ * Create / update payload for one of the caller's own accounts ({@code /v1/me/bank-accounts}, V204/V217). The
+ * other fields are required as the sum of the is_mandatory_* checks of the accepted methods: Pago Móvil needs bank,
  * holder document and phone; a transfer needs account type and number; Zelle needs an email.
  */
 public record PayerBankAccountRequest(
-        @NotNull UUID paymentMethodUuid,
+        @NotEmpty List<@NotNull UUID> paymentMethodUuids,
         UUID bankUuid,
         @Size(max = 40) String accountType,
         @Size(max = 40) String accountCode,

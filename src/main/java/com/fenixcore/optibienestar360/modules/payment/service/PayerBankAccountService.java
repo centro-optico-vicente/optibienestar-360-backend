@@ -1,11 +1,11 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
-import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.AccountMethodDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PayerBankAccountRequest;
 import com.fenixcore.optibienestar360.modules.payment.entity.PayerBankAccount;
@@ -18,15 +18,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * The origin accounts a person chose to remember (V204), now by payment method (V207): what each account needs
- * comes from the method's is_mandatory_* flags — Pago Móvil asks for bank, holder document and phone, a transfer for
- * account type and number, Zelle for an email. Everything is scoped to the caller's own person; the payment flow
+ * The origin accounts a person chose to remember (V204). One account accepts several payment methods (V217) and what
+ * it needs is the sum of their is_mandatory_* checks — Pago Móvil asks for bank, holder document and phone, a transfer
+ * for account type and number, Zelle for an email. Everything is scoped to the caller's own person; the payment flow
  * asks to remember an account with a checkbox, so nothing is saved without that decision.
  */
 @Service
@@ -48,34 +51,34 @@ public class PayerBankAccountService {
         return toDto(findMine(userUuid, accountUuid));
     }
 
-    /** Adds one of the caller's own accounts; the same method + bank + number / phone / email twice is rejected. */
+    /** Adds one of the caller's own accounts; the same bank + number / phone / email twice is rejected. */
     @Transactional
     public PayerBankAccountDto createMine(UUID userUuid, PayerBankAccountRequest request) {
         Person person = personOf(userUuid);
-        PaymentMethod method = activeMethod(request.paymentMethodUuid());
+        Set<PaymentMethod> methods = activeMethods(request.paymentMethodUuids());
         Bank bank = optionalBank(request.bankUuid());
         Fields fields = Fields.of(request);
-        validate(method, bank, fields);
-        if (findSame(person.getId(), method, bank, fields, null).isPresent()) {
+        validate(methods, bank, fields);
+        if (findSame(person.getId(), bank, fields, null).isPresent()) {
             throw new IllegalArgumentException("payer_bank_account.duplicate");
         }
         PayerBankAccount account = new PayerBankAccount();
         account.setPerson(person);
-        apply(account, method, bank, fields, request.alias());
+        apply(account, methods, bank, fields, request.alias());
         return toDto(repository.save(account));
     }
 
     @Transactional
     public PayerBankAccountDto updateMine(UUID userUuid, UUID accountUuid, PayerBankAccountRequest request) {
         PayerBankAccount account = findMine(userUuid, accountUuid);
-        PaymentMethod method = activeMethod(request.paymentMethodUuid());
+        Set<PaymentMethod> methods = activeMethods(request.paymentMethodUuids());
         Bank bank = optionalBank(request.bankUuid());
         Fields fields = Fields.of(request);
-        validate(method, bank, fields);
-        if (findSame(account.getPerson().getId(), method, bank, fields, account.getId()).isPresent()) {
+        validate(methods, bank, fields);
+        if (findSame(account.getPerson().getId(), bank, fields, account.getId()).isPresent()) {
             throw new IllegalArgumentException("payer_bank_account.duplicate");
         }
-        apply(account, method, bank, fields, request.alias());
+        apply(account, methods, bank, fields, request.alias());
         return toDto(account);
     }
 
@@ -87,7 +90,9 @@ public class PayerBankAccountService {
     /**
      * Remembers (or refreshes) the origin account of a payment line for {@code person}. The payment itself is
      * validated elsewhere, so here an account that does not have what its method requires — or has nothing that
-     * identifies it, like cash — is simply not remembered (no-op). The same account is never stored twice.
+     * identifies it, like cash — is simply not remembered (no-op). The same account (bank + number / phone / email)
+     * is never stored twice: when it already exists the method is added to the ones it accepts and any data it was
+     * missing is filled in, as long as it then still holds what all its methods ask for.
      */
     @Transactional
     public void remember(Person person, UUID methodUuid, UUID bankUuid, String accountType, String accountCode,
@@ -102,23 +107,36 @@ public class PayerBankAccountService {
         }
         Fields fields = new Fields(blankToNull(accountType), blankToNull(accountCode), blankToNull(accountIdentifier),
                 blankToNull(identification), blankToNull(phone), blankToNull(email));
-        if (fields.key() == null || missingRequired(method, bank, fields) != null) {
+        if (fields.key() == null) {
             return;
         }
-        PayerBankAccount account = findSame(person.getId(), method, bank, fields, null).orElseGet(() -> {
+        PayerBankAccount existing = findSame(person.getId(), bank, fields, null).orElse(null);
+        if (existing == null) {
+            if (missingRequired(Set.of(method), bank, fields) != null) {
+                return;
+            }
             PayerBankAccount created = new PayerBankAccount();
             created.setPerson(person);
-            return created;
-        });
-        apply(account, method, bank, fields, account.getAlias());
-        account.setLastUsedAt(Instant.now());
-        repository.save(account);
+            apply(created, Set.of(method), bank, fields, null);
+            created.setLastUsedAt(Instant.now());
+            repository.save(created);
+            return;
+        }
+        Set<PaymentMethod> methods = new HashSet<>(existing.getPaymentMethods());
+        methods.add(method);
+        Fields merged = fields.fillingGapsFrom(existing);
+        if (missingRequired(methods, bank, merged) != null) {
+            return;
+        }
+        apply(existing, methods, bank, merged, existing.getAlias());
+        existing.setLastUsedAt(Instant.now());
+        repository.save(existing);
     }
 
     // ─── Rules ──────────────────────────────────────────────────────────────
 
-    private static void validate(PaymentMethod method, Bank bank, Fields fields) {
-        String missing = missingRequired(method, bank, fields);
+    private static void validate(Set<PaymentMethod> methods, Bank bank, Fields fields) {
+        String missing = missingRequired(methods, bank, fields);
         if (missing != null) {
             throw new IllegalArgumentException("payer_bank_account." + missing + ".required");
         }
@@ -127,31 +145,36 @@ public class PayerBankAccountService {
         }
     }
 
-    /** The first required field the method asks for that is missing, as a message-code fragment; {@code null} when complete. */
-    private static String missingRequired(PaymentMethod method, Bank bank, Fields f) {
-        if (method.isMandatoryBank() && bank == null) return "bank";
-        if (method.isMandatoryIdentification() && f.identification() == null) return "holder_document";
-        if (method.isMandatoryAccountType() && f.accountType() == null) return "account_type";
-        if ((method.isMandatoryAccountCode() || method.isMandatoryBankAccount()) && f.accountIdentifier() == null)
-            return "account_number";
-        if (method.isMandatoryPhone() && f.phone() == null) return "phone";
-        if (method.isMandatoryEmail() && f.email() == null) return "email";
+    /**
+     * The first required field that any accepted method asks for and is missing, as a message-code fragment;
+     * {@code null} when complete.
+     */
+    private static String missingRequired(Set<PaymentMethod> methods, Bank bank, Fields f) {
+        for (PaymentMethod method : methods) {
+            if (method.isMandatoryBank() && bank == null) return "bank";
+            if (method.isMandatoryIdentification() && f.identification() == null) return "holder_document";
+            if (method.isMandatoryAccountType() && f.accountType() == null) return "account_type";
+            if ((method.isMandatoryAccountCode() || method.isMandatoryBankAccount()) && f.accountIdentifier() == null)
+                return "account_number";
+            if (method.isMandatoryPhone() && f.phone() == null) return "phone";
+            if (method.isMandatoryEmail() && f.email() == null) return "email";
+        }
         return null;
     }
 
-    /** An account of the same method and bank with the same number / phone / email, other than {@code exceptId}. */
-    private java.util.Optional<PayerBankAccount> findSame(Long personId, PaymentMethod method, Bank bank, Fields fields,
-                                                          Long exceptId) {
+    /** An account with the same bank and number / phone / email, other than {@code exceptId}. */
+    private java.util.Optional<PayerBankAccount> findSame(Long personId, Bank bank, Fields fields, Long exceptId) {
         Long bankId = bank == null ? null : bank.getId();
-        return repository.findByPersonIdAndPaymentMethodIdAndActiveTrue(personId, method.getId()).stream()
+        return repository.findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(personId).stream()
                 .filter(a -> !Objects.equals(a.getId(), exceptId))
                 .filter(a -> Objects.equals(a.getBank() == null ? null : a.getBank().getId(), bankId))
                 .filter(a -> Objects.equals(firstNonNull(a.getAccountIdentifier(), a.getPhone(), a.getEmail()), fields.key()))
                 .findFirst();
     }
 
-    private static void apply(PayerBankAccount account, PaymentMethod method, Bank bank, Fields f, String alias) {
-        account.setPaymentMethod(method);
+    private static void apply(PayerBankAccount account, Set<PaymentMethod> methods, Bank bank, Fields f, String alias) {
+        account.getPaymentMethods().clear();
+        account.getPaymentMethods().addAll(methods);
         account.setBank(bank);
         account.setAccountType(f.accountType());
         account.setAccountCode(f.accountCode());
@@ -162,9 +185,16 @@ public class PayerBankAccountService {
         account.setAlias(blankToNull(alias));
     }
 
-    private PaymentMethod activeMethod(UUID methodUuid) {
-        return paymentMethodRepository.findByUuid(methodUuid).filter(PaymentMethod::isActive)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+    private Set<PaymentMethod> activeMethods(List<UUID> methodUuids) {
+        Set<PaymentMethod> methods = new LinkedHashSet<>();
+        for (UUID uuid : new LinkedHashSet<>(methodUuids)) {
+            methods.add(paymentMethodRepository.findByUuid(uuid).filter(PaymentMethod::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        }
+        if (methods.isEmpty()) {
+            throw new IllegalArgumentException("payer_bank_account.payment_methods.required");
+        }
+        return methods;
     }
 
     private Bank optionalBank(UUID bankUuid) {
@@ -208,13 +238,19 @@ public class PayerBankAccountService {
         String key() {
             return firstNonNull(accountIdentifier, phone, email);
         }
+
+        /** These fields, with whatever they leave empty taken from the account already stored. */
+        Fields fillingGapsFrom(PayerBankAccount a) {
+            return new Fields(firstNonNull(accountType, a.getAccountType()), firstNonNull(accountCode, a.getAccountCode()),
+                    firstNonNull(accountIdentifier, a.getAccountIdentifier()),
+                    firstNonNull(identification, a.getIdentification()),
+                    firstNonNull(phone, a.getPhone()), firstNonNull(email, a.getEmail()));
+        }
     }
 
     static PayerBankAccountDto toDto(PayerBankAccount a) {
-        PaymentMethod method = a.getPaymentMethod();
-        return new PayerBankAccountDto(a.getUuid(),
-                method == null ? null : DisplayRef.of(method.getUuid(), method.getCode(), method.getName()),
-                method == null ? null : method.getCode(),
+        List<AccountMethodDto> methods = AccountMethodDto.listOf(a.getPaymentMethods());
+        return new PayerBankAccountDto(a.getUuid(), methods, methods.stream().map(AccountMethodDto::code).toList(),
                 DisplayRefs.ref(a.getBank()), a.getAccountType(), a.getAccountCode(), a.getAccountIdentifier(),
                 a.getIdentification(), a.getPhone(), a.getEmail(), a.getAlias());
     }

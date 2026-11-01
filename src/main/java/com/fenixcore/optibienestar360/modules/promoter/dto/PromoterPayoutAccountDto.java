@@ -1,25 +1,28 @@
 package com.fenixcore.optibienestar360.modules.promoter.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.payment.dto.AccountMethodDto;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Output DTO for {@code /v1/admin/advisors/{promoterUuid}/payout-accounts}
  * and {@code GET /v1/me/advisor/payout-accounts} (V184).
  *
- * <p>{@code paymentMethod}/{@code bank} serialize as {@code <rel>_Uuid} +
- * {@code <rel>_Display} (ADR 0014); {@code paymentMethodCode} is exposed too
- * so the payout form can match an account against the selected method.</p>
+ * <p>{@code bank} serializes as {@code <rel>_Uuid} + {@code <rel>_Display}
+ * (ADR 0014). An account accepts several methods (V217), so they come as a
+ * list plus {@code paymentMethodCodes}, so the payout form can match an
+ * account against the selected method.</p>
  */
 public record PromoterPayoutAccountDto(
         UUID uuid,
         UUID promoterUuid,
 
-        @Display DisplayRef paymentMethod,
-        String paymentMethodCode,
+        List<AccountMethodDto> paymentMethods,
+        List<String> paymentMethodCodes,
         String label,
 
         @Display DisplayRef bank,

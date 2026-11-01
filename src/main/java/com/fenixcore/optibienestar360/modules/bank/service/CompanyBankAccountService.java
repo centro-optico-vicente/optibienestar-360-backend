@@ -2,7 +2,6 @@ package com.fenixcore.optibienestar360.modules.bank.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
-import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
@@ -15,6 +14,9 @@ import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
 import com.fenixcore.optibienestar360.modules.bank.repository.CompanyBankAccountRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.AccountMethodDto;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,9 +24,12 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -43,7 +48,7 @@ public class CompanyBankAccountService {
     private final CompanyBankAccountRepository repository;
     private final BankRepository bankRepository;
     private final CurrencyRepository currencyRepository;
-    private final com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository paymentMethodRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
     private final DefaultSortResolver defaultSortResolver;
 
     public Page<CompanyBankAccountDto> list(Pageable pageable, String q, boolean includeInactive) {
@@ -111,9 +116,7 @@ public class CompanyBankAccountService {
     }
 
     private void apply(CompanyBankAccount account, CompanyBankAccountRequest req) {
-        var method = paymentMethodRepository.findByUuid(req.paymentMethodUuid())
-                .filter(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::isActive)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+        Set<PaymentMethod> methods = resolveMethods(req.paymentMethodUuids());
         Bank bank = req.bankUuid() == null ? null : bankRepository.findByUuid(req.bankUuid())
                 .filter(Bank::isActive)
                 .orElseThrow(() -> new NoSuchElementException("bank.not_found"));
@@ -126,23 +129,26 @@ public class CompanyBankAccountService {
         String phone = blankToNull(req.phone());
         String email = blankToNull(req.email());
 
-        // Required fields come from the method's flags, same rule as the advisor payout accounts:
-        // Pago Móvil asks for bank, document and phone (no account type / number); a transfer asks
-        // for account type and number (no phone); Zelle asks for an email.
-        if (method.isMandatoryBank() && bank == null)
-            throw new IllegalArgumentException("company_bank_account.bank.required");
-        if (method.isMandatoryIdentification() && holderDocument == null)
-            throw new IllegalArgumentException("company_bank_account.holder_document.required");
-        if (method.isMandatoryAccountType() && accountType == null)
-            throw new IllegalArgumentException("company_bank_account.account_type.required");
-        if ((method.isMandatoryAccountCode() || method.isMandatoryBankAccount()) && accountNumber == null)
-            throw new IllegalArgumentException("company_bank_account.account_number.required");
-        if (method.isMandatoryPhone() && phone == null)
-            throw new IllegalArgumentException("company_bank_account.phone.required");
-        if (method.isMandatoryEmail() && email == null)
-            throw new IllegalArgumentException("company_bank_account.email.required");
+        // The account must hold what EACH method it accepts asks for (the is_mandatory_* checks of the catalog, same
+        // rule as the advisor payout accounts): a Pago Móvil asks for bank, document and phone; a transfer for account
+        // type and number; Zelle for an email. An account accepting several methods needs the sum of them.
+        for (PaymentMethod method : methods) {
+            if (method.isMandatoryBank() && bank == null)
+                throw new IllegalArgumentException("company_bank_account.bank.required");
+            if (method.isMandatoryIdentification() && holderDocument == null)
+                throw new IllegalArgumentException("company_bank_account.holder_document.required");
+            if (method.isMandatoryAccountType() && accountType == null)
+                throw new IllegalArgumentException("company_bank_account.account_type.required");
+            if ((method.isMandatoryAccountCode() || method.isMandatoryBankAccount()) && accountNumber == null)
+                throw new IllegalArgumentException("company_bank_account.account_number.required");
+            if (method.isMandatoryPhone() && phone == null)
+                throw new IllegalArgumentException("company_bank_account.phone.required");
+            if (method.isMandatoryEmail() && email == null)
+                throw new IllegalArgumentException("company_bank_account.email.required");
+        }
 
-        account.setPaymentMethod(method);
+        account.getPaymentMethods().clear();
+        account.getPaymentMethods().addAll(methods);
         account.setBank(bank);
         account.setCurrency(currency);
         account.setAccountType(accountType);
@@ -160,6 +166,25 @@ public class CompanyBankAccountService {
         }
     }
 
+    /** Active methods for the given uuids (at least one); an unknown or inactive one is a 404 like elsewhere. */
+    private Set<PaymentMethod> resolveMethods(List<UUID> uuids) {
+        Set<PaymentMethod> methods = new LinkedHashSet<>();
+        for (UUID uuid : new LinkedHashSet<>(uuids)) {
+            methods.add(paymentMethodRepository.findByUuid(uuid)
+                    .filter(PaymentMethod::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("payment_method.not_found")));
+        }
+        if (methods.isEmpty()) {
+            throw new IllegalArgumentException("company_bank_account.payment_methods.required");
+        }
+        return methods;
+    }
+
+    /** {@code true} when the account accepts the method — a payment line may only use an accepted one. */
+    public static boolean accepts(CompanyBankAccount account, PaymentMethod method) {
+        return method != null && account.getPaymentMethods().stream().anyMatch(m -> Objects.equals(m.getUuid(), method.getUuid()));
+    }
+
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
@@ -170,10 +195,10 @@ public class CompanyBankAccountService {
     }
 
     public static CompanyBankAccountDto toDto(CompanyBankAccount a) {
-        var method = a.getPaymentMethod();
+        var methods = AccountMethodDto.listOf(a.getPaymentMethods());
         return new CompanyBankAccountDto(a.getUuid(),
-                method == null ? null : DisplayRef.of(method.getUuid(), method.getCode(), method.getName()),
-                method == null ? null : method.getCode(),
+                methods,
+                methods.stream().map(AccountMethodDto::code).toList(),
                 DisplayRefs.ref(a.getBank()),
                 a.getBank() == null ? null : a.getBank().getCode(),
                 DisplayRefs.ref(a.getCurrency()),

@@ -8,6 +8,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -15,6 +17,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * An origin bank account a person chose to remember (V204), so the next payment can reuse it instead of
@@ -32,10 +36,13 @@ public class PayerBankAccount extends BaseEntity {
     @JoinColumn(name = "person_id", nullable = false)
     private Person person;
 
-    /** How money moves through this account (V207); its is_mandatory_* flags decide which fields are required. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "payment_method_id", nullable = false)
-    private PaymentMethod paymentMethod;
+    /** The methods this account accepts (V217); its required fields are the sum of their is_mandatory_* checks. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "payer_bank_account_payment_methods",
+            joinColumns = @JoinColumn(name = "payer_bank_account_id"),
+            inverseJoinColumns = @JoinColumn(name = "payment_method_id"))
+    private Set<PaymentMethod> paymentMethods = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bank_id")

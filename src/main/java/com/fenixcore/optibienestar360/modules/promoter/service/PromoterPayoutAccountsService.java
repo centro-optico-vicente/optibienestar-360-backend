@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.bank.entity.Bank;
 import com.fenixcore.optibienestar360.modules.bank.repository.BankRepository;
+import com.fenixcore.optibienestar360.modules.payment.dto.AccountMethodDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentMethodRepository;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterPayoutAccountDto;
@@ -18,8 +19,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -160,7 +164,8 @@ public class PromoterPayoutAccountsService {
 
     /** Full replace — a {@code null}/blank value clears the field. */
     private void apply(PromoterPayoutAccount account, PromoterPayoutAccountRequest req) {
-        account.setPaymentMethod(resolvePaymentMethod(req.paymentMethodUuid()));
+        account.getPaymentMethods().clear();
+        account.getPaymentMethods().addAll(resolvePaymentMethods(req.paymentMethodUuids()));
         account.setLabel(blankToNull(req.label()));
         account.setBank(resolveBank(req.bankUuid()));
         account.setAccountType(blankToNull(req.accountType()));
@@ -179,11 +184,16 @@ public class PromoterPayoutAccountsService {
      * Package-private for unit tests.
      */
     static void validate(PromoterPayoutAccount a) {
-        PaymentMethod method = a.getPaymentMethod();
-
         if ((a.getHolderDocumentType() == null) != (a.getHolderDocumentNumber() == null)) {
             throw new IllegalArgumentException("promoter_payout_account.holder_document.incomplete");
         }
+        // An account accepting several methods must hold what each of them asks for.
+        for (PaymentMethod method : a.getPaymentMethods()) {
+            validateFor(a, method);
+        }
+    }
+
+    private static void validateFor(PromoterPayoutAccount a, PaymentMethod method) {
         if (method.isMandatoryIdentification() && a.getHolderDocumentType() == null) {
             throw new IllegalArgumentException("promoter_payout_account.holder_document.required");
         }
@@ -229,13 +239,25 @@ public class PromoterPayoutAccountsService {
         return account;
     }
 
-    private PaymentMethod resolvePaymentMethod(UUID uuid) {
-        PaymentMethod method = paymentMethodRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
-        if (!method.isActive()) {
-            throw new IllegalArgumentException("promoter_payout_account.payment_method.inactive");
+    private Set<PaymentMethod> resolvePaymentMethods(List<UUID> uuids) {
+        Set<PaymentMethod> methods = new LinkedHashSet<>();
+        for (UUID uuid : new LinkedHashSet<>(uuids)) {
+            PaymentMethod method = paymentMethodRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NoSuchElementException("payment_method.not_found"));
+            if (!method.isActive()) {
+                throw new IllegalArgumentException("promoter_payout_account.payment_method.inactive");
+            }
+            methods.add(method);
         }
-        return method;
+        if (methods.isEmpty()) {
+            throw new IllegalArgumentException("promoter_payout_account.payment_methods.required");
+        }
+        return methods;
+    }
+
+    /** {@code true} when the account accepts the method — a payout line may only use an accepted one. */
+    public static boolean accepts(PromoterPayoutAccount account, PaymentMethod method) {
+        return method != null && account.getPaymentMethods().stream().anyMatch(m -> Objects.equals(m.getUuid(), method.getUuid()));
     }
 
     private Bank resolveBank(UUID uuid) {
@@ -257,11 +279,12 @@ public class PromoterPayoutAccountsService {
     }
 
     static PromoterPayoutAccountDto toDto(PromoterPayoutAccount a) {
+        List<AccountMethodDto> methods = AccountMethodDto.listOf(a.getPaymentMethods());
         return new PromoterPayoutAccountDto(
                 a.getUuid(),
                 a.getPromoter().getUuid(),
-                DisplayRefs.ref((Object) a.getPaymentMethod()),
-                a.getPaymentMethod().getCode(),
+                methods,
+                methods.stream().map(AccountMethodDto::code).toList(),
                 a.getLabel(),
                 DisplayRefs.ref(a.getBank()),
                 a.getAccountType(),

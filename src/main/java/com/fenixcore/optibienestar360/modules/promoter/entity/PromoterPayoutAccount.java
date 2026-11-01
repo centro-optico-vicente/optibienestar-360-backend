@@ -8,11 +8,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * One payout destination of an advisor (V184, dossier section V). N per
@@ -36,9 +41,13 @@ public class PromoterPayoutAccount extends BaseEntity {
     @JoinColumn(name = "promoter_id", nullable = false)
     private Promoter promoter;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "payment_method_id", nullable = false)
-    private PaymentMethod paymentMethod;
+    /** The methods this account accepts (V217); its required fields are the sum of their is_mandatory_* checks. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "promoter_payout_account_payment_methods",
+            joinColumns = @JoinColumn(name = "promoter_payout_account_id"),
+            inverseJoinColumns = @JoinColumn(name = "payment_method_id"))
+    private Set<PaymentMethod> paymentMethods = new HashSet<>();
 
     @Column(length = 60)
     private String label;

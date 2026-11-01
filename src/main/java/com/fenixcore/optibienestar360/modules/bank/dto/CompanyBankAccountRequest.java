@@ -1,16 +1,18 @@
 package com.fenixcore.optibienestar360.modules.bank.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.UUID;
 
 /** Create/update payload for a company bank account (V201); the same shape serves both verbs. */
 public record CompanyBankAccountRequest(
-        /** The method decides which of the fields below are required (its is_mandatory_* flags). */
-        @NotNull UUID paymentMethodUuid,
+        /** Methods the account accepts; the fields below are required as the sum of their is_mandatory_* checks. */
+        @NotEmpty List<@NotNull UUID> paymentMethodUuids,
         UUID bankUuid,
         @NotBlank @Pattern(regexp = "^[A-Z]{3}$", message = "{payment.currency.iso}") String currency,
         @Size(max = 40) String accountType,

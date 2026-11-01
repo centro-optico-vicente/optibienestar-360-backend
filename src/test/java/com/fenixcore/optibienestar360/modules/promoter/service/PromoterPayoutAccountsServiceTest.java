@@ -94,7 +94,7 @@ class PromoterPayoutAccountsServiceTest {
         PromoterPayoutAccountDto dto = service.create(promoter.getUuid(),
                 transferRequest("01020123450000012345"));
 
-        assertThat(dto.paymentMethodCode()).isEqualTo("BANK_TRANSFER");
+        assertThat(dto.paymentMethodCodes()).containsExactly("BANK_TRANSFER");
         assertThat(dto.accountNumber()).isEqualTo("01020123450000012345");
     }
 
@@ -107,7 +107,7 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_transfer_withoutBank_is422() {
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(transfer.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(transfer.getUuid()), null,
                 null, "CORRIENTE", "01020123450000012345", null,
                 null, "V", "12345678", null, null, null);
 
@@ -118,7 +118,7 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_pagoMovil_requiresPhone() {
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(pagoMovil.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(pagoMovil.getUuid()), null,
                 bank.getUuid(), null, null, null,
                 null, "V", "12345678", " ", null, null);
 
@@ -129,7 +129,7 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_pagoMovil_requiresHolderDocument() {
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(pagoMovil.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(pagoMovil.getUuid()), null,
                 bank.getUuid(), null, null, null,
                 null, null, null, "04145550101", null, null);
 
@@ -140,7 +140,7 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_ubii_requiresAccountIdentifier() {
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(ubii.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(ubii.getUuid()), null,
                 null, null, null, null,
                 "Ana Ventas", "V", "12345678", null, null, null);
 
@@ -151,20 +151,57 @@ class PromoterPayoutAccountsServiceTest {
 
     @Test
     void create_zelle_requiresEmail_butNoBankNorHolderDocument() {
-        PromoterPayoutAccountRequest missing = new PromoterPayoutAccountRequest(zelle.getUuid(), null,
+        PromoterPayoutAccountRequest missing = new PromoterPayoutAccountRequest(java.util.List.of(zelle.getUuid()), null,
                 null, null, null, null, "Ana Ventas", null, null, null, null, null);
         assertThatThrownBy(() -> service.create(promoter.getUuid(), missing))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("promoter_payout_account.email.required");
 
-        PromoterPayoutAccountRequest ok = new PromoterPayoutAccountRequest(zelle.getUuid(), null,
+        PromoterPayoutAccountRequest ok = new PromoterPayoutAccountRequest(java.util.List.of(zelle.getUuid()), null,
                 null, null, null, null, "Ana Ventas", null, null, null, "ana@example.com", null);
         assertThat(service.create(promoter.getUuid(), ok).email()).isEqualTo("ana@example.com");
     }
 
     @Test
+    void create_severalMethods_needTheSumOfWhatEachAsks() {
+        // Transfer data is complete, but the Pago Móvil it also accepts asks for a phone.
+        PromoterPayoutAccountRequest noPhone = new PromoterPayoutAccountRequest(
+                java.util.List.of(transfer.getUuid(), pagoMovil.getUuid()), null,
+                bank.getUuid(), "CORRIENTE", "01020123450000012345", null,
+                "Ana Ventas", "V", "12345678", null, null, null);
+        assertThatThrownBy(() -> service.create(promoter.getUuid(), noPhone))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter_payout_account.phone.required");
+
+        PromoterPayoutAccountRequest ok = new PromoterPayoutAccountRequest(
+                java.util.List.of(transfer.getUuid(), pagoMovil.getUuid()), null,
+                bank.getUuid(), "CORRIENTE", "01020123450000012345", null,
+                "Ana Ventas", "V", "12345678", "04141234567", null, null);
+        assertThat(service.create(promoter.getUuid(), ok).paymentMethodCodes())
+                .containsExactlyInAnyOrder("BANK_TRANSFER", "PAGO_MOVIL");
+    }
+
+    @Test
+    void create_withoutMethods_isRejected() {
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(), null,
+                null, null, null, null, null, null, null, null, "ana@example.com", null);
+
+        assertThatThrownBy(() -> service.create(promoter.getUuid(), req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter_payout_account.payment_methods.required");
+    }
+
+    @Test
+    void accepts_looksAtTheAccountsMethods() {
+        PromoterPayoutAccount account = account(1L, false);
+
+        assertThat(PromoterPayoutAccountsService.accepts(account, zelle)).isTrue();
+        assertThat(PromoterPayoutAccountsService.accepts(account, transfer)).isFalse();
+    }
+
+    @Test
     void create_rejectsHalfHolderDocumentPair() {
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(zelle.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(zelle.getUuid()), null,
                 null, null, null, null, null, "V", null, null, "ana@example.com", null);
 
         assertThatThrownBy(() -> service.create(promoter.getUuid(), req))
@@ -175,7 +212,7 @@ class PromoterPayoutAccountsServiceTest {
     @Test
     void create_rejectsInactivePaymentMethod() {
         zelle.setActive(false);
-        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(zelle.getUuid(), null,
+        PromoterPayoutAccountRequest req = new PromoterPayoutAccountRequest(java.util.List.of(zelle.getUuid()), null,
                 null, null, null, null, null, null, null, null, "ana@example.com", null);
 
         assertThatThrownBy(() -> service.create(promoter.getUuid(), req))
@@ -307,7 +344,7 @@ class PromoterPayoutAccountsServiceTest {
     }
 
     private PromoterPayoutAccountRequest transferRequest(String accountNumber) {
-        return new PromoterPayoutAccountRequest(transfer.getUuid(), "Nómina",
+        return new PromoterPayoutAccountRequest(java.util.List.of(transfer.getUuid()), "Nómina",
                 bank.getUuid(), "CORRIENTE", accountNumber, null,
                 "Ana Ventas", "V", "12345678", null, null, null);
     }
@@ -317,7 +354,7 @@ class PromoterPayoutAccountsServiceTest {
         a.setId(id);
         a.setUuid(UUID.randomUUID());
         a.setPromoter(promoter);
-        a.setPaymentMethod(zelle);
+        a.getPaymentMethods().add(zelle);
         a.setEmail("ana@example.com");
         a.setDefaultAccount(isDefault);
         return a;

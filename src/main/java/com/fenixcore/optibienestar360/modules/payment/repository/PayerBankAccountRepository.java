@@ -14,7 +14,4 @@ public interface PayerBankAccountRepository extends JpaRepository<PayerBankAccou
     List<PayerBankAccount> findByPersonIdAndActiveTrueOrderByLastUsedAtDesc(Long personId);
 
     Optional<PayerBankAccount> findByUuidAndPersonIdAndActiveTrue(UUID uuid, Long personId);
-
-    /** The caller's accounts of one method — the service picks the one with the same bank and number / phone / email. */
-    List<PayerBankAccount> findByPersonIdAndPaymentMethodIdAndActiveTrue(Long personId, Long paymentMethodId);
 }
