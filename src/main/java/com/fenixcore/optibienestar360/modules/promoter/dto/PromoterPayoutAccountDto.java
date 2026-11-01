@@ -13,7 +13,7 @@ import java.util.UUID;
  * and {@code GET /v1/me/advisor/payout-accounts} (V184).
  *
  * <p>{@code bank} serializes as {@code <rel>_Uuid} + {@code <rel>_Display}
- * (ADR 0014). An account accepts several methods (V217), so they come as a
+ * (ADR 0014). An account accepts several methods (V218), so they come as a
  * list plus {@code paymentMethodCodes}, so the payout form can match an
  * account against the selected method.</p>
  */

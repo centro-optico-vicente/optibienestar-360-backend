@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A payment method an account accepts (V217). Accounts accept several, so this is a plain list element and not a
+ * A payment method an account accepts (V218). Accounts accept several, so this is a plain list element and not a
  * {@code <rel>_Uuid} / {@code <rel>_Display} pair.
  */
 public record AccountMethodDto(UUID uuid, String code, String name) {

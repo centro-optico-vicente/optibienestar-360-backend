@@ -32,7 +32,7 @@ import java.util.Set;
 public class CompanyBankAccount extends BaseEntity {
 
     /**
-     * The methods this account accepts (V217). What it must hold is the sum of the is_mandatory_* checks of all of
+     * The methods this account accepts (V218). What it must hold is the sum of the is_mandatory_* checks of all of
      * them, validated by the service.
      */
     @ManyToMany(fetch = FetchType.LAZY)

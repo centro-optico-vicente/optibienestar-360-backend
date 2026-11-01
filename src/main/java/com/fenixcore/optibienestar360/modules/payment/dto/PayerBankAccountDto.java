@@ -9,7 +9,7 @@ import java.util.UUID;
 /** An origin account the caller chose to remember (V204); picking it fills the origin fields of a payment line. */
 public record PayerBankAccountDto(
         UUID uuid,
-        /** Methods the account accepts (V217) — their codes tell the UI which fields apply (e.g. PAGO_MOVIL). */
+        /** Methods the account accepts (V218) — their codes tell the UI which fields apply (e.g. PAGO_MOVIL). */
         List<AccountMethodDto> paymentMethods,
         List<String> paymentMethodCodes,
         @Display DisplayRef bank,

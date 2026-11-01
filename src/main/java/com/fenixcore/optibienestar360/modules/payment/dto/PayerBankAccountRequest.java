@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Create / update payload for one of the caller's own accounts ({@code /v1/me/bank-accounts}, V204/V217). The
+ * Create / update payload for one of the caller's own accounts ({@code /v1/me/bank-accounts}, V204/V218). The
  * other fields are required as the sum of the is_mandatory_* checks of the accepted methods: Pago Móvil needs bank,
  * holder document and phone; a transfer needs account type and number; Zelle needs an email.
  */

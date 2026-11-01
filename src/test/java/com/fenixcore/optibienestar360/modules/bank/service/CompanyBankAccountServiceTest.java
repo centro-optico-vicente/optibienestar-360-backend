@@ -26,7 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Required fields of a company account are the sum of the is_mandatory_* flags of the methods it accepts (V217). */
+/** Required fields of a company account are the sum of the is_mandatory_* flags of the methods it accepts (V218). */
 @ExtendWith(MockitoExtension.class)
 class CompanyBankAccountServiceTest {
 

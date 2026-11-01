@@ -36,7 +36,7 @@ public class PayerBankAccount extends BaseEntity {
     @JoinColumn(name = "person_id", nullable = false)
     private Person person;
 
-    /** The methods this account accepts (V217); its required fields are the sum of their is_mandatory_* checks. */
+    /** The methods this account accepts (V218); its required fields are the sum of their is_mandatory_* checks. */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "payer_bank_account_payment_methods",

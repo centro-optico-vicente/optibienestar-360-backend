@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * The origin accounts a person chose to remember (V204). One account accepts several payment methods (V217) and what
+ * The origin accounts a person chose to remember (V204). One account accepts several payment methods (V218) and what
  * it needs is the sum of their is_mandatory_* checks — Pago Móvil asks for bank, holder document and phone, a transfer
  * for account type and number, Zelle for an email. Everything is scoped to the caller's own person; the payment flow
  * asks to remember an account with a checkbox, so nothing is saved without that decision.

@@ -806,7 +806,7 @@ public class PaymentsService {
 
     /**
      * The company account a line says it was paid into / paid from (none = not indicated), which must accept the
-     * line's payment method (V217): a Pago Móvil line cannot point at an account that only takes transfers.
+     * line's payment method (V218): a Pago Móvil line cannot point at an account that only takes transfers.
      */
     private com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount resolveCompanyAccountFor(
             UUID companyBankAccountUuid, com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method) {

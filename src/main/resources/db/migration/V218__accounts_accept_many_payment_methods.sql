@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ============================================================================
--- V217: an account accepts several payment methods.
+-- V218: an account accepts several payment methods.
 --
 -- Until now every account stored ONE payment_method_id (company accounts V206,
 -- a person's own accounts V207, advisor payout accounts V184), so the same
@@ -110,6 +110,6 @@ BEGIN
        OR EXISTS (SELECT 1 FROM promoter_payout_accounts a
                   WHERE NOT EXISTS (SELECT 1 FROM promoter_payout_account_payment_methods m
                                     WHERE m.promoter_payout_account_id = a.promoter_payout_accounts_id)) THEN
-        RAISE EXCEPTION 'V217: an account was left without a payment method';
+        RAISE EXCEPTION 'V218: an account was left without a payment method';
     END IF;
 END $$;

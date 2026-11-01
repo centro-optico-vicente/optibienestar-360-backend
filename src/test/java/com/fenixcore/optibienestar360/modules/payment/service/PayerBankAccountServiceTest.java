@@ -30,7 +30,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** A person's own accounts need the sum of the is_mandatory_* flags of the methods they accept, like the company accounts (V217). */
+/** A person's own accounts need the sum of the is_mandatory_* flags of the methods they accept, like the company accounts (V218). */
 @ExtendWith(MockitoExtension.class)
 class PayerBankAccountServiceTest {
 

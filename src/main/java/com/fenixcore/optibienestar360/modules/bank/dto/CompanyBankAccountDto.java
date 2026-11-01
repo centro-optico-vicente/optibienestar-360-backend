@@ -10,7 +10,7 @@ import java.util.UUID;
 /** Projection of a company bank account for {@code /v1/admin/company-bank-accounts} and the payer-facing list (V201). */
 public record CompanyBankAccountDto(
         UUID uuid,
-        /** Methods the account accepts (V217) — their codes tell the UI which fields to show (e.g. PAGO_MOVIL). */
+        /** Methods the account accepts (V218) — their codes tell the UI which fields to show (e.g. PAGO_MOVIL). */
         List<AccountMethodDto> paymentMethods,
         List<String> paymentMethodCodes,
         @Display DisplayRef bank,
