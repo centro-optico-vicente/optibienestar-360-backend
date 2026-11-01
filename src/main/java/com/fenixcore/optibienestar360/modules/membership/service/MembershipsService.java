@@ -137,6 +137,7 @@ public class MembershipsService {
                 advisor == null ? null : com.fenixcore.optibienestar360.core.display.DisplayRefs.ref(advisor),
                 m.getPlan().getUuid(), m.getPlan().getCode(), m.getPlan().getName(), m.getPlan().getType(),
                 m.getEnrolledAt(), m.getNextDueDate(), m.getLastPaidThrough(),
+                m.getExpiresAt(), m.getInscriptionDueSince() != null,
                 m.getMonthlyFee(), m.getCurrency().getCode(), m.getStatus(), paymentStatus,
                 overdue ? java.time.temporal.ChronoUnit.DAYS.between(m.getNextDueDate(), today) : 0);
     }

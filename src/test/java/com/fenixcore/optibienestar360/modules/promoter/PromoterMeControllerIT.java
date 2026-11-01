@@ -83,7 +83,7 @@ class PromoterMeControllerIT {
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
                 null,
                 List.of(new PromoterMemberRow(UUID.randomUUID(), "Juan Pérez", "ACTIVE",
-                        LocalDate.of(2026, 8, 1), new BigDecimal("5.00"))));
+                        LocalDate.of(2026, 8, 1), new BigDecimal("5.00"), null, false)));
     }
 
     @Test
