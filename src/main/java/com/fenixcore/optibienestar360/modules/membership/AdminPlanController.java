@@ -4,6 +4,11 @@ import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
+import com.fenixcore.optibienestar360.modules.membership.dto.MembershipTermRowDto;
+import com.fenixcore.optibienestar360.modules.membership.dto.PlanTermApplyRequest;
+import com.fenixcore.optibienestar360.modules.membership.dto.PlanTermApplyResultDto;
+import com.fenixcore.optibienestar360.modules.membership.dto.PlanTermSummaryDto;
+import com.fenixcore.optibienestar360.modules.membership.service.MembershipTermComplianceService;
 import com.fenixcore.optibienestar360.modules.membership.service.PlansService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -40,6 +45,7 @@ import java.util.UUID;
 public class AdminPlanController {
 
     private final PlansService plansService;
+    private final MembershipTermComplianceService termComplianceService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PLAN_VIEW_ALL')")
@@ -89,6 +95,34 @@ public class AdminPlanController {
     @PreAuthorize("hasAuthority('PLAN_VIEW_ALL')")
     public ResponseEntity<UsageDto> usage(@PathVariable UUID uuid) {
         return ResponseEntity.ok(plansService.getUsage(uuid));
+    }
+
+    // ─── Membership term compliance (hub ADR 0034) ──────────────────────────
+
+    /** Counts of live memberships that comply / differ from the plan's term rule + the suggested first expiry. */
+    @GetMapping("/{uuid}/membership-terms")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_TERM_VIEW_ALL')")
+    public ResponseEntity<PlanTermSummaryDto> termSummary(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(termComplianceService.summary(uuid));
+    }
+
+    /** Live memberships of the plan with their term snapshot; {@code compliance} = COMPLIES | DIFFERS. */
+    @GetMapping("/{uuid}/membership-terms/memberships")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_TERM_VIEW_ALL')")
+    public ResponseEntity<Page<MembershipTermRowDto>> termMemberships(
+            @PathVariable UUID uuid,
+            @RequestParam(required = false) MembershipTermComplianceService.Compliance compliance,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(termComplianceService.list(uuid, compliance, q, pageable));
+    }
+
+    /** Applies the plan's term rule to the given memberships (empty = all that differ) with a chosen first expiry. */
+    @PostMapping("/{uuid}/membership-terms/apply")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_TERM_UPDATE')")
+    public ResponseEntity<PlanTermApplyResultDto> termApply(@PathVariable UUID uuid,
+                                                            @Valid @RequestBody PlanTermApplyRequest request) {
+        return ResponseEntity.ok(termComplianceService.apply(uuid, request));
     }
 
     @DeleteMapping("/{uuid}")
