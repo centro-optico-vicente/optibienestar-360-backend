@@ -80,6 +80,28 @@ public final class TermsVersionScopes {
     }
 
     /**
+     * The current version of every stream the anonymous public site may show
+     * (hub ADR 0031 §12): general or segment-scoped, never per ally or per
+     * ally type, and only if marked public. As for agreements, the general
+     * ALIADO template is hidden once a current template of some segment
+     * exists, so the public site never serves the superseded text. Ordered by
+     * type, then segment.
+     */
+    public static List<TermsVersion> currentPublic(List<TermsVersion> versions, Instant at) {
+        List<TermsVersion> streams = currentPerStream(versions, at).stream()
+                .filter(v -> v.getAlly() == null && v.getAllyType() == null)
+                .toList();
+        boolean aliadoSegmentTemplate = streams.stream()
+                .anyMatch(v -> v.getTermType() == TermType.ALLY && v.getSegment() != null);
+        return streams.stream()
+                .filter(v -> !(aliadoSegmentTemplate && v.getTermType() == TermType.ALLY && v.getSegment() == null))
+                .filter(TermsVersion::isPublic)
+                .sorted(Comparator.comparing(TermsVersion::getTermType)
+                        .thenComparing(v -> v.getSegment() == null ? "" : v.getSegment().name()))
+                .toList();
+    }
+
+    /**
      * The current ALIADO templates {@code ally} may sign, most specific
      * first — what the agreement form offers for that ally. The general
      * template is left out when a template of the ally's segment applies
