@@ -6,6 +6,8 @@ import com.fenixcore.optibienestar360.modules.terms.dto.MemberTermsPreviewReques
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
 
 /**
  * The MEMBER contract rendered for an applicant who is not a member yet:
@@ -31,6 +34,7 @@ public class MemberContractService {
     private final TermsTemplateRenderer renderer;
     private final TermsVariableResolver variableResolver;
     private final PlanRepository planRepository;
+    private final PromoterRepository promoterRepository;
 
     /**
      * The current public AFILIADO contract rendered with the form data.
@@ -46,8 +50,12 @@ public class MemberContractService {
                 .filter(Plan::isActive)
                 .filter(Plan::isPublished)
                 .orElse(null);
+        String code = req.referralCode() == null || req.referralCode().isBlank()
+                ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
+        Promoter advisor = code == null ? null : promoterRepository.findByReferralCode(code).orElse(null);
         MemberTermsApplicant applicant = new MemberTermsApplicant(
-                req.firstName(), req.lastName(), req.documentType(), req.documentNumber(), req.birthDate(), plan);
+                req.firstName(), req.lastName(), req.documentType(), req.documentNumber(), req.birthDate(), plan,
+                advisor);
         return new PublicTermsDto(version.getUuid(), version.getTermType(), version.getTitle(),
                 render(version, applicant), version.getValidFrom());
     }

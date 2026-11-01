@@ -73,6 +73,24 @@ public class Organization extends BaseEntity {
     @Column(length = 100)
     private String phones;
 
+    // ─── Authorized signatory (V219) — signs for the company in the contracts ───
+
+    /** Full name of the manager who signs for the company ({@code {{org.signatoryName}}}). */
+    @Column(name = "signatory_name", length = 200)
+    private String signatoryName;
+
+    /** Document type of the signatory: J, V, E, G or P. */
+    @Column(name = "signatory_document_type", length = 1)
+    private String signatoryDocumentType;
+
+    /** Document number of the signatory; with the type forms {@code {{org.signatoryDocument}}}. */
+    @Column(name = "signatory_document_number", length = 20)
+    private String signatoryDocumentNumber;
+
+    /** Position of the signatory ({@code {{org.signatoryPosition}}}). */
+    @Column(name = "signatory_position", length = 100)
+    private String signatoryPosition;
+
     @Column(name = "logo_key", length = 255)
     private String logoKey;
 

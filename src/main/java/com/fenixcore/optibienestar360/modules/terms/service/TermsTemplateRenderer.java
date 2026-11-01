@@ -49,18 +49,27 @@ public class TermsTemplateRenderer {
     public static final String BRAND_NAME = "OPTIBIENESTAR 360";
 
     /** Organization placeholder → value extractor (the fallback note lives in {@link TermsVariables}). */
-    private static final Map<String, Function<Organization, String>> ORG_EXTRACTORS = Map.of(
-            "org.legalName", Organization::getLegalName,
-            "org.taxId", Organization::getTaxIdentifier,
-            "org.registryState", Organization::getRegistryState,
-            "org.city", Organization::getSigningCity,
-            "org.serviceArea", Organization::getServiceArea,
-            "org.address", Organization::getAddress,
-            "org.email", Organization::getEmail,
-            "org.phones", Organization::getPhones
+    private static final Map<String, Function<Organization, String>> ORG_EXTRACTORS = Map.ofEntries(
+            Map.entry("org.legalName", (Function<Organization, String>) Organization::getLegalName),
+            Map.entry("org.taxId", Organization::getTaxIdentifier),
+            Map.entry("org.registryState", Organization::getRegistryState),
+            Map.entry("org.city", Organization::getSigningCity),
+            Map.entry("org.serviceArea", Organization::getServiceArea),
+            Map.entry("org.address", Organization::getAddress),
+            Map.entry("org.email", Organization::getEmail),
+            Map.entry("org.phones", Organization::getPhones),
+            Map.entry("org.signatoryName", Organization::getSignatoryName),
+            Map.entry("org.signatoryDocument", TermsTemplateRenderer::signatoryDocument),
+            Map.entry("org.signatoryPosition", Organization::getSignatoryPosition)
     );
 
     private final OrganizationRepository organizationRepository;
+
+    /** {@code "V-12345678"} of the authorized signatory; {@code null} without a number. */
+    private static String signatoryDocument(Organization organization) {
+        return TermsVariableResolver.document(organization.getSignatoryDocumentType(),
+                organization.getSignatoryDocumentNumber());
+    }
 
     /** Renders {@code template} against the organization only; every per-entity value shows its pending note. */
     public String render(String template) {
