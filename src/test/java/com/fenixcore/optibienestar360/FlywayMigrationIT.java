@@ -80,4 +80,17 @@ class FlywayMigrationIT {
         assertNotNull(index);
     }
 
+    @Test
+    void finalContractTemplatesAreSeededPerSegment() {
+        // V217: one ALIADO template per segment, plus the final AFILIADO / ASESOR texts.
+        Integer segmentStreams = jdbc.queryForObject(
+                "SELECT COUNT(DISTINCT segment) FROM app.terms_versions WHERE term_type = 'ALIADO' "
+                        + "AND segment IN ('B2B', 'B2P') AND content_markdown LIKE '%{{org.phones}}%'", Integer.class);
+        assertEquals(2, segmentStreams);
+        Integer finalTexts = jdbc.queryForObject(
+                "SELECT COUNT(DISTINCT term_type) FROM app.terms_versions WHERE term_type IN ('AFILIADO', 'ASESOR') "
+                        + "AND segment IS NULL AND content_markdown LIKE '%{{org.address}}%'", Integer.class);
+        assertEquals(2, finalTexts);
+    }
+
 }

@@ -7,8 +7,10 @@ import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepos
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.service.InscriptionPaymentMethodResolver;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonProfessionalLicenseRepository;
 import com.fenixcore.optibienestar360.modules.terms.dto.MemberTermsPreviewRequest;
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
@@ -49,6 +51,8 @@ class MemberContractServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private AllyProductRepository allyProductRepository;
+    @Mock private PersonProfessionalLicenseRepository licenseRepository;
+    @Mock private InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
 
     private MemberContractService service;
     private TermsVersion version;
@@ -61,7 +65,7 @@ class MemberContractServiceTest {
         messageSource.setFallbackToSystemLocale(false);
         TermsVariableResolver resolver = new TermsVariableResolver(memberRepository, membershipRepository,
                 beneficiaryRepository, new DisplayFormatter(messageSource), organizationRepository,
-                allyProductRepository);
+                allyProductRepository, licenseRepository, inscriptionPaymentMethodResolver);
         service = new MemberContractService(termsVersionService, new TermsTemplateRenderer(organizationRepository),
                 resolver, planRepository);
 

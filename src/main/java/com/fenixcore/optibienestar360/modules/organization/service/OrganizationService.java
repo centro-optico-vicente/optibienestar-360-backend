@@ -72,6 +72,9 @@ public class OrganizationService {
         org.setRegistryState(req.registryState());
         org.setSigningCity(req.signingCity());
         org.setServiceArea(req.serviceArea());
+        org.setAddress(blankToNull(req.address()));
+        org.setEmail(blankToNull(req.email()));
+        org.setPhones(blankToNull(req.phones()));
         return toDto(repository.save(org));
     }
 
@@ -100,6 +103,14 @@ public class OrganizationService {
                 o.isAutoApproveCommissions(),
                 o.getRegistryState(),
                 o.getSigningCity(),
-                o.getServiceArea());
+                o.getServiceArea(),
+                o.getAddress(),
+                o.getEmail(),
+                o.getPhones());
+    }
+
+    /** Trimmed value; {@code null} when blank, so an emptied field renders its contract pending note. */
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

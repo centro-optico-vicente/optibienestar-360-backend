@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.organization.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.core.jpa.CitextJdbcType;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -12,6 +13,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcType;
 
 /**
  * The organization/company master (V86, ADR 0015 §4). Single row today
@@ -55,6 +57,21 @@ public class Organization extends BaseEntity {
     /** Coverage area of the allies network ({@code {{org.serviceArea}}}). */
     @Column(name = "service_area", length = 150)
     private String serviceArea;
+
+    // ─── Institutional contact (V217) — footer of the contracts ────────────
+
+    /** Office address ({@code {{org.address}}}). */
+    @Column(columnDefinition = "text")
+    private String address;
+
+    /** Contact email ({@code {{org.email}}}). */
+    @Column(columnDefinition = "citext")
+    @JdbcType(CitextJdbcType.class)
+    private String email;
+
+    /** Contact phones as written in the contracts, e.g. {@code "(+58)414-5738530, (+58)424-5984590"} ({@code {{org.phones}}}). */
+    @Column(length = 100)
+    private String phones;
 
     @Column(name = "logo_key", length = 255)
     private String logoKey;

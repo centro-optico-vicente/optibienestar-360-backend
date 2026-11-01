@@ -28,7 +28,11 @@ import java.util.stream.Stream;
  *   <li><b>ADVISOR</b>: the advisor's own record ({@code promoters}).</li>
  *   <li><b>ALLY</b>: the ally and the agreement that links the template,
  *   plus the repeated section {@code agreement.rates} (one row per approved
- *   service of the ally — the agreement's rates table).</li>
+ *   service of the ally — the agreement's rates table), and the
+ *   {@code professional.*} values of the ally's holder person (B2P, hub
+ *   ADR 0031): name, document, specialty, practice site and the
+ *   <b>verified</b> licenses, one variable per licensing body code
+ *   ({@code professional.licenses.MPPS}).</li>
  * </ul>
  *
  * <p>A <b>section</b> ({@link Section}) is a block repeated once per row:
@@ -85,8 +89,24 @@ public final class TermsVariables {
 
     public static final String BRAND_NAME = "brand.name";
 
-    /** Placeholder syntax accepted by the renderer: {@code {{group.name}}}, whitespace tolerated. */
-    static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{\\s*([A-Za-z]+\\.[A-Za-z]+)\\s*}}");
+    /**
+     * Placeholder syntax accepted by the renderer: {@code {{group.name}}},
+     * whitespace tolerated, plus an optional third segment for the keyed
+     * variables ({@code {{professional.licenses.COLEGIO_MEDICOS}}}).
+     */
+    static final Pattern PLACEHOLDER = Pattern.compile(
+            "\\{\\{\\s*([A-Za-z]+\\.[A-Za-z]+(?:\\.[A-Za-z0-9_]+)?)\\s*}}");
+
+    /** Prefix of the per-licensing-body variables: {@code professional.licenses.<licensing_bodies.code>}. */
+    public static final String LICENSES_PREFIX = "professional.licenses.";
+
+    /**
+     * A license variable of any licensing body ({@code licensing_bodies.code},
+     * V213: upper case, digits and underscores). Bodies added to the catalog
+     * after this release are valid without a code change; the catalog lists
+     * the seeded ones ({@link #ALLY}).
+     */
+    static final Pattern LICENSE_KEY = Pattern.compile("professional\\.licenses\\.[A-Z][A-Z0-9_]*");
 
     /** Anything between double braces — used to validate a template on save. */
     private static final Pattern ANY_PLACEHOLDER = Pattern.compile("\\{\\{\\s*([^{}]*?)\\s*}}");
@@ -113,7 +133,10 @@ public final class TermsVariables {
             new Variable("org.taxId", "[RIF pendiente]", null),
             new Variable("org.registryState", "[Estado del registro pendiente]", null),
             new Variable("org.city", "[Ciudad de firma pendiente]", null),
-            new Variable("org.serviceArea", "[Zona de cobertura pendiente]", null)
+            new Variable("org.serviceArea", "[Zona de cobertura pendiente]", null),
+            new Variable("org.address", "[Dirección de la organización pendiente]", null),
+            new Variable("org.email", "[Correo de la organización pendiente]", null),
+            new Variable("org.phones", "[Teléfonos de la organización pendientes]", null)
     );
 
     static final List<Variable> MEMBER = List.of(
@@ -130,7 +153,11 @@ public final class TermsVariables {
                     "[Inscripción por beneficiario adicional pendiente]", moneySample("5,00")),
             new Variable("plan.includedBeneficiaries", Kind.NUMBER, "[Beneficiarios incluidos en el plan pendiente]",
                     "3"),
-            new Variable("plan.maxBeneficiaries", Kind.NUMBER, "[Máximo de beneficiarios del plan pendiente]", "5")
+            new Variable("plan.maxBeneficiaries", Kind.NUMBER, "[Máximo de beneficiarios del plan pendiente]", "5"),
+            new Variable("membership.inscriptionPaymentMethod", "[Modalidad de pago pendiente]", "Pago móvil"),
+            new Variable("membership.activationFeeLabel", "[Monto de activación pendiente]",
+                    "inscripción de US$ 10,00 y primera mensualidad de US$ 25,00, "
+                            + TermsVariableResolver.MONEY_PAYMENT_CLAUSE_VES)
     );
 
     static final List<Variable> ADVISOR = List.of(
@@ -150,6 +177,37 @@ public final class TermsVariables {
             new Variable("ally.fileNumber", "[Nº de expediente pendiente]", "ASE001-0007"),
             new Variable("ally.openingHours", "[Horario de atención pendiente]",
                     "Lun–Vie 08:00–12:00, 14:00–18:00; Sáb 08:00–12:00"),
+            new Variable("ally.tradeName", "[Nombre comercial pendiente]", "Óptica Ejemplo"),
+            new Variable("ally.typeNames", "[Categoría del aliado pendiente]", "Clínica, Laboratorio"),
+            new Variable("ally.address", "[Dirección del aliado pendiente]", "Av. Libertador, Edif. Centro, PB"),
+            new Variable("ally.cityState", "[Ciudad y estado del aliado pendiente]", "Acarigua, Portuguesa"),
+            new Variable("ally.phone", "[Teléfono del aliado pendiente]", "0255-6211234"),
+            new Variable("ally.socialLinks", "[Redes sociales pendientes]",
+                    "https://www.clinicaejemplo.com · @clinicaejemplo"),
+            new Variable("ally.commercialZone", "[Zona comercial pendiente]", "Acarigua centro"),
+            new Variable("ally.foundedYear", "[Año de fundación pendiente]", "2005"),
+            new Variable("ally.cashRegistersCount", Kind.NUMBER, "[Nº de cajas registradoras pendiente]", "3"),
+            new Variable("ally.branchesCount", Kind.NUMBER, "[Nº de sucursales pendiente]", "2"),
+            new Variable("ally.hasPos", Kind.BOOLEAN, "[Sistema POS pendiente]", "Sí"),
+            new Variable("ally.representativePosition", "[Cargo del representante pendiente]", "Director general"),
+            new Variable("ally.advisorCode", "[Código del asesor captador pendiente]", "ASE001"),
+            new Variable("ally.advisorFullName", "[Asesor captador pendiente]", "José Antonio Rodríguez"),
+            new Variable("professional.firstNames", "[Nombres del profesional pendientes]", "Carlos Alberto"),
+            new Variable("professional.lastNames", "[Apellidos del profesional pendientes]", "Mendoza Ruiz"),
+            new Variable("professional.fullName", "[Nombre del profesional pendiente]", "Carlos Alberto Mendoza Ruiz"),
+            new Variable("professional.document", "[Cédula del profesional pendiente]", "V-11222333"),
+            new Variable("professional.birthDate", Kind.DATE, "[Fecha de nacimiento del profesional pendiente]",
+                    "20-07-1978"),
+            new Variable("professional.phone", "[Teléfono del profesional pendiente]", "0414-5551234"),
+            new Variable("professional.email", "[Correo del profesional pendiente]", "carlos.mendoza@example.com"),
+            new Variable("professional.specialty", "[Especialidad pendiente]", "Traumatología"),
+            new Variable("professional.subSpecialty", "[Sub-especialidad pendiente]", "Artroscopia"),
+            new Variable(LICENSES_PREFIX + "MPPS", "[Nº M.P.P.S. pendiente]", "123456"),
+            new Variable(LICENSES_PREFIX + "COLEGIO_MEDICOS", "[Nº de Colegio de Médicos pendiente]", "7890"),
+            new Variable("professional.hostName", "[Centro clínico pendiente]", "Centro Clínico Acarigua"),
+            new Variable("professional.officeNumber", "[Nº de consultorio pendiente]", "12-B"),
+            new Variable("professional.appointmentPhone", "[Teléfono para citas pendiente]", "0255-6219876"),
+            new Variable("professional.assistantName", "[Asistente pendiente]", "Luisa Torres"),
             new Variable("agreement.startDate", Kind.DATE, "[Fecha de inicio del convenio pendiente]", "01-10-2026"),
             new Variable("agreement.noticeDays", Kind.NUMBER, "[Días de preaviso pendiente]", "30"),
             new Variable("agreement.autoRenew", Kind.BOOLEAN, "[Renovación automática pendiente]", "Sí"),
@@ -277,7 +335,8 @@ public final class TermsVariables {
                 continue;
             }
             boolean rowField = section != null && section.field(key).isPresent();
-            if (!rowField && !allowed.contains(key)) unknown.add(key);
+            boolean licenseKey = type == TermType.ALLY && LICENSE_KEY.matcher(key).matches();
+            if (!rowField && !licenseKey && !allowed.contains(key)) unknown.add(key);
         }
         return List.copyOf(unknown);
     }
@@ -300,9 +359,18 @@ public final class TermsVariables {
         return Optional.ofNullable(SECTION_BY_KEY.get(key));
     }
 
-    /** The per-entity variable {@code key} (any kind), if it is one. */
+    /**
+     * The per-entity variable {@code key} (any kind), if it is one. A license
+     * of a licensing body not listed in the catalog
+     * ({@code professional.licenses.<CODE>}) is a variable too, with a
+     * generic pending note.
+     */
     static Optional<Variable> entity(String key) {
-        return Optional.ofNullable(ENTITY_BY_KEY.get(key));
+        Variable variable = ENTITY_BY_KEY.get(key);
+        if (variable == null && LICENSE_KEY.matcher(key).matches()) {
+            variable = new Variable(key, "[Colegiatura pendiente]", null);
+        }
+        return Optional.ofNullable(variable);
     }
 
     private static List<Variable> ownOf(TermType type) {

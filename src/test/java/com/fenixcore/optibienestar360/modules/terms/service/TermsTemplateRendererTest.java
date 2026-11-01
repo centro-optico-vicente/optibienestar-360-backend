@@ -51,6 +51,35 @@ class TermsTemplateRendererTest {
     }
 
     @Test
+    void resolvesTheInstitutionalContactOfTheFooter() {
+        Organization org = organization();
+        org.setAddress("Av. 30 con Calle 21, C.C. Ciudad Cristal, Acarigua");
+        org.setEmail("planoptibienestar360@gmail.com");
+        org.setPhones("(+58)414-5738530, (+58)424-5984590");
+
+        String rendered = TermsTemplateRenderer.render(
+                "{{org.address}} · Email: {{org.email}} · Teléfonos: {{org.phones}}", org);
+
+        assertThat(rendered).isEqualTo("Av. 30 con Calle 21, C.C. Ciudad Cristal, Acarigua · "
+                + "Email: planoptibienestar360@gmail.com · Teléfonos: (+58)414-5738530, (+58)424-5984590");
+        assertThat(TermsTemplateRenderer.render("{{org.address}} · {{org.email}} · {{org.phones}}", organization()))
+                .isEqualTo("[Dirección de la organización pendiente] · [Correo de la organización pendiente] · "
+                        + "[Teléfonos de la organización pendientes]");
+    }
+
+    @Test
+    void licenseVariablesResolvePerLicensingBodyCode() {
+        String template = "M.P.P.S. {{professional.licenses.MPPS}} · CM {{professional.licenses.COLEGIO_MEDICOS}}"
+                + " · {{professional.licenses.CIV}} · {{professional.licenses.foo}}";
+
+        String rendered = TermsTemplateRenderer.render(template, organization(),
+                Map.of("professional.licenses.MPPS", "123456", "professional.licenses.CIV", "98765"));
+
+        assertThat(rendered).isEqualTo("M.P.P.S. 123456 · CM [Nº de Colegio de Médicos pendiente] · 98765"
+                + " · {{professional.licenses.foo}}");
+    }
+
+    @Test
     void blankValuesRenderAsVisiblePendingNotes() {
         Organization org = organization();
         org.setTaxIdentifier(null);

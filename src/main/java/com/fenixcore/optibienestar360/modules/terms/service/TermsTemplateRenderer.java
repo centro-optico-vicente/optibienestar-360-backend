@@ -23,7 +23,7 @@ import java.util.regex.Matcher;
  *   organization, for every kind;</li>
  *   <li>per-entity variables ({@code member.*}, {@code membership.*},
  *   {@code beneficiaries.*}, {@code advisor.*}, {@code ally.*},
- *   {@code agreement.*}) — a value map built for the concrete user by
+ *   {@code agreement.*}, {@code professional.*}) — a value map built for the concrete user by
  *   {@link TermsVariableResolver}, or the sample values for the admin
  *   preview.</li>
  * </ul>
@@ -54,7 +54,10 @@ public class TermsTemplateRenderer {
             "org.taxId", Organization::getTaxIdentifier,
             "org.registryState", Organization::getRegistryState,
             "org.city", Organization::getSigningCity,
-            "org.serviceArea", Organization::getServiceArea
+            "org.serviceArea", Organization::getServiceArea,
+            "org.address", Organization::getAddress,
+            "org.email", Organization::getEmail,
+            "org.phones", Organization::getPhones
     );
 
     private final OrganizationRepository organizationRepository;
