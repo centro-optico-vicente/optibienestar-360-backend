@@ -111,6 +111,53 @@ class TermsVariablesTest {
         assertThat(rows).isEqualTo(3);
     }
 
+    @Test
+    void theV217FinalTemplatesOnlyUseVariablesOfTheirType() throws Exception {
+        String sql;
+        try (InputStream in = getClass().getResourceAsStream("/db/migration/V217__final_contract_templates.sql")) {
+            assertThat(in).isNotNull();
+            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        java.util.Map<String, TermType> types = java.util.Map.of(
+                "afiliado", TermType.MEMBER,
+                "asesor", TermType.ADVISOR,
+                "aliado_b2b", TermType.ALLY,
+                "aliado_b2p", TermType.ALLY);
+        for (var entry : types.entrySet()) {
+            String tag = "$" + entry.getKey() + "$";
+            int start = sql.indexOf(tag);
+            int end = sql.indexOf(tag, start + tag.length());
+            assertThat(start).as(tag).isPositive();
+            assertThat(end).as(tag).isGreaterThan(start);
+            String content = sql.substring(start + tag.length(), end);
+            assertThat(content).as(tag).contains("{{org.address}}", "{{org.email}}", "{{org.phones}}")
+                    .doesNotContain("<!--", "-->");
+            assertThat(TermsVariables.unknownIn(content, entry.getValue())).as(tag).isEmpty();
+        }
+    }
+
+    @Test
+    void ally_offersTheB2bProfileTheProfessionalAndTheSeededLicenseBodies() {
+        assertThat(keys(TermType.ALLY)).contains("ally.tradeName", "ally.commercialZone", "ally.foundedYear",
+                "ally.cashRegistersCount", "ally.branchesCount", "ally.hasPos", "ally.representativePosition",
+                "ally.typeNames", "ally.cityState", "ally.socialLinks", "professional.fullName",
+                "professional.licenses.MPPS", "professional.licenses.COLEGIO_MEDICOS", "professional.hostName");
+        assertThat(keys(TermType.MEMBER)).contains("membership.inscriptionPaymentMethod",
+                "membership.activationFeeLabel", "org.address", "org.email", "org.phones");
+        assertThat(keys(TermType.ADVISOR)).doesNotContain("professional.fullName", "ally.tradeName");
+    }
+
+    @Test
+    void unknownIn_acceptsALicenseOfAnyBodyCodeOnlyForAllies() {
+        assertThat(TermsVariables.unknownIn(
+                "{{professional.licenses.MPPS}} {{professional.licenses.CIV_2}}", TermType.ALLY)).isEmpty();
+        assertThat(TermsVariables.unknownIn("{{professional.licenses.MPPS}}", TermType.MEMBER))
+                .containsExactly("professional.licenses.MPPS");
+        assertThat(TermsVariables.unknownIn(
+                "{{professional.licenses.mpps}} {{professional.licenses}} {{ally.name.extra}}", TermType.ALLY))
+                .containsExactly("professional.licenses.mpps", "professional.licenses", "ally.name.extra");
+    }
+
     // ─── Sections ───────────────────────────────────────────────────────────
 
     @Test

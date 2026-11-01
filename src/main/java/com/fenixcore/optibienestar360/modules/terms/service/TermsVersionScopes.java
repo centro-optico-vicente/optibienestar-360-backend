@@ -21,6 +21,12 @@ import java.util.Set;
  * its {@code ally} is that ally, its {@code allyType} is one of the ally's
  * types, its {@code segment} is the ally's own segment ({@code allies.segment},
  * V211 / hub ADR 0031). A template with no scope applies to every ally.</p>
+ *
+ * <p><b>Segment templates replace the general one</b> (V217, hub ADR 0031
+ * §12): once a current template scoped to the ally's segment exists, the
+ * general (unscoped) template is no longer offered to that ally for a new
+ * agreement. It keeps applying where no segment template exists, and an
+ * agreement already signed under it keeps its link.</p>
  */
 public final class TermsVersionScopes {
 
@@ -75,11 +81,17 @@ public final class TermsVersionScopes {
 
     /**
      * The current ALIADO templates {@code ally} may sign, most specific
-     * first — what the agreement form offers for that ally.
+     * first — what the agreement form offers for that ally. The general
+     * template is left out when a template of the ally's segment applies
+     * (see the class javadoc).
      */
     public static List<TermsVersion> currentApplicableTo(List<TermsVersion> aliadoVersions, Ally ally, Instant at) {
-        return currentPerStream(aliadoVersions, at).stream()
+        List<TermsVersion> applicable = currentPerStream(aliadoVersions, at).stream()
                 .filter(v -> isApplicableTo(v, ally))
+                .toList();
+        boolean segmentTemplate = applicable.stream().anyMatch(v -> v.getSegment() != null);
+        return applicable.stream()
+                .filter(v -> !segmentTemplate || specificity(v) > 0)
                 .sorted(MOST_SPECIFIC_FIRST)
                 .toList();
     }

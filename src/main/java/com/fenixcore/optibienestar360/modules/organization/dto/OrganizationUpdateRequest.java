@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.organization.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -26,5 +27,8 @@ public record OrganizationUpdateRequest(
         boolean autoApproveCommissions,
         @Size(max = 80) String registryState,
         @Size(max = 80) String signingCity,
-        @Size(max = 150) String serviceArea
+        @Size(max = 150) String serviceArea,
+        @Size(max = 500) String address,
+        @Email @Size(max = 254) String email,
+        @Size(max = 100) String phones
 ) {}

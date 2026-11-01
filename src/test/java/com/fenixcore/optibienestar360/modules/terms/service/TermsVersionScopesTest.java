@@ -94,7 +94,29 @@ class TermsVersionScopesTest {
                 List.of(generalOld, generalNew, generalScheduled, segment, type, custom, foreignType, foreignAlly),
                 ally, now);
 
-        assertThat(result).containsExactly(custom, type, segment, generalNew);
+        // The B2B segment template replaces the general one for this ally (V217).
+        assertThat(result).containsExactly(custom, type, segment);
+    }
+
+    @Test
+    void currentApplicable_keepsTheGeneralTemplateWhileNoTemplateOfTheAllysSegmentExists() {
+        TermsVersion general = template(1L, null, null, null, 5);
+        TermsVersion type = template(2L, pharmacy, null, null, 5);
+        TermsVersion b2p = template(3L, null, Segment.B2P, null, 5);
+
+        assertThat(TermsVersionScopes.currentApplicableTo(List.of(general, type, b2p), ally, now))
+                .containsExactly(type, general);
+        assertThat(TermsVersionScopes.currentApplicableTo(List.of(general, type, b2p), otherAlly, now))
+                .containsExactly(b2p);
+    }
+
+    @Test
+    void currentApplicable_aScheduledSegmentTemplateDoesNotHideTheGeneralOneYet() {
+        TermsVersion general = template(1L, null, null, null, 5);
+        TermsVersion scheduledB2b = template(2L, null, Segment.B2B, null, -1);
+
+        assertThat(TermsVersionScopes.currentApplicableTo(List.of(general, scheduledB2b), ally, now))
+                .containsExactly(general);
     }
 
     // ─── Fixtures ───────────────────────────────────────────────────────────

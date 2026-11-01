@@ -100,8 +100,9 @@ public class TermsVersionService {
 
     /**
      * {@code GET /v1/admin/allies/{allyUuid}/applicable-terms} — the current
-     * ALIADO templates the ally may sign (general ones plus those whose scope
-     * matches the ally, its types or their segments), most specific first.
+     * ALIADO templates the ally may sign (those whose scope matches the ally,
+     * its types or its segment, plus the general one while no template of the
+     * ally's segment exists — {@link TermsVersionScopes}), most specific first.
      */
     public List<TermsVersionDto> listApplicableToAlly(UUID allyUuid) {
         Ally ally = allyRepository.findByUuid(allyUuid)
