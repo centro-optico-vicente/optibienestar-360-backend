@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 
 import java.util.List;
 import java.util.UUID;
