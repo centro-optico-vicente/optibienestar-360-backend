@@ -113,7 +113,17 @@ public interface PaymentMapper {
     /** The bank's short name, or the method's name when the account has no bank (e.g. Zelle). */
     static String companyAccountLabel(com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount a) {
         if (a.getBank() != null) return a.getBank().getShortName();
-        return a.getPaymentMethod() != null ? a.getPaymentMethod().getName() : null;
+        return methodNames(a.getPaymentMethods());
+    }
+
+    /** The accepted methods' names, in alphabetical order, joined with " / "; {@code null} when there are none. */
+    private static String methodNames(java.util.Collection<com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod> methods) {
+        String joined = methods.stream()
+                .map(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::getName)
+                .filter(java.util.Objects::nonNull)
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        return joined.isEmpty() ? null : joined;
     }
 
     /** The advisor payout account an OUT line was paid to (V206): its label (alias) or the method name, with the account / phone. */
@@ -122,7 +132,7 @@ public interface PaymentMapper {
         String code = a.getAccountNumber() != null ? a.getAccountNumber()
                 : a.getPhone() != null ? a.getPhone() : a.getEmail();
         String name = a.getLabel() != null ? a.getLabel()
-                : a.getPaymentMethod() != null ? a.getPaymentMethod().getName() : null;
+                : methodNames(a.getPaymentMethods());
         return DisplayRef.of(a.getUuid(), code, name);
     }
 
