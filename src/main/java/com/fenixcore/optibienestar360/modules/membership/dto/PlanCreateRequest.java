@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.membership.dto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import com.fenixcore.optibienestar360.modules.membership.entity.TermMode;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -44,5 +46,12 @@ public record PlanCreateRequest(
         @Min(0) Integer gracePeriodDays,                  // default 7 server-side
 
         Boolean published,
-        Instant publishedAt
+        Instant publishedAt,
+
+        /** Term (hub ADR 0034): only meaningful when {@code true}; then {@code termMode} + its fields are required. */
+        Boolean reinscriptionRequired,
+        TermMode termMode,
+        @Min(1) @Max(12) Integer termFixedMonth,
+        @Min(1) @Max(28) Integer termFixedDay,
+        @Min(1) Integer termPeriodMonths
 ) {}

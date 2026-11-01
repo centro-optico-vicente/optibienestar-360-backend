@@ -94,6 +94,7 @@ class PaymentsServiceTest {
     @Mock private FileValidationService fileValidationService;
     @Mock private DefaultSortResolver defaultSortResolver;
     @Mock private MembershipChargeService membershipChargeService;
+    @Mock private com.fenixcore.optibienestar360.modules.membership.service.MembershipTermRenewalService membershipTermRenewalService;
     @Mock private NotificationChannelResolver notificationChannelResolver;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
@@ -110,7 +111,7 @@ class PaymentsServiceTest {
                 userRepository, currencyRepository, currencyConversionService, mapper, defaultSortResolver,
                 storageProvider, emailService, messageSource, validatorCacheService, commissionService,
                 hierarchyOverrideService, corporateBillingResolver, presignedUrlPolicy, fileValidationService,
-                membershipChargeService, notificationChannelResolver, eventPublisher, promotionPricing,
+                membershipChargeService, membershipTermRenewalService, notificationChannelResolver, eventPublisher, promotionPricing,
                 personCreditService, companyBankAccountService, memberPromoterService, payerBankAccountService, paymentCreditClaimService,
                 payoutAccountRepository);
     }

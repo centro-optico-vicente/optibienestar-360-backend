@@ -41,6 +41,7 @@ public class AdminMembershipController {
 
     private final MembershipLifecycleService lifecycleService;
     private final com.fenixcore.optibienestar360.modules.membership.service.MembershipsService membershipsService;
+    private final com.fenixcore.optibienestar360.modules.membership.service.MembershipTermRenewalService termRenewalService;
 
     /**
      * Cross-member list with filters: affiliate text, advisor, plan, plan type, status (lifecycle or
@@ -73,6 +74,15 @@ public class AdminMembershipController {
             @PathVariable UUID uuid,
             @Valid @RequestBody(required = false) MembershipCancelRequest request) {
         return ResponseEntity.ok(lifecycleService.cancel(uuid, request));
+    }
+
+    /** Edit the term (expiry / re-inscription flag) of a membership — hub ADR 0034. */
+    @PutMapping("/{uuid}/term")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_TERM_UPDATE')")
+    public ResponseEntity<MembershipDto> updateTerm(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody com.fenixcore.optibienestar360.modules.membership.dto.MembershipTermUpdateRequest request) {
+        return ResponseEntity.ok(termRenewalService.updateTerm(uuid, request));
     }
 
     @PutMapping("/{uuid}/reactivate")

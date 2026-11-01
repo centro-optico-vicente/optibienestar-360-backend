@@ -41,6 +41,8 @@ public record AffiliationRequestDetailDto(
         @Display DisplayRef plan,
         @Display DisplayRef advisor,
         String referralCode,
+        @Display(Display.Kind.DATE) LocalDate expiresAtOverride,
+        @Display(Display.Kind.BOOLEAN) Boolean reinscriptionRequiredOverride,
         @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.channel") String channel,
         @Display DisplayRef createdBy,
         boolean passwordPending,

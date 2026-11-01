@@ -46,6 +46,7 @@ public class MembershipStatusService {
 
     private static final String REASON_SUSPENDED      = "Past due date";
     private static final String REASON_EXPIRED        = "Past grace period";
+    static final String REASON_REINSCRIPTION      = "Re-inscription pending";
     private static final String REASON_ACTIVE_SUBSIDY = "Active by full subsidy";
 
     private final MembershipRepository repository;
@@ -79,6 +80,12 @@ public class MembershipStatusService {
         if (!membership.isActive()) return null;
         if (LifecycleStatus.CANCELED.name().equals(membership.getStatus())) return null;
 
+        // A pending re-inscription (hub ADR 0034) holds the membership SUSPENDED, even with a full
+        // subsidy, until an approved inscription payment clears the flag.
+        if (membership.getInscriptionDueSince() != null) {
+            return LifecycleStatus.SUSPENDED;
+        }
+
         if (fullyExonerated) {
             return LifecycleStatus.ACTIVE;
         }
@@ -111,7 +118,7 @@ public class MembershipStatusService {
 
         membership.setStatus(target.name());
         membership.setLastStatusChangeAt(Instant.now());
-        membership.setLastStatusChangeReason(reasonFor(target));
+        membership.setLastStatusChangeReason(reasonFor(target, membership));
         promotionLifecycle.onStatusChanged(membership, target);
         return true;
     }
@@ -140,13 +147,20 @@ public class MembershipStatusService {
 
             membership.setStatus(target.name());
             membership.setLastStatusChangeAt(Instant.now());
-            membership.setLastStatusChangeReason(reasonFor(target));
+            membership.setLastStatusChangeReason(reasonFor(target, membership));
             promotionLifecycle.onStatusChanged(membership, target);
 
             if (target == LifecycleStatus.SUSPENDED) suspended++;
             else if (target == LifecycleStatus.EXPIRED) expired++;
         }
         return new BatchResult(candidates.size(), suspended, expired);
+    }
+
+    private static String reasonFor(LifecycleStatus target, Membership membership) {
+        if (target == LifecycleStatus.SUSPENDED && membership.getInscriptionDueSince() != null) {
+            return REASON_REINSCRIPTION;
+        }
+        return reasonFor(target);
     }
 
     private static String reasonFor(LifecycleStatus target) {

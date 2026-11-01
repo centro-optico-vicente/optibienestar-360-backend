@@ -157,7 +157,7 @@ public class AffiliationRequestService {
         Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
         return store(applicant, Channel.SELF_SERVICE, promoter, code, passwordEncoder.encode(req.password()),
-                client, null);
+                client, null, null, null);
     }
 
     /**
@@ -182,7 +182,7 @@ public class AffiliationRequestService {
         validateApplicant(applicant);
         String hash = req.password() == null || req.password().isBlank() ? null : passwordEncoder.encode(req.password());
         return store(applicant, Channel.ASSISTED, advisor, advisor.getReferralCode(), hash, client,
-                actor(advisorUserUuid));
+                actor(advisorUserUuid), req.expiresAt(), req.reinscriptionRequired());
     }
 
     /** The applicant fields both forms share. */
@@ -203,7 +203,8 @@ public class AffiliationRequestService {
     }
 
     private AffiliationRequestCreatedDto store(Applicant a, Channel channel, Promoter promoter, String code,
-                                               String passwordHash, ClientRequestMetadata client, User actor) {
+                                               String passwordHash, ClientRequestMetadata client, User actor,
+                                               LocalDate expiresAtOverride, Boolean reinscriptionOverride) {
         Plan plan = planRepository.findByUuid(a.planUuid()).orElse(null);
         requireSelfServicePlan(plan);
 
@@ -223,6 +224,8 @@ public class AffiliationRequestService {
         request.setPlan(plan);
         request.setPromoter(promoter);
         request.setReferralCode(code);
+        request.setExpiresAtOverride(expiresAtOverride);
+        request.setReinscriptionRequiredOverride(reinscriptionOverride);
         request.setPasswordHash(passwordHash);
         request.setTermsVersion(terms);
         String content = memberContractService.render(terms, applicantOf(request));
@@ -325,6 +328,8 @@ public class AffiliationRequestService {
         track(changes, "email", request.getEmail(), email);
         track(changes, "phone", request.getPhone(), blankToNull(req.phone()));
         track(changes, "plan", request.getPlan().getName(), plan.getName());
+        track(changes, "expiresAt", str(request.getExpiresAtOverride()), str(req.expiresAt()));
+        track(changes, "reinscriptionRequired", Objects.toString(request.getReinscriptionRequiredOverride(), null), Objects.toString(req.reinscriptionRequired(), null));
         if (changes.isEmpty()) {
             return toDetail(request);
         }
@@ -337,6 +342,8 @@ public class AffiliationRequestService {
         request.setEmail(email);
         request.setPhone(blankToNull(req.phone()));
         request.setPlan(plan);
+        request.setExpiresAtOverride(req.expiresAt());
+        request.setReinscriptionRequiredOverride(req.reinscriptionRequired());
 
         writeLog(request, Action.UPDATED, null, null, changes, blankToNull(req.comment()), actor(actorUuid));
         return toDetail(request);
@@ -384,7 +391,8 @@ public class AffiliationRequestService {
                 code));
 
         MembershipDto enrolled = membershipsService.enroll(memberDto.uuid(),
-                new MembershipCreateRequest(request.getPlan().getUuid(), null, null, null, null), actorUuid);
+                new MembershipCreateRequest(request.getPlan().getUuid(), null, request.getExpiresAtOverride(), null, null,
+                        request.getReinscriptionRequiredOverride()), actorUuid);
         Membership membership = membershipRepository.findByUuid(enrolled.uuid())
                 .orElseThrow(() -> new IllegalStateException("membership just created not found"));
         membership.setStatus(Membership.LifecycleStatus.SUSPENDED.name());
@@ -567,6 +575,7 @@ public class AffiliationRequestService {
                 r.getFirstName(), r.getLastName(), r.getFullName(), r.getDocumentType(), r.getDocumentNumber(),
                 r.getBirthDate(), r.getEmail(), r.getPhone(), r.getLocale(),
                 DisplayRefs.ref((Object) r.getPlan()), advisorRef(r.getPromoter()), r.getReferralCode(),
+                r.getExpiresAtOverride(), r.getReinscriptionRequiredOverride(),
                 r.getChannel(), createdByRef(r), r.getPasswordHash() == null,
                 terms == null ? null : DisplayRef.of(terms.getUuid(), null, terms.getTitle()),
                 r.getTermsRenderedContent(), r.getTermsContentSha256(), r.getTermsAcceptedAt(),

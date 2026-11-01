@@ -20,6 +20,9 @@ import java.util.UUID;
  * (calendar arithmetic) regardless of what the client sends — this prevents
  * the admin from accidentally enrolling someone with an overdue first
  * payment, and the daily status job stays simple.</p>
+ *
+ * <p>Term (hub ADR 0034): {@code expiresAt} (must be after {@code enrolledAt}) and {@code reinscriptionRequired}
+ * override what the plan defines; with neither, the plan's rule decides.</p>
  */
 public record MembershipCreateRequest(
         @NotNull UUID planUuid,
@@ -27,5 +30,10 @@ public record MembershipCreateRequest(
         LocalDate expiresAt,
         /** Optional promotion applied in the same transaction (hub ADR 0018); invalid → the whole enrollment fails. */
         UUID promotionUuid,
-        @Size(max = 20) String promotionCode
+        @Size(max = 20) String promotionCode,
+        /**
+         * Optional override of the plan's re-inscription flag (hub ADR 0034); null = inherit. {@code true} on a plan
+         * without a term rule needs an explicit {@code expiresAt} and renews every 12 months.
+         */
+        Boolean reinscriptionRequired
 ) {}

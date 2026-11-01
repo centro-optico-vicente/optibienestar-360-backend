@@ -13,6 +13,9 @@ import java.util.UUID;
 public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long>,
         JpaSpecificationExecutor<Beneficiary> {
 
+    /** True when the payment is the inscription of an extra beneficiary (not a membership re-inscription). */
+    boolean existsByInscriptionPaymentId(Long inscriptionPaymentId);
+
     Optional<Beneficiary> findByUuid(UUID uuid);
 
     List<Beneficiary> findByMemberIdAndActiveTrue(Long memberId, org.springframework.data.domain.Sort sort);

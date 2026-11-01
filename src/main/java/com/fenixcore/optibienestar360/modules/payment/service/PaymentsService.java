@@ -161,6 +161,7 @@ public class PaymentsService {
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final FileValidationService fileValidationService;
     private final MembershipChargeService membershipChargeService;
+    private final com.fenixcore.optibienestar360.modules.membership.service.MembershipTermRenewalService membershipTermRenewalService;
     private final NotificationChannelResolver notificationChannelResolver;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
@@ -1323,6 +1324,7 @@ public class PaymentsService {
             confirmMemberOnFirstApprovedPayment(payment);
             attributeCommission(payment);
             applyMembershipCharges(payment);
+            applyReinscription(payment);
             eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
         }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
@@ -1339,6 +1341,18 @@ public class PaymentsService {
             membershipChargeService.applyPayment(payment);
         } catch (RuntimeException ex) {
             log.error("Failed to apply membership charges for payment {}", payment.getUuid(), ex);
+        }
+    }
+
+    /**
+     * An approved inscription payment clears a pending membership re-inscription (hub ADR 0034) —
+     * best-effort, like {@link #applyMembershipCharges}.
+     */
+    private void applyReinscription(Payment payment) {
+        try {
+            membershipTermRenewalService.onInscriptionPaymentApproved(payment);
+        } catch (RuntimeException ex) {
+            log.error("Failed to clear re-inscription for payment {}", payment.getUuid(), ex);
         }
     }
 

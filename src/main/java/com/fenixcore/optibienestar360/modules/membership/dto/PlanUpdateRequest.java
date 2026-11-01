@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.membership.dto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import com.fenixcore.optibienestar360.modules.membership.entity.TermMode;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -45,5 +47,12 @@ public record PlanUpdateRequest(
         Instant publishedAt,
 
         Boolean active,
-        String status
+        String status,
+
+        /** Term (hub ADR 0034): {@code false} clears the whole rule; mode fields not belonging to the sent mode are cleared. */
+        Boolean reinscriptionRequired,
+        TermMode termMode,
+        @Min(1) @Max(12) Integer termFixedMonth,
+        @Min(1) @Max(28) Integer termFixedDay,
+        @Min(1) Integer termPeriodMonths
 ) {}

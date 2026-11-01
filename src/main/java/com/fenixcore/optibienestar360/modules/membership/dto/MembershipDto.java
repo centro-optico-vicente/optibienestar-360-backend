@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.membership.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
+import com.fenixcore.optibienestar360.modules.membership.entity.TermMode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -42,6 +43,18 @@ public record MembershipDto(
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
 
+        // Term (V220, hub ADR 0034): snapshot of the plan's rule; expiresAt is the end of the current term
+        @Display(Display.Kind.BOOLEAN) boolean reinscriptionRequired,
+        @Display(Display.Kind.ENUM) TermMode termMode,
+        Integer termFixedMonth,
+        Integer termFixedDay,
+        Integer termPeriodMonths,
+        @Display(Display.Kind.DATE) LocalDate termStartedAt,
+        /** Date since a re-inscription is pending (the membership stays SUSPENDED until it is paid); null = none. */
+        @Display(Display.Kind.DATE) LocalDate inscriptionDueSince,
+        /** True while a re-inscription is pending. */
+        @Display(Display.Kind.BOOLEAN) boolean inscriptionDue,
+
         // Pricing snapshot (ADR 0015 §6 Caso B — an active membership has no
         // payout snapshot; amountConverted/etc are a live conversion of
         // monthlyFee to the organization's official currency, computed by
@@ -77,6 +90,8 @@ public record MembershipDto(
             BigDecimal exchangeRateUsed, LocalDate exchangeRateDate) {
         return new MembershipDto(uuid, memberUuid, contractNumber, planUuid, planCode, planName, planType, campaign,
                 enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
+                reinscriptionRequired, termMode, termFixedMonth, termFixedDay, termPeriodMonths, termStartedAt,
+                inscriptionDueSince, inscriptionDue,
                 inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate, gracePeriodDays, inscriptionPaymentMethod,
                 status, lastStatusChangeAt, lastStatusChangeReason,
@@ -87,6 +102,8 @@ public record MembershipDto(
     public MembershipDto withInscriptionPaymentMethod(DisplayRef method) {
         return new MembershipDto(uuid, memberUuid, contractNumber, planUuid, planCode, planName, planType, campaign,
                 enrolledAt, expiresAt, nextDueDate, lastPaidThrough,
+                reinscriptionRequired, termMode, termFixedMonth, termFixedDay, termPeriodMonths, termStartedAt,
+                inscriptionDueSince, inscriptionDue,
                 inscriptionFee, monthlyFee, currency_Code, amountConverted, convertedCurrency_Code,
                 exchangeRateUsed, exchangeRateDate, gracePeriodDays, method,
                 status, lastStatusChangeAt, lastStatusChangeReason,

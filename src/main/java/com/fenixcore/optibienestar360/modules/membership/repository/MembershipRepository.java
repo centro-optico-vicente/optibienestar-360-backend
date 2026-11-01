@@ -56,6 +56,21 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
     List<Membership> findStatusEvaluationCandidates(@Param("today") LocalDate today);
 
     /**
+     * Term-renewal job (V220, hub ADR 0034): live memberships that require re-inscription and whose term
+     * ended ({@code expires_at <= today}). Backed by the partial index {@code idx_memberships_term_expiry}.
+     * CANCELED rows are soft-deleted and EXPIRED ones are left to a manual reactivation.
+     */
+    @Query("""
+            SELECT m FROM Membership m
+            WHERE m.active = true
+              AND m.reinscriptionRequired = true
+              AND m.status IN ('ACTIVE', 'SUSPENDED')
+              AND m.expiresAt IS NOT NULL
+              AND m.expiresAt <= :today
+            """)
+    List<Membership> findTermRenewalCandidates(@Param("today") LocalDate today);
+
+    /**
      * Payment-reminder job (vertical-9): live ACTIVE memberships whose
      * {@code next_due_date} falls exactly on {@code dueDate} (the job passes
      * {@code today + 3} so the reminder fires once, three days ahead of the

@@ -188,7 +188,6 @@ public class MembershipsService {
         membership.setMember(member);
         membership.setPlan(plan);
         membership.setEnrolledAt(enrolledAt);
-        membership.setExpiresAt(req.expiresAt());
         // First payment is due one month after enrollment. Calendar arithmetic
         // matches Jan 15 → Feb 15 rather than Feb 14 from +30 days.
         membership.setNextDueDate(enrolledAt.plusMonths(1));
@@ -203,6 +202,9 @@ public class MembershipsService {
         membership.setMonthlyFee(plan.getMonthlyFee());
         membership.setCurrency(plan.getCurrency());
         membership.setGracePeriodDays(plan.getGracePeriodDays());
+
+        // Term snapshot (V220, hub ADR 0034): the plan's rule + first expiry, honoring the overrides.
+        MembershipTermRenewalService.snapshotTerm(membership, plan, enrolledAt, req.expiresAt(), req.reinscriptionRequired());
 
         // Lifecycle starts at ACTIVE. The CHECK constraint pins status to
         // exactly the four LifecycleStatus values; using the enum's name()
