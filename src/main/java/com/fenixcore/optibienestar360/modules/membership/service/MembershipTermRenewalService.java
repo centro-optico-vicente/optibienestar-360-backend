@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -163,9 +165,40 @@ public class MembershipTermRenewalService {
         if (payment.getId() != null && beneficiaryRepository.existsByInscriptionPaymentId(payment.getId())) {
             return false;
         }
+        if (!coversInscriptionFee(payment, membership)) {
+            log.info("Inscription payment {} does not cover the membership inscription fee; re-inscription stays pending",
+                    payment.getUuid());
+            return false;
+        }
         membership.setInscriptionDueSince(null);
         reevaluate(membership, REASON_REINSCRIPTION_PAID);
         return true;
+    }
+
+    /**
+     * Whether the payment's net amount, expressed in the membership's currency, reaches the membership's
+     * snapshotted {@code inscription_fee}. A payment in another currency is converted with the rate
+     * snapshotted at approval ({@code exchange_rate_used}); when that rate is missing the amounts cannot be
+     * compared, so the payment is accepted as before (finance already reviewed it).
+     */
+    private static boolean coversInscriptionFee(Payment payment, Membership membership) {
+        BigDecimal fee = membership.getInscriptionFee();
+        if (fee == null || fee.signum() <= 0) {
+            return true;
+        }
+        BigDecimal paid = payment.netAmount();
+        if (paid == null) {
+            return false;
+        }
+        boolean sameCurrency = membership.getCurrency() == null || payment.getCurrency() == null
+                || membership.getCurrency().getId().equals(payment.getCurrency().getId());
+        if (!sameCurrency) {
+            if (payment.getExchangeRateUsed() == null) {
+                return true;
+            }
+            paid = paid.multiply(payment.getExchangeRateUsed());
+        }
+        return paid.setScale(2, RoundingMode.HALF_UP).compareTo(fee.setScale(2, RoundingMode.HALF_UP)) >= 0;
     }
 
     /** Re-evaluates the date-driven status right away; when it stays unchanged nothing is written. */
