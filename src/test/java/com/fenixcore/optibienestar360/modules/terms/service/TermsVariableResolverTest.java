@@ -27,6 +27,9 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.membership.service.InscriptionPaymentMethodResolver;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonProfessionalLicenseRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -69,6 +72,7 @@ class TermsVariableResolverTest {
     @Mock private AllyProductRepository allyProductRepository;
     @Mock private PersonProfessionalLicenseRepository licenseRepository;
     @Mock private InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
+    @Mock private PaymentRepository paymentRepository;
 
     private TermsVariableResolver resolver;
     private DisplayFormatter formatter;
@@ -82,7 +86,7 @@ class TermsVariableResolverTest {
         formatter = new DisplayFormatter(messageSource);
         resolver = new TermsVariableResolver(memberRepository, membershipRepository, beneficiaryRepository,
                 formatter, organizationRepository, allyProductRepository, licenseRepository,
-                inscriptionPaymentMethodResolver);
+                inscriptionPaymentMethodResolver, paymentRepository);
     }
 
     // ─── MEMBER ─────────────────────────────────────────────────────────────
@@ -560,7 +564,127 @@ class TermsVariableResolverTest {
                 .isEqualTo("[Modalidad de pago pendiente] · [Monto de activación pendiente]");
     }
 
+    // ─── MEMBER: advisor and extra slots, organization signatory ────────────
+
+    @Test
+    void member_advisorIsThePromoterOfTheMember() {
+        User user = memberWithPlan(plan(null));
+        Member member = memberRepository.findByUserUuid(user.getUuid()).orElseThrow();
+        Promoter advisor = new Promoter();
+        advisor.setReferralCode("ASE001");
+        advisor.setPerson(person("José Rodríguez", "V", "15678901", null));
+        member.setPromoter(advisor);
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(values).containsEntry("membership.advisorCode", "ASE001")
+                .containsEntry("membership.advisorFullName", "José Rodríguez");
+    }
+
+    @Test
+    void member_withoutAdvisor_rendersTheAdvisorAsPending() {
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan(null)));
+
+        assertThat(render("{{membership.advisorCode}} · {{membership.advisorFullName}}", values))
+                .isEqualTo("[Código de asesor pendiente] · [Asesor pendiente]");
+    }
+
+    @Test
+    void applicant_advisorIsTheOneOfTheReferralCode() {
+        Promoter advisor = new Promoter();
+        advisor.setReferralCode("ASE002");
+        advisor.setDisplayName("Luis Pérez");
+
+        Map<String, String> values = resolver.forApplicant(
+                new MemberTermsApplicant("Ana", "Ruiz", "V", "1234567", null, null, advisor));
+
+        assertThat(values).containsEntry("membership.advisorCode", "ASE002")
+                .containsEntry("membership.advisorFullName", "Luis Pérez");
+        assertThat(resolver.forApplicant(new MemberTermsApplicant("Ana", "Ruiz", "V", "1234567", null, null, null)))
+                .doesNotContainKeys("membership.advisorCode", "membership.advisorFullName");
+    }
+
+    @Test
+    void member_withoutExtraSlots_saysNoAndLeavesTheAmountPending() {
+        User user = memberWithPlan(plan(null));
+        when(beneficiaryRepository.findByMemberIdAndActiveTrue(eq(5L), any(Sort.class)))
+                .thenReturn(List.of(beneficiary(Beneficiary.SlotType.BASE, null)));
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(values).containsEntry("membership.hasExtraSlots", "No")
+                .containsEntry("membership.extraSlotsCount", "0")
+                .doesNotContainKey("membership.extraSlotsAmount");
+        assertThat(render("{{membership.extraSlotsAmount}}", values)).isEqualTo("[Monto adicional pendiente]");
+        verifyNoInteractions(paymentRepository);
+    }
+
+    @Test
+    void member_extraSlotsAmountSumsTheApprovedInscriptionPaymentsOfTheExtraBeneficiaries() {
+        User user = memberWithPlan(plan(null));
+        when(beneficiaryRepository.findByMemberIdAndActiveTrue(eq(5L), any(Sort.class))).thenReturn(List.of(
+                beneficiary(Beneficiary.SlotType.BASE, 99L),
+                beneficiary(Beneficiary.SlotType.EXTRA, 10L),
+                beneficiary(Beneficiary.SlotType.EXTRA, 11L),
+                beneficiary(Beneficiary.SlotType.EXTRA, 12L)));
+        Currency usd = currency("USD", "Dólar estadounidense");
+        when(paymentRepository.findAllById(List.of(10L, 11L, 12L))).thenReturn(List.of(
+                payment("APPROVED", "5.00", usd), payment("APPROVED", "5.00", usd), payment("PENDING", "5.00", usd)));
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(values).containsEntry("membership.hasExtraSlots", "Sí")
+                .containsEntry("membership.extraSlotsCount", "3")
+                .containsEntry("membership.extraSlotsAmount",
+                        formatter.money(new BigDecimal("10.00"), "USD", TermsVariableResolver.CONTRACT_LOCALE));
+    }
+
+    @Test
+    void member_extraSlotsChargedButNotApproved_leaveTheAmountPending() {
+        User user = memberWithPlan(plan(null));
+        when(beneficiaryRepository.findByMemberIdAndActiveTrue(eq(5L), any(Sort.class)))
+                .thenReturn(List.of(beneficiary(Beneficiary.SlotType.EXTRA, 10L)));
+        when(paymentRepository.findAllById(List.of(10L)))
+                .thenReturn(List.of(payment("PENDING", "5.00", currency("USD", "Dólar"))));
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(values).containsEntry("membership.hasExtraSlots", "Sí")
+                .doesNotContainKey("membership.extraSlotsAmount");
+    }
+
+    @Test
+    void organization_signatoryRendersNameDocumentAndPosition() {
+        Organization organization = new Organization();
+        organization.setSignatoryName("Ana Gómez");
+        organization.setSignatoryDocumentType("V");
+        organization.setSignatoryDocumentNumber("12345678");
+        organization.setSignatoryPosition("Gerente general");
+        String template = "{{org.signatoryName}} · C.I. {{org.signatoryDocument}} · {{org.signatoryPosition}}";
+
+        assertThat(TermsTemplateRenderer.render(template, organization, Map.of()))
+                .isEqualTo("Ana Gómez · C.I. V-12345678 · Gerente general");
+        assertThat(TermsTemplateRenderer.render(template, new Organization(), Map.of()))
+                .isEqualTo("[Nombre del firmante autorizado pendiente] · C.I. [Cédula del firmante autorizado pendiente]"
+                        + " · [Cargo del firmante autorizado pendiente]");
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────
+
+    private static Beneficiary beneficiary(Beneficiary.SlotType slot, Long paymentId) {
+        Beneficiary beneficiary = new Beneficiary();
+        beneficiary.setSlotType(slot);
+        beneficiary.setInscriptionPaymentId(paymentId);
+        return beneficiary;
+    }
+
+    private static Payment payment(String status, String amount, Currency currency) {
+        Payment payment = new Payment();
+        payment.setStatus(status);
+        payment.setAmount(new BigDecimal(amount));
+        payment.setCurrency(currency);
+        return payment;
+    }
 
     private void officialCurrencyIs(Currency official) {
         Organization organization = new Organization();

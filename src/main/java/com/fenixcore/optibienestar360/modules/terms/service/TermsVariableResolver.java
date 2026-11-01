@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
@@ -24,6 +25,8 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.membership.service.InscriptionPaymentMethodResolver;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.entity.PersonProfessionalLicense;
 import com.fenixcore.optibienestar360.modules.person.entity.PersonProfessionalLicense.VerificationStatus;
@@ -90,6 +93,7 @@ public class TermsVariableResolver {
     private final AllyProductRepository allyProductRepository;
     private final PersonProfessionalLicenseRepository licenseRepository;
     private final InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
+    private final PaymentRepository paymentRepository;
 
     /**
      * MEMBER values for {@code user}. The holder is the user's member record;
@@ -110,6 +114,8 @@ public class TermsVariableResolver {
         }
         put(values, "beneficiaries.count",
                 number(beneficiaryRepository.countByMemberIdAndActiveTrue(member.getId())));
+        putAdvisor(values, member.getPromoter());
+        putExtraSlots(values, member);
         membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).ifPresent(membership -> {
             Plan plan = membership.getPlan();
             put(values, "membership.planName", plan == null ? null : plan.getName());
@@ -118,6 +124,41 @@ public class TermsVariableResolver {
             if (plan != null) putPlan(values, plan);
         });
         return values;
+    }
+
+    /** {@code membership.advisorCode} / {@code membership.advisorFullName} of the affiliate's advisor; nothing without one. */
+    private void putAdvisor(Map<String, String> values, Promoter advisor) {
+        if (advisor == null) return;
+        put(values, "membership.advisorCode", advisor.getReferralCode());
+        put(values, "membership.advisorFullName", advisorName(advisor));
+    }
+
+    /**
+     * Extra beneficiary slots of the member ("Extensión de blindaje"): the
+     * active {@code EXTRA} beneficiaries. The amount is what their approved
+     * inscription payments (the {@code inscription_payment_id} link) added up
+     * to, per currency; with no approved payment it stays pending.
+     */
+    private void putExtraSlots(Map<String, String> values, Member member) {
+        List<Beneficiary> extras = beneficiaryRepository
+                .findByMemberIdAndActiveTrue(member.getId(), Sort.by("id")).stream()
+                .filter(b -> b.getSlotType() == Beneficiary.SlotType.EXTRA)
+                .toList();
+        put(values, "membership.hasExtraSlots", displayFormatter.bool(!extras.isEmpty(), CONTRACT_LOCALE));
+        put(values, "membership.extraSlotsCount", number(extras.size()));
+        List<Long> paymentIds = extras.stream().map(Beneficiary::getInscriptionPaymentId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (paymentIds.isEmpty()) return;
+        Map<String, BigDecimal> byCurrency = new LinkedHashMap<>();
+        for (Payment payment : paymentRepository.findAllById(paymentIds)) {
+            if (!Payment.PaymentStatus.APPROVED.name().equals(payment.getStatus()) || payment.getAmount() == null) continue;
+            String code = payment.getCurrency() == null ? null : payment.getCurrency().getCode();
+            byCurrency.merge(code == null ? "" : code, payment.netAmount(), BigDecimal::add);
+        }
+        put(values, "membership.extraSlotsAmount", byCurrency.entrySet().stream()
+                .map(e -> plainMoney(e.getValue(), e.getKey().isEmpty() ? null : e.getKey()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" + ")));
     }
 
     /** The {@code plan.*} fees and beneficiary limits of the member's current plan. */
@@ -181,6 +222,7 @@ public class TermsVariableResolver {
         put(values, "member.fullName", applicant.fullName());
         put(values, "member.document", document(applicant.documentType(), applicant.documentNumber()));
         put(values, "member.birthDate", date(applicant.birthDate()));
+        putAdvisor(values, applicant.advisor());
         if (applicant.plan() != null) {
             put(values, "membership.planName", applicant.plan().getName());
             putPlan(values, applicant.plan());

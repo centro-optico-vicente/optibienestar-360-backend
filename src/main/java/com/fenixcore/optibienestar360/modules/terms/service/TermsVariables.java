@@ -136,7 +136,10 @@ public final class TermsVariables {
             new Variable("org.serviceArea", "[Zona de cobertura pendiente]", null),
             new Variable("org.address", "[Dirección de la organización pendiente]", null),
             new Variable("org.email", "[Correo de la organización pendiente]", null),
-            new Variable("org.phones", "[Teléfonos de la organización pendientes]", null)
+            new Variable("org.phones", "[Teléfonos de la organización pendientes]", null),
+            new Variable("org.signatoryName", "[Nombre del firmante autorizado pendiente]", null),
+            new Variable("org.signatoryDocument", "[Cédula del firmante autorizado pendiente]", null),
+            new Variable("org.signatoryPosition", "[Cargo del firmante autorizado pendiente]", null)
     );
 
     static final List<Variable> MEMBER = List.of(
@@ -155,6 +158,12 @@ public final class TermsVariables {
                     "3"),
             new Variable("plan.maxBeneficiaries", Kind.NUMBER, "[Máximo de beneficiarios del plan pendiente]", "5"),
             new Variable("membership.inscriptionPaymentMethod", "[Modalidad de pago pendiente]", "Pago móvil"),
+            new Variable("membership.advisorCode", "[Código de asesor pendiente]", "ASE001"),
+            new Variable("membership.advisorFullName", "[Asesor pendiente]", "José Antonio Rodríguez"),
+            new Variable("membership.hasExtraSlots", Kind.BOOLEAN, "[Cupos extra pendiente]", "Sí"),
+            new Variable("membership.extraSlotsCount", Kind.NUMBER, "[Cupos extra pendiente]", "2"),
+            new Variable("membership.extraSlotsAmount", Kind.MONEY, "[Monto adicional pendiente]",
+                    "US$ 10,00"),
             new Variable("membership.activationFeeLabel", "[Monto de activación pendiente]",
                     "inscripción de US$ 10,00 y primera mensualidad de US$ 25,00, "
                             + TermsVariableResolver.MONEY_PAYMENT_CLAUSE_VES)

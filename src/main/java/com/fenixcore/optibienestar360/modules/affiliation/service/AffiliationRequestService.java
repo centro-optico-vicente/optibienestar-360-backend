@@ -484,7 +484,7 @@ public class AffiliationRequestService {
     private static MemberTermsApplicant applicantOf(AffiliationRequest request) {
         return new MemberTermsApplicant(request.getFirstName(), request.getLastName(),
                 request.getDocumentType(), request.getDocumentNumber(), request.getBirthDate(),
-                request.getPlan());
+                request.getPlan(), request.getPromoter());
     }
 
     private static Specification<AffiliationRequest> withStatus(Status status) {

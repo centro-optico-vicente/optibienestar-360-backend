@@ -29,5 +29,9 @@ public record OrganizationDto(
         String serviceArea,
         String address,
         String email,
-        String phones
+        String phones,
+        String signatoryName,
+        String signatoryDocumentType,
+        String signatoryDocumentNumber,
+        String signatoryPosition
 ) {}

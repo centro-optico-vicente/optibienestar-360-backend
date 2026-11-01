@@ -82,13 +82,52 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null));
+                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null));
 
         assertThat(result.name()).isEqualTo("Nuevo nombre");
         assertThat(result.legalName()).isEqualTo("Nuevo nombre legal");
         assertThat(result.officialCurrency().code()).isEqualTo("VES"); // untouched (null in request)
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched (null in request)
         assertThat(result.autoApproveCommissions()).isFalse();
+    }
+
+    @Test
+    void updateMineSetsTheSignatoryTrimmedAndBlankAsNull() {
+        Currency ves = currency(UUID.randomUUID(), "VES", "Bolívar venezolano");
+        Currency usd = currency(UUID.randomUUID(), "USD", "Dólar estadounidense");
+        when(repository.findSingleton()).thenReturn(organization(ves, usd));
+        when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizationDto filled = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
+                        null, null, null, null, null, null, " Ana Gómez ", "V", " 12345678 ", " Gerente general "));
+
+        assertThat(filled.signatoryName()).isEqualTo("Ana Gómez");
+        assertThat(filled.signatoryDocumentType()).isEqualTo("V");
+        assertThat(filled.signatoryDocumentNumber()).isEqualTo("12345678");
+        assertThat(filled.signatoryPosition()).isEqualTo("Gerente general");
+
+        OrganizationDto cleared = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
+                        null, null, null, null, null, null, "  ", " ", "", " "));
+
+        assertThat(cleared.signatoryName()).isNull();
+        assertThat(cleared.signatoryDocumentType()).isNull();
+        assertThat(cleared.signatoryDocumentNumber()).isNull();
+        assertThat(cleared.signatoryPosition()).isNull();
+    }
+
+    @Test
+    void updateMineRejectsASignatoryDocumentWithoutItsPair() {
+        Currency ves = currency(UUID.randomUUID(), "VES", "Bolívar venezolano");
+        Currency usd = currency(UUID.randomUUID(), "USD", "Dólar estadounidense");
+        when(repository.findSingleton()).thenReturn(organization(ves, usd));
+
+        assertThatThrownBy(() -> service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
+                        null, null, null, null, null, null, null, "V", null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("organization.signatory_document.incomplete");
     }
 
     @Test
@@ -100,7 +139,8 @@ class OrganizationServiceTest {
 
         OrganizationDto result = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, " Av. 30 con Calle 21, Acarigua ", "planoptibienestar360@gmail.com", "  "));
+                        null, null, null, " Av. 30 con Calle 21, Acarigua ", "planoptibienestar360@gmail.com", "  ",
+                        null, null, null, null));
 
         assertThat(result.address()).isEqualTo("Av. 30 con Calle 21, Acarigua");
         assertThat(result.email()).isEqualTo("planoptibienestar360@gmail.com");
@@ -115,7 +155,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null, null, null, null, null));
 
         assertThat(result.autoApproveCommissions()).isTrue();
     }
@@ -133,7 +173,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null, null, null, null, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -149,7 +189,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
