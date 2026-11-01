@@ -22,5 +22,8 @@ public record DigitalCardDto(
         @Display(value = Display.Kind.ENUM, enumScope = "membership.status") String membershipStatus,
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate memberSince,
+        /** End of the current term (hub ADR 0034); null = open-ended or no active membership. */
+        @Display(Display.Kind.DATE) LocalDate expiresAt,
+        boolean inscriptionDue,
         String qrCodeDataUri
 ) {}

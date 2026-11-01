@@ -141,4 +141,14 @@ class FlywayMigrationIT {
         assertEquals(2, grants);
     }
 
+    @Test
+    void digitalCardViewExposesTheMembershipTerm() {
+        // V223: expires_at and inscription_due_since appended to digital_cards_view.
+        Integer columns = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'app' "
+                        + "AND table_name = 'digital_cards_view' AND column_name IN ('expires_at', 'inscription_due_since')",
+                Integer.class);
+        assertEquals(2, columns);
+    }
+
 }
