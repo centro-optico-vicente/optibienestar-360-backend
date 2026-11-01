@@ -2,16 +2,22 @@ package com.fenixcore.optibienestar360.modules.bank.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A bank account owned by the company (V201): where affiliates deposit. A payer
@@ -25,10 +31,16 @@ import lombok.Setter;
 @AttributeOverride(name = "id", column = @Column(name = "company_bank_accounts_id", nullable = false, updatable = false))
 public class CompanyBankAccount extends BaseEntity {
 
-    /** How money moves through this account (V206); its is_mandatory_* flags decide which fields below are required. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "payment_method_id", nullable = false)
-    private com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod paymentMethod;
+    /**
+     * The methods this account accepts (V218). What it must hold is the sum of the is_mandatory_* checks of all of
+     * them, validated by the service.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "company_bank_account_payment_methods",
+            joinColumns = @JoinColumn(name = "company_bank_account_id"),
+            inverseJoinColumns = @JoinColumn(name = "payment_method_id"))
+    private Set<PaymentMethod> paymentMethods = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bank_id")

@@ -460,11 +460,16 @@ public class PaymentsService {
         line.setEmail(email);
         line.setReferenceNumber(referenceNumber);
         // Both ends of a payout (V206): the company account it leaves from and the advisor account it goes to.
-        line.setCompanyBankAccount(companyBankAccountService.resolveActive(companyBankAccountUuid));
-        line.setPayoutAccount(payoutAccountUuid == null ? null : payoutAccountRepository.findByUuid(payoutAccountUuid)
+        line.setCompanyBankAccount(resolveCompanyAccountFor(companyBankAccountUuid, method));
+        var payoutAccount = payoutAccountUuid == null ? null : payoutAccountRepository.findByUuid(payoutAccountUuid)
                 .filter(com.fenixcore.optibienestar360.modules.promoter.entity.PromoterPayoutAccount::isActive)
                 .filter(a -> a.getPromoter() != null && a.getPromoter().getId().equals(promoter.getId()))
-                .orElseThrow(() -> new NoSuchElementException("promoter_payout_account.not_found")));
+                .orElseThrow(() -> new NoSuchElementException("promoter_payout_account.not_found"));
+        if (payoutAccount != null && !com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutAccountsService
+                .accepts(payoutAccount, method)) {
+            throw new IllegalArgumentException("promoter_payout_account.method_not_accepted");
+        }
+        line.setPayoutAccount(payoutAccount);
         line.setStatus(payment.getStatus() == null ? PaymentStatus.DRAFT.name() : payment.getStatus());
     }
 
@@ -795,8 +800,21 @@ public class PaymentsService {
         line.setPhone(req.phone());
         line.setEmail(req.email());
         line.setReferenceNumber(req.referenceNumber());
-        line.setCompanyBankAccount(companyBankAccountService.resolveActive(req.companyBankAccountUuid()));
+        line.setCompanyBankAccount(resolveCompanyAccountFor(req.companyBankAccountUuid(), method));
         return line;
+    }
+
+    /**
+     * The company account a line says it was paid into / paid from (none = not indicated), which must accept the
+     * line's payment method (V218): a Pago Móvil line cannot point at an account that only takes transfers.
+     */
+    private com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount resolveCompanyAccountFor(
+            UUID companyBankAccountUuid, com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method) {
+        var account = companyBankAccountService.resolveActive(companyBankAccountUuid);
+        if (account != null && !com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService.accepts(account, method)) {
+            throw new IllegalArgumentException("company_bank_account.method_not_accepted");
+        }
+        return account;
     }
 
     private static void validateMandatoryFields(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method,
