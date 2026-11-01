@@ -45,7 +45,12 @@ import java.util.regex.Matcher;
 @RequiredArgsConstructor
 public class TermsTemplateRenderer {
 
-    /** Commercial brand shown in the contracts (the client documents alternate "360" / "360°"). */
+    /**
+     * Fallback commercial brand, used only while the organization has no
+     * commercial name. {@code {{brand.name}}} normally comes from
+     * {@link Organization#getName()}, so a change on the Organization screen
+     * reaches every contract (the client documents alternate "360" / "360°").
+     */
     public static final String BRAND_NAME = "OPTIBIENESTAR 360";
 
     /** Organization placeholder → value extractor (the fallback note lives in {@link TermsVariables}). */
@@ -190,7 +195,8 @@ public class TermsTemplateRenderer {
     /** {@code null} = not a known variable, leave the placeholder as written. */
     private static String resolve(String key, Organization organization, Map<String, String> values) {
         if (TermsVariables.BRAND_NAME.equals(key)) {
-            return BRAND_NAME;
+            String commercialName = organization == null ? null : organization.getName();
+            return commercialName == null || commercialName.isBlank() ? BRAND_NAME : commercialName.trim();
         }
         Function<Organization, String> extractor = ORG_EXTRACTORS.get(key);
         if (extractor != null) {

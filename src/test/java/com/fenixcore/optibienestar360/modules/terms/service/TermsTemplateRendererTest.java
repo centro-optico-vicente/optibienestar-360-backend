@@ -45,7 +45,7 @@ class TermsTemplateRendererTest {
 
         String rendered = TermsTemplateRenderer.render(template, organization());
 
-        assertThat(rendered).isEqualTo("Entre **CENTRO ÓPTICO VICENTE CONSULTING, C.A.** (\"**OPTIBIENESTAR 360**\"), "
+        assertThat(rendered).isEqualTo("Entre **CENTRO ÓPTICO VICENTE CONSULTING, C.A.** (\"**OptiBienestar 360**\"), "
                 + "Registro Mercantil del estado Portuguesa, RIF **J-12345678-9**, en el eje Acarigua-Araure, "
                 + "ciudad de Acarigua.");
     }
@@ -88,6 +88,23 @@ class TermsTemplateRendererTest {
         String rendered = TermsTemplateRenderer.render("RIF {{org.taxId}} · estado {{org.registryState}}", org);
 
         assertThat(rendered).isEqualTo("RIF [RIF pendiente] · estado [Estado del registro pendiente]");
+    }
+
+    @Test
+    void brandIsTheOrganizationsCommercialNameWhenSet() {
+        Organization org = organization();
+        org.setName("  OptiBienestar 360 ");
+
+        assertThat(TermsTemplateRenderer.render("{{brand.name}} · {{org.legalName}}", org))
+                .isEqualTo("OptiBienestar 360 · CENTRO ÓPTICO VICENTE CONSULTING, C.A.");
+    }
+
+    @Test
+    void blankCommercialNameFallsBackToTheDefaultBrand() {
+        Organization org = organization();
+        org.setName("   ");
+
+        assertThat(TermsTemplateRenderer.render("{{brand.name}}", org)).isEqualTo("OPTIBIENESTAR 360");
     }
 
     @Test
