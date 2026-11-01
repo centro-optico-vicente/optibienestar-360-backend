@@ -91,7 +91,7 @@ class AffiliationRequestControllersIT {
         return new AffiliationRequestDetailDto(UUID.randomUUID(),
                 "María", "Pérez", "María Pérez", "V", "12345678", LocalDate.of(1985, 3, 15),
                 "maria@example.com", null, "es",
-                null, null, null,
+                null, null, null, null, null,
                 "SELF_SERVICE", null, false,
                 null, "Contrato", "abc", Instant.parse("2026-10-20T14:00:00Z"), null, null, false,
                 status, null, null, null,

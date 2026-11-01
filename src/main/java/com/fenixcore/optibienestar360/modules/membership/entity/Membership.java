@@ -120,6 +120,33 @@ public class Membership extends BaseEntity {
     @Column(name = "grace_period_days", nullable = false)
     private int gracePeriodDays;
 
+    // ─── Term snapshot (V220, hub ADR 0034) ─────────────────────────────────
+
+    /** Snapshot of the plan's re-inscription flag; without it the membership is open-ended. */
+    @Column(name = "reinscription_required", nullable = false)
+    private boolean reinscriptionRequired = false;
+
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "term_mode", length = 20)
+    private TermMode termMode;
+
+    @Column(name = "term_fixed_month")
+    private Integer termFixedMonth;
+
+    @Column(name = "term_fixed_day")
+    private Integer termFixedDay;
+
+    @Column(name = "term_period_months")
+    private Integer termPeriodMonths;
+
+    /** Start of the current term; {@link #expiresAt} is its end. */
+    @Column(name = "term_started_at")
+    private LocalDate termStartedAt;
+
+    /** Set while a re-inscription is pending: the membership stays SUSPENDED until an inscription payment is applied. */
+    @Column(name = "inscription_due_since")
+    private LocalDate inscriptionDueSince;
+
     // ─── Status transition audit (last transition only) ────────────────────
 
     @Column(name = "last_status_change_at")

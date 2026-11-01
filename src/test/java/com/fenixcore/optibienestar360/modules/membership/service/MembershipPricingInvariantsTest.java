@@ -103,7 +103,7 @@ class MembershipPricingInvariantsTest {
         // enroll() reads the saved membership (id for the credit hook, DTO mapping), so save() must echo it back.
         when(membershipRepository.save(org.mockito.ArgumentMatchers.any(Membership.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null, null, null), null);
+        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null, null, null, null), null);
 
         ArgumentCaptor<Membership> captor = ArgumentCaptor.forClass(Membership.class);
         verify(membershipRepository, atLeastOnce()).save(captor.capture());

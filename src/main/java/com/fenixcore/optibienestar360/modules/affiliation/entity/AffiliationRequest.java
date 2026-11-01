@@ -92,6 +92,14 @@ public class AffiliationRequest extends BaseEntity {
     @JoinColumn(name = "promoter_id")
     private Promoter promoter;
 
+    /** Optional override of the first expiry chosen by the advisor / reviewer (V220, hub ADR 0034); null = inherit from the plan. */
+    @Column(name = "expires_at_override")
+    private LocalDate expiresAtOverride;
+
+    /** Optional override of the plan's re-inscription flag (V220); null = inherit. */
+    @Column(name = "reinscription_required_override")
+    private Boolean reinscriptionRequiredOverride;
+
     @Column(name = "referral_code", length = 20)
     private String referralCode;
 

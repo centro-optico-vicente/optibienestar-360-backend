@@ -101,6 +101,27 @@ public class Plan extends BaseEntity {
     @Column(name = "min_members")
     private Integer minMembers;
 
+    // ─── Term (V220, hub ADR 0034) ──────────────────────────────────────────
+
+    /** The plan requires re-inscription each term; only then does a term (expiry) make sense. */
+    @Column(name = "reinscription_required", nullable = false)
+    private boolean reinscriptionRequired = false;
+
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "term_mode", length = 20)
+    private TermMode termMode;
+
+    /** FIXED_DATE: month (1-12) and day (1-28) of the annual expiry. */
+    @Column(name = "term_fixed_month")
+    private Integer termFixedMonth;
+
+    @Column(name = "term_fixed_day")
+    private Integer termFixedDay;
+
+    /** PERIOD: months after enrollment. */
+    @Column(name = "term_period_months")
+    private Integer termPeriodMonths;
+
     // ─── Lifecycle ──────────────────────────────────────────────────────────
 
     @Column(name = "grace_period_days", nullable = false)
