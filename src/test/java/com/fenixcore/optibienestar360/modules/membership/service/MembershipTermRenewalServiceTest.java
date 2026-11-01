@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -249,6 +250,48 @@ class MembershipTermRenewalServiceTest {
 
         assertThat(service.onInscriptionPaymentApproved(payment)).isFalse();
         assertThat(m.getInscriptionDueSince()).isNotNull();
+    }
+
+    @Test
+    void inscriptionPayment_belowTheInscriptionFee_doesNotClearDue() {
+        Membership m = termMembership(MembershipTermRule.period(12), LocalDate.of(2027, 11, 1), LifecycleStatus.SUSPENDED);
+        m.setInscriptionDueSince(LocalDate.of(2026, 11, 1));
+        m.setInscriptionFee(new BigDecimal("25.00"));
+        Payment payment = inscriptionPayment(m, 9L);
+        payment.setAmount(new BigDecimal("10.00"));
+        when(beneficiaryRepository.existsByInscriptionPaymentId(9L)).thenReturn(false);
+
+        assertThat(service.onInscriptionPaymentApproved(payment)).isFalse();
+        assertThat(m.getInscriptionDueSince()).isNotNull();
+        assertThat(m.getStatus()).isEqualTo("SUSPENDED");
+    }
+
+    @Test
+    void inscriptionPayment_netOfDiscountBelowTheFee_doesNotClearDue() {
+        Membership m = termMembership(MembershipTermRule.period(12), LocalDate.of(2027, 11, 1), LifecycleStatus.SUSPENDED);
+        m.setInscriptionDueSince(LocalDate.of(2026, 11, 1));
+        m.setInscriptionFee(new BigDecimal("25.00"));
+        Payment payment = inscriptionPayment(m, 10L);
+        payment.setAmount(new BigDecimal("25.00"));
+        payment.setDiscountAmount(new BigDecimal("5.00"));
+        when(beneficiaryRepository.existsByInscriptionPaymentId(10L)).thenReturn(false);
+
+        assertThat(service.onInscriptionPaymentApproved(payment)).isFalse();
+        assertThat(m.getInscriptionDueSince()).isNotNull();
+    }
+
+    @Test
+    void inscriptionPayment_coveringTheFee_clearsDue() {
+        Membership m = termMembership(MembershipTermRule.period(12), LocalDate.of(2027, 11, 1), LifecycleStatus.SUSPENDED);
+        m.setInscriptionDueSince(LocalDate.of(2026, 11, 1));
+        m.setNextDueDate(LocalDate.now().plusDays(10));
+        m.setInscriptionFee(new BigDecimal("25.00"));
+        Payment payment = inscriptionPayment(m, 11L);
+        payment.setAmount(new BigDecimal("25.00"));
+        when(beneficiaryRepository.existsByInscriptionPaymentId(11L)).thenReturn(false);
+
+        assertThat(service.onInscriptionPaymentApproved(payment)).isTrue();
+        assertThat(m.getInscriptionDueSince()).isNull();
     }
 
     @Test
