@@ -137,6 +137,39 @@ class TermsVariablesTest {
     }
 
     @Test
+    void theV219CorrectedBlocksOnlyUseVariablesOfTheirType() throws Exception {
+        String sql;
+        try (InputStream in = getClass().getResourceAsStream("/db/migration/V219__contract_advisor_extra_slots_signatory.sql")) {
+            assertThat(in).isNotNull();
+            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        java.util.Map<String, TermType> types = java.util.Map.of(
+                "$a$", TermType.MEMBER, "$b$", TermType.MEMBER, "$c$", TermType.ADVISOR);
+        for (var entry : types.entrySet()) {
+            // Every fragment is quoted twice (the text searched and its replacement): check both.
+            String[] parts = sql.split(java.util.regex.Pattern.quote(entry.getKey()), -1);
+            assertThat(parts.length).as(entry.getKey()).isEqualTo(5);
+            for (int i = 1; i < parts.length; i += 2) {
+                assertThat(TermsVariables.unknownIn(parts[i], entry.getValue())).as(entry.getKey()).isEmpty();
+            }
+        }
+        // Each corrected fragment appears twice: the text searched and its replacement.
+        assertThat(sql).contains("{{membership.advisorCode}}", "{{membership.hasExtraSlots}}",
+                "{{membership.extraSlotsAmount}}", "{{org.signatoryName}}", "{{org.signatoryDocument}}",
+                "{{org.signatoryPosition}}");
+    }
+
+    @Test
+    void theAdvisorExtraSlotsAndSignatoryVariablesBelongToTheirKinds() {
+        assertThat(keys(TermType.MEMBER)).contains("membership.advisorCode", "membership.advisorFullName",
+                "membership.hasExtraSlots", "membership.extraSlotsCount", "membership.extraSlotsAmount",
+                "org.signatoryName", "org.signatoryDocument", "org.signatoryPosition");
+        assertThat(keys(TermType.ADVISOR)).contains("org.signatoryName", "org.signatoryDocument",
+                "org.signatoryPosition").doesNotContain("membership.advisorCode");
+        assertThat(keys(TermType.ALLY)).doesNotContain("membership.hasExtraSlots");
+    }
+
+    @Test
     void ally_offersTheB2bProfileTheProfessionalAndTheSeededLicenseBodies() {
         assertThat(keys(TermType.ALLY)).contains("ally.tradeName", "ally.commercialZone", "ally.foundedYear",
                 "ally.cashRegistersCount", "ally.branchesCount", "ally.hasPos", "ally.representativePosition",

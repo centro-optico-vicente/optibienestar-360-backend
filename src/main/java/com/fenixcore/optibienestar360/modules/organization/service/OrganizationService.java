@@ -75,6 +75,7 @@ public class OrganizationService {
         org.setAddress(blankToNull(req.address()));
         org.setEmail(blankToNull(req.email()));
         org.setPhones(blankToNull(req.phones()));
+        applySignatory(org, req);
         return toDto(repository.save(org));
     }
 
@@ -106,7 +107,27 @@ public class OrganizationService {
                 o.getServiceArea(),
                 o.getAddress(),
                 o.getEmail(),
-                o.getPhones());
+                o.getPhones(),
+                o.getSignatoryName(),
+                o.getSignatoryDocumentType(),
+                o.getSignatoryDocumentNumber(),
+                o.getSignatoryPosition());
+    }
+
+    /**
+     * Signatory fields: blank → NULL like the contact fields. The document
+     * is a pair (V219 CHECK): type and number come together or not at all.
+     */
+    private static void applySignatory(Organization org, OrganizationUpdateRequest req) {
+        String type = blankToNull(req.signatoryDocumentType());
+        String number = blankToNull(req.signatoryDocumentNumber());
+        if ((type == null) != (number == null)) {
+            throw new IllegalArgumentException("organization.signatory_document.incomplete");
+        }
+        org.setSignatoryName(blankToNull(req.signatoryName()));
+        org.setSignatoryDocumentType(type);
+        org.setSignatoryDocumentNumber(number);
+        org.setSignatoryPosition(blankToNull(req.signatoryPosition()));
     }
 
     /** Trimmed value; {@code null} when blank, so an emptied field renders its contract pending note. */

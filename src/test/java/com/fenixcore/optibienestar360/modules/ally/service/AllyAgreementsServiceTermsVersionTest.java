@@ -22,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,7 +41,9 @@ import static org.mockito.Mockito.when;
  * {@code ally_agreement.terms_version.invalid_type}. V183: the template's
  * scope must match the ally (422
  * {@code ally_agreement.terms_version.not_applicable}). Also covers the
- * auto-renew / notice-days defaults and overrides.
+ * auto-renew / notice-days defaults and overrides. Only a template currently
+ * offered to the ally may be linked (422
+ * {@code ally_agreement.terms_version.not_current}).
  */
 @ExtendWith(MockitoExtension.class)
 class AllyAgreementsServiceTermsVersionTest {
@@ -66,6 +70,7 @@ class AllyAgreementsServiceTermsVersionTest {
         TermsVersion version = version(TermType.ALLY);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
+        when(termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY)).thenReturn(List.of(version));
         when(agreementRepository.save(any(AllyAgreement.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AllyAgreementDto dto = service.create(ally.getUuid(), createRequest(version.getUuid(), null, null));
@@ -168,11 +173,46 @@ class AllyAgreementsServiceTermsVersionTest {
         version.setSegment(AllyType.Segment.B2P);
         when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
         when(termsVersionRepository.findByUuid(version.getUuid())).thenReturn(Optional.of(version));
+        when(termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY)).thenReturn(List.of(version));
         when(agreementRepository.save(any(AllyAgreement.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AllyAgreementDto dto = service.create(ally.getUuid(), createRequest(version.getUuid(), null, null));
 
         assertThat(dto.termsVersion().uuid()).isEqualTo(version.getUuid());
+    }
+
+    @Test
+    void create_withTheGeneralTemplateOnceASegmentTemplateExists_isNotCurrent() {
+        ally.setSegment(AllyType.Segment.B2B);
+        ally.getAllyTypes().add(allyType(AllyType.Segment.B2B));
+        TermsVersion general = version(TermType.ALLY);
+        TermsVersion b2b = version(TermType.ALLY);
+        b2b.setId(4L);
+        b2b.setSegment(AllyType.Segment.B2B);
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(termsVersionRepository.findByUuid(general.getUuid())).thenReturn(Optional.of(general));
+        when(termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY)).thenReturn(List.of(b2b, general));
+
+        assertThatThrownBy(() -> service.create(ally.getUuid(), createRequest(general.getUuid(), null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_agreement.terms_version.not_current");
+        verify(agreementRepository, never()).save(any());
+    }
+
+    @Test
+    void create_withASupersededVersion_isNotCurrent() {
+        TermsVersion old = version(TermType.ALLY);
+        TermsVersion newer = version(TermType.ALLY);
+        newer.setId(4L);
+        newer.setValidFrom(old.getValidFrom().plus(30, ChronoUnit.DAYS));
+        when(allyRepository.findByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(termsVersionRepository.findByUuid(old.getUuid())).thenReturn(Optional.of(old));
+        when(termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY)).thenReturn(List.of(newer, old));
+
+        assertThatThrownBy(() -> service.create(ally.getUuid(), createRequest(old.getUuid(), null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_agreement.terms_version.not_current");
+        verify(agreementRepository, never()).save(any());
     }
 
     @Test

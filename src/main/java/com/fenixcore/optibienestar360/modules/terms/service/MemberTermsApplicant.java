@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 
 import java.time.LocalDate;
 
@@ -9,6 +10,7 @@ import java.time.LocalDate;
  * exists ({@link TermsVariableResolver#forApplicant}). Any part may be
  * {@code null} — e.g. while the public form is still being filled — and
  * renders as its pending note.
+ * {@code advisor} is the advisor of the referral code, if any.
  */
 public record MemberTermsApplicant(
         String firstName,
@@ -16,7 +18,8 @@ public record MemberTermsApplicant(
         String documentType,
         String documentNumber,
         LocalDate birthDate,
-        Plan plan
+        Plan plan,
+        Promoter advisor
 ) {
 
     /** {@code "first last"} with blanks collapsed, the {@code persons.full_name} rule; {@code null} when both are blank. */
