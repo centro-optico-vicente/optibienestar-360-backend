@@ -1,6 +1,13 @@
 package com.fenixcore.optibienestar360.modules.terms.service;
 
 import com.fenixcore.optibienestar360.core.display.DisplayFormatter;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.modules.catalog.entity.City;
+import com.fenixcore.optibienestar360.modules.catalog.entity.LicensingBody;
+import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
+import com.fenixcore.optibienestar360.modules.catalog.entity.State;
+import com.fenixcore.optibienestar360.modules.person.entity.PersonProfessionalLicense;
+import org.springframework.data.domain.Sort;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
@@ -17,8 +24,10 @@ import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.service.InscriptionPaymentMethodResolver;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonProfessionalLicenseRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
@@ -39,6 +48,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +67,8 @@ class TermsVariableResolverTest {
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private OrganizationRepository organizationRepository;
     @Mock private AllyProductRepository allyProductRepository;
+    @Mock private PersonProfessionalLicenseRepository licenseRepository;
+    @Mock private InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
 
     private TermsVariableResolver resolver;
     private DisplayFormatter formatter;
@@ -68,7 +81,8 @@ class TermsVariableResolverTest {
         messageSource.setFallbackToSystemLocale(false);
         formatter = new DisplayFormatter(messageSource);
         resolver = new TermsVariableResolver(memberRepository, membershipRepository, beneficiaryRepository,
-                formatter, organizationRepository, allyProductRepository);
+                formatter, organizationRepository, allyProductRepository, licenseRepository,
+                inscriptionPaymentMethodResolver);
     }
 
     // ─── MEMBER ─────────────────────────────────────────────────────────────
@@ -372,6 +386,180 @@ class TermsVariableResolverTest {
         verifyNoInteractions(allyProductRepository);
     }
 
+    // ─── ALLY: B2B profile and B2P professional (V217) ──────────────────────
+
+    @Test
+    void ally_resolvesTheB2bProfileAndTheCapturingAdvisor() {
+        Promoter capturer = new Promoter();
+        capturer.setReferralCode("ASE001");
+        capturer.setPerson(person("José Rodríguez", "V", "15678901", null));
+        State state = new State();
+        state.setName("Portuguesa");
+        City city = new City();
+        city.setName("Acarigua");
+        city.setState(state);
+        AllyType pharmacy = allyType(AllyType.Segment.B2B);
+        pharmacy.setName("Farmacia");
+        AllyType optics = allyType(AllyType.Segment.B2B);
+        optics.setName("Óptica");
+        Ally ally = new Ally();
+        ally.setName("Farmacia Ejemplo, C.A.");
+        ally.setTradeName("FarmaEjemplo");
+        ally.getAllyTypes().addAll(Set.of(pharmacy, optics));
+        ally.setAddress("Av. Libertador, PB");
+        ally.setCity(city);
+        ally.setPhone("0255-6211234");
+        ally.setWebsite("https://farmaejemplo.com");
+        ally.setInstagram(" @farmaejemplo ");
+        ally.setFacebook("  ");
+        ally.setCommercialZone("Acarigua centro");
+        ally.setFoundedYear((short) 2005);
+        ally.setCashRegistersCount(1200);
+        ally.setBranchesCount(2);
+        ally.setHasPos(true);
+        ally.setRepresentativePosition("Director general");
+        ally.setCapturedByPromoter(capturer);
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+
+        Map<String, String> values = resolver.forAlly(agreement).values();
+
+        assertThat(values).containsEntry("ally.tradeName", "FarmaEjemplo")
+                .containsEntry("ally.typeNames", "Farmacia, Óptica")
+                .containsEntry("ally.address", "Av. Libertador, PB")
+                .containsEntry("ally.cityState", "Acarigua, Portuguesa")
+                .containsEntry("ally.phone", "0255-6211234")
+                .containsEntry("ally.socialLinks", "https://farmaejemplo.com · @farmaejemplo")
+                .containsEntry("ally.commercialZone", "Acarigua centro")
+                .containsEntry("ally.foundedYear", "2005")
+                .containsEntry("ally.cashRegistersCount", "1.200")
+                .containsEntry("ally.branchesCount", "2")
+                .containsEntry("ally.hasPos", "Sí")
+                .containsEntry("ally.representativePosition", "Director general")
+                .containsEntry("ally.advisorCode", "ASE001")
+                .containsEntry("ally.advisorFullName", "José Rodríguez");
+    }
+
+    @Test
+    void ally_withoutB2bDataOrHolder_rendersTheProfileAndProfessionalAsPending() {
+        Ally ally = new Ally();
+        ally.setName("Óptica Uno");
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+
+        Map<String, String> values = resolver.forAlly(agreement).values();
+
+        assertThat(values).doesNotContainKeys("ally.hasPos", "ally.foundedYear", "ally.cityState",
+                "ally.socialLinks", "professional.fullName", "professional.specialty");
+        assertThat(render("{{ally.hasPos}} · {{professional.fullName}} · {{professional.licenses.MPPS}}", values))
+                .isEqualTo("[Sistema POS pendiente] · [Nombre del profesional pendiente] · [Nº M.P.P.S. pendiente]");
+        verifyNoInteractions(licenseRepository);
+    }
+
+    @Test
+    void ally_resolvesTheProfessionalHolderSiteSpecialtiesAndOnlyVerifiedLicenses() {
+        Person doctor = person("Carlos Alberto Mendoza Ruiz", "V", "11222333", LocalDate.of(1978, 7, 20));
+        doctor.setId(9L);
+        doctor.setFirstName("Carlos");
+        doctor.setMiddleName("Alberto");
+        doctor.setLastName("Mendoza");
+        doctor.setSecondLastName("Ruiz");
+        doctor.setPhone("0414-5551234");
+        doctor.setEmail("carlos@example.com");
+        Profession traumatology = profession("Traumatología", null);
+        Profession arthroscopy = profession("Artroscopia", traumatology);
+        Profession sportsMedicine = profession("Medicina deportiva", null);
+        Ally host = new Ally();
+        host.setName("Centro Clínico Acarigua");
+        Ally ally = new Ally();
+        ally.setSegment(AllyType.Segment.B2P);
+        ally.setHolderPerson(doctor);
+        ally.getProfessions().addAll(Set.of(arthroscopy, sportsMedicine));
+        ally.setHostAlly(host);
+        ally.setHostName("ignored when the host is an ally");
+        ally.setOfficeNumber("12-B");
+        ally.setAppointmentPhone("0255-6219876");
+        ally.setAssistantName("Luisa Torres");
+        AllyAgreement agreement = new AllyAgreement();
+        agreement.setAlly(ally);
+        when(licenseRepository.findByPerson_IdAndActiveTrueAndVerificationStatus(
+                eq(9L), eq(PersonProfessionalLicense.VerificationStatus.VERIFIED), any(Sort.class)))
+                .thenReturn(List.of(license("MPPS", " 123456 "), license("CIV", "98765"), license("CIV", "11111")));
+
+        Map<String, String> values = resolver.forAlly(agreement).values();
+
+        assertThat(values).containsEntry("professional.firstNames", "Carlos Alberto")
+                .containsEntry("professional.lastNames", "Mendoza Ruiz")
+                .containsEntry("professional.fullName", "Carlos Alberto Mendoza Ruiz")
+                .containsEntry("professional.document", "V-11222333")
+                .containsEntry("professional.birthDate", "20-07-1978")
+                .containsEntry("professional.phone", "0414-5551234")
+                .containsEntry("professional.email", "carlos@example.com")
+                .containsEntry("professional.specialty", "Medicina deportiva, Traumatología")
+                .containsEntry("professional.subSpecialty", "Artroscopia")
+                .containsEntry("professional.hostName", "Centro Clínico Acarigua")
+                .containsEntry("professional.officeNumber", "12-B")
+                .containsEntry("professional.appointmentPhone", "0255-6219876")
+                .containsEntry("professional.assistantName", "Luisa Torres")
+                .containsEntry("professional.licenses.MPPS", "123456")
+                .containsEntry("professional.licenses.CIV", "98765, 11111")
+                .doesNotContainKey("professional.licenses.COLEGIO_MEDICOS");
+        assertThat(render("CM {{professional.licenses.COLEGIO_MEDICOS}}", values))
+                .isEqualTo("CM [Nº de Colegio de Médicos pendiente]");
+    }
+
+    // ─── MEMBER: activation fee and payment method (V217) ──────────────────
+
+    @Test
+    void member_activationFeeIsTheInscriptionPlusTheFirstMonthlyFeeWithTheClauseOnce() {
+        officialCurrencyIs(currency("VES", "Bolívar venezolano"));
+        Plan plan = plan(currency("USD", "Dólar estadounidense"));
+        plan.setMonthlyFee(new BigDecimal("25.00"));
+        plan.setInscriptionFee(new BigDecimal("10.00"));
+
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan));
+
+        String usd10 = formatter.money(new BigDecimal("10.00"), "USD", TermsVariableResolver.CONTRACT_LOCALE);
+        String usd25 = formatter.money(new BigDecimal("25.00"), "USD", TermsVariableResolver.CONTRACT_LOCALE);
+        assertThat(values).containsEntry("membership.activationFeeLabel",
+                "inscripción de " + usd10 + " y primera mensualidad de " + usd25 + ", "
+                        + TermsVariableResolver.MONEY_PAYMENT_CLAUSE_VES);
+    }
+
+    @Test
+    void member_activationFeeWithoutInscriptionInTheOfficialCurrency_isTheFirstMonthlyFeeAlone() {
+        Currency ves = currency("VES", "Bolívar venezolano");
+        officialCurrencyIs(ves);
+        Plan plan = plan(ves);
+        plan.setMonthlyFee(new BigDecimal("900.00"));
+        plan.setInscriptionFee(BigDecimal.ZERO);
+
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan));
+
+        assertThat(values).containsEntry("membership.activationFeeLabel", "primera mensualidad de "
+                + formatter.money(new BigDecimal("900.00"), "VES", TermsVariableResolver.CONTRACT_LOCALE));
+    }
+
+    @Test
+    void member_paymentMethodIsTheFirstInscriptionPaymentsMethod() {
+        User user = memberWithPlan(plan(null));
+        when(inscriptionPaymentMethodResolver.resolve(any(Membership.class)))
+                .thenReturn(new DisplayRef(UUID.randomUUID(), "PAGO_MOVIL", "Pago móvil"));
+
+        Map<String, String> values = resolver.forMember(user);
+
+        assertThat(values).containsEntry("membership.inscriptionPaymentMethod", "Pago móvil")
+                .doesNotContainKey("membership.activationFeeLabel");
+    }
+
+    @Test
+    void member_withoutInscriptionPayment_rendersThePaymentMethodAsPending() {
+        Map<String, String> values = resolver.forMember(memberWithPlan(plan(null)));
+
+        assertThat(render("{{membership.inscriptionPaymentMethod}} · {{membership.activationFeeLabel}}", values))
+                .isEqualTo("[Modalidad de pago pendiente] · [Monto de activación pendiente]");
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────
 
     private void officialCurrencyIs(Currency official) {
@@ -436,6 +624,23 @@ class TermsVariableResolverTest {
         service.setExclusions(exclusions);
         service.setReviewStatus(ReviewStatus.APPROVED);
         return service;
+    }
+
+    private static Profession profession(String name, Profession parent) {
+        Profession profession = new Profession();
+        profession.setName(name);
+        profession.setParent(parent);
+        return profession;
+    }
+
+    private static PersonProfessionalLicense license(String bodyCode, String number) {
+        LicensingBody body = new LicensingBody();
+        body.setCode(bodyCode);
+        PersonProfessionalLicense license = new PersonProfessionalLicense();
+        license.setLicensingBody(body);
+        license.setLicenseNumber(number);
+        license.setVerificationStatus(PersonProfessionalLicense.VerificationStatus.VERIFIED);
+        return license;
     }
 
     private static User user(Person person) {

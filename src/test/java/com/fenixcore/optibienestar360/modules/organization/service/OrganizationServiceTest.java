@@ -82,13 +82,29 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null));
+                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null));
 
         assertThat(result.name()).isEqualTo("Nuevo nombre");
         assertThat(result.legalName()).isEqualTo("Nuevo nombre legal");
         assertThat(result.officialCurrency().code()).isEqualTo("VES"); // untouched (null in request)
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched (null in request)
         assertThat(result.autoApproveCommissions()).isFalse();
+    }
+
+    @Test
+    void updateMineSetsTheInstitutionalContactTrimmedAndBlankAsNull() {
+        Currency ves = currency(UUID.randomUUID(), "VES", "Bolívar venezolano");
+        Currency usd = currency(UUID.randomUUID(), "USD", "Dólar estadounidense");
+        when(repository.findSingleton()).thenReturn(organization(ves, usd));
+        when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizationDto result = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
+                        null, null, null, " Av. 30 con Calle 21, Acarigua ", "planoptibienestar360@gmail.com", "  "));
+
+        assertThat(result.address()).isEqualTo("Av. 30 con Calle 21, Acarigua");
+        assertThat(result.email()).isEqualTo("planoptibienestar360@gmail.com");
+        assertThat(result.phones()).isNull();
     }
 
     @Test
@@ -99,7 +115,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null));
 
         assertThat(result.autoApproveCommissions()).isTrue();
     }
@@ -117,7 +133,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -133,7 +149,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
