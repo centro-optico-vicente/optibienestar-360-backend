@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,6 +56,9 @@ public record PublicAllyDetailDto(
         String facebook,
         String googleMapsUrl,
 
+        /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V224). */
+        BigDecimal ratingAvg,
+        int ratingCount,
         /** Weekly opening hours (V214, hub ADR 0031 §7), by day then opening time. */
         List<OpeningHourDto> openingHours,
         /** The same week as text, e.g. "Lun–Vie 08:00–12:00, 14:00–18:00"; null without hours. */

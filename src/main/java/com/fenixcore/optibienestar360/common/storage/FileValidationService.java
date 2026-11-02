@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 /**
@@ -42,6 +43,33 @@ public class FileValidationService {
         if (sizeBytes > policy.getMaxSizeBytes()) {
             throw new IllegalArgumentException("file.validation.size_exceeded");
         }
+    }
+
+    private static final Map<String, String> CONTENT_TYPES = Map.ofEntries(
+            Map.entry("pdf", "application/pdf"),
+            Map.entry("jpg", "image/jpeg"),
+            Map.entry("jpeg", "image/jpeg"),
+            Map.entry("png", "image/png"),
+            Map.entry("webp", "image/webp"),
+            Map.entry("gif", "image/gif"),
+            Map.entry("csv", "text/csv"),
+            Map.entry("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            Map.entry("xls", "application/vnd.ms-excel"),
+            Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            Map.entry("doc", "application/msword"),
+            Map.entry("txt", "text/plain"));
+
+    /**
+     * Content-Type to store/serve a file with, derived from its (already
+     * validated) extension — never the client's declared type: a {@code .png}
+     * uploaded as {@code text/html} would otherwise be served as a page from
+     * the storage domain when staff open it. Unknown extensions fall back to
+     * {@code application/octet-stream}, which browsers download instead of render.
+     */
+    public static String safeContentType(String fileName) {
+        String extension = extensionOf(fileName);
+        return extension == null ? "application/octet-stream"
+                : CONTENT_TYPES.getOrDefault(extension, "application/octet-stream");
     }
 
     private static String extensionOf(String fileName) {

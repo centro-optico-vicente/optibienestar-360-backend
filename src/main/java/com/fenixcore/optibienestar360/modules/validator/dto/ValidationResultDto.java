@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fenixcore.optibienestar360.core.display.Display;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -42,10 +43,24 @@ public record ValidationResultDto(
         @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
         Integer gracePeriodDays,
 
+        // Who is at the counter (V195): set when the document belongs to a
+        // beneficiary — the coverage above is then their holder's
+        // (memberFullName is the holder). Null when the holder presented.
+        UUID beneficiaryUuid,
+        String beneficiaryFullName,
+        String beneficiaryRelationship,
+
+        // Everyone the membership covers besides the holder, so the ally can
+        // book the usage on the person who actually consumed.
+        List<CoveredPerson> beneficiaries,
+
         // Diagnostic only — tells the ally portal whether this response
         // came from cache (true) or was a fresh DB roundtrip (false).
         boolean cached
 ) {
+
+    /** An active beneficiary of the validated membership. */
+    public record CoveredPerson(UUID beneficiaryUuid, String fullName, String relationship) {}
 
     public enum ValidationStatus {
         /** Document doesn't match any person on file. */

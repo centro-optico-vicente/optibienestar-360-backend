@@ -57,5 +57,8 @@ public record BenefitUsageRegisterRequest(
         String consumptionCurrency,
 
         Map<String, Object> metadata,         // per-ally-type free-form payload
-        String notes
+        String notes,
+
+        // Who consumed (V195): one of the membership's active beneficiaries; null = the holder
+        UUID beneficiaryUuid
 ) {}

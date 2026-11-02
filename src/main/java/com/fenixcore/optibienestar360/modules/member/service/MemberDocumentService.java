@@ -89,7 +89,7 @@ public class MemberDocumentService {
         StorageService storage = requireStorage();
         String key = StorageKeyBuilder.build(VISIBILITY, OWNER_TABLE, member.getUuid(), file.getOriginalFilename());
         try {
-            storage.upload(key, file.getInputStream(), file.getSize(), file.getContentType());
+            storage.upload(key, file.getInputStream(), file.getSize(), FileValidationService.safeContentType(file.getOriginalFilename()));
         } catch (IOException ex) {
             log.error("Failed to read upload stream for member {}", memberUuid, ex);
             throw new IllegalArgumentException("member_document.upload.failed");
@@ -101,7 +101,7 @@ public class MemberDocumentService {
         document.setFileUrl(key);
         document.setFileName(StorageKeyBuilder.safeName(file.getOriginalFilename()));
         document.setFileSizeBytes(file.getSize());
-        document.setMimeType(file.getContentType());
+        document.setMimeType(FileValidationService.safeContentType(file.getOriginalFilename()));
         document.setUploadedBy(userOrNull(uploaderUuid));
         documentRepository.save(document);
         return toDto(document);

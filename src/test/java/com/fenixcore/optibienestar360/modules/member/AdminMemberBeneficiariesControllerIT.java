@@ -66,7 +66,7 @@ class AdminMemberBeneficiariesControllerIT {
         return new BeneficiaryDto(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 "Ana", null, "Pérez", null, "Ana Pérez", "V", "12345678",
                 LocalDate.of(2015, 5, 20), null, null, Relationship.CHILD, false, null, SlotType.BASE,
-                true, null, null, null);
+                true, null, null, null, false);
     }
 
     private static final String VALID_JSON = """

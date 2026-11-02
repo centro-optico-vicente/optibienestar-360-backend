@@ -65,7 +65,7 @@ public class AttachedFileService {
         StorageService storage = requireStorage();
         String key = StorageKeyBuilder.build(visibility, ownerTable, ownerUuid, file.getOriginalFilename());
         try {
-            storage.upload(bucketFor(visibility, storage), key, file.getInputStream(), file.getSize(), file.getContentType());
+            storage.upload(bucketFor(visibility, storage), key, file.getInputStream(), file.getSize(), FileValidationService.safeContentType(file.getOriginalFilename()));
         } catch (IOException ex) {
             log.error("Failed to read upload stream for {}/{}", ownerTable, ownerUuid, ex);
             throw new IllegalArgumentException("file.upload.failed");
@@ -78,7 +78,7 @@ public class AttachedFileService {
         entity.setCategory(category);
         entity.setFileKey(key);
         entity.setFileName(StorageKeyBuilder.safeName(file.getOriginalFilename()));
-        entity.setMimeType(file.getContentType());
+        entity.setMimeType(FileValidationService.safeContentType(file.getOriginalFilename()));
         entity.setSizeBytes(file.getSize());
         entity.setUploadedAt(Instant.now());
         entity.setUploadedBy(userOrNull(uploaderUuid));

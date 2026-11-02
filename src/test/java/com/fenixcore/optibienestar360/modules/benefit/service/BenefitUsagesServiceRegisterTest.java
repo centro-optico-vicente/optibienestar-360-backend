@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.benefit.service;
 
+import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
@@ -49,6 +50,7 @@ class BenefitUsagesServiceRegisterTest {
     @Mock private AllyUserRepository allyUserRepository;
     @Mock private CurrencyRepository currencyRepository;
     @Mock private ProductCategoryRepository productCategoryRepository;
+    @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private BenefitUsageMapper mapper;
 
     private final UUID actorUuid = UUID.randomUUID();
@@ -58,7 +60,7 @@ class BenefitUsagesServiceRegisterTest {
 
     private BenefitUsagesService sut() {
         return new BenefitUsagesService(usageRepository, membershipRepository, allyRepository,
-                allyProductRepository, allyUserRepository, currencyRepository, productCategoryRepository, mapper);
+                allyProductRepository, allyUserRepository, currencyRepository, productCategoryRepository, beneficiaryRepository, mapper);
     }
 
     @Test
@@ -133,7 +135,7 @@ class BenefitUsagesServiceRegisterTest {
     private BenefitUsageRegisterRequest request(UUID allyProductUuid, UUID allyUserUuid) {
         return new BenefitUsageRegisterRequest(membershipUuid, ally.getUuid(), allyProductUuid, allyUserUuid,
                 allyProductUuid == null ? categoryUuid : null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     private static Ally ally() {

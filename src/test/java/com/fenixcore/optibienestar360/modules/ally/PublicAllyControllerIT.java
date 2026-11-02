@@ -78,7 +78,7 @@ class PublicAllyControllerIT {
         return new PublicAllyListItemDto(
                 UUID.randomUUID(), "Clínica Demo",
                 List.of("Clínica"), List.of(), Segment.B2B, null, null, null, "Acarigua",
-                null, "Atención integral", null, null, null, null, null, null);
+                null, "Atención integral", null, null, null, null, null, null, null, 0);
     }
 
     @Test

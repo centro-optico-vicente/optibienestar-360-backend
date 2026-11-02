@@ -25,5 +25,10 @@ public record DigitalCardDto(
         /** End of the current term (hub ADR 0034); null = open-ended or no active membership. */
         @Display(Display.Kind.DATE) LocalDate expiresAt,
         boolean inscriptionDue,
-        String qrCodeDataUri
+        String qrCodeDataUri,
+
+        // Beneficiary card (V195): the holder covering this person and the
+        // relationship to them. Both null on the holder's own card.
+        String holderName,
+        String relationship
 ) {}

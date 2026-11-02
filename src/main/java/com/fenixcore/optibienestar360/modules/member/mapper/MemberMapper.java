@@ -88,6 +88,8 @@ public interface MemberMapper {
     @Mapping(target = "phone",                  source = "beneficiary.person.phone")
     @Mapping(target = "email",                  source = "beneficiary.person.email")
     @Mapping(target = "inscriptionPaymentUuid", source = "inscriptionPaymentUuid")
+    @Mapping(target = "hasAccess",
+             expression = "java(beneficiary.getUser() != null && beneficiary.getUser().isActive())")
     BeneficiaryDto toBeneficiaryDto(Beneficiary beneficiary, UUID inscriptionPaymentUuid);
 
     // ─── MedicalRecord → DTO ────────────────────────────────────────────────

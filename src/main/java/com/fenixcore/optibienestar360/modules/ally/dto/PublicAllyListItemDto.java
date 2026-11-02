@@ -2,6 +2,8 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,5 +47,9 @@ public record PublicAllyListItemDto(
         String whatsapp,
         String instagram,
         String facebook,
-        String googleMapsUrl
+        String googleMapsUrl,
+
+        /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V224). */
+        BigDecimal ratingAvg,
+        int ratingCount
 ) {}
