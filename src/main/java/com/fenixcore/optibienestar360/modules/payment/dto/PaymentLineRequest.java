@@ -36,5 +36,8 @@ public record PaymentLineRequest(
         @Size(max = 120) String bankAccountIdentifier,
         @Size(max = 40) String phone,
         @Size(max = 160) String email,
-        @Size(max = 80) String referenceNumber
+        @Size(max = 80) String referenceNumber,
+
+        /** Company account (V201) the payer says they paid into; optional. */
+        UUID companyBankAccountUuid
 ) {}

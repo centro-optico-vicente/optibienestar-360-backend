@@ -15,4 +15,7 @@ public interface ProfessionRepository extends JpaRepository<Profession, Long>, J
     Optional<Profession> findByCode(String code);
 
     List<Profession> findAllByActiveTrueOrderByName();
+
+    /** A profession with sub-specialties cannot become one itself (max two levels, V213). */
+    boolean existsByParent_Id(Long parentId);
 }

@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.affiliation.dto;
 import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
@@ -37,5 +38,9 @@ public record AssistedAffiliationRequestCreateRequest(
         @Size(min = 8, max = 128) String password,
         @NotNull UUID planUuid,
         @NotNull UUID termsVersionUuid,
-        @NotNull @AssertTrue Boolean contractAccepted
+        @NotNull @AssertTrue Boolean contractAccepted,
+        /** Optional override of the first expiry (must be in the future); null = the plan decides (hub ADR 0034). */
+        @Future LocalDate expiresAt,
+        /** Optional override of the plan's re-inscription flag; null = inherit. */
+        Boolean reinscriptionRequired
 ) {}

@@ -7,8 +7,12 @@ import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepos
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.membership.service.InscriptionPaymentMethodResolver;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonProfessionalLicenseRepository;
 import com.fenixcore.optibienestar360.modules.terms.dto.MemberTermsPreviewRequest;
 import com.fenixcore.optibienestar360.modules.terms.dto.PublicTermsDto;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
@@ -49,6 +53,10 @@ class MemberContractServiceTest {
     @Mock private MembershipRepository membershipRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private AllyProductRepository allyProductRepository;
+    @Mock private PersonProfessionalLicenseRepository licenseRepository;
+    @Mock private InscriptionPaymentMethodResolver inscriptionPaymentMethodResolver;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private PromoterRepository promoterRepository;
 
     private MemberContractService service;
     private TermsVersion version;
@@ -61,9 +69,9 @@ class MemberContractServiceTest {
         messageSource.setFallbackToSystemLocale(false);
         TermsVariableResolver resolver = new TermsVariableResolver(memberRepository, membershipRepository,
                 beneficiaryRepository, new DisplayFormatter(messageSource), organizationRepository,
-                allyProductRepository);
+                allyProductRepository, licenseRepository, inscriptionPaymentMethodResolver, paymentRepository);
         service = new MemberContractService(termsVersionService, new TermsTemplateRenderer(organizationRepository),
-                resolver, planRepository);
+                resolver, planRepository, promoterRepository);
 
         version = new TermsVersion();
         version.setUuid(UUID.randomUUID());
@@ -83,7 +91,7 @@ class MemberContractServiceTest {
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
 
         PublicTermsDto dto = service.preview(TermType.MEMBER, new MemberTermsPreviewRequest(
-                " María ", "Pérez", "V", "12345678", LocalDate.of(1985, 3, 15), plan.getUuid()));
+                " María ", "Pérez", "V", "12345678", LocalDate.of(1985, 3, 15), plan.getUuid(), null));
 
         assertThat(dto.uuid()).isEqualTo(version.getUuid());
         assertThat(dto.contentMarkdown())
@@ -106,7 +114,7 @@ class MemberContractServiceTest {
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
 
         PublicTermsDto dto = service.preview(TermType.MEMBER, new MemberTermsPreviewRequest(
-                "Ana", "Ruiz", "V", "1234567", null, plan.getUuid()));
+                "Ana", "Ruiz", "V", "1234567", null, plan.getUuid(), null));
 
         assertThat(dto.contentMarkdown())
                 .contains("5,00")
@@ -118,7 +126,7 @@ class MemberContractServiceTest {
         when(termsVersionService.getCurrentPublic(TermType.MEMBER)).thenReturn(version);
 
         PublicTermsDto dto = service.preview(TermType.MEMBER,
-                new MemberTermsPreviewRequest(null, null, "V", null, null, null));
+                new MemberTermsPreviewRequest(null, null, "V", null, null, null, null));
 
         assertThat(dto.contentMarkdown()).startsWith("[Nombre del afiliado pendiente] | [Cédula del afiliado pendiente]");
         verifyNoInteractions(planRepository);
@@ -135,15 +143,43 @@ class MemberContractServiceTest {
         when(planRepository.findByUuid(hidden.getUuid())).thenReturn(Optional.of(hidden));
 
         PublicTermsDto dto = service.preview(TermType.MEMBER,
-                new MemberTermsPreviewRequest("Ana", "Ruiz", "V", "1234567", null, hidden.getUuid()));
+                new MemberTermsPreviewRequest("Ana", "Ruiz", "V", "1234567", null, hidden.getUuid(), null));
 
         assertThat(dto.contentMarkdown()).contains("[Plan pendiente]").doesNotContain("Plan Oculto");
     }
 
     @Test
+    void preview_fillsTheAdvisorOfTheReferralCode() {
+        com.fenixcore.optibienestar360.modules.promoter.entity.Promoter advisor =
+                new com.fenixcore.optibienestar360.modules.promoter.entity.Promoter();
+        advisor.setReferralCode("ASE001");
+        advisor.setDisplayName("José Rodríguez");
+        version.setContentMarkdown("{{membership.advisorCode}} · {{membership.advisorFullName}}");
+        when(termsVersionService.getCurrentPublic(TermType.MEMBER)).thenReturn(version);
+        when(promoterRepository.findByReferralCode("ASE001")).thenReturn(Optional.of(advisor));
+
+        PublicTermsDto dto = service.preview(TermType.MEMBER,
+                new MemberTermsPreviewRequest("Ana", "Ruiz", "V", "1234567", null, null, " ase001 "));
+
+        assertThat(dto.contentMarkdown()).isEqualTo("ASE001 · José Rodríguez");
+    }
+
+    @Test
+    void preview_withoutAReferralCode_leavesTheAdvisorPending() {
+        version.setContentMarkdown("{{membership.advisorCode}}");
+        when(termsVersionService.getCurrentPublic(TermType.MEMBER)).thenReturn(version);
+
+        PublicTermsDto dto = service.preview(TermType.MEMBER,
+                new MemberTermsPreviewRequest("Ana", "Ruiz", "V", "1234567", null, null, null));
+
+        assertThat(dto.contentMarkdown()).isEqualTo("[Código de asesor pendiente]");
+        verifyNoInteractions(promoterRepository);
+    }
+
+    @Test
     void preview_onlyForTheMemberContract() {
         assertThatThrownBy(() -> service.preview(TermType.ADVISOR,
-                new MemberTermsPreviewRequest(null, null, null, null, null, null)))
+                new MemberTermsPreviewRequest(null, null, null, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("terms.preview.member_only");
         verifyNoInteractions(termsVersionService);

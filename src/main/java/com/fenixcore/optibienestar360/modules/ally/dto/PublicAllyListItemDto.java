@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -25,8 +28,16 @@ public record PublicAllyListItemDto(
         String name,
 
         List<String> allyTypeNames,
-        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). */
+        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). Superseded by {@code segment}. */
         List<String> allySegments,
+        /** The ally's own segment (V211, hub ADR 0031); localized {@code segment_Display}. */
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
+        /** B2P: clinic the professional practices at (the host ally's name or the free-text name). */
+        String hostName,
+        /** B2P: office (consultorio) number. */
+        String officeNumber,
+        /** B2P: phone for appointments. */
+        String appointmentPhone,
         String cityName,
 
         String logoUrl,
@@ -38,7 +49,7 @@ public record PublicAllyListItemDto(
         String facebook,
         String googleMapsUrl,
 
-        /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V201). */
+        /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V224). */
         BigDecimal ratingAvg,
         int ratingCount
 ) {}

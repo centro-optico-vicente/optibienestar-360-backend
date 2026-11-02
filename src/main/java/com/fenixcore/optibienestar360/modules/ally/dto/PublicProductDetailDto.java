@@ -23,7 +23,7 @@ public record PublicProductDetailDto(
         String categoryName,
         @Display(Display.Kind.BOOLEAN) boolean requiresAppointment,
         String imageUrl,
-        /** Average affiliate stars (1..5) across every ally's offer; {@code null} with no ratings (V201). */
+        /** Average affiliate stars (1..5) across every ally's offer; {@code null} with no ratings (V224). */
         BigDecimal ratingAvg,
         int ratingCount,
 

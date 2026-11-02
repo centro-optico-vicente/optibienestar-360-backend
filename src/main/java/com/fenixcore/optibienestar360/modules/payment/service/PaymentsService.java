@@ -161,9 +161,16 @@ public class PaymentsService {
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final FileValidationService fileValidationService;
     private final MembershipChargeService membershipChargeService;
+    private final com.fenixcore.optibienestar360.modules.membership.service.MembershipTermRenewalService membershipTermRenewalService;
     private final NotificationChannelResolver notificationChannelResolver;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionPricing promotionPricing;
+    private final PersonCreditService personCreditService;
+    private final com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService companyBankAccountService;
+    private final com.fenixcore.optibienestar360.modules.member.service.MemberPromoterService memberPromoterService;
+    private final PayerBankAccountService payerBankAccountService;
+    private final PaymentCreditClaimService paymentCreditClaimService;
+    private final com.fenixcore.optibienestar360.modules.promoter.repository.PromoterPayoutAccountRepository payoutAccountRepository;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -172,7 +179,20 @@ public class PaymentsService {
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public PaymentDto get(UUID uuid) {
-        return mapper.toDto(findManaged(uuid));
+        return toDtoWithCredit(findManaged(uuid));
+    }
+
+    /**
+     * Maps a payment and, when it ever held credit (V205), adds what is left of it and its OPEN claim so the
+     * person and staff can see them without extra calls.
+     */
+    private PaymentDto toDtoWithCredit(Payment payment) {
+        PaymentDto dto = mapper.toDto(payment);
+        if (dto == null || payment.getId() == null || !personCreditService.hasLedger(payment)) {
+            return dto;
+        }
+        return dto.withCredit(paymentCreditClaimService.openClaimOf(payment).orElse(null),
+                personCreditService.remaining(payment));
     }
 
     /**
@@ -183,7 +203,7 @@ public class PaymentsService {
      * the full history, not a curated query.
      */
     public Page<PaymentDto> listForUser(UUID userUuid, Pageable pageable) {
-        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(mapper::toDto);
+        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(this::toDtoWithCredit);
     }
 
     /**
@@ -205,7 +225,7 @@ public class PaymentsService {
         Specification<Payment> spec = activeOnly()
                 .and(directionIs(direction))
                 .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), promoter.getId()));
-        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
     }
 
     /**
@@ -244,7 +264,7 @@ public class PaymentsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        return paymentRepository.findAll(spec, resolvedPageable).map(mapper::toDto);
+        return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
     }
 
     private static Specification<Payment> directionIs(String direction) {
@@ -310,7 +330,8 @@ public class PaymentsService {
                 ? userRepository.findByUuid(request.payerUserUuid())
                         .orElseThrow(() -> new NoSuchElementException("user.not_found"))
                 : null;
-        return registerInternal(membership, payer, request.amount(), request.currency(),
+        return registerInternal(membership.getMember().getPerson(), null, membership.getMember(), membership, payer,
+                request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -326,7 +347,7 @@ public class PaymentsService {
                 request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
                 request.identification(), request.bankAccountType(), request.bankAccountCode(),
                 request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
-                request.paymentDate(), request.adminNotes());
+                request.paymentDate(), request.adminNotes(), request.companyBankAccountUuid(), request.payoutAccountUuid());
         payment.setDirection("OUT");
         payment.setStatus(PaymentStatus.DRAFT.name());
         attachSupportFile(payment, supportFile);
@@ -342,7 +363,7 @@ public class PaymentsService {
                 request.amount(), request.currency(), request.paymentMethodUuid(), request.bankUuid(),
                 request.identification(), request.bankAccountType(), request.bankAccountCode(),
                 request.bankAccountIdentifier(), request.phone(), request.email(), request.referenceNumber(),
-                request.paymentDate(), request.adminNotes());
+                request.paymentDate(), request.adminNotes(), request.companyBankAccountUuid(), request.payoutAccountUuid());
         return mapper.toDto(payment);
     }
 
@@ -381,7 +402,8 @@ public class PaymentsService {
                                 BigDecimal amount, String currencyCode, UUID methodUuid, UUID bankUuid,
                                 String identification, String bankAccountType, String bankAccountCode,
                                 String bankAccountIdentifier, String phone, String email, String referenceNumber,
-                                Instant paymentDate, String adminNotes) {
+                                Instant paymentDate, String adminNotes, UUID companyBankAccountUuid,
+                                UUID payoutAccountUuid) {
         PaymentCategory category = paymentCategoryRepository.findByUuid(categoryUuid)
                 .filter(PaymentCategory::isActive).filter(c -> "OUT".equals(c.getDirection()))
                 .orElseThrow(() -> new NoSuchElementException("payment_category.out_not_found"));
@@ -438,6 +460,17 @@ public class PaymentsService {
         line.setPhone(phone);
         line.setEmail(email);
         line.setReferenceNumber(referenceNumber);
+        // Both ends of a payout (V206): the company account it leaves from and the advisor account it goes to.
+        line.setCompanyBankAccount(resolveCompanyAccountFor(companyBankAccountUuid, method));
+        var payoutAccount = payoutAccountUuid == null ? null : payoutAccountRepository.findByUuid(payoutAccountUuid)
+                .filter(com.fenixcore.optibienestar360.modules.promoter.entity.PromoterPayoutAccount::isActive)
+                .filter(a -> a.getPromoter() != null && a.getPromoter().getId().equals(promoter.getId()))
+                .orElseThrow(() -> new NoSuchElementException("promoter_payout_account.not_found"));
+        if (payoutAccount != null && !com.fenixcore.optibienestar360.modules.promoter.service.PromoterPayoutAccountsService
+                .accepts(payoutAccount, method)) {
+            throw new IllegalArgumentException("promoter_payout_account.method_not_accepted");
+        }
+        line.setPayoutAccount(payoutAccount);
         line.setStatus(payment.getStatus() == null ? PaymentStatus.DRAFT.name() : payment.getStatus());
     }
 
@@ -469,11 +502,52 @@ public class PaymentsService {
     @Transactional
     @Auditable(entity = "payment", action = AuditAction.CREATE)
     public PaymentDto registerOwn(UUID actorUserUuid, MyPaymentCreateRequest request, MultipartFile supportFile, boolean draft) {
-        Member member = memberRepository.findByUserUuid(actorUserUuid)
-                .orElseThrow(() -> new NoSuchElementException("member.not_found"));
-        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
-                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
-        return registerInternal(membership, null, request.amount(), request.currency(),
+        User user = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        // No membership is needed to pay (V201): without one the payment becomes credit once approved.
+        Member member = memberRepository.findByUserUuid(actorUserUuid).orElse(null);
+        Person person = user.getPerson() != null ? user.getPerson() : member != null ? member.getPerson() : null;
+        if (person == null) {
+            throw new NoSuchElementException("person.not_found");
+        }
+        Membership membership = member == null ? null
+                : membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+
+        // Paying for somebody else (V203): the beneficiary was found and confirmed by the payer through the lookup,
+        // so the payment settles THEIR membership (or, with none, becomes THEIR credit); the payer stays the origin.
+        Person beneficiary = null;
+        if (request.beneficiaryMembershipUuid() != null) {
+            Membership target = membershipRepository.findByUuid(request.beneficiaryMembershipUuid())
+                    .filter(Membership::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
+            membership = target;
+            member = target.getMember();
+            beneficiary = target.getMember().getPerson();
+        } else if (request.beneficiaryPersonUuid() != null) {
+            beneficiary = personRepository.findByUuid(request.beneficiaryPersonUuid())
+                    .filter(Person::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("person.not_found"));
+            member = memberRepository.findByPersonId(beneficiary.getId()).orElse(null);
+            membership = member == null ? null
+                    : membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+        }
+        if (beneficiary != null && beneficiary.getId().equals(person.getId())) {
+            beneficiary = null;   // paying for oneself is not a third-party payment
+        }
+        if (Boolean.TRUE.equals(request.rememberOriginAccount())) {
+            // The payer decided to remember where this money came from (V204): first line, or the flat fields.
+            if (request.lines() != null && !request.lines().isEmpty()) {
+                var first = request.lines().get(0);
+                payerBankAccountService.remember(person, first.paymentMethodUuid(), first.bankUuid(),
+                        first.bankAccountType(), first.bankAccountCode(), first.bankAccountIdentifier(),
+                        first.identification(), first.phone(), first.email());
+            } else {
+                payerBankAccountService.remember(person, request.paymentMethodUuid(), request.bankUuid(),
+                        request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
+                        request.identification(), request.phone(), request.email());
+            }
+        }
+        return registerInternal(person, beneficiary, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -504,12 +578,20 @@ public class PaymentsService {
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         Member member = memberRepository.findByUuid(request.memberUuid())
                 .orElseThrow(() -> new NoSuchElementException("member.not_found"));
-        if (member.getPromoter() == null || !member.getPromoter().getId().equals(promoter.getId())) {
+        Promoter owner = member.getPromoter();
+        boolean inPortfolio = owner != null && owner.getId().equals(promoter.getId());
+        // A member nobody advises (no promoter, or only the INSTITUCION system advisor) may be collected from
+        // by any advisor, who then takes them into their own portfolio; another advisor's member never.
+        boolean unassigned = owner == null || owner.isSystem();
+        if (!inPortfolio && !unassigned) {
             throw new NoSuchElementException("promoter.member.not_in_portfolio");
         }
-        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId())
-                .orElseThrow(() -> new NoSuchElementException("membership.active.not_found"));
-        return registerInternal(membership, null, request.amount(), request.currency(),
+        if (!inPortfolio) {
+            memberPromoterService.assign(member.getUuid(), promoter.getUuid(), "Assigned on first collection", actorUserUuid);
+        }
+        // Membership is optional (V201): a member without an active one pays an advance / credit.
+        Membership membership = membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null);
+        return registerInternal(member.getPerson(), null, member, membership, null, request.amount(), request.currency(),
                 request.paymentMethodUuid(), request.bankUuid(), request.identification(),
                 request.bankAccountType(), request.bankAccountCode(), request.bankAccountIdentifier(),
                 request.phone(), request.email(), request.referenceNumber(), request.paymentDate(),
@@ -524,7 +606,8 @@ public class PaymentsService {
      * mandatory-flag validation (e.g. pago móvil requires a bank but not an
      * account number; cheque/transferencia require both).
      */
-    private PaymentDto registerInternal(Membership membership, User payer, BigDecimal amount, String currencyCode,
+    private PaymentDto registerInternal(Person person, Person beneficiary, Member member, Membership membership, User payer,
+                                        BigDecimal amount, String currencyCode,
                                         UUID methodUuid, UUID bankUuid, String identification,
                                         String bankAccountType, String bankAccountCode, String bankAccountIdentifier,
                                         String phone, String email, String referenceNumber, Instant paymentDate,
@@ -576,6 +659,9 @@ public class PaymentsService {
         }
 
         boolean inscription = Boolean.TRUE.equals(inscriptionFlag);
+        if (inscription && membership == null) {
+            throw new IllegalArgumentException("payment.inscription.requires_membership");
+        }
         payment.setInscription(inscription);
         LocalDate resolvedAppliedPeriod = resolveAppliedPeriod(inscription, appliedPeriod);
         payment.setAppliedPeriod(resolvedAppliedPeriod);
@@ -601,8 +687,16 @@ public class PaymentsService {
         // never a commission payout (OUT — CommissionPayoutService).
         payment.setDirection("IN");
         payment.setPaymentType(resolvePaymentCategory(inscription));
-        payment.setPerson(membership.getMember().getPerson());
-        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+        payment.setPerson(person);
+        if (beneficiary != null) {
+            payment.setBeneficiaryPerson(beneficiary);
+            payment.setBeneficiaryDocument(beneficiary.getDocumentNumber());
+        }
+        if (membership != null && beneficiary != null) {
+            payment.setBeneficiaryContractNumber(membership.getContractNumber());
+        }
+        payment.setPromoter(member == null ? null
+                : PromoterResolver.resolveForAttribution(member, promoterRepository).orElse(null));
         if (inscription) {
             promotionPricing.applyInscriptionDiscount(payment,
                     actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null));
@@ -702,7 +796,21 @@ public class PaymentsService {
         line.setPhone(req.phone());
         line.setEmail(req.email());
         line.setReferenceNumber(req.referenceNumber());
+        line.setCompanyBankAccount(resolveCompanyAccountFor(req.companyBankAccountUuid(), selection.method()));
         return line;
+    }
+
+    /**
+     * The company account a line says it was paid into / paid from (none = not indicated), which must accept the
+     * line's payment method (V218): a Pago Móvil line cannot point at an account that only takes transfers.
+     */
+    private com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount resolveCompanyAccountFor(
+            UUID companyBankAccountUuid, com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod method) {
+        var account = companyBankAccountService.resolveActive(companyBankAccountUuid);
+        if (account != null && !com.fenixcore.optibienestar360.modules.bank.service.CompanyBankAccountService.accepts(account, method)) {
+            throw new IllegalArgumentException("company_bank_account.method_not_accepted");
+        }
+        return account;
     }
 
     /** A payment method resolved from the catalog plus its bank (when given), both active. */
@@ -742,6 +850,157 @@ public class PaymentsService {
             throw new IllegalArgumentException("payment.phone.required");
         if (method.isMandatoryEmail() && (email == null || email.isBlank()))
             throw new IllegalArgumentException("payment.email.required");
+    }
+
+    // ─── Membership-less payments: credit and assignment (V201) ──────────────
+
+    /**
+     * Confirmation step for paying on behalf of somebody (V203): finds the holder by exact document number or
+     * exact contract number, so the payer SEES who it is (abbreviated name, contract, plan) before sending the
+     * money — never a free-typed reference that a typo could send to the wrong person. An exact match only; this
+     * is not a way to browse affiliates. A holder with no active membership still comes back (membership fields
+     * null) so the payment can become their credit.
+     */
+    public List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto> lookupMembershipForPayer(
+            String documentNumber, String contractNumber) {
+        List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto> found = new java.util.ArrayList<>();
+        if (contractNumber != null && !contractNumber.isBlank()) {
+            String normalized = contractNumber.trim().toUpperCase();
+            Specification<Membership> bySpec = (root, query, cb) -> cb.and(
+                    cb.isTrue(root.get("active")), cb.equal(root.get("contractNumber"), normalized));
+            for (Membership m : membershipRepository.findAll(bySpec)) {
+                found.add(toLookup(m.getMember(), m));
+            }
+        } else if (documentNumber != null && !documentNumber.isBlank()) {
+            String normalized = documentNumber.trim();
+            Specification<Member> bySpec = (root, query, cb) -> cb.and(
+                    cb.isTrue(root.get("active")),
+                    cb.equal(root.get("person").get("documentNumber"), normalized));
+            for (Member member : memberRepository.findAll(bySpec)) {
+                found.add(toLookup(member,
+                        membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()).orElse(null)));
+            }
+        }
+        return found;
+    }
+
+    private static com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto toLookup(Member member, Membership membership) {
+        return new com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto(
+                member.getPerson().getUuid(),
+                membership == null ? null : membership.getUuid(),
+                membership == null ? null : membership.getContractNumber(),
+                abbreviatedName(member.getPerson()),
+                membership == null ? null : membership.getPlan().getName());
+    }
+
+    private static String abbreviatedName(Person person) {
+        if (person == null || person.getFirstName() == null) {
+            return "";
+        }
+        String last = person.getLastName();
+        return last == null || last.isBlank() ? person.getFirstName() : person.getFirstName() + " " + last.charAt(0) + ".";
+    }
+
+    /** {@code GET /v1/me/payments/credit-balance} — the caller's credit ("saldo a favor") per currency. */
+    public com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto creditBalanceOf(UUID actorUserUuid) {
+        User user = userRepository.findByUuid(actorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Person person = user.getPerson();
+        if (person == null) {
+            return new com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto(List.of());
+        }
+        return personCreditService.balanceOf(person.getId());
+    }
+
+    /**
+     * The payer points their own not-yet-approved payment at a membership — typically a relative paying the
+     * holder's plan. The reviewer still verifies the payment on approval, so no extra authority is needed.
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 1)
+    public PaymentDto assignOwnToMembership(UUID actorUserUuid, UUID paymentUuid,
+                                            com.fenixcore.optibienestar360.modules.payment.dto.OwnPaymentMembershipRequest request) {
+        Payment payment = findManaged(paymentUuid);
+        if (!ownedByUser(payment, actorUserUuid)) {
+            throw new NoSuchElementException("payment.not_found");
+        }
+        ensureCollection(payment);
+        String status = payment.getStatus();
+        if (!PaymentStatus.DRAFT.name().equals(status) && !PaymentStatus.PENDING.name().equals(status)) {
+            throw new IllegalArgumentException("payment.membership.not_editable");
+        }
+        Membership membership = membershipRepository.findByUuid(request.membershipUuid())
+                .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
+        payment.setMembership(membership);
+        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+        return mapper.toDto(payment);
+    }
+
+    /**
+     * Staff assigns the remaining credit of an APPROVED collection to a membership by hand: books it as applied and
+     * runs the settlement effects the approval skipped (charges, commission, member confirmation). This is allowed
+     * even when the payment has an OPEN claim or the person's credit is on hold: assigning by hand means the person
+     * agreed to use those funds, so the claim is closed as used by agreement.
+     *
+     * <p>A payment still without a membership is attached to it (first application); one already attached by the
+     * automatic application keeps its membership and only covers the requested months.</p>
+     */
+    @Transactional
+    @Auditable(entity = "payment", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public PaymentDto assignToMembership(UUID paymentUuid,
+                                         com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request,
+                                         UUID actorUserUuid) {
+        Payment payment = findManaged(paymentUuid);
+        ensureCollection(payment);
+        if (!PaymentStatus.APPROVED.name().equals(payment.getStatus())) {
+            throw new IllegalArgumentException("payment.credit.not_assignable");
+        }
+        Membership membership = membershipRepository.findByUuid(request.membershipUuid())
+                .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
+        LocalDate applied = resolveAppliedPeriod(false, request.appliedPeriod());
+        LocalDate through = resolveCoverageThroughPeriod(false, applied, request.coverageThroughPeriod());
+
+        if (payment.getMembership() == null) {
+            personCreditService.applyRemaining(payment, membership);
+            attachCreditPaymentToMembership(payment, membership, applied, through, true);
+        } else {
+            if (!payment.getMembership().getId().equals(membership.getId())) {
+                throw new IllegalArgumentException("payment.credit.not_assignable");
+            }
+            personCreditService.applyRemaining(payment, membership);
+            LocalDate last = through != null ? through : applied;
+            for (LocalDate month = applied; !month.isAfter(last); month = month.plusMonths(1)) {
+                membershipChargeService.coverWithCredit(membership, month, payment);
+            }
+        }
+        paymentCreditClaimService.closeAsUsedByAgreement(payment, actorUserUuid);
+        return toDtoWithCredit(payment);
+    }
+
+    /**
+     * First application of a credit payment to a membership (V201 manual assignment, V205 automatic application):
+     * attaches the payment, fixes the period it covers and runs the effects its approval skipped — exchange-rate
+     * snapshot, member confirmation, <b>one</b> commission for the payment (never fractioned across months) and the
+     * approved event. {@code coverByPeriod} also settles the covered months period-by-period (manual assignment); the
+     * automatic application covers each month itself, one at a time, so it passes {@code false}.
+     */
+    @Transactional
+    public void attachCreditPaymentToMembership(Payment payment, Membership membership,
+                                                LocalDate applied, LocalDate through, boolean coverByPeriod) {
+        payment.setMembership(membership);
+        payment.setInscription(false);
+        payment.setAppliedPeriod(applied);
+        payment.setCoverageThroughPeriod(through);
+        payment.setPromoter(PromoterResolver.resolveForAttribution(membership.getMember(), promoterRepository).orElse(null));
+
+        snapshotExchangeRate(payment);
+        validatorCacheService.evictForMembership(membership);
+        confirmMemberOnFirstApprovedPayment(payment);
+        attributeCommission(payment);
+        if (coverByPeriod) {
+            applyMembershipCharges(payment);
+        }
+        eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
     }
 
     // ─── Lines lifecycle (DRAFT ⇄ PENDING, V117 lines feature) ──────────────
@@ -1081,12 +1340,15 @@ public class PaymentsService {
         if (!"OUT".equals(payment.getDirection())) {
             snapshotExchangeRate(payment);
             validatorCacheService.evictForMembership(payment.getMembership());
+            // No membership (V201): the money is the person's credit until it is assigned to one.
+            personCreditService.recordCreditIfUnassigned(payment);
             // Confirm BEFORE attributing: the commission tier count only counts confirmed
             // enrollments (MemberRepository.countNewSubscribersForPromoter), and this very
             // payment is what confirms the member — so the tier evaluation must see them.
             confirmMemberOnFirstApprovedPayment(payment);
             attributeCommission(payment);
             applyMembershipCharges(payment);
+            applyReinscription(payment);
             eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.promoter.event.PaymentApprovedEvent(payment.getId()));
         }
         dispatchNotification(payment, "payment-approved", "email.payment.approved.subject");
@@ -1107,6 +1369,18 @@ public class PaymentsService {
     }
 
     /**
+     * An approved inscription payment clears a pending membership re-inscription (hub ADR 0034) —
+     * best-effort, like {@link #applyMembershipCharges}.
+     */
+    private void applyReinscription(Payment payment) {
+        try {
+            membershipTermRenewalService.onInscriptionPaymentApproved(payment);
+        } catch (RuntimeException ex) {
+            log.error("Failed to clear re-inscription for payment {}", payment.getUuid(), ex);
+        }
+    }
+
+    /**
      * Stamps {@link Member#getConfirmedAt()} the moment a member's <i>first</i>
      * payment is approved. A no-op if the member is already confirmed
      * (e.g. manually, via {@code POST /v1/admin/members/{uuid}/confirm} —
@@ -1115,6 +1389,9 @@ public class PaymentsService {
      * here means this is the first one.
      */
     private void confirmMemberOnFirstApprovedPayment(Payment payment) {
+        if (payment.getMembership() == null) {
+            return;
+        }
         Member member = payment.getMembership().getMember();
         if (member.getConfirmedAt() != null) {
             return;
@@ -1223,6 +1500,9 @@ public class PaymentsService {
      * the payment-review workflow.
      */
     private void snapshotExchangeRate(Payment payment) {
+        if (payment.getMembership() == null) {
+            return;
+        }
         var membershipCurrency = payment.getMembership().getCurrency();
         if (membershipCurrency == null || membershipCurrency.getId().equals(payment.getCurrency().getId())) {
             return;

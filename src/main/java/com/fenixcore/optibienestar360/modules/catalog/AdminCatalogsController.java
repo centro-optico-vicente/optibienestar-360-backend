@@ -8,6 +8,9 @@ import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityUpdateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.LicensingBodyCreateRequest;
+import com.fenixcore.optibienestar360.modules.catalog.dto.LicensingBodyDto;
+import com.fenixcore.optibienestar360.modules.catalog.dto.LicensingBodyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionCreateRequest;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionUpdateRequest;
@@ -42,6 +45,7 @@ import com.fenixcore.optibienestar360.modules.catalog.service.CountryService;
 import com.fenixcore.optibienestar360.modules.catalog.service.DocumentTypeService;
 import com.fenixcore.optibienestar360.modules.catalog.service.GenderService;
 import com.fenixcore.optibienestar360.modules.catalog.service.MaritalStatusService;
+import com.fenixcore.optibienestar360.modules.catalog.service.LicensingBodyService;
 import com.fenixcore.optibienestar360.modules.catalog.service.ProfessionService;
 import com.fenixcore.optibienestar360.modules.catalog.service.OccupationService;
 import com.fenixcore.optibienestar360.modules.catalog.service.PromoterTypeService;
@@ -123,6 +127,11 @@ public class AdminCatalogsController {
     private static final String PROFESSION_UPDATE = "hasAuthority('PROFESSION_UPDATE')";
     private static final String PROFESSION_DELETE = "hasAuthority('PROFESSION_DELETE')";
 
+    private static final String LICENSING_BODY_VIEW   = "hasAuthority('LICENSING_BODY_VIEW_ALL')";
+    private static final String LICENSING_BODY_CREATE = "hasAuthority('LICENSING_BODY_CREATE')";
+    private static final String LICENSING_BODY_UPDATE = "hasAuthority('LICENSING_BODY_UPDATE')";
+    private static final String LICENSING_BODY_DELETE = "hasAuthority('LICENSING_BODY_DELETE')";
+
     private static final String PRODUCT_CATEGORY_VIEW   = "hasAuthority('PRODUCT_CATEGORY_VIEW_ALL')";
     private static final String PRODUCT_CATEGORY_CREATE = "hasAuthority('PRODUCT_CATEGORY_CREATE')";
     private static final String PRODUCT_CATEGORY_UPDATE = "hasAuthority('PRODUCT_CATEGORY_UPDATE')";
@@ -146,6 +155,7 @@ public class AdminCatalogsController {
     private final MaritalStatusService maritalStatusService;
     private final OccupationService occupationService;
     private final ProfessionService professionService;
+    private final LicensingBodyService licensingBodyService;
     private final ProductCategoryService productCategoryService;
     private final AllyTypeService allyTypeService;
     private final PromoterTypeService promoterTypeService;
@@ -600,6 +610,62 @@ public class AdminCatalogsController {
     public ResponseEntity<Void> deleteProfession(@PathVariable UUID uuid,
                                                        @RequestParam(defaultValue = "false") boolean physical) {
         professionService.delete(uuid, physical);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═══════════════ licensing-bodies (V213) ═══════════════
+    @GetMapping("/licensing-bodies")
+    @PreAuthorize(LICENSING_BODY_VIEW)
+    public ResponseEntity<AppliedSortPage<LicensingBodyDto>> listLicensingBodies(
+            @PageableDefault(size = 50) Pageable pageable,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        Page<LicensingBodyDto> page = licensingBodyService.list(pageable, filter, q, includeInactive);
+        return ResponseEntity.ok(new AppliedSortPage<>(page, licensingBodyService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/licensing-bodies/options")
+    @PreAuthorize(LICENSING_BODY_VIEW)
+    public ResponseEntity<List<OptionDto>> licensingBodyOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(licensingBodyService.listOptions(q, limit, currentValues));
+    }
+
+    @GetMapping("/licensing-bodies/{uuid}")
+    @PreAuthorize(LICENSING_BODY_VIEW)
+    public ResponseEntity<LicensingBodyDto> getLicensingBody(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(licensingBodyService.get(uuid));
+    }
+
+    @PostMapping("/licensing-bodies")
+    @PreAuthorize(LICENSING_BODY_CREATE)
+    public ResponseEntity<LicensingBodyDto> createLicensingBody(@Valid @RequestBody LicensingBodyCreateRequest req) {
+        LicensingBodyDto created = licensingBodyService.create(req);
+        return ResponseEntity.created(locationFor(created.uuid())).body(created);
+    }
+
+    @PutMapping("/licensing-bodies/{uuid}")
+    @PreAuthorize(LICENSING_BODY_UPDATE)
+    public ResponseEntity<LicensingBodyDto> updateLicensingBody(@PathVariable UUID uuid,
+                                                                @Valid @RequestBody LicensingBodyUpdateRequest req) {
+        return ResponseEntity.ok(licensingBodyService.update(uuid, req));
+    }
+
+    @GetMapping("/licensing-bodies/{uuid}/usage")
+    @PreAuthorize(LICENSING_BODY_VIEW)
+    public ResponseEntity<UsageDto> licensingBodyUsage(@PathVariable UUID uuid) {
+        long count = licensingBodyService.countUsages(uuid);
+        return ResponseEntity.ok(new UsageDto(count > 0, count));
+    }
+
+    @DeleteMapping("/licensing-bodies/{uuid}")
+    @PreAuthorize(LICENSING_BODY_DELETE)
+    public ResponseEntity<Void> deleteLicensingBody(@PathVariable UUID uuid,
+                                                    @RequestParam(defaultValue = "false") boolean physical) {
+        licensingBodyService.delete(uuid, physical);
         return ResponseEntity.noContent().build();
     }
 

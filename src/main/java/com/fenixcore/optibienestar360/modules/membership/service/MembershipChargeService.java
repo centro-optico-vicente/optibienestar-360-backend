@@ -172,7 +172,8 @@ public class MembershipChargeService {
                 .orElse(DEFAULT_DAYS_BEFORE_DUE);
     }
 
-    private static LocalDate nextChargeablePeriod(Membership membership) {
+    /** First month not yet covered: the month after {@code lastPaidThrough}, or the enrollment month when nothing was ever paid. */
+    public static LocalDate nextChargeablePeriod(Membership membership) {
         if (membership.getLastPaidThrough() == null) {
             return membership.getEnrolledAt().withDayOfMonth(1);
         }
@@ -224,6 +225,32 @@ public class MembershipChargeService {
         // Immediate re-evaluation so a SUSPENDED membership can flip back to
         // ACTIVE right away instead of waiting for the next daily sweep.
         membershipStatusService.applyTransition(membership, LocalDate.now());
+    }
+
+    /**
+     * Covers ONE month with credit (V205): marks the charge of {@code period} COVERED by {@code payment}, publishes
+     * the covered event, advances {@code lastPaidThrough}/{@code nextDueDate} when the month closes the gap, and
+     * re-evaluates the membership's status. The caller decides the amount; nothing here compares money. Returns the
+     * charge, or {@code null} when it was already COVERED or WAIVED (nothing to pay for that month).
+     */
+    @Transactional
+    public MembershipCharge coverWithCredit(Membership membership, LocalDate period, Payment payment) {
+        MembershipCharge charge = ensureChargeForPeriod(membership, period);
+        if (ChargeStatus.COVERED.name().equals(charge.getStatus()) || ChargeStatus.WAIVED.name().equals(charge.getStatus())) {
+            return null;
+        }
+        charge.setStatus(ChargeStatus.COVERED.name());
+        charge.setCoveredByPayment(payment);
+        eventPublisher.publishEvent(
+                new com.fenixcore.optibienestar360.modules.promoter.event.MembershipChargeCoveredEvent(charge.getId()));
+
+        LocalDate monthEnd = charge.getPeriodEnd();
+        if (membership.getLastPaidThrough() == null || monthEnd.isAfter(membership.getLastPaidThrough())) {
+            membership.setLastPaidThrough(monthEnd);
+            membership.setNextDueDate(scheduledDueDate(membership, monthEnd.plusDays(1)));
+        }
+        membershipStatusService.applyTransition(membership, LocalDate.now());
+        return charge;
     }
 
     /**

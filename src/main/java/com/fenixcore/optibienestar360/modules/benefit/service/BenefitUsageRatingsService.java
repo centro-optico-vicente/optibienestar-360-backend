@@ -18,7 +18,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
- * The affiliate rates their own benefit usages (V201): stars for the ally and,
+ * The affiliate rates their own benefit usages (V224): stars for the ally and,
  * when the usage was of a catalogued offer, for the product. The rating lives
  * on the usage row, so only someone who actually consumed can rate, once per
  * usage (re-rating replaces it).

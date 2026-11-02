@@ -100,8 +100,9 @@ public class TermsVersionService {
 
     /**
      * {@code GET /v1/admin/allies/{allyUuid}/applicable-terms} — the current
-     * ALIADO templates the ally may sign (general ones plus those whose scope
-     * matches the ally, its types or their segments), most specific first.
+     * ALIADO templates the ally may sign (those whose scope matches the ally,
+     * its types or its segment, plus the general one while no template of the
+     * ally's segment exists — {@link TermsVersionScopes}), most specific first.
      */
     public List<TermsVersionDto> listApplicableToAlly(UUID allyUuid) {
         Ally ally = allyRepository.findByUuid(allyUuid)
@@ -124,15 +125,56 @@ public class TermsVersionService {
         return current;
     }
 
-    /** {@link #getCurrentPublic} projected for anonymous callers, placeholders resolved. */
-    public PublicTermsDto getCurrentPublicRendered(TermType termType) {
-        TermsVersion version = getCurrentPublic(termType);
+    /**
+     * Anonymous-facing lookup for ALIADO, which is split by segment (V217):
+     * {@code segment} picks the B2B or B2P template. Without it, the general
+     * template answers only while no segment template exists; otherwise the
+     * caller must say which one (422) — the superseded general text is never
+     * served. {@code segment} on any other type is a 422. 404 if the chosen
+     * stream has no current public version.
+     */
+    public TermsVersion getCurrentPublic(TermType termType, AllyType.Segment segment) {
+        if (termType != TermType.ALLY) {
+            if (segment != null) {
+                throw new IllegalArgumentException("terms.public.segment_only_aliado");
+            }
+            return getCurrentPublic(termType);
+        }
+        List<TermsVersion> visible = TermsVersionScopes.currentPublic(
+                repository.findByTermTypeOrderByValidFromDesc(TermType.ALLY), Instant.now());
+        Optional<TermsVersion> match = visible.stream().filter(v -> v.getSegment() == segment).findFirst();
+        if (match.isPresent()) {
+            return match.get();
+        }
+        if (segment == null && !visible.isEmpty()) {
+            throw new IllegalArgumentException("terms.public.segment_required");
+        }
+        throw new NoSuchElementException("terms_version.not_found");
+    }
+
+    /** {@link #getCurrentPublic(TermType, AllyType.Segment)} projected for anonymous callers, placeholders resolved. */
+    public PublicTermsDto getCurrentPublicRendered(TermType termType, AllyType.Segment segment) {
+        return toPublicDto(getCurrentPublic(termType, segment));
+    }
+
+    /**
+     * {@code GET /v1/public/terms} — every current public version, one per
+     * stream (AFILIADO, ASESOR, ALIADO B2B, ALIADO B2P…), placeholders resolved.
+     */
+    public List<PublicTermsDto> listCurrentPublicRendered() {
+        return TermsVersionScopes.currentPublic(repository.findAll(), Instant.now()).stream()
+                .map(this::toPublicDto)
+                .toList();
+    }
+
+    private PublicTermsDto toPublicDto(TermsVersion version) {
         return new PublicTermsDto(
                 version.getUuid(),
                 version.getTermType(),
                 version.getTitle(),
                 renderer.render(version.getContentMarkdown()),
-                version.getValidFrom());
+                version.getValidFrom(),
+                version.getSegment());
     }
 
     /**
@@ -260,6 +302,10 @@ public class TermsVersionService {
         Ally ally = allyUuid == null ? null : allyRepository.findByUuid(allyUuid)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
         if (allyType != null && segment != null && allyType.getSegment() != segment) {
+            throw new IllegalArgumentException("terms_version.scope.segment_mismatch");
+        }
+        // The ally's own segment (V211) must match too, or the template could never apply.
+        if (ally != null && segment != null && ally.getSegment() != segment) {
             throw new IllegalArgumentException("terms_version.scope.segment_mismatch");
         }
         version.setAllyType(allyType);

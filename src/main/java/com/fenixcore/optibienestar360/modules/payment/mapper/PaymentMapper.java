@@ -23,6 +23,9 @@ public interface PaymentMapper {
     @Mapping(target = "paymentType",              source = "paymentType")
     @Mapping(target = "person",                   source = "person")
     @Mapping(target = "promoter",                 source = "promoter")
+    @Mapping(target = "beneficiary",             source = "beneficiaryPerson")
+    @Mapping(target = "openClaim",               ignore = true)
+    @Mapping(target = "creditRemaining",         ignore = true)
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
@@ -81,7 +84,7 @@ public interface PaymentMapper {
                 line.getCurrency() != null ? DisplayRefs.ref(line.getCurrency()) : null,
                 line.getReferenceNumber(),
                 line.getBank() != null
-                        ? DisplayRef.of(line.getBank().getUuid(), line.getBank().getCode(), line.getBank().getShortName())
+                        ? DisplayRefs.ref(line.getBank())
                         : null,
                 line.getIdentification(),
                 line.getBankAccountType(),
@@ -92,7 +95,45 @@ public interface PaymentMapper {
                 line.getStatus(),
                 line.getReviewedBy() != null ? DisplayRefs.ref(line.getReviewedBy()) : null,
                 line.getReviewedAt(),
-                line.getReviewReason());
+                line.getReviewReason(),
+                line.getCompanyBankAccount() != null
+                        ? DisplayRef.of(line.getCompanyBankAccount().getUuid(),
+                                companyAccountCode(line.getCompanyBankAccount()),
+                                companyAccountLabel(line.getCompanyBankAccount()))
+                        : null,
+                payoutAccountRef(line.getPayoutAccount()));
+    }
+
+    /** What identifies a company account at a glance: the account number, or the phone / email for methods without one. */
+    static String companyAccountCode(com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount a) {
+        if (a.getAccountNumber() != null) return a.getAccountNumber();
+        return a.getPhone() != null ? a.getPhone() : a.getEmail();
+    }
+
+    /** The bank's short name, or the method's name when the account has no bank (e.g. Zelle). */
+    static String companyAccountLabel(com.fenixcore.optibienestar360.modules.bank.entity.CompanyBankAccount a) {
+        if (a.getBank() != null) return a.getBank().getShortName();
+        return methodNames(a.getPaymentMethods());
+    }
+
+    /** The accepted methods' names, in alphabetical order, joined with " / "; {@code null} when there are none. */
+    private static String methodNames(java.util.Collection<com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod> methods) {
+        String joined = methods.stream()
+                .map(com.fenixcore.optibienestar360.modules.payment.entity.PaymentMethod::getName)
+                .filter(java.util.Objects::nonNull)
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        return joined.isEmpty() ? null : joined;
+    }
+
+    /** The advisor payout account an OUT line was paid to (V206): its label (alias) or the method name, with the account / phone. */
+    static DisplayRef payoutAccountRef(com.fenixcore.optibienestar360.modules.promoter.entity.PromoterPayoutAccount a) {
+        if (a == null) return null;
+        String code = a.getAccountNumber() != null ? a.getAccountNumber()
+                : a.getPhone() != null ? a.getPhone() : a.getEmail();
+        String name = a.getLabel() != null ? a.getLabel()
+                : methodNames(a.getPaymentMethods());
+        return DisplayRef.of(a.getUuid(), code, name);
     }
 
     @Named("isPresent")
@@ -139,7 +180,7 @@ public interface PaymentMapper {
 	/** Line-level bank (V117 FK) — only populated when the method's {@code isMandatoryBank} is true. */
 	default DisplayRef bankRef(Payment payment) {
 		return firstLine(payment).map(PaymentLine::getBank)
-				.map(b -> DisplayRef.of(b.getUuid(), b.getCode(), b.getShortName()))
+				.map(DisplayRefs::ref)
 				.orElse(null);
 	}
 

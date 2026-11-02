@@ -29,7 +29,7 @@ import java.util.UUID;
  * {@code MEMBER_VIEW_OWN}; the service scopes strictly to the caller's member
  * record via the user account.
  *
- * <p>{@code POST} (V202, {@code MEMBER_BENEFICIARY_CREATE_OWN}) lets the
+ * <p>{@code POST} (V225, {@code MEMBER_BENEFICIARY_CREATE_OWN}) lets the
  * affiliate add a beneficiary under the same plan rules as the admin add.</p>
  */
 @RestController

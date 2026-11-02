@@ -1,9 +1,14 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
@@ -54,9 +59,34 @@ public record AllyCreateRequest(
         Boolean published,
         Instant publishedAt,
 
+
+        // ─── Segment + holder person (V211, hub ADR 0031) ──────────────────
+        /** B2B / B2P. Null = derived from the types (all B2P → B2P, else B2B). */
+        Segment segment,
+        /** Professional (B2P, required) or signing representative (B2B); find-or-create by cédula.  */
+        @Valid AllyHolderPersonRequest holder,
+
+        // ─── B2P practice site — rejected for a B2B ally ───────────────────
+        /** Clinic the professional practices at, when it is an ally (B2B).  */
+        UUID hostAllyUuid,
+        @Size(max = 200) String hostName,
+        @Size(max = 20) String officeNumber,
+        @Size(max = 30) String appointmentPhone,
+        @Size(max = 150) String assistantName,
+
+        // ─── B2B commercial data — rejected for a B2P ally ─────────────────
+        @Size(max = 100) String commercialZone,
+        @Size(max = 200) String tradeName,
+        @Min(1800) @Max(2100) Short foundedYear,
+        @PositiveOrZero Integer cashRegistersCount,
+        @PositiveOrZero Integer branchesCount,
+        Boolean hasPos,
+        @Size(max = 100) String representativePosition,
+
         // ─── Agreement file + representative (V179) — allyNumber is never accepted ─
         /** Advisor (promoter) who captured the ally; null = none (create) / unchanged (update). */
         UUID capturedByPromoterUuid,
+        // Deprecated since V211: use holder.
         @Size(max = 210) String representativeName,
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String representativeDocumentType,

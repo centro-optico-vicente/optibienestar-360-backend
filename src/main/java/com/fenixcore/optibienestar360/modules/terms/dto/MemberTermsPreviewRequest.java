@@ -18,5 +18,6 @@ public record MemberTermsPreviewRequest(
         @Size(max = 2) String documentType,
         @Size(max = 20) String documentNumber,
         LocalDate birthDate,
-        UUID planUuid
+        UUID planUuid,
+        @Size(max = 20) String referralCode
 ) {}

@@ -274,7 +274,7 @@ class AffiliationRequestServiceTest {
                 .hasMessage("affiliation.referral.not_found");
     }
 
-    // ─── Create with reported inscription payment (V203) ──────────────────
+    // ─── Create with reported inscription payment (V226) ──────────────────
 
     private void stubStoreUpToThePayment() {
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
@@ -387,7 +387,7 @@ class AffiliationRequestServiceTest {
         when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn("Contrato corregido");
 
         service.update(r.getUuid(), new AffiliationRequestUpdateRequest("María", "Pérez", "V", "12345679",
-                r.getBirthDate(), r.getEmail(), null, plan.getUuid(), "Cédula mal escrita"), reviewer.getUuid());
+                r.getBirthDate(), r.getEmail(), null, plan.getUuid(), "Cédula mal escrita", null, null), reviewer.getUuid());
 
         assertThat(r.getDocumentNumber()).isEqualTo("12345679");
         ArgumentCaptor<AffiliationRequestLog> entry = ArgumentCaptor.forClass(AffiliationRequestLog.class);
@@ -406,7 +406,7 @@ class AffiliationRequestServiceTest {
         when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
 
         assertThatThrownBy(() -> service.update(r.getUuid(), new AffiliationRequestUpdateRequest("María", "Pérez",
-                "V", "12345678", r.getBirthDate(), r.getEmail(), null, plan.getUuid(), null), UUID.randomUUID()))
+                "V", "12345678", r.getBirthDate(), r.getEmail(), null, plan.getUuid(), null, null, null), UUID.randomUUID()))
                 .hasMessage("affiliation_request.update.invalid_state");
     }
 
@@ -636,7 +636,7 @@ class AffiliationRequestServiceTest {
     private AssistedAffiliationRequestCreateRequest assistedRequest(String password, Boolean accepted) {
         return new AssistedAffiliationRequestCreateRequest("María", "Pérez", "V", "12345678",
                 LocalDate.of(1985, 3, 15), " Maria@Example.com ", "0414-1234567", password,
-                plan.getUuid(), terms.getUuid(), accepted);
+                plan.getUuid(), terms.getUuid(), accepted, null, null);
     }
 
     @Test

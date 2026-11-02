@@ -43,6 +43,19 @@ public class Person extends BaseEntity {
 
     // ─── Civic identity ─────────────────────────────────────────────────────
 
+    /** {@code false} = this person's credit is not applied automatically (claim / refund in progress); staff-controlled (V205). */
+    @Column(name = "credit_auto_apply", nullable = false)
+    private boolean creditAutoApply = true;
+
+    @Column(name = "credit_hold_reason", length = 255)
+    private String creditHoldReason;
+
+    @Column(name = "credit_hold_by")
+    private java.util.UUID creditHoldBy;
+
+    @Column(name = "credit_hold_at")
+    private java.time.Instant creditHoldAt;
+
     @Column(name = "first_name", length = 50, nullable = false)
     private String firstName;
 

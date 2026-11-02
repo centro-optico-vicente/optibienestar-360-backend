@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
@@ -109,6 +110,7 @@ public class ProfessionService {
         m.setCode(req.code());
         m.setName(req.name());
         m.setDescription(req.description());
+        m.setParent(resolveParent(m, req.parentUuid()));
         return toDto(repository.save(m));
     }
 
@@ -122,6 +124,7 @@ public class ProfessionService {
         if (req.active() != null) {
             m.setActive(req.active());
         }
+        m.setParent(resolveParent(m, req.parentUuid()));
         return toDto(repository.save(m));
     }
 
@@ -146,12 +149,42 @@ public class ProfessionService {
         repository.save(m);
     }
 
+    /**
+     * The general profession of a sub-specialty (hub ADR 0031 §6). Two levels at
+     * most: the parent must be a top-level profession, and a profession that
+     * already has sub-specialties cannot become one. A profession is never its
+     * own parent.
+     */
+    Profession resolveParent(Profession profession, UUID parentUuid) {
+        if (parentUuid == null) {
+            return null;
+        }
+        Profession parent = repository.findByUuid(parentUuid)
+                .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
+        if (parentUuid.equals(profession.getUuid())) {
+            throw new IllegalArgumentException("profession.parent.self");
+        }
+        if (parent.getParent() != null) {
+            throw new IllegalArgumentException("profession.parent.too_deep");
+        }
+        if (profession.getId() != null && repository.existsByParent_Id(profession.getId())) {
+            throw new IllegalArgumentException("profession.parent.has_children");
+        }
+        return parent;
+    }
+
     private Profession find(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("Profession not found: " + uuid));
     }
 
     static ProfessionDto toDto(Profession m) {
-        return new ProfessionDto(m.getUuid(), m.getCode(), m.getName(), m.getDescription(), m.isActive());
+        return new ProfessionDto(m.getUuid(), m.getCode(), m.getName(), m.getDescription(), parentRef(m), m.isActive());
+    }
+
+    /** FK pair of the general profession (ADR 0014), {@code null} for a top-level one. */
+    public static DisplayRef parentRef(Profession m) {
+        Profession p = m.getParent();
+        return p == null ? null : DisplayRef.of(p.getUuid(), p.getCode(), p.getName());
     }
 }

@@ -37,6 +37,11 @@ public record PaymentDto(
         @Display DisplayRef person,
         @Display DisplayRef promoter,
 
+        /** Who the payment credits when the payer is not the holder (V203), with document / contract snapshots. */
+        @Display DisplayRef beneficiary,
+        String beneficiaryDocument,
+        String beneficiaryContractNumber,
+
         // Subject (flat refs — member/membership resolve to a readable
         // _Display via DisplayRefs, never a bare UUID; see ADR 0014). Null for
         // `direction=OUT` — a commission payout has no membership (V120).
@@ -134,5 +139,14 @@ public record PaymentDto(
         // Audit
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant createdAt,
-        @Display(Display.Kind.DATETIME) Instant updatedAt
-) {}
+        @Display(Display.Kind.DATETIME) Instant updatedAt,
+
+        // Credit (V205) — only when the payment ever held credit: what is left of it, and its OPEN claim if any
+        PaymentClaimDto openClaim,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal creditRemaining
+) {
+    /** Rebuilds this record with the credit view populated — see {@code PaymentsService.toDtoWithCredit}. */
+    public PaymentDto withCredit(PaymentClaimDto openClaim, BigDecimal creditRemaining) {
+        return new PaymentDto(uuid, direction, paymentType, person, promoter, beneficiary, beneficiaryDocument, beneficiaryContractNumber, membership, member, plan, campaign, payerUserUuid, amount, currency_Code, currency, amountConverted, convertedCurrency_Code, convertedCurrency, exchangeRateUsed, exchangeRateDate, paymentMethod, paymentMethodDescription, paymentMethodMandatoryIdentification, paymentMethodMandatoryBank, paymentMethodMandatoryBankAccount, paymentMethodMandatoryAccountType, paymentMethodMandatoryAccountCode, paymentMethodMandatoryPhone, paymentMethodMandatoryEmail, paymentMethodMandatoryReferenceNumber, referenceNumber, bank, identification, bankAccountType, bankAccountCode, bankAccountIdentifier, phone, email, lines, paymentDate, receivedAt, inscription, appliedPeriod, coverageThroughPeriod, supportFileAvailable, supportFileName, supportFileContentType, supportFileSizeBytes, adminNotes, status, reviewedBy, reviewedAt, reviewReason, discountAmount, discountReason, discountedByUserUuid, discountedAt, active, createdAt, updatedAt, openClaim, creditRemaining);
+    }
+}

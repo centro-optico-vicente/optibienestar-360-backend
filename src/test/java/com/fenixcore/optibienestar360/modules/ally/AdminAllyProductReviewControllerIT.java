@@ -68,7 +68,7 @@ class AdminAllyProductReviewControllerIT {
     private AllyProductDto serviceDto(ReviewStatus status) {
         return new AllyProductDto(UUID.randomUUID(), UUID.randomUUID(), null,
                 UUID.randomUUID(), ProductType.SERVICE, true, null, "Consulta oftalmológica", null, false, null,
-                null, null, null, null,
+                null, null, null, null, null, null, null,
                 status, null, null, null, false, null, true, null, null, null);
     }
 

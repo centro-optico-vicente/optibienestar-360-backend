@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.DiscountType;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
@@ -126,7 +127,7 @@ public class AllyProductsAdminService {
         offer.setAlly(ally);
         offer.setProduct(product);
         applyPrice(offer, req.priceAmount());
-        offer.setDiscountPct(req.discountPct());
+        offer.applyDiscount(req.discountType(), req.discountPct(), req.discountAmount());
         offer.setExclusions(blankToNull(req.exclusions()));
         // reviewStatus stays at PROPOSED default — admin moves it to APPROVED
         // via the workflow endpoint to log the actor + reason.
@@ -142,7 +143,7 @@ public class AllyProductsAdminService {
                 req.productType(), req.name(), req.description(), req.requiresAppointment());
 
         if (req.priceAmount() != null)  applyPrice(offer, req.priceAmount());
-        if (req.discountPct() != null)  offer.setDiscountPct(req.discountPct());
+        applyDiscountEdits(offer, req);
         // exclusions: null = unchanged, blank = cleared.
         if (req.exclusions() != null)   offer.setExclusions(blankToNull(req.exclusions()));
         if (req.published() != null)    offer.setPublished(req.published());
@@ -160,6 +161,26 @@ public class AllyProductsAdminService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Partial edit of the preferential rate: an omitted field keeps the stored
+     * value. Without an explicit type, sending an amount means FLAT and a
+     * percentage means PERCENTAGE. Re-applied whenever the price changes too,
+     * so a FLAT amount can never end up above a lowered price.
+     */
+    static void applyDiscountEdits(AllyProduct offer, AllyProductUpdateRequest req) {
+        boolean discountEdited = req.discountType() != null || req.discountPct() != null || req.discountAmount() != null;
+        if (!discountEdited && req.priceAmount() == null) {
+            return;
+        }
+        DiscountType type = req.discountType() != null ? req.discountType()
+                : req.discountAmount() != null ? DiscountType.FLAT
+                : req.discountPct() != null ? DiscountType.PERCENTAGE
+                : offer.getDiscountType();
+        BigDecimal pct = req.discountPct() != null ? req.discountPct() : offer.getDiscountPct();
+        BigDecimal amount = req.discountAmount() != null ? req.discountAmount() : offer.getDiscountAmount();
+        offer.applyDiscount(type, pct, amount);
+    }
 
     /** Reference prices are USD-only today (ADR 0015 follow-up, V91). */
     private void applyPrice(AllyProduct offer, BigDecimal amount) {

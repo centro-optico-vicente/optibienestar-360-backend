@@ -80,4 +80,88 @@ class FlywayMigrationIT {
         assertNotNull(index);
     }
 
+    @Test
+    void finalContractTemplatesAreSeededPerSegment() {
+        // V217: one ALIADO template per segment, plus the final AFILIADO / ASESOR texts.
+        Integer segmentStreams = jdbc.queryForObject(
+                "SELECT COUNT(DISTINCT segment) FROM app.terms_versions WHERE term_type = 'ALIADO' "
+                        + "AND segment IN ('B2B', 'B2P') AND content_markdown LIKE '%{{org.phones}}%'", Integer.class);
+        assertEquals(2, segmentStreams);
+        Integer finalTexts = jdbc.queryForObject(
+                "SELECT COUNT(DISTINCT term_type) FROM app.terms_versions WHERE term_type IN ('AFILIADO', 'ASESOR') "
+                        + "AND segment IS NULL AND content_markdown LIKE '%{{org.address}}%'", Integer.class);
+        assertEquals(2, finalTexts);
+    }
+
+    @Test
+    void membershipTermColumnsAndCoherenceConstraintsExist() {
+        // V220 (hub ADR 0034): the term rule lives on plans and is snapshotted onto memberships.
+        for (String table : new String[] {"plans", "memberships"}) {
+            Integer columns = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'app' AND table_name = ? "
+                            + "AND column_name IN ('reinscription_required', 'term_mode', 'term_fixed_month', "
+                            + "'term_fixed_day', 'term_period_months')", Integer.class, table);
+            assertEquals(5, columns, table);
+        }
+        // Integer, not SMALLINT: the JPA entities map these as Integer and schema validation rejects a mismatch.
+        Integer integerTermColumns = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'app' "
+                        + "AND table_name IN ('plans', 'memberships') AND data_type = 'integer' "
+                        + "AND column_name IN ('term_fixed_month', 'term_fixed_day', 'term_period_months')", Integer.class);
+        assertEquals(6, integerTermColumns);
+        Integer coherence = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pg_constraint WHERE conname IN "
+                        + "('chk_plans_term_coherence', 'chk_memberships_term_coherence', 'chk_memberships_inscription_due')",
+                Integer.class);
+        assertEquals(3, coherence);
+    }
+
+    @Test
+    void termCoherenceConstraintCoversBothModes() {
+        // Read-only check (no writes to the shared dev database): the rule must require month + day for
+        // FIXED_DATE and the period length for PERIOD.
+        String def = jdbc.queryForObject(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'chk_plans_term_coherence' "
+                        + "AND conrelid = 'app.plans'::regclass", String.class);
+        assertTrue(def.contains("FIXED_DATE") && def.contains("PERIOD"), def);
+        assertTrue(def.contains("term_fixed_month IS NOT NULL") && def.contains("term_period_months IS NOT NULL"), def);
+    }
+
+    @Test
+    void membershipTermRenewalJobAndPermissionAreSeeded() {
+        Integer job = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM app.scheduled_jobs WHERE code = 'MEMBERSHIP_TERM_RENEWAL' "
+                        + "AND timezone = 'America/Caracas'", Integer.class);
+        assertEquals(1, job);
+        Integer grants = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM app.role_permissions rp "
+                        + "JOIN app.permissions p ON p.permissions_id = rp.permission_id "
+                        + "JOIN app.roles r ON r.roles_id = rp.role_id "
+                        + "WHERE p.name = 'MEMBERSHIP_TERM_UPDATE' AND r.name IN ('SYSTEM', 'ADMINISTRADOR')", Integer.class);
+        assertEquals(2, grants);
+    }
+
+    @Test
+    void digitalCardViewExposesTheMembershipTerm() {
+        // V223: expires_at and inscription_due_since appended to digital_cards_view.
+        Integer columns = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'app' "
+                        + "AND table_name = 'digital_cards_view' AND column_name IN ('expires_at', 'inscription_due_since')",
+                Integer.class);
+        assertEquals(2, columns);
+    }
+
+    @Test
+    void familyPlanHasTheSingleProgramPricing() {
+        // V222: $25 inscription, $5 monthly, holder + 4 included, up to 6, $5 per extra slot.
+        var row = jdbc.queryForMap("SELECT inscription_fee, monthly_fee, included_beneficiaries, "
+                + "max_beneficiaries, extra_beneficiary_inscription_fee FROM app.plans WHERE code = 'FAMILIAR'");
+        assertEquals(0, new java.math.BigDecimal("25.00").compareTo((java.math.BigDecimal) row.get("inscription_fee")));
+        assertEquals(0, new java.math.BigDecimal("5.00").compareTo((java.math.BigDecimal) row.get("monthly_fee")));
+        assertEquals(4, ((Number) row.get("included_beneficiaries")).intValue());
+        assertEquals(6, ((Number) row.get("max_beneficiaries")).intValue());
+        assertEquals(0, new java.math.BigDecimal("5.00")
+                .compareTo((java.math.BigDecimal) row.get("extra_beneficiary_inscription_fee")));
+    }
+
 }

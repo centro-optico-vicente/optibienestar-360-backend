@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V201: calificación de consumos por el afiliado.
+-- V224: calificación de consumos por el afiliado.
 --
 -- Cada consumo (benefit_usages) se puede calificar UNA vez — editable — con
 -- estrellas 1..5 para el aliado y, si el consumo es de una oferta catalogada,
@@ -90,6 +90,6 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'MEMBER_RATE_USAGE') THEN
-        RAISE EXCEPTION 'V201: MEMBER_RATE_USAGE was not created';
+        RAISE EXCEPTION 'V224: MEMBER_RATE_USAGE was not created';
     END IF;
 END $$;

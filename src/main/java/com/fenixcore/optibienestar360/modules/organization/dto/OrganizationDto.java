@@ -26,5 +26,12 @@ public record OrganizationDto(
         @Display(Display.Kind.BOOLEAN) boolean autoApproveCommissions,
         String registryState,
         String signingCity,
-        String serviceArea
+        String serviceArea,
+        String address,
+        String email,
+        String phones,
+        String signatoryName,
+        String signatoryDocumentType,
+        String signatoryDocumentNumber,
+        String signatoryPosition
 ) {}

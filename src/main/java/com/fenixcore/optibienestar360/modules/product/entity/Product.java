@@ -74,7 +74,7 @@ public class Product extends BaseEntity {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
-    // ─── Affiliate ratings (V201) — kept in sync by BenefitUsageRatingsService ─
+    // ─── Affiliate ratings (V224) — kept in sync by BenefitUsageRatingsService ─
 
     /** Average product stars across every ally's offer; {@code null} with no ratings. */
     @Column(name = "rating_avg", precision = 3, scale = 2)

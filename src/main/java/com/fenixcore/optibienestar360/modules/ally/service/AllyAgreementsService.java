@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -116,8 +117,13 @@ public class AllyAgreementsService {
      * {@code ally_agreement.terms_version.invalid_type}) — and only templates
      * whose scope (V183) matches the ally (422
      * {@code ally_agreement.terms_version.not_applicable}, see
-     * {@link TermsVersionScopes#isApplicableTo}). {@code null} in,
-     * {@code null} out (the link is optional).
+     * {@link TermsVersionScopes#isApplicableTo}). It must also be one of the
+     * templates currently offered to the ally (422
+     * {@code ally_agreement.terms_version.not_current}, see
+     * {@link TermsVersionScopes#currentApplicableTo}): a superseded version,
+     * or the general template once a template of the ally's segment exists
+     * (V217), cannot be linked to a new or changed agreement. {@code null}
+     * in, {@code null} out (the link is optional).
      */
     TermsVersion resolveAllyTermsVersion(Ally ally, UUID termsVersionUuid) {
         if (termsVersionUuid == null) return null;
@@ -128,6 +134,12 @@ public class AllyAgreementsService {
         }
         if (!TermsVersionScopes.isApplicableTo(version, ally)) {
             throw new IllegalArgumentException("ally_agreement.terms_version.not_applicable");
+        }
+        List<TermsVersion> offered = TermsVersionScopes.currentApplicableTo(
+                termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermsVersion.TermType.ALLY),
+                ally, Instant.now());
+        if (offered.stream().noneMatch(v -> v.getUuid().equals(version.getUuid()))) {
+            throw new IllegalArgumentException("ally_agreement.terms_version.not_current");
         }
         return version;
     }

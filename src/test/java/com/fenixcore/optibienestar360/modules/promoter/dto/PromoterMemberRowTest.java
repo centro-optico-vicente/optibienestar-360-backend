@@ -12,7 +12,7 @@ class PromoterMemberRowTest {
 
     private static PromoterMemberRow row(String status, LocalDate nextDue) {
         return new PromoterMemberRow(UUID.randomUUID(), "Ana", "12345678", "+58 412", "Plan Familiar",
-                LocalDate.now().minusMonths(3), status, nextDue, null, new BigDecimal("10.00"));
+                LocalDate.now().minusMonths(3), status, nextDue, null, new BigDecimal("10.00"), null, false);
     }
 
     @Test

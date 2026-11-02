@@ -60,7 +60,7 @@ public record BenefitUsageDto(
         Map<String, Object> metadata,
         String notes,
 
-        // Affiliate's rating (V201) — all null until rated
+        // Affiliate's rating (V224) — all null until rated
         Integer allyRating,
         Integer productRating,
         String ratingComment,

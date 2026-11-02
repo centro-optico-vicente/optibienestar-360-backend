@@ -51,7 +51,9 @@ class MembershipPricingInvariantsTest {
 
     @BeforeEach
     void setup() {
-        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher, null);
+        service = new MembershipsService(memberRepository, planRepository, membershipRepository, mapper, conversionEnricher, null,
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class),
+                org.mockito.Mockito.mock(InscriptionPaymentMethodResolver.class));
     }
 
     @Test
@@ -98,8 +100,10 @@ class MembershipPricingInvariantsTest {
         when(memberRepository.findByUuid(memberUuid)).thenReturn(Optional.of(member));
         when(membershipRepository.existsByMemberIdAndActiveTrue(1L)).thenReturn(false);
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+        // enroll() reads the saved membership (id for the credit hook, DTO mapping), so save() must echo it back.
+        when(membershipRepository.save(org.mockito.ArgumentMatchers.any(Membership.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null, null, null), null);
+        service.enroll(memberUuid, new MembershipCreateRequest(plan.getUuid(), null, null, null, null, null), null);
 
         ArgumentCaptor<Membership> captor = ArgumentCaptor.forClass(Membership.class);
         verify(membershipRepository, atLeastOnce()).save(captor.capture());

@@ -28,7 +28,7 @@ import java.util.UUID;
  * {@code daysOverdue} counts the days past {@code nextDueDate} (0 when not past it).
  *
  * <p>Populated directly by a JPQL constructor expression
- * ({@code MemberRepository.findPromoterPortfolio}) through the 10-argument
+ * ({@code MemberRepository.findPromoterPortfolio}) through the 12-argument
  * constructor; keep its field order/types in sync with that query. Scalars
  * carry a localized {@code _Display} sibling (ADR 0014).</p>
  */
@@ -44,6 +44,9 @@ public record PromoterMemberRow(
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
         @Display(Display.Kind.MONEY) BigDecimal monthlyFee,
+        /** End of the current term (hub ADR 0034); null = open-ended or no active membership. */
+        @Display(Display.Kind.DATE) LocalDate expiresAt,
+        Boolean inscriptionDue,
         String paymentStatus,
         Integer daysOverdue
 ) {
@@ -51,15 +54,19 @@ public record PromoterMemberRow(
     /** JPQL constructor ({@code findPromoterPortfolio}); derives the payment status. */
     public PromoterMemberRow(UUID memberUuid, String memberName, String documentNumber, String phone,
                              String planName, LocalDate enrolledAt, String membershipStatus,
-                             LocalDate nextDueDate, LocalDate lastPaidThrough, BigDecimal monthlyFee) {
+                             LocalDate nextDueDate, LocalDate lastPaidThrough, BigDecimal monthlyFee,
+                             LocalDate expiresAt, Boolean inscriptionDue) {
         this(memberUuid, memberName, documentNumber, phone, planName, enrolledAt, membershipStatus, nextDueDate,
-                lastPaidThrough, monthlyFee, paymentStatus(membershipStatus, nextDueDate), daysOverdue(nextDueDate));
+                lastPaidThrough, monthlyFee, expiresAt, inscriptionDue,
+                paymentStatus(membershipStatus, nextDueDate), daysOverdue(nextDueDate));
     }
 
-    /** Status + due date only — what the dashboard counters need. */
+    /** Status, due date and term only — what the dashboard counters need. */
     public PromoterMemberRow(UUID memberUuid, String memberName, String membershipStatus,
-                             LocalDate nextDueDate, BigDecimal monthlyFee) {
-        this(memberUuid, memberName, null, null, null, null, membershipStatus, nextDueDate, null, monthlyFee);
+                             LocalDate nextDueDate, BigDecimal monthlyFee, LocalDate expiresAt,
+                             Boolean inscriptionDue) {
+        this(memberUuid, memberName, null, null, null, null, membershipStatus, nextDueDate, null, monthlyFee,
+                expiresAt, inscriptionDue);
     }
 
     static String paymentStatus(String membershipStatus, LocalDate nextDueDate) {

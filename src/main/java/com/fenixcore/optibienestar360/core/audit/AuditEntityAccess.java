@@ -47,6 +47,7 @@ public class AuditEntityAccess {
 		Map.entry("ally_agreement", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("ally_product", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("ally_user", "ALLY_RECORD_AUDIT_VIEW"),
+		Map.entry("person_professional_license", "ALLY_RECORD_AUDIT_VIEW"),
 		Map.entry("plan", "PLAN_RECORD_AUDIT_VIEW"),
 		Map.entry("membership", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
 		Map.entry("corporate_contract", "MEMBERSHIP_RECORD_AUDIT_VIEW"),
@@ -65,6 +66,7 @@ public class AuditEntityAccess {
 		Map.entry("marital_status", "MARITAL_STATUS_RECORD_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_RECORD_AUDIT_VIEW"),
 		Map.entry("profession", "PROFESSION_RECORD_AUDIT_VIEW"),
+		Map.entry("licensing_body", "LICENSING_BODY_RECORD_AUDIT_VIEW"),
 		Map.entry("product_category", "PRODUCT_CATEGORY_RECORD_AUDIT_VIEW"),
 		Map.entry("product", "PRODUCT_RECORD_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_RECORD_AUDIT_VIEW"),
@@ -111,6 +113,7 @@ public class AuditEntityAccess {
 		Map.entry("marital_status", "MARITAL_STATUS_REPORT_AUDIT_VIEW"),
 		Map.entry("occupation", "OCCUPATION_REPORT_AUDIT_VIEW"),
 		Map.entry("profession", "PROFESSION_REPORT_AUDIT_VIEW"),
+		Map.entry("licensing_body", "LICENSING_BODY_REPORT_AUDIT_VIEW"),
 		Map.entry("product_category", "PRODUCT_CATEGORY_REPORT_AUDIT_VIEW"),
 		Map.entry("product", "PRODUCT_REPORT_AUDIT_VIEW"),
 		Map.entry("promoter_type", "PROMOTER_TYPE_REPORT_AUDIT_VIEW"))

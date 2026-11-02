@@ -20,5 +20,6 @@ public record SystemConfigDto(
 	@Display(Display.Kind.BOOLEAN) boolean loginAuditEnabled,
 	int loginSessionExpirationDays,
 	List<SortOrder> defaultSort,
+	@Display(Display.Kind.BOOLEAN) boolean patientMedicalAccessEnabled,
 	@Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

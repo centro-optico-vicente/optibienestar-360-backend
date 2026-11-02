@@ -27,5 +27,7 @@ public record UpdateSystemConfigRequest(
 	Boolean loginAuditEnabled,
 	@Positive(message = "system_config.login_session_expiration_days.positive")
 	Integer loginSessionExpirationDays,
-	List<SortOrder> defaultSort
+	List<SortOrder> defaultSort,
+	/** Medical allies' access to patient history (V215, hub ADR 0032). */
+	Boolean patientMedicalAccessEnabled
 ) {}

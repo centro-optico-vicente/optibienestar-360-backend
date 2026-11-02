@@ -150,7 +150,7 @@ public class BenefitUsage extends BaseEntity {
     @Column(columnDefinition = "text")
     private String notes;
 
-    // ─── Affiliate's rating (V201) ─────────────────────────────────────────
+    // ─── Affiliate's rating (V224) ─────────────────────────────────────────
 
     /** Stars 1..5 for the ally; {@code null} until the affiliate rates the usage. */
     @Column(name = "ally_rating")

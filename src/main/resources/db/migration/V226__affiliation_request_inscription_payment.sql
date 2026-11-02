@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ============================================================================
--- V203: the public self-affiliation form may also report the payment of the
+-- V226: the public self-affiliation form may also report the payment of the
 -- plan's INSCRIPTION fee, with its proof file.
 --
 -- The payment data is stored on the request as reported (method, bank,

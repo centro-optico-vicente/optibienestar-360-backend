@@ -35,7 +35,7 @@ import java.util.UUID;
  * the repository query, newest usage first.
  *
  * <p>{@code PUT /{uuid}/rating} lets the affiliate rate one of those usages
- * (V201, {@code MEMBER_RATE_USAGE}); someone else's usage answers 404.</p>
+ * (V224, {@code MEMBER_RATE_USAGE}); someone else's usage answers 404.</p>
  */
 @RestController
 @RequestMapping("/v1/me/usage-history")

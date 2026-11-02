@@ -189,7 +189,7 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
     Optional<BenefitUsage> findByUuidForMemberUser(@Param("usageUuid") UUID usageUuid,
                                                    @Param("userUuid") UUID userUuid);
 
-    // ─── Rating aggregates (V201) ─────────────────────────────────────────────
+    // ─── Rating aggregates (V224) ─────────────────────────────────────────────
     // Recomputed from scratch on every rating: a full AVG over one ally / offer /
     // product is cheap (partial indexes) and can't drift the way an incremental
     // update would. An aggregate over zero rows yields AVG = NULL, COUNT = 0,

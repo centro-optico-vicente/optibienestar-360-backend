@@ -211,6 +211,6 @@ class PromoterCollectionServiceTest {
     }
 
     private PromoterMemberRow row(String status) {
-        return new PromoterMemberRow(UUID.randomUUID(), "Afiliado", status, null, null);
+        return new PromoterMemberRow(UUID.randomUUID(), "Afiliado", status, null, null, null, false);
     }
 }

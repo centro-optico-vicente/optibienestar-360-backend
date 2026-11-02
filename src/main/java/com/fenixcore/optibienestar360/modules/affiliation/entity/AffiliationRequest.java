@@ -96,6 +96,14 @@ public class AffiliationRequest extends BaseEntity {
     @JoinColumn(name = "promoter_id")
     private Promoter promoter;
 
+    /** Optional override of the first expiry chosen by the advisor / reviewer (V220, hub ADR 0034); null = inherit from the plan. */
+    @Column(name = "expires_at_override")
+    private LocalDate expiresAtOverride;
+
+    /** Optional override of the plan's re-inscription flag (V220); null = inherit. */
+    @Column(name = "reinscription_required_override")
+    private Boolean reinscriptionRequiredOverride;
+
     @Column(name = "referral_code", length = 20)
     private String referralCode;
 
@@ -154,9 +162,9 @@ public class AffiliationRequest extends BaseEntity {
     @JoinColumn(name = "membership_id")
     private Membership membership;
 
-    // ─── Reported inscription payment (V203) ───────────────────────────────
+    // ─── Reported inscription payment (V226) ───────────────────────────────
     // All null when the applicant reported no payment; method and date are set
-    // together (V203 CHECK). Amount/currency are the plan's inscription fee at
+    // together (V226 CHECK). Amount/currency are the plan's inscription fee at
     // submit time, never the client's.
 
     @ManyToOne(fetch = FetchType.LAZY)

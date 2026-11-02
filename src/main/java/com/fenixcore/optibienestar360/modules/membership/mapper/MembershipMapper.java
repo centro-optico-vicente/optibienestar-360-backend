@@ -20,5 +20,7 @@ public interface MembershipMapper {
     @Mapping(target = "convertedCurrency_Code", ignore = true)
     @Mapping(target = "exchangeRateUsed", ignore = true)
     @Mapping(target = "exchangeRateDate", ignore = true)
+    @Mapping(target = "inscriptionPaymentMethod", ignore = true)
+    @Mapping(target = "inscriptionDue", expression = "java(membership.getInscriptionDueSince() != null)")
     MembershipDto toDto(Membership membership);
 }

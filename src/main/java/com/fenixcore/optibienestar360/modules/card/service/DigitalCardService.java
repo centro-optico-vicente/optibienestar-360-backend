@@ -46,6 +46,8 @@ public class DigitalCardService {
                     row.getMembershipStatus(),
                     row.getNextDueDate(),
                     row.getMemberSince(),
+                    row.getExpiresAt(),
+                    row.getInscriptionDueSince() != null,
                     qrFor(row.getMemberUuid()),
                     null,
                     null);
@@ -74,6 +76,8 @@ public class DigitalCardService {
                 holder.getMembershipStatus(),
                 holder.getNextDueDate(),
                 holder.getMemberSince(),
+                holder.getExpiresAt(),
+                holder.getInscriptionDueSince() != null,
                 // Their own UUID: the validator resolves it to them on the holder's coverage.
                 qrFor(beneficiary.getUuid()),
                 holder.getFullName(),

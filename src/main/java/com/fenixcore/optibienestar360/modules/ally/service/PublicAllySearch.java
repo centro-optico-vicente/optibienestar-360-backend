@@ -11,6 +11,7 @@ import java.util.UUID;
  * @param city     city or state name
  * @param category allies offering something of this category (name or code)
  * @param type     allies offering {@code servicios} / {@code productos}
+ * @param segment  {@code B2B} / {@code B2P} (the ally's own segment, V211)
  */
 public record PublicAllySearch(
         String q,
@@ -19,9 +20,14 @@ public record PublicAllySearch(
         UUID professionUuid,
         String category,
         UUID categoryUuid,
-        String type
+        String type,
+        String segment,
+        /** Only allies with an opening-hours range covering "now" in the business zone (ADR 0031 §7). */
+        boolean openNow,
+        /** Only allies with at least one opening-hours range today in the business zone. */
+        boolean openToday
 ) {
     public static PublicAllySearch none() {
-        return new PublicAllySearch(null, null, null, null, null, null, null);
+        return new PublicAllySearch(null, null, null, null, null, null, null, null, false, false);
     }
 }

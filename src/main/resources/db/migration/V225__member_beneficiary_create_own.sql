@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V202: el afiliado registra sus propios beneficiarios.
+-- V225: el afiliado registra sus propios beneficiarios.
 --
 -- POST /v1/me/family reutiliza las reglas del alta por el admin (tope del
 -- plan, cupo BASE/EXTRA de V178 y cobro de inscripción extra), aplicadas a la
@@ -26,6 +26,6 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'MEMBER_BENEFICIARY_CREATE_OWN') THEN
-        RAISE EXCEPTION 'V202: MEMBER_BENEFICIARY_CREATE_OWN was not created';
+        RAISE EXCEPTION 'V225: MEMBER_BENEFICIARY_CREATE_OWN was not created';
     END IF;
 END $$;

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.affiliation.dto;
 
 import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
@@ -26,5 +27,9 @@ public record AffiliationRequestUpdateRequest(
         @NotBlank @Email @Size(max = 254) String email,
         @Size(max = 30) String phone,
         @NotNull UUID planUuid,
-        @Size(max = 2000) String comment
+        @Size(max = 2000) String comment,
+        /** Optional override of the first expiry; part of the full replace (null clears it) — hub ADR 0034. */
+        @Future LocalDate expiresAt,
+        /** Optional override of the plan's re-inscription flag (null clears it → inherit). */
+        Boolean reinscriptionRequired
 ) {}
