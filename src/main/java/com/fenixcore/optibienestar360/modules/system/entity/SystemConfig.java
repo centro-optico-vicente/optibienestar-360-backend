@@ -76,6 +76,14 @@ public class SystemConfig extends BaseAuditEntity {
 	private int loginSessionExpirationDays = 30;
 
 	/**
+	 * Master switch of the medical allies' access to their patients' medical
+	 * history (V215, hub ADR 0032). OFF until legal confirms the consent
+	 * clause of the B2C agreement.
+	 */
+	@Column(name = "patient_medical_access_enabled", nullable = false)
+	private boolean patientMedicalAccessEnabled = false;
+
+	/**
 	 * Global fallback default sort (V82) — applied by a list endpoint when
 	 * the entity has no {@code entity_config} row (or none with its own
 	 * {@code default_sort}) at all. Restricted at the service layer to

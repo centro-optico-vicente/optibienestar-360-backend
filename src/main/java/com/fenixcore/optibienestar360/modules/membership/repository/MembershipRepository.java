@@ -21,6 +21,11 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
     /** Pre-check before INSERT — the V21 partial UNIQUE on (member_id) WHERE is_active=TRUE only allows one. */
     boolean existsByMemberIdAndActiveTrue(Long memberId);
 
+    /** ACTIVE memberships of a person (V205 automatic credit application). */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM Membership m WHERE m.active = true "
+            + "AND m.status = 'ACTIVE' AND m.member.person.id = :personId")
+    List<Membership> findActiveByPersonId(@org.springframework.data.repository.query.Param("personId") Long personId);
+
     /** Currently-active subscription of the member. */
     Optional<Membership> findFirstByMemberIdAndActiveTrue(Long memberId);
 
@@ -49,6 +54,21 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
               AND m.nextDueDate < :today
             """)
     List<Membership> findStatusEvaluationCandidates(@Param("today") LocalDate today);
+
+    /**
+     * Term-renewal job (V220, hub ADR 0034): live memberships that require re-inscription and whose term
+     * ended ({@code expires_at <= today}). Backed by the partial index {@code idx_memberships_term_expiry}.
+     * CANCELED rows are soft-deleted and EXPIRED ones are left to a manual reactivation.
+     */
+    @Query("""
+            SELECT m FROM Membership m
+            WHERE m.active = true
+              AND m.reinscriptionRequired = true
+              AND m.status IN ('ACTIVE', 'SUSPENDED')
+              AND m.expiresAt IS NOT NULL
+              AND m.expiresAt <= :today
+            """)
+    List<Membership> findTermRenewalCandidates(@Param("today") LocalDate today);
 
     /**
      * Payment-reminder job (vertical-9): live ACTIVE memberships whose

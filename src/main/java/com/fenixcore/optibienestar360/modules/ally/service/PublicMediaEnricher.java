@@ -30,9 +30,12 @@ public class PublicMediaEnricher {
     public PublicAllyDetailDto ally(PublicAllyDetailDto detail) {
         List<PublicAllyProductDto> products = allyProducts(detail.products());
         return new PublicAllyDetailDto(detail.uuid(), detail.name(), detail.allyTypeNames(), detail.allySegments(),
+                detail.segment(), detail.hostName(), detail.officeNumber(), detail.appointmentPhone(),
                 detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
                 detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
                 detail.ratingAvg(), detail.ratingCount(), detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
+                detail.openingHours(), detail.openingHoursLabel(),
+                detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
     }
 
     /** Offers of one ally (its detail or {@code /allies/{uuid}/products}). */
@@ -75,6 +78,12 @@ public class PublicMediaEnricher {
                 o.exclusions(), o.ratingAvg(), o.ratingCount(), o.allyUuid(), o.allyName(), o.allyTypeNames(),
                 o.allyCityName(), o.allyLogoUrl(), o.allyPhone(), o.allyWhatsapp(), o.allyRatingAvg(),
                 o.allyRatingCount(), o.imageUrl(), images);
+                o.name(), o.description(), o.priceAmount(), o.discountPct(), o.discountType(), o.discountAmount(),
+                o.effectiveDiscountPct(), o.finalPrice(), o.exclusions(),
+                o.requiresAppointment(), o.imageUrl(),
+                o.discountAmount(), o.effectiveDiscountPct(), o.finalPrice(),
+                o.exclusions(), o.allyUuid(), o.allyName(), o.allyTypeNames(), o.allyCityName(), o.allyLogoUrl(),
+                o.allyPhone(), o.allyWhatsapp(), o.imageUrl(), images);
     }
 
     private static List<PublicImageDto> inherit(List<PublicImageDto> own, List<PublicImageDto> fallback) {

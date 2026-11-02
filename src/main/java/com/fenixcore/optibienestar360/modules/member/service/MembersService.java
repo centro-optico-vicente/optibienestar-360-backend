@@ -187,11 +187,53 @@ public class MembersService {
                 member -> member.getPerson().getFullName(), Member::isActive);
     }
 
+    /**
+     * People an advisor may collect from (V201): their own portfolio plus members nobody advises (no
+     * promoter, or only the INSTITUCION system advisor). Another advisor's members never appear.
+     * Needs at least 2 characters of name or document, otherwise the list is empty.
+     */
+    public List<com.fenixcore.optibienestar360.modules.member.dto.PortfolioCandidateDto> listPortfolioCandidates(
+            com.fenixcore.optibienestar360.modules.promoter.entity.Promoter promoter, String q, int limit) {
+        if (q == null || q.trim().length() < 2) {
+            return List.of();
+        }
+        Specification<Member> reachable = (root, query, cb) -> {
+            var advisor = root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT);
+            return cb.or(cb.isNull(advisor.get("id")), cb.isTrue(advisor.get("system")),
+                cb.equal(advisor.get("id"), promoter.getId()))
+            ;
+        };
+        Specification<Member> spec = activeOnly()
+                .and(SearchSpecifications.acrossFields(q, "person.fullName", "person.documentNumber")).and(reachable);
+        int size = Math.max(1, Math.min(limit, 20));
+        return memberRepository.findAll(spec, org.springframework.data.domain.PageRequest.of(0, size,
+                org.springframework.data.domain.Sort.by("id")))
+            .map(m -> new com.fenixcore.optibienestar360.modules.member.dto.PortfolioCandidateDto(
+                m.getUuid(), m.getPerson().getDocumentNumber(), m.getPerson().getFullName(),
+                m.getPromoter() != null && m.getPromoter().getId().equals(promoter.getId())))
+            .getContent()
+        ;
+    }
+
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
     @Auditable(entity = "member", action = AuditAction.CREATE)
     public MemberDetailDto create(MemberCreateRequest req) {
+        return enroll(req, null);
+    }
+
+    /**
+     * Enrolls a new person directly into {@code promoter}'s portfolio (V201 "Nuevo en mi cartera") —
+     * same flow as {@link #create} but the promoter is the caller, never taken from a referral code.
+     */
+    @Transactional
+    @Auditable(entity = "member", action = AuditAction.CREATE)
+    public MemberDetailDto createInPortfolio(MemberCreateRequest req, com.fenixcore.optibienestar360.modules.promoter.entity.Promoter promoter) {
+        return enroll(req, promoter);
+    }
+
+    private MemberDetailDto enroll(MemberCreateRequest req, com.fenixcore.optibienestar360.modules.promoter.entity.Promoter promoterOverride) {
         Person person = resolvePerson(req);
 
         // Member-side dedupe — UNIQUE(person_id) on V17 would catch it
@@ -201,7 +243,11 @@ public class MembersService {
             throw new IllegalArgumentException("member.person.already_enrolled");
         }
 
-        Member saved = memberRepository.save(buildMember(req, person));
+        Member toSave = buildMember(req, person);
+        if (promoterOverride != null) {
+            toSave.setPromoter(promoterOverride);
+        }
+        Member saved = memberRepository.save(toSave);
         enqueueWelcome(saved);
         eventPublisher.publishEvent(
                 new com.fenixcore.optibienestar360.modules.promoter.event.MembershipEnrolledEvent(saved.getId()));
@@ -464,7 +510,8 @@ public class MembersService {
                 beneficiariesCount, documentsCount, hasMedicalRecord,
                 baseSlotsUsed, baseSlotsTotal, extraSlotsUsed, extraSlotsTotal,
                 base.currentPromoterUuid(), base.currentPromoterName(),
-                base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt()
+                base.active(), base.status(), base.createdAt(), base.updatedAt(), base.confirmedAt(),
+                base.creditAutoApply(), base.creditHoldReason(), base.creditHoldAt()
         );
     }
 

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
+import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 
 import java.math.BigDecimal;
@@ -29,8 +31,16 @@ public record PublicAllyDetailDto(
         UUID uuid,
         String name,
         List<String> allyTypeNames,
-        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). */
+        /** Distinct segments ({@code B2B} / {@code B2P}) of the active ally types (V179). Superseded by {@code segment}. */
         List<String> allySegments,
+        /** The ally's own segment (V211, hub ADR 0031); localized {@code segment_Display}. */
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
+        /** B2P: clinic the professional practices at (the host ally's name or the free-text name). */
+        String hostName,
+        /** B2P: office (consultorio) number. */
+        String officeNumber,
+        /** B2P: phone for appointments. */
+        String appointmentPhone,
 
         // Location
         String address,
@@ -49,6 +59,10 @@ public record PublicAllyDetailDto(
         /** Average affiliate stars (1..5) for the ally; {@code null} with no ratings (V201). */
         BigDecimal ratingAvg,
         int ratingCount,
+        /** Weekly opening hours (V214, hub ADR 0031 §7), by day then opening time. */
+        List<OpeningHourDto> openingHours,
+        /** The same week as text, e.g. "Lun–Vie 08:00–12:00, 14:00–18:00"; null without hours. */
+        String openingHoursLabel,
 
         // Professions (just labels)
         List<String> professionNames,

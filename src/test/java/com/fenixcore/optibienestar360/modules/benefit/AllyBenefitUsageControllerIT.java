@@ -105,7 +105,7 @@ class AllyBenefitUsageControllerIT {
 
     @Test
     void register_withPermission_is201() throws Exception {
-        when(benefitUsagesService.register(any())).thenReturn(usage());
+        when(benefitUsagesService.register(any(), any())).thenReturn(usage());
 
         mockMvc.perform(post("/v1/me/allies/benefit-usages").with(principal("ALLY_REGISTER_USAGE"))
                         .contentType(MediaType.APPLICATION_JSON).content(registerBody()))
@@ -141,7 +141,7 @@ class AllyBenefitUsageControllerIT {
 
     @Test
     void secondaryAlliesMePaths_answerLikePrimary_withSameSecurity() throws Exception {
-        when(benefitUsagesService.register(any())).thenReturn(usage());
+        when(benefitUsagesService.register(any(), any())).thenReturn(usage());
         when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(usage())));
 

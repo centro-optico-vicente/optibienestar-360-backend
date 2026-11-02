@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.membership.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
+import com.fenixcore.optibienestar360.modules.membership.entity.TermMode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -42,6 +43,13 @@ public record PlanDto(
         @Display(Display.Kind.MONEY) BigDecimal extraBeneficiaryInscriptionFee,
         Integer minMembers,
 
+        // Term (V220, hub ADR 0034)
+        @Display(Display.Kind.BOOLEAN) boolean reinscriptionRequired,
+        @Display(Display.Kind.ENUM) TermMode termMode,
+        Integer termFixedMonth,
+        Integer termFixedDay,
+        Integer termPeriodMonths,
+
         int gracePeriodDays,
 
         // Publishing
@@ -61,6 +69,7 @@ public record PlanDto(
                 inscriptionFee, monthlyFee, currency_Code, currency, amountConverted, convertedCurrencyCode,
                 exchangeRateUsed, exchangeRateDate,
                 includedBeneficiaries, maxBeneficiaries, extraBeneficiaryInscriptionFee, minMembers,
+                reinscriptionRequired, termMode, termFixedMonth, termFixedDay, termPeriodMonths,
                 gracePeriodDays, published, publishedAt,
                 active, status, createdAt, updatedAt);
     }

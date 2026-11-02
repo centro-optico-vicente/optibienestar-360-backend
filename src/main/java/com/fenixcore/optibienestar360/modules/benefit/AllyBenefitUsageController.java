@@ -3,10 +3,12 @@ package com.fenixcore.optibienestar360.modules.benefit;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageDto;
 import com.fenixcore.optibienestar360.modules.benefit.dto.BenefitUsageRegisterRequest;
 import com.fenixcore.optibienestar360.modules.benefit.service.BenefitUsagesService;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,8 +43,9 @@ public class AllyBenefitUsageController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('ALLY_REGISTER_USAGE')")
-    public ResponseEntity<BenefitUsageDto> register(@Valid @RequestBody BenefitUsageRegisterRequest request) {
-        BenefitUsageDto created = benefitUsagesService.register(request);
+    public ResponseEntity<BenefitUsageDto> register(@Valid @RequestBody BenefitUsageRegisterRequest request,
+                                                    @AuthenticationPrincipal CustomUserDetails actor) {
+        BenefitUsageDto created = benefitUsagesService.register(request, actor.getUuid());
         URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())

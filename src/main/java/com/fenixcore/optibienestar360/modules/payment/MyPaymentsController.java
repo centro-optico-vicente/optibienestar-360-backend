@@ -50,6 +50,7 @@ import java.util.UUID;
 public class MyPaymentsController {
 
     private final PaymentsService paymentsService;
+    private final com.fenixcore.optibienestar360.modules.payment.service.PaymentCreditClaimService claimService;
 
     @GetMapping
 	@PreAuthorize("hasAnyAuthority('PAYMENT_VIEW_OWN', 'COLLECTION_VIEW_OWN')")
@@ -73,6 +74,54 @@ public class MyPaymentsController {
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /** The caller's credit ("saldo a favor") per currency — they may hold some without any membership (V201). */
+    @GetMapping("/credit-balance")
+    @PreAuthorize("hasAuthority('COLLECTION_VIEW_OWN')")
+    public ResponseEntity<com.fenixcore.optibienestar360.modules.payment.dto.CreditBalanceDto> creditBalance(
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.creditBalanceOf(actor.getUuid()));
+    }
+
+    /** Confirms the holder the caller pays for, by exact document or contract number (abbreviated name only). */
+    @GetMapping("/membership-lookup")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<java.util.List<com.fenixcore.optibienestar360.modules.payment.dto.MembershipLookupDto>> membershipLookup(
+            @RequestParam(required = false) String documentNumber,
+            @RequestParam(required = false) String contractNumber) {
+        return ResponseEntity.ok(paymentsService.lookupMembershipForPayer(documentNumber, contractNumber));
+    }
+
+    /**
+     * Reports a problem with the remaining credit of the caller's own approved payment (error, overpaid, refund
+     * request) with the amount at stake. While the claim is open that amount is not used automatically (V205).
+     */
+    @PostMapping("/{uuid}/claim")
+    @PreAuthorize("hasAuthority('COLLECTION_CLAIM_CREATE_OWN')")
+    public ResponseEntity<com.fenixcore.optibienestar360.modules.payment.dto.PaymentClaimDto> openClaim(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.PaymentClaimRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(claimService.openOwn(actor.getUuid(), uuid, request));
+    }
+
+    /** Withdraws the caller's own open claim on that payment. */
+    @DeleteMapping("/{uuid}/claim")
+    @PreAuthorize("hasAuthority('COLLECTION_CLAIM_CREATE_OWN')")
+    public ResponseEntity<Void> withdrawClaim(@PathVariable UUID uuid, @AuthenticationPrincipal CustomUserDetails actor) {
+        claimService.withdrawOwn(actor.getUuid(), uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Points the caller's own not-yet-approved payment at a membership (e.g. paying a relative-holder's plan). */
+    @PutMapping("/{uuid}/membership")
+    @PreAuthorize("hasAuthority('COLLECTION_CREATE_OWN')")
+    public ResponseEntity<PaymentDto> assignMembership(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.OwnPaymentMembershipRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(paymentsService.assignOwnToMembership(actor.getUuid(), uuid, request));
     }
 
     /** Replaces the lines of the caller's own {@code DRAFT} payment (V117 lines feature). */

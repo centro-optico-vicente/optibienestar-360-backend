@@ -198,6 +198,16 @@ public class AdminPaymentController {
 		return ResponseEntity.ok(paymentsService.rejectOut(uuid, request, actor.getUuid()));
 	}
 
+	/** Assigns an approved, membership-less collection (credit) to a membership (V201). */
+	@PostMapping("/{uuid}/assign-membership")
+	@PreAuthorize("hasAuthority('COLLECTION_ASSIGN_MEMBERSHIP')")
+	public ResponseEntity<PaymentDto> assignMembership(
+			@PathVariable UUID uuid,
+			@Valid @RequestBody com.fenixcore.optibienestar360.modules.payment.dto.AssignMembershipRequest request,
+			@AuthenticationPrincipal CustomUserDetails actor) {
+		return ResponseEntity.ok(paymentsService.assignToMembership(uuid, request, actor.getUuid()));
+	}
+
 	@PutMapping("/{uuid}/approve")
 	@PreAuthorize("hasAuthority('COLLECTION_APPROVE')")
     public ResponseEntity<PaymentDto> approve(

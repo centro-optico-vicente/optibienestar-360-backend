@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicAllySearch;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

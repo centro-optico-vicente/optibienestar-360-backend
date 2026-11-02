@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct.DiscountType;
 import com.fenixcore.optibienestar360.modules.media.dto.PublicImageDto;
 import com.fenixcore.optibienestar360.modules.product.entity.Product.ProductType;
 
@@ -36,6 +37,9 @@ public record PublicAllyProductDto(
         String description,
         @Display(Display.Kind.NUMBER) BigDecimal priceAmount,
         @Display(Display.Kind.NUMBER) BigDecimal discountPct,
+        @Display(Display.Kind.ENUM) DiscountType discountType,
+        @Display(Display.Kind.NUMBER) BigDecimal discountAmount,
+        @Display(Display.Kind.NUMBER) BigDecimal effectiveDiscountPct,
         /** {@code priceAmount} with the discount applied. */
         @Display(Display.Kind.NUMBER) BigDecimal finalPrice,
         /** Where the preferential rate does NOT apply (V179) — affiliates must see it. */

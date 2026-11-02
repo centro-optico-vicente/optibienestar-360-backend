@@ -19,6 +19,7 @@ import com.fenixcore.optibienestar360.modules.membership.dto.PlanDto;
 import com.fenixcore.optibienestar360.modules.membership.dto.PlanUpdateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.PublicPlanDto;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
+import com.fenixcore.optibienestar360.modules.membership.entity.TermMode;
 import com.fenixcore.optibienestar360.modules.membership.mapper.PlanMapper;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -52,7 +53,7 @@ public class PlansService {
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "code", "name", "type",
             "inscriptionFee", "monthlyFee",
-            "includedBeneficiaries", "maxBeneficiaries", "minMembers",
+            "includedBeneficiaries", "maxBeneficiaries", "minMembers", "reinscriptionRequired", "termMode",
             "gracePeriodDays",
             "published", "publishedAt",
             "createdAt", "updatedAt", "active", "status"
@@ -173,7 +174,19 @@ public class PlansService {
         // CHECK constraint mirror: max ≥ included keeps the relationship
         // coherent. Pre-checking here gives a clean 422 instead of a 409 from
         // the DB constraint.
+        plan.setReinscriptionRequired(Boolean.TRUE.equals(req.reinscriptionRequired()));
+        if (plan.isReinscriptionRequired()) {
+            plan.setTermMode(req.termMode());
+            plan.setTermFixedMonth(req.termFixedMonth());
+            plan.setTermFixedDay(req.termFixedDay());
+            plan.setTermPeriodMonths(req.termPeriodMonths());
+        } else if (req.termMode() != null || req.termFixedMonth() != null
+                || req.termFixedDay() != null || req.termPeriodMonths() != null) {
+            throw new IllegalArgumentException("plan.term.requires_reinscription");
+        }
+
         validateBeneficiaryCap(plan);
+        validateTerm(plan);
 
         return mapper.toDto(repository.save(plan));
     }
@@ -207,7 +220,10 @@ public class PlansService {
         if (req.active()                            != null) plan.setActive(req.active());
         if (req.status()                            != null) plan.setStatus(req.status());
 
+        applyTermUpdate(plan, req);
+
         validateBeneficiaryCap(plan);
+        validateTerm(plan);
 
         return mapper.toDto(plan);  // managed → dirty-check on commit
     }
@@ -272,6 +288,58 @@ public class PlansService {
                 && plan.getMaxBeneficiaries() < plan.getIncludedBeneficiaries()) {
             throw new IllegalArgumentException("plan.beneficiaries.max_below_included");
         }
+    }
+
+    /**
+     * PATCH semantics for the term (hub ADR 0034): {@code reinscriptionRequired=false} clears the rule; an
+     * explicitly sent mode clears the fields of the other mode so switching FIXED_DATE ↔ PERIOD needs no
+     * extra nulls from the client. Changing the plan never touches existing memberships (they snapshot it).
+     */
+    private static void applyTermUpdate(Plan plan, PlanUpdateRequest req) {
+        if (Boolean.FALSE.equals(req.reinscriptionRequired())) {
+            if (req.termMode() != null || req.termFixedMonth() != null
+                    || req.termFixedDay() != null || req.termPeriodMonths() != null) {
+                throw new IllegalArgumentException("plan.term.requires_reinscription");
+            }
+            plan.setReinscriptionRequired(false);
+            plan.setTermMode(null);
+            plan.setTermFixedMonth(null);
+            plan.setTermFixedDay(null);
+            plan.setTermPeriodMonths(null);
+            return;
+        }
+        if (Boolean.TRUE.equals(req.reinscriptionRequired())) plan.setReinscriptionRequired(true);
+        if (req.termMode() != null) {
+            plan.setTermMode(req.termMode());
+            if (req.termMode() == TermMode.FIXED_DATE) {
+                plan.setTermPeriodMonths(null);
+            } else {
+                plan.setTermFixedMonth(null);
+                plan.setTermFixedDay(null);
+            }
+        }
+        if (req.termFixedMonth()   != null) plan.setTermFixedMonth(req.termFixedMonth());
+        if (req.termFixedDay()     != null) plan.setTermFixedDay(req.termFixedDay());
+        if (req.termPeriodMonths() != null) plan.setTermPeriodMonths(req.termPeriodMonths());
+    }
+
+    /**
+     * Mirrors the V220 coherence CHECK: a term only exists with re-inscription, and the mode's own fields
+     * are required. Pre-checking gives a 422 instead of a 409 from the DB.
+     */
+    static void validateTerm(Plan plan) {
+        if (!plan.isReinscriptionRequired()) {
+            if (plan.getTermMode() != null || plan.getTermFixedMonth() != null
+                    || plan.getTermFixedDay() != null || plan.getTermPeriodMonths() != null) {
+                throw new IllegalArgumentException("plan.term.requires_reinscription");
+            }
+            return;
+        }
+        if (plan.getTermMode() == null) {
+            throw new IllegalArgumentException("plan.term.mode_required");
+        }
+        MembershipTermRule.validate(plan.getTermMode(), plan.getTermFixedMonth(), plan.getTermFixedDay(),
+                plan.getTermPeriodMonths());
     }
 
     private static Specification<Plan> activeOnly() {

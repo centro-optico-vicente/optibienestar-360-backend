@@ -30,7 +30,7 @@ public record BenefitUsageRegisterRequest(
 
         // optional — non-catalogued usage is allowed; allyServiceUuid accepted during the ADR 0026 transition
         @JsonAlias("allyServiceUuid") UUID allyProductUuid,
-        UUID allyUserUuid,                    // optional — admin-side registrations have null
+        UUID allyUserUuid,                    // optional — when sent, must be the caller's own ally membership
 
         /**
          * Rubro del consumo. Opcional SOLO cuando viene {@code allyProductUuid}:
