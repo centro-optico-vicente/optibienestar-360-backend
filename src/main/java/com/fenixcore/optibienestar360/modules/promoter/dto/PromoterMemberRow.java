@@ -24,5 +24,7 @@ public record PromoterMemberRow(
         String memberName,
         @Display(value = Display.Kind.ENUM, enumScope = "membership.status") String membershipStatus,
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
-        @Display(Display.Kind.MONEY) BigDecimal monthlyFee
+        @Display(Display.Kind.MONEY) BigDecimal monthlyFee,
+        @Display(Display.Kind.DATE) LocalDate expiresAt,
+        Boolean inscriptionDue
 ) {}

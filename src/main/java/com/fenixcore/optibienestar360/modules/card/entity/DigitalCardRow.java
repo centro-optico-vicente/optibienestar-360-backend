@@ -55,4 +55,10 @@ public class DigitalCardRow {
 
     @Column(name = "member_since")
     private LocalDate memberSince;
+
+    @Column(name = "expires_at")
+    private LocalDate expiresAt;
+
+    @Column(name = "inscription_due_since")
+    private LocalDate inscriptionDueSince;
 }

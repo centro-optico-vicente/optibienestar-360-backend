@@ -45,6 +45,8 @@ public class DigitalCardService {
                 row.getMembershipStatus(),
                 row.getNextDueDate(),
                 row.getMemberSince(),
+                row.getExpiresAt(),
+                row.getInscriptionDueSince() != null,
                 qr);
     }
 }

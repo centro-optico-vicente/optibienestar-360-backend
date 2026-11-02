@@ -214,6 +214,6 @@ class PromoterDashboardServiceTest {
     private PromoterMemberRow row(String status) {
         return new PromoterMemberRow(UUID.randomUUID(), "Afiliado", status,
                 status == null ? null : LocalDate.of(2026, 8, 1),
-                status == null ? null : new BigDecimal("5.00"));
+                status == null ? null : new BigDecimal("5.00"), null, false);
     }
 }

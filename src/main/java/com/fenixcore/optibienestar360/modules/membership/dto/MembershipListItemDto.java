@@ -27,6 +27,10 @@ public record MembershipListItemDto(
         @Display(Display.Kind.DATE) LocalDate enrolledAt,
         @Display(Display.Kind.DATE) LocalDate nextDueDate,
         @Display(Display.Kind.DATE) LocalDate lastPaidThrough,
+        /** End of the current term (hub ADR 0034); null = open-ended. */
+        @Display(Display.Kind.DATE) LocalDate expiresAt,
+        /** A re-inscription is pending: the membership is suspended until an inscription payment is approved. */
+        boolean inscriptionDue,
         @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal monthlyFee,
         String currency_Code,
         @Display(value = Display.Kind.ENUM, enumScope = "membership.status") String status,

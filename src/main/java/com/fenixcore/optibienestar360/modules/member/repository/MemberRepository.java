@@ -77,7 +77,8 @@ public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecif
      */
     @Query("""
             SELECT new com.fenixcore.optibienestar360.modules.promoter.dto.PromoterMemberRow(
-                m.uuid, m.person.fullName, ms.status, ms.nextDueDate, ms.monthlyFee)
+                m.uuid, m.person.fullName, ms.status, ms.nextDueDate, ms.monthlyFee, ms.expiresAt,
+                CASE WHEN ms.inscriptionDueSince IS NULL THEN false ELSE true END)
             FROM Member m
             LEFT JOIN Membership ms ON ms.member = m AND ms.active = true
             WHERE m.active = true AND m.promoter.id = :promoterId
