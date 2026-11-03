@@ -27,6 +27,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import javax.sql.DataSource;
 
+import com.fenixcore.optibienestar360.core.branding.BrandingContext;
+import com.fenixcore.optibienestar360.core.branding.BrandingService;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperReportService;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
@@ -58,6 +62,33 @@ public class GenericDocumentController {
     private final PromoterRepository promoterRepository;
     private final PlanRepository planRepository;
     private final SystemConfigService systemConfigService;
+    private final BrandingService brandingService;
+
+    @Autowired
+
+    public GenericDocumentController(
+            GenericRecordReportService recordReportService,
+            GenericRecordResolverService recordResolverService,
+            MessageSource messageSource,
+            ReportAuditService reportAuditService,
+            JasperReportService jasperReportService,
+            DataSource dataSource,
+            PromoterRepository promoterRepository,
+            PlanRepository planRepository,
+            SystemConfigService systemConfigService,
+            ObjectProvider<BrandingService> brandingServiceProvider
+    ) {
+        this.recordReportService = recordReportService;
+        this.recordResolverService = recordResolverService;
+        this.messageSource = messageSource;
+        this.reportAuditService = reportAuditService;
+        this.jasperReportService = jasperReportService;
+        this.dataSource = dataSource;
+        this.promoterRepository = promoterRepository;
+        this.planRepository = planRepository;
+        this.systemConfigService = systemConfigService;
+        this.brandingService = brandingServiceProvider != null ? brandingServiceProvider.getIfAvailable() : null;
+    }
 
     public GenericDocumentController(
             GenericRecordReportService recordReportService,
@@ -70,15 +101,7 @@ public class GenericDocumentController {
             PlanRepository planRepository,
             SystemConfigService systemConfigService
     ) {
-        this.recordReportService = recordReportService;
-        this.recordResolverService = recordResolverService;
-        this.messageSource = messageSource;
-        this.reportAuditService = reportAuditService;
-        this.jasperReportService = jasperReportService;
-        this.dataSource = dataSource;
-        this.promoterRepository = promoterRepository;
-        this.planRepository = planRepository;
-        this.systemConfigService = systemConfigService;
+        this(recordReportService, recordResolverService, messageSource, reportAuditService, jasperReportService, dataSource, promoterRepository, planRepository, systemConfigService, null);
     }
 
     public record GenericReportRequest(
@@ -288,13 +311,23 @@ public class GenericDocumentController {
         Map<String, Object> parameters = new java.util.HashMap<>();
         parameters.put("P_START_DATE", (startDate != null && !startDate.isBlank()) ? startDate.trim() : null);
         parameters.put("P_END_DATE", (endDate != null && !endDate.isBlank()) ? endDate.trim() : null);
-        parameters.put("P_COMPANY_NAME", (companyName != null && !companyName.isBlank()) ? companyName.trim() : "");
+
+        BrandingContext branding = brandingService != null ? brandingService.getContext() : null;
+        String resolvedCompanyName = (companyName != null && !companyName.isBlank())
+                ? companyName.trim()
+                : (branding != null ? branding.displayName() : "");
+        parameters.put("P_COMPANY_NAME", resolvedCompanyName);
 
         String reportFooter = systemConfigService != null ? systemConfigService.getReportFooter() : null;
-        if (reportFooter == null || reportFooter.isBlank()) {
+        if ((reportFooter == null || reportFooter.isBlank() || SystemConfigService.DEFAULT_REPORT_FOOTER.equals(reportFooter)) && branding != null) {
+            reportFooter = branding.footer();
+        } else if (reportFooter == null || reportFooter.isBlank()) {
             reportFooter = SystemConfigService.DEFAULT_REPORT_FOOTER;
         }
         parameters.put("P_REPORT_FOOTER", reportFooter != null ? reportFooter.trim() : "");
+        if (brandingService != null) {
+            parameters.put("P_LOGO_URL", brandingService.getLogoUrl(true));
+        }
 
         if ("commission".equals(entityKey)) {
             checkReportAuthority(java.util.List.of("COMMISSION_REPORT_GENERATE", "COMMISSION_VIEW_ALL", "COMMISSION_VIEW_OWN"));

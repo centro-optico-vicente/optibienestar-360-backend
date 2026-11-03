@@ -1,7 +1,11 @@
 package com.fenixcore.optibienestar360.modules.document.generic.service;
 
+import com.fenixcore.optibienestar360.core.branding.BrandingContext;
+import com.fenixcore.optibienestar360.core.branding.BrandingService;
 import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -15,10 +19,22 @@ public class GenericHtmlPdfService {
 
     private final TemplateEngine templateEngine;
     private final SystemConfigService systemConfigService;
+    private final BrandingService brandingService;
 
-    public GenericHtmlPdfService(TemplateEngine templateEngine, SystemConfigService systemConfigService) {
+    @Autowired
+
+    public GenericHtmlPdfService(
+            TemplateEngine templateEngine,
+            SystemConfigService systemConfigService,
+            ObjectProvider<BrandingService> brandingServiceProvider
+    ) {
         this.templateEngine = templateEngine;
         this.systemConfigService = systemConfigService;
+        this.brandingService = brandingServiceProvider != null ? brandingServiceProvider.getIfAvailable() : null;
+    }
+
+    public GenericHtmlPdfService(TemplateEngine templateEngine, SystemConfigService systemConfigService) {
+        this(templateEngine, systemConfigService, (ObjectProvider<BrandingService>) null);
     }
 
     /**
@@ -38,9 +54,12 @@ public class GenericHtmlPdfService {
             Context context = new Context(targetLocale);
             context.setVariable("model", model);
 
-            String reportFooter = systemConfigService != null
-                    ? systemConfigService.getReportFooter()
-                    : null;
+            BrandingContext branding = brandingService != null ? brandingService.getContext() : null;
+            context.setVariable("branding", branding);
+
+            String reportFooter = branding != null
+                    ? branding.footer()
+                    : (systemConfigService != null ? systemConfigService.getReportFooter() : null);
             context.setVariable("reportFooter", reportFooter);
 
             String finalTemplate = (templateName != null && !templateName.isBlank()) ? templateName : "documents/generic_record_card";
