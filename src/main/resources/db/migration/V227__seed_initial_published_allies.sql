@@ -6,12 +6,12 @@ SET search_path TO app, public;
 -- Source: "Directorio de Aliados Optibienestar 360" spreadsheet (8 allies
 -- filled in; the template's remaining rows are blank). Each ally is created
 -- published (is_published = TRUE) with one APPROVED + published discount
--- service carrying the offered discount, so it shows up in the public
+-- offer (products + ally_products) carrying the offered discount, so it shows up in the public
 -- directory right away.
 --
 -- Idempotent: an ally is skipped when one with the same RIF (or, lacking
--- a RIF, the same name) already exists, and its service is skipped when
--- the ally already has one with that name. ally_number comes from the
+-- a RIF, the same name) already exists, and its product/offer are skipped when
+-- the ally already has them. ally_number comes from the
 -- allies_ally_number_seq default.
 --
 -- Data-cleaning notes (vs. the raw spreadsheet):
@@ -25,19 +25,19 @@ SET search_path TO app, public;
 --     person (allies.person_id) is NOT loaded here, it is optional at the DB
 --     level and must be completed from the admin UI.
 --   - Specialties: the ally types are reused (the rubros are close), and each
---     ally is tagged with its medical specialty (ally_specialties). Only
+--     ally is tagged with its profession (ally_professions). Only
 --     FONOAUDIOLOGIA is new in the catalog; the pharmacy has no specialty.
 --   - Cities are inferred from each address (Acarigua / Araure / Guanare).
 -- ============================================================
 
--- Specialty missing from the V10 catalog (ON CONFLICT skips code/name collisions).
-INSERT INTO medical_specialties (code, name, description) VALUES
+-- Profession missing from the catalog (medical_specialties was renamed to
+-- professions in V156) (ON CONFLICT skips code/name collisions).
+INSERT INTO professions (code, name, description) VALUES
     ('FONOAUDIOLOGIA', 'Fonoaudiología', 'Evaluación y terapia de la voz, el habla, el lenguaje y la audición')
 ON CONFLICT DO NOTHING;
 
-WITH seed (name, tax_type, tax_number, segment, type_code, city_name,
-           address, email, phone, whatsapp, instagram, facebook,
-           service_category, service_name, discount_pct, service_description, specialty_code) AS (
+CREATE TEMP TABLE seed_allies ON COMMIT DROP AS
+SELECT * FROM (
     VALUES
     ('Centro Óptico Vicente', 'V', '130043352', 'B2B', 'CENTRO_OPTICO', 'Acarigua',
      'Av. 30 con calle 21, C.C. Ciudad Cristal, PB, local 31, Acarigua',
@@ -78,8 +78,11 @@ WITH seed (name, tax_type, tax_number, segment, type_code, city_name,
      'Calle 31 entre Av. 27 y 27C, urb. Los Ángeles, PB, Acarigua',
      'framacia07@gmail.com', '0255-6213273', '0424-5455008', 'farmaciaelsol', NULL,
      'MEDICAMENTO', 'Descuento en medicinas seleccionadas', 15.00, 'Entre 5% y 15% de descuento en medicinas seleccionadas', NULL)
-),
-inserted AS (
+) AS v (name, tax_type, tax_number, segment, type_code, city_name,
+        address, email, phone, whatsapp, instagram, facebook,
+        product_category, product_name, discount_pct, product_description, profession_code);
+
+WITH inserted AS (
     INSERT INTO allies (name, segment, tax_document_type, tax_document_number, email, phone, whatsapp,
                         instagram, facebook, address, city_id, joined_at,
                         is_published, published_at, is_active, status)
@@ -90,7 +93,7 @@ inserted AS (
                      JOIN states st ON st.states_id = c.state_id
             WHERE st.code = 'VE-P' AND c.name = s.city_name),
            CURRENT_DATE, TRUE, NOW(), TRUE, 'ACTIVE'
-    FROM seed s
+    FROM seed_allies s
     WHERE NOT EXISTS (SELECT 1
                       FROM allies a
                       WHERE a.tax_document_type = s.tax_type
@@ -101,22 +104,34 @@ typed AS (
     INSERT INTO ally_ally_types (ally_id, ally_type_id)
     SELECT i.allies_id, t.ally_types_id
     FROM inserted i
-             JOIN seed s ON s.tax_type = i.tax_document_type AND s.tax_number = i.tax_document_number
+             JOIN seed_allies s ON s.tax_type = i.tax_document_type AND s.tax_number = i.tax_document_number
              JOIN ally_types t ON t.code = s.type_code
     RETURNING ally_id
-),
-specialized AS (
-    INSERT INTO ally_specialties (ally_id, medical_specialty_id)
-    SELECT i.allies_id, ms.medical_specialties_id
-    FROM inserted i
-             JOIN seed s ON s.tax_type = i.tax_document_type AND s.tax_number = i.tax_document_number
-             JOIN medical_specialties ms ON ms.code = s.specialty_code
-    RETURNING ally_id
 )
-INSERT INTO ally_services (ally_id, service_category_id, name, description, discount_pct,
-                           review_status, reviewed_at, is_published, published_at, is_active)
-SELECT i.allies_id, sc.service_categories_id, s.service_name, s.service_description, s.discount_pct,
-       'APPROVED', NOW(), TRUE, NOW(), TRUE
+INSERT INTO ally_professions (ally_id, profession_id)
+SELECT i.allies_id, pr.professions_id
 FROM inserted i
-         JOIN seed s ON s.tax_type = i.tax_document_type AND s.tax_number = i.tax_document_number
-         JOIN service_categories sc ON sc.code = s.service_category;
+         JOIN seed_allies s ON s.tax_type = i.tax_document_type AND s.tax_number = i.tax_document_number
+         JOIN professions pr ON pr.code = s.profession_code;
+
+-- Catalog master: one product exclusive to its ally (owner_ally_id), the model
+-- since V197. Optical goods and medicines are PRODUCT, the rest SERVICE.
+INSERT INTO products (name, description, product_type, product_category_id, owner_ally_id)
+SELECT s.product_name, s.product_description,
+       CASE WHEN pc.code IN ('LENTES_Y_MONTURAS', 'MEDICAMENTO') THEN 'PRODUCT' ELSE 'SERVICE' END,
+       pc.product_categories_id, a.allies_id
+FROM seed_allies s
+         JOIN allies a ON a.tax_document_type = s.tax_type AND a.tax_document_number = s.tax_number
+         JOIN product_categories pc ON pc.code = s.product_category
+WHERE NOT EXISTS (SELECT 1 FROM products p
+                  WHERE p.owner_ally_id = a.allies_id AND p.name = s.product_name);
+
+-- The ally's offer of that product: discount, approved and published.
+INSERT INTO ally_products (ally_id, product_id, discount_pct,
+                           review_status, reviewed_at, is_published, published_at, is_active)
+SELECT a.allies_id, p.products_id, s.discount_pct, 'APPROVED', NOW(), TRUE, NOW(), TRUE
+FROM seed_allies s
+         JOIN allies a ON a.tax_document_type = s.tax_type AND a.tax_document_number = s.tax_number
+         JOIN products p ON p.owner_ally_id = a.allies_id AND p.name = s.product_name
+WHERE NOT EXISTS (SELECT 1 FROM ally_products ap
+                  WHERE ap.ally_id = a.allies_id AND ap.product_id = p.products_id);
