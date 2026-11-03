@@ -259,4 +259,27 @@ class JasperReportServiceTest {
         }
     }
 
+
+    @Test
+    @DisplayName("Should successfully compile all four JRXML templates with P_LOGO support")
+    void shouldCompileAllProductionJrxmlTemplates() throws Exception {
+        String[] templates = {
+                "reports/reporte-pagos.jrxml",
+                "reports/reporte-comisiones.jrxml",
+                "reports/reporte-pagos-comisiones.jrxml",
+                "reports/reporte-movimientos-pagos.jrxml"
+        };
+
+        for (String templatePath : templates) {
+            try (java.io.InputStream in = new org.springframework.core.io.ClassPathResource(templatePath).getInputStream()) {
+                assertNotNull(in, "Template stream must not be null for " + templatePath);
+                net.sf.jasperreports.engine.JasperReport report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(in);
+                assertNotNull(report, "Compiled report must not be null for " + templatePath);
+                assertNotNull(report.getParameters(), "Parameters must not be null for " + templatePath);
+                boolean hasLogoParam = java.util.Arrays.stream(report.getParameters())
+                        .anyMatch(param -> "P_LOGO_URL".equals(param.getName()));
+                assertTrue(hasLogoParam, "Report " + templatePath + " must declare P_LOGO_URL parameter");
+            }
+        }
+    }
 }

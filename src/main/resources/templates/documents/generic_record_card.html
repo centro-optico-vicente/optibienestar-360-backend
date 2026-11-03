@@ -38,6 +38,12 @@
             margin-bottom: 20px;
         }
 
+        .header-logo {
+            max-height: 48px;
+            max-width: 135px;
+            display: block;
+        }
+
         .header-title {
             font-size: 18pt;
             font-weight: bold;
@@ -121,6 +127,9 @@
 
     <table class="header-table">
         <tr>
+            <td th:if="${branding != null and (branding.logoUrl != null or branding.logoDataUri != null)}" style="width: 140px; vertical-align: middle; padding-right: 15px;">
+                <img th:src="${branding.logoUrl != null ? branding.logoUrl : branding.logoDataUri}" alt="Logo" class="header-logo" />
+            </td>
             <td style="vertical-align: middle;">
                 <h1 class="header-title" th:text="${model.title} ?: #{document.record_card.default_title}">Record Card
                 </h1>

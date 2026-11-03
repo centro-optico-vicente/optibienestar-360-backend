@@ -24,6 +24,9 @@
     <parameter name="P_PROMOTER_ID" class="java.lang.Long">
         <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
     </parameter>
+    <parameter name="P_LOGO_URL" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
     <parameter name="P_COMPANY_NAME" class="java.lang.String">
         <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
     </parameter>
@@ -395,8 +398,14 @@
                 <reportElement mode="Opaque" x="0" y="0" width="802" height="44" backcolor="#0F172A"/>
                 <graphicElement><pen lineWidth="0"/></graphicElement>
             </rectangle>
+            <image scaleImage="RetainShape" vAlign="Middle" onErrorType="Blank">
+                <reportElement x="12" y="7" width="115" height="30">
+                    <printWhenExpression><![CDATA[$P{P_LOGO_URL} != null && !$P{P_LOGO_URL}.isEmpty()]]></printWhenExpression>
+                </reportElement>
+                <imageExpression><![CDATA[$P{P_LOGO_URL}]]></imageExpression>
+            </image>
             <staticText>
-                <reportElement x="12" y="12" width="500" height="20" forecolor="#FFFFFF"/>
+                <reportElement x="135" y="12" width="410" height="20" forecolor="#FFFFFF"/>
                 <textElement verticalAlignment="Middle">
                     <font fontName="SansSerif" size="13" isBold="true"/>
                 </textElement>

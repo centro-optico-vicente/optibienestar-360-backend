@@ -1,10 +1,12 @@
 package com.fenixcore.optibienestar360.core.branding;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.Base64;
 
 /**
  * Immutable brand snapshot for one generated document (backend spec 17 §2).
- * Resolved once per document by the branding service (next step of spec 17); every document family (Jasper,
+ * Resolved once per document by the branding service; every document family (Jasper,
  * HTML → PDF) reads its name, logo, palette and footer from here instead of
  * hardcoding them.
  *
@@ -12,12 +14,14 @@ import java.util.Base64;
  * @param legalName       {@code organizations.legal_name}, may be {@code null}
  * @param taxId           {@code organizations.tax_identifier} (RIF), may be {@code null};
  *                        documents omit the "RIF: …" line when absent
+ * @param logoUrl         direct public or presigned S3 URL of the organization logo, or {@code null}
+ *                        when using classpath default
  * @param logoPng         color logo for light backgrounds — the organization's own
- *                        ({@code logo_key} in R2) or the classpath default; PNG or JPEG bytes
+ *                        or the classpath default; PNG or JPEG bytes
  * @param logoNegativePng all-white logo for Azul Profundo backgrounds (always classpath)
  * @param isotypePng      square isotype (always classpath)
  * @param logoDataUri     {@code data:image/…;base64,…} of {@link #logoPng}, for HTML/PDF
- *                        templates rendered without a base URI
+ *                        templates rendered without direct URL access
  * @param palette         document palette (spec 17 §4)
  * @param footer          {@code system_configs.report_footer}, or the default built from
  *                        the organization identity
@@ -26,6 +30,7 @@ public record BrandingContext(
         String displayName,
         String legalName,
         String taxId,
+        String logoUrl,
         byte[] logoPng,
         byte[] logoNegativePng,
         byte[] isotypePng,
@@ -37,10 +42,17 @@ public record BrandingContext(
     /** Builds a context deriving {@link #logoDataUri} from the logo bytes. */
     public static BrandingContext of(String displayName, String legalName, String taxId,
                                      byte[] logoPng, String footer) {
+        return of(displayName, legalName, taxId, null, logoPng, footer);
+    }
+
+    /** Builds a context with explicit logoUrl. */
+    public static BrandingContext of(String displayName, String legalName, String taxId,
+                                     String logoUrl, byte[] logoPng, String footer) {
         return new BrandingContext(
                 displayName,
                 legalName,
                 taxId,
+                logoUrl,
                 logoPng,
                 BrandAssets.logoNegative(),
                 BrandAssets.isotype(),
@@ -58,6 +70,16 @@ public record BrandingContext(
     /** {@code "RIF J-…"} or {@code null} when the organization has no tax id. */
     public String taxIdLine() {
         return taxId == null || taxId.isBlank() ? null : "RIF " + taxId.trim();
+    }
+
+    /** Returns an InputStream for the main (color/custom) logo. */
+    public InputStream logoInputStream() {
+        return new ByteArrayInputStream(logoPng != null ? logoPng : BrandAssets.logo());
+    }
+
+    /** Returns an InputStream for the negative (all-white) logo. */
+    public InputStream logoNegativeInputStream() {
+        return new ByteArrayInputStream(logoNegativePng != null ? logoNegativePng : BrandAssets.logoNegative());
     }
 
     static String toDataUri(byte[] image) {

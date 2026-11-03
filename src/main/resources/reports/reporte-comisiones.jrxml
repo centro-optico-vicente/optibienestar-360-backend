@@ -21,6 +21,9 @@
     <parameter name="P_APPLIES_TO" class="java.lang.String">
         <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
     </parameter>
+    <parameter name="P_LOGO_URL" class="java.lang.String">
+        <defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+    </parameter>
     <parameter name="P_COMPANY_NAME" class="java.lang.String">
         <defaultValueExpression><![CDATA[""]]></defaultValueExpression>
     </parameter>
@@ -363,10 +366,16 @@
                 <reportElement mode="Opaque" x="0" y="0" width="555" height="46" backcolor="#0F172A"/>
                 <graphicElement><pen lineWidth="0"/></graphicElement>
             </rectangle>
+            <image scaleImage="RetainShape" vAlign="Middle" onErrorType="Blank">
+                <reportElement x="12" y="8" width="105" height="30">
+                    <printWhenExpression><![CDATA[$P{P_LOGO_URL} != null && !$P{P_LOGO_URL}.isEmpty()]]></printWhenExpression>
+                </reportElement>
+                <imageExpression><![CDATA[$P{P_LOGO_URL}]]></imageExpression>
+            </image>
             <staticText>
-                <reportElement x="12" y="13" width="360" height="20" forecolor="#FFFFFF"/>
+                <reportElement x="125" y="13" width="250" height="20" forecolor="#FFFFFF"/>
                 <textElement verticalAlignment="Middle">
-                    <font fontName="SansSerif" size="13" isBold="true"/>
+                    <font fontName="SansSerif" size="12" isBold="true"/>
                 </textElement>
                 <text><![CDATA[REPORTE DE COMISIONES DE PROMOTORES]]></text>
             </staticText>

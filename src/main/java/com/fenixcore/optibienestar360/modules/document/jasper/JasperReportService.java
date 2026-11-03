@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.document.jasper;
 
+import com.fenixcore.optibienestar360.core.branding.BrandingService;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.JRPdfExporter;
@@ -9,6 +10,8 @@ import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sf.jasperreports.export.SimplePdfExporterConfiguration;
 import net.sf.jasperreports.export.SimpleXlsxReportConfiguration;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +27,18 @@ import java.util.Map;
 
 @Service
 public class JasperReportService {
+
+    private final BrandingService brandingService;
+
+    @Autowired
+
+    public JasperReportService(ObjectProvider<BrandingService> brandingServiceProvider) {
+        this.brandingService = brandingServiceProvider != null ? brandingServiceProvider.getIfAvailable() : null;
+    }
+
+    public JasperReportService() {
+        this.brandingService = null;
+    }
 
     /**
      * Generates Jasper report bytes from a classpath template and a data collection.
@@ -70,6 +85,7 @@ public class JasperReportService {
         try {
             JasperReport jasperReport = loadJasperReport(templateStream);
             Map<String, Object> params = parameters != null ? new HashMap<>(parameters) : new HashMap<>();
+            ensureBrandingParameters(params);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(data != null ? data : Collections.emptyList());
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
@@ -91,6 +107,7 @@ public class JasperReportService {
         try {
             JasperReport jasperReport = loadJasperReport(templateStream);
             Map<String, Object> params = parameters != null ? new HashMap<>(parameters) : new HashMap<>();
+            ensureBrandingParameters(params);
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, connection);
             if (jasperPrint.getPages().isEmpty()) {
@@ -101,6 +118,17 @@ public class JasperReportService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error processing Jasper report with JDBC connection: " + e.getMessage(), e);
+        }
+    }
+
+    private void ensureBrandingParameters(Map<String, Object> params) {
+        if (brandingService != null) {
+            if (!params.containsKey("P_LOGO_URL")) {
+                params.put("P_LOGO_URL", brandingService.getLogoUrl(true));
+            }
+            if (!params.containsKey("P_COMPANY_NAME") || params.get("P_COMPANY_NAME") == null || ((String) params.get("P_COMPANY_NAME")).isBlank()) {
+                params.put("P_COMPANY_NAME", brandingService.getContext().displayName());
+            }
         }
     }
 
