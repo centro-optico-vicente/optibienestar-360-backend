@@ -36,6 +36,8 @@ import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRe
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipsService;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.onboarding.service.OnboardingPolicyService;
+import com.fenixcore.optibienestar360.modules.onboarding.service.SelfRegistrationDisabledException;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -120,6 +122,8 @@ class AffiliationRequestServiceTest {
     @Mock private FileValidationService fileValidationService;
     @Mock private ObjectProvider<StorageService> storageProvider;
     @Mock private PresignedUrlPolicy presignedUrlPolicy;
+    // Mock defaults (false / no-op) = the default policy: forms open, manual approval, SUSPENDED until paid.
+    @Mock private OnboardingPolicyService onboardingPolicyService;
 
     @InjectMocks
     private AffiliationRequestService service;
@@ -408,6 +412,97 @@ class AffiliationRequestServiceTest {
         assertThatThrownBy(() -> service.update(r.getUuid(), new AffiliationRequestUpdateRequest("María", "Pérez",
                 "V", "12345678", r.getBirthDate(), r.getEmail(), null, plan.getUuid(), null, null, null), UUID.randomUUID()))
                 .hasMessage("affiliation_request.update.invalid_state");
+    }
+
+    // ─── Onboarding policy (hub ADR 0037) ───────────────────────────────────
+
+    @Test
+    void create_whenSelfRegistrationIsOff_isForbiddenAndStoresNothing() {
+        org.mockito.Mockito.doThrow(new SelfRegistrationDisabledException("onboarding.member_self_registration.disabled"))
+                .when(onboardingPolicyService).requireMemberSelfRegistration();
+
+        assertThatThrownBy(() -> service.create(createRequest(null), ClientRequestMetadata.EMPTY))
+                .isInstanceOf(SelfRegistrationDisabledException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void createAssisted_isNotBlockedBySwitchingSelfRegistrationOff() {
+        Promoter advisor = new Promoter();
+        advisor.setDisplayName("Ana Ventas");
+        advisor.setReferralCode("ANAV42");
+        UUID advisorUser = UUID.randomUUID();
+        when(promoterRepository.findActiveByUserUuid(advisorUser)).thenReturn(Optional.of(advisor));
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+        when(termsVersionService.requireCurrentPublic(TermType.MEMBER, terms.getUuid())).thenReturn(terms);
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+
+        service.createAssisted(new AssistedAffiliationRequestCreateRequest("María", "Pérez", "V", "12345678",
+                LocalDate.of(1985, 3, 15), "maria@example.com", null, null, plan.getUuid(), terms.getUuid(),
+                true, null, null), advisorUser, ClientRequestMetadata.EMPTY);
+
+        verify(onboardingPolicyService, never()).requireMemberSelfRegistration();
+        verify(repository).save(any(AffiliationRequest.class));
+    }
+
+    @Test
+    void create_whenThePolicyAutoApproves_approvesWithoutAReviewer() {
+        when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
+        when(termsVersionService.requireCurrentPublic(TermType.MEMBER, terms.getUuid())).thenReturn(terms);
+        when(passwordEncoder.encode("s3cret-pass")).thenReturn("$2a$10$hash");
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+        when(onboardingPolicyService.autoApprovesMember(false)).thenReturn(true);
+        // approve() re-reads the request it just stored, under a row lock.
+        java.util.concurrent.atomic.AtomicReference<AffiliationRequest> stored = new java.util.concurrent.atomic.AtomicReference<>();
+        when(repository.save(any(AffiliationRequest.class))).thenAnswer(inv -> {
+            stored.set(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+        when(repository.findForUpdateByUuid(any())).thenAnswer(inv -> Optional.ofNullable(stored.get()));
+        Role memberRole = new Role();
+        memberRole.setUuid(UUID.randomUUID());
+        when(roleRepository.findByName("AFILIADO")).thenReturn(Optional.of(memberRole));
+        User created = new User();
+        created.setUuid(UUID.randomUUID());
+        Member member = new Member();
+        member.setUuid(UUID.randomUUID());
+        Membership membership = new Membership();
+        membership.setUuid(UUID.randomUUID());
+        UserDto userDto = mock(UserDto.class);
+        when(userDto.uuid()).thenReturn(created.getUuid());
+        MemberDetailDto memberDto = mock(MemberDetailDto.class);
+        when(memberDto.uuid()).thenReturn(member.getUuid());
+        MembershipDto membershipDto = mock(MembershipDto.class);
+        when(membershipDto.uuid()).thenReturn(membership.getUuid());
+        when(userService.createUserWithPasswordHash(any(AdminCreateUserRequest.class), eq("$2a$10$hash"), isNull()))
+                .thenReturn(userDto);
+        when(membersService.create(any())).thenReturn(memberDto);
+        when(membershipsService.enroll(eq(member.getUuid()), any(), isNull())).thenReturn(membershipDto);
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        when(userRepository.findByUuid(created.getUuid())).thenReturn(Optional.of(created));
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+
+        AffiliationRequestCreatedDto result = service.create(createRequest(null), ClientRequestMetadata.EMPTY);
+
+        assertThat(result.status()).isEqualTo("APPROVED");
+        assertThat(membership.getStatus()).isEqualTo(Membership.LifecycleStatus.SUSPENDED.name());
+        ArgumentCaptor<AffiliationRequestLog> logs = ArgumentCaptor.forClass(AffiliationRequestLog.class);
+        verify(logRepository, org.mockito.Mockito.times(2)).save(logs.capture());
+        assertThat(logs.getAllValues().get(1).getComment()).isEqualTo(AffiliationRequestService.AUTO_APPROVAL_COMMENT);
+    }
+
+    @Test
+    void approve_whenThePolicyActivatesOnApproval_leavesTheMembershipActive() {
+        AffiliationRequest r = pending();
+        User reviewer = new User();
+        reviewer.setUuid(UUID.randomUUID());
+        stubApprovalCreation(r, reviewer);
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+        when(onboardingPolicyService.activatesMembershipOnApproval(false)).thenReturn(true);
+
+        service.approve(r.getUuid(), null, reviewer.getUuid());
+
+        assertThat(r.getMembership().getStatus()).isEqualTo(Membership.LifecycleStatus.ACTIVE.name());
     }
 
     // ─── Approve ────────────────────────────────────────────────────────────

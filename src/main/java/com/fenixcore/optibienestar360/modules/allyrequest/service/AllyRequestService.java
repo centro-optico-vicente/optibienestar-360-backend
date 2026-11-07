@@ -46,6 +46,7 @@ import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.catalog.entity.Profession;
 import com.fenixcore.optibienestar360.modules.catalog.repository.AllyTypeRepository;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProfessionRepository;
+import com.fenixcore.optibienestar360.modules.onboarding.service.OnboardingPolicyService;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -130,14 +131,32 @@ public class AllyRequestService {
     private final FileValidationService fileValidationService;
     private final ObjectProvider<StorageService> storageProvider;
     private final PresignedUrlPolicy presignedUrlPolicy;
+    private final OnboardingPolicyService onboardingPolicyService;
 
     @Value("${app.ally-requests.activation-ttl-hours:72}")
     private long activationTtlHours = DEFAULT_ACTIVATION_TTL_HOURS;
+
+    /** Comment of a request approved by the onboarding policy instead of an operator. */
+    static final String AUTO_APPROVAL_COMMENT = "Aprobada automáticamente por la política de registro";
+
+    /**
+     * Agreement registered when the onboarding policy approves an ally on its
+     * own (hub ADR 0037 §1): MEDICAL for a B2P ally of the medical area,
+     * COMMERCIAL otherwise; starts today, open-ended, auto-renewing, 30 days'
+     * notice (the ADR 0031 defaults). Staff can edit or replace it later.
+     */
+    static AllyRequestApproveRequest.AgreementData defaultAgreement(AllyType type) {
+        AllyAgreement.AgreementType kind = type.getProfessionalArea() == AllyType.ProfessionalArea.MEDICAL
+                ? AllyAgreement.AgreementType.MEDICAL
+                : AllyAgreement.AgreementType.COMMERCIAL;
+        return new AllyRequestApproveRequest.AgreementData(kind, LocalDate.now(), null, true, 30);
+    }
 
     // ─── Public form ────────────────────────────────────────────────────────
 
     @Transactional
     public AllyRequestCreatedDto create(AllyRequestCreateRequest req) {
+        onboardingPolicyService.requireAllySelfRegistration();
         if (req.homepage() != null && !req.homepage().isBlank()) {
             // Honeypot filled: a bot. Same generic 422 as any invalid request.
             log.warn("Ally request rejected by honeypot");
@@ -204,6 +223,11 @@ public class AllyRequestService {
 
         eventPublisher.publishEvent(event(AllyRequestEvent.Kind.RECEIVED, ally, null, null));
         log.info("Ally request {} received ({}, referral {})", ally.getUuid(), segment, code);
+        if (onboardingPolicyService.autoApprovesAlly()) {
+            // Hub ADR 0037 §1: approved by the onboarding policy with a default agreement for its segment.
+            approve(ally.getUuid(), new AllyRequestApproveRequest(defaultAgreement(type), null,
+                    AUTO_APPROVAL_COMMENT), null, null);
+        }
         return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), email,
                 promoter != null ? promoter.getDisplayName() : null);
     }
@@ -306,7 +330,7 @@ public class AllyRequestService {
         ally.setRegistrationStatus(Ally.RegistrationStatus.APPROVED);
         ally.setApprovedAt(Instant.now());
         ally.setApprovedBy(actorUuid);
-        if (Boolean.TRUE.equals(body.publish())) {
+        if (Boolean.TRUE.equals(body.publish()) || onboardingPolicyService.publishesAllyOnApproval()) {
             ally.setPublished(true);
             if (ally.getPublishedAt() == null) ally.setPublishedAt(Instant.now());
         }

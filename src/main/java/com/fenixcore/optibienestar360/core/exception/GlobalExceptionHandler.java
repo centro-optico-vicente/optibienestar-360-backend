@@ -112,6 +112,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
+    // 403 — business rule with a machine-readable code (e.g. self-registration switched off)
+    @ExceptionHandler(ForbiddenDetailsException.class)
+    public ResponseEntity<ProblemDetail> handleForbiddenDetails(ForbiddenDetailsException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, resolveLocalized(ex, locale));
+        problem.setType(URI.create(problemsBase + "/forbidden"));
+        problem.setTitle(resolve("error.title.forbidden", locale));
+        ex.getProperties().forEach(problem::setProperty);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
     // 404
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(NoSuchElementException ex) {

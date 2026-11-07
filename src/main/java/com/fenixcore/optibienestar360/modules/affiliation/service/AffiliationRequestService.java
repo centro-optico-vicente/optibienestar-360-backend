@@ -50,6 +50,7 @@ import com.fenixcore.optibienestar360.modules.membership.entity.Plan.PlanType;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.membership.service.MembershipsService;
+import com.fenixcore.optibienestar360.modules.onboarding.service.OnboardingPolicyService;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
@@ -171,10 +172,14 @@ public class AffiliationRequestService {
     private final FileValidationService fileValidationService;
     private final ObjectProvider<StorageService> storageProvider;
     private final PresignedUrlPolicy presignedUrlPolicy;
+    private final OnboardingPolicyService onboardingPolicyService;
 
     /** Hours the "create your password" link of an assisted approval stays valid. */
     @Value("${app.affiliation-requests.activation-ttl-hours:72}")
     private long activationTtlHours = DEFAULT_ACTIVATION_TTL_HOURS;
+
+    /** Log comment of a request approved by the onboarding policy instead of a reviewer. */
+    static final String AUTO_APPROVAL_COMMENT = "Aprobada automáticamente por la política de registro";
 
     // ─── Public form ────────────────────────────────────────────────────────
 
@@ -191,6 +196,7 @@ public class AffiliationRequestService {
     @Transactional
     public AffiliationRequestCreatedDto create(AffiliationRequestCreateRequest req, MultipartFile support,
                                                ClientRequestMetadata client) {
+        onboardingPolicyService.requireMemberSelfRegistration();
         boolean hasSupport = support != null && !support.isEmpty();
         if (hasSupport && req.payment() == null) {
             throw new IllegalArgumentException("affiliation_request.payment.support_without_payment");
@@ -296,6 +302,10 @@ public class AffiliationRequestService {
         writeLog(request, Action.CREATED, null, Status.PENDING, null, null, actor);
         eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.RECEIVED, request, null, null));
         log.info("Affiliation request {} received ({}, referral {})", request.getUuid(), channel, code);
+        if (onboardingPolicyService.autoApprovesMember(request.hasReportedPayment())) {
+            // Hub ADR 0037 §1: approved by the onboarding policy, no reviewer (actor "Sistema").
+            approve(request.getUuid(), AUTO_APPROVAL_COMMENT, null);
+        }
         return new AffiliationRequestCreatedDto(request.getUuid(), request.getStatus(), email,
                 promoter != null ? promoter.getDisplayName() : null);
     }
@@ -448,7 +458,11 @@ public class AffiliationRequestService {
                         request.getReinscriptionRequiredOverride()), actorUuid);
         Membership membership = membershipRepository.findByUuid(enrolled.uuid())
                 .orElseThrow(() -> new IllegalStateException("membership just created not found"));
-        membership.setStatus(Membership.LifecycleStatus.SUSPENDED.name());
+        // Hub ADR 0037 §1: SUSPENDED until the payment is approved, unless the
+        // onboarding policy activates it on approval (or on a reported payment).
+        membership.setStatus(onboardingPolicyService.activatesMembershipOnApproval(request.hasReportedPayment())
+                ? Membership.LifecycleStatus.ACTIVE.name()
+                : Membership.LifecycleStatus.SUSPENDED.name());
 
         User user = userRepository.findByUuid(createdUser.uuid())
                 .orElseThrow(() -> new IllegalStateException("user just created not found"));

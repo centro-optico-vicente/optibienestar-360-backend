@@ -1436,6 +1436,8 @@ public class PaymentsService {
         ensurePending(payment);
 
         applyReview(payment, PaymentStatus.REJECTED, actorUserUuid, request.reason());
+        // Synchronous, same transaction: may re-suspend a provisionally active membership (hub ADR 0037).
+        eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.payment.event.PaymentRejectedEvent(payment.getId()));
 
         if (payment.getMembership() != null) {
             validatorCacheService.evictForMembership(payment.getMembership());
