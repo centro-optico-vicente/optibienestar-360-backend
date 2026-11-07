@@ -234,7 +234,7 @@ public class Ally extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    // ─── Registration lifecycle (V228, hub ADR 0036) ────────────────────────
+    // ─── Registration lifecycle (V230, hub ADR 0036) ────────────────────────
     // Independent from is_published: only an APPROVED ally may be published
     // (DB CHECK chk_allies_published_requires_approval).
 

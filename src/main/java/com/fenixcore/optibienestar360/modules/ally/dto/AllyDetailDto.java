@@ -95,7 +95,7 @@ public record AllyDetailDto(
         boolean published,
         Instant publishedAt,
 
-        // ─── Registration lifecycle (V228, hub ADR 0036) — read-only ──────────
+        // ─── Registration lifecycle (V230, hub ADR 0036) — read-only ──────────
         @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_status") Ally.RegistrationStatus registrationStatus,
         @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_channel") Ally.RegistrationChannel registrationChannel,
         String registrationNote,

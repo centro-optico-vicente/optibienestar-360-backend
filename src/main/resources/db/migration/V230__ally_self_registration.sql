@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- V228: ally self-registration ("Solicitar alianza") — hub ADR 0036.
+-- V230: ally self-registration ("Solicitar alianza") — hub ADR 0036.
 --
 --   1. allies gains a registration lifecycle independent from is_published:
 --        registration_status  PENDING | APPROVED | REJECTED
@@ -124,13 +124,13 @@ BEGIN
         WHERE name IN ('ALLY_UPDATE_OWN', 'ALLY_LICENSE_UPDATE_OWN', 'ALLY_REGISTRATION_VIEW_ALL',
                        'ALLY_REGISTRATION_APPROVE', 'ALLY_REGISTRATION_REJECT', 'ALLY_REGISTRATION_INVITE',
                        'ALLY_IMPORT')) <> 7 THEN
-        RAISE EXCEPTION 'V228: ally self-registration permissions were not created (ALLIES / ALLY_REQUESTS domain missing?)';
+        RAISE EXCEPTION 'V230: ally self-registration permissions were not created (ALLIES / ALLY_REQUESTS domain missing?)';
     END IF;
     IF (SELECT COUNT(*) FROM role_permissions rp
         JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'ALIADO_PENDIENTE') <> 4 THEN
-        RAISE EXCEPTION 'V228: ALIADO_PENDIENTE must hold exactly ALLY_VIEW_OWN, ALLY_UPDATE_OWN, ALLY_OPENING_HOURS_UPDATE_OWN and ALLY_LICENSE_UPDATE_OWN';
+        RAISE EXCEPTION 'V230: ALIADO_PENDIENTE must hold exactly ALLY_VIEW_OWN, ALLY_UPDATE_OWN, ALLY_OPENING_HOURS_UPDATE_OWN and ALLY_LICENSE_UPDATE_OWN';
     END IF;
     IF EXISTS (SELECT 1 FROM allies WHERE registration_status <> 'APPROVED') THEN
-        RAISE EXCEPTION 'V228: existing allies must be backfilled as APPROVED';
+        RAISE EXCEPTION 'V230: existing allies must be backfilled as APPROVED';
     END IF;
 END $$;

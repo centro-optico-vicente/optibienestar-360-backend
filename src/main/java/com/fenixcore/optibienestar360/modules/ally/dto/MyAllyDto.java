@@ -42,7 +42,7 @@ public record MyAllyDto(
         String logoUrl,
         String phone,
 
-        // Registration lifecycle (V228, hub ADR 0036): drives the portal banner and onboarding steps.
+        // Registration lifecycle (V230, hub ADR 0036): drives the portal banner and onboarding steps.
         @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
         @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_status") Ally.RegistrationStatus registrationStatus,
         String rejectionReason,
