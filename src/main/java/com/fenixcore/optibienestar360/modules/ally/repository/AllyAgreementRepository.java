@@ -26,6 +26,9 @@ public interface AllyAgreementRepository extends JpaRepository<AllyAgreement, Lo
 
     List<AllyAgreement> findByAllyIdAndStatus(Long allyId, String status);
 
+    /** Approval of an ally request (hub ADR 0036): active rows in a given contract status. */
+    List<AllyAgreement> findByAllyIdAndStatusAndActiveTrue(Long allyId, String status);
+
     /**
      * Agreements in force ({@code is_active} + the given lifecycle status) of
      * the given allies, with their standard terms version fetched — backs the

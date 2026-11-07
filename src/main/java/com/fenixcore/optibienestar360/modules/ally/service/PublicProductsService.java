@@ -132,6 +132,7 @@ public class PublicProductsService {
         Ally ally = allyRepository.findByUuid(allyUuid)
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
+                .filter(Ally::isApproved)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
 
         Specification<AllyProduct> spec = offeredPublicly()
@@ -221,7 +222,8 @@ public class PublicProductsService {
                 cb.equal(root.get("reviewStatus"), AllyProduct.ReviewStatus.APPROVED),
                 cb.isTrue(root.get("product").get("active")),
                 cb.isTrue(root.get("ally").get("active")),
-                cb.isTrue(root.get("ally").get("published"))
+                cb.isTrue(root.get("ally").get("published")),
+                cb.equal(root.get("ally").get("registrationStatus"), Ally.RegistrationStatus.APPROVED)
         );
     }
 

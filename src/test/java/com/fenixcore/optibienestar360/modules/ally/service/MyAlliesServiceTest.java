@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapperImpl;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,12 +33,13 @@ import static org.mockito.Mockito.when;
 class MyAlliesServiceTest {
 
     @Mock private AllyUserRepository repository;
+    @Mock private AllyProductRepository allyProductRepository;
 
     private MyAlliesService service;
 
     @BeforeEach
     void setup() {
-        service = new MyAlliesService(repository, new AllyMapperImpl());
+        service = new MyAlliesService(repository, new AllyMapperImpl(), allyProductRepository);
     }
 
     @Test

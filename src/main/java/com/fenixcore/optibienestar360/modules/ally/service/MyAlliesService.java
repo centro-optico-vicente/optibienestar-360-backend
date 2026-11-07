@@ -1,8 +1,10 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.mapper.AllyMapper;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class MyAlliesService {
 
     private final AllyUserRepository allyUserRepository;
     private final AllyMapper mapper;
+    private final AllyProductRepository allyProductRepository;
 
     /**
      * The allies the given user actively operates on, primary membership
@@ -51,7 +54,9 @@ public class MyAlliesService {
         return allyUserRepository.findActiveByUserUuid(userUuid).stream()
                 .sorted(Comparator.comparing(AllyUser::isPrimary).reversed()
                         .thenComparing(au -> au.getAlly().getName(), String.CASE_INSENSITIVE_ORDER))
-                .map(mapper::toMyAllyDto)
+                .map(au -> mapper.toMyAllyDto(au).withHasApprovedOffers(
+                        allyProductRepository.existsByAllyIdAndReviewStatusAndActiveTrue(
+                                au.getAlly().getId(), AllyProduct.ReviewStatus.APPROVED)))
                 .toList();
     }
 }

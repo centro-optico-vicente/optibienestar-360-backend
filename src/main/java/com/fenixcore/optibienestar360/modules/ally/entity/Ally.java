@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Ally of the network (hub ADR 0026 / 0031). Its {@link #getSegment() segment}
@@ -232,6 +233,47 @@ public class Ally extends BaseEntity {
 
     @Column(name = "published_at")
     private Instant publishedAt;
+
+    // ─── Registration lifecycle (V230, hub ADR 0036) ────────────────────────
+    // Independent from is_published: only an APPROVED ally may be published
+    // (DB CHECK chk_allies_published_requires_approval).
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_status", length = 10, nullable = false)
+    private RegistrationStatus registrationStatus = RegistrationStatus.APPROVED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_channel", length = 12, nullable = false)
+    private RegistrationChannel registrationChannel = RegistrationChannel.ADMIN;
+
+    /** Benefit the applicant proposed when registering (free text for staff). */
+    @Column(name = "registration_note", columnDefinition = "text")
+    private String registrationNote;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
+    @Column(name = "rejected_by")
+    private UUID rejectedBy;
+
+    @Column(name = "rejection_reason", columnDefinition = "text")
+    private String rejectionReason;
+
+    public boolean isApproved() {
+        return registrationStatus == RegistrationStatus.APPROVED;
+    }
+
+    /** Lifecycle of an ally request (ADR 0036). */
+    public enum RegistrationStatus { PENDING, APPROVED, REJECTED }
+
+    /** Where the ally came from (ADR 0036). */
+    public enum RegistrationChannel { ADMIN, SELF_SERVICE, IMPORT }
 
     // ─── Professions (ally_professions pivot) ────────────────────────────────
 

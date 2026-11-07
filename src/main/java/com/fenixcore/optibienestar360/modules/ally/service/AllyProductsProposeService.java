@@ -147,6 +147,11 @@ public class AllyProductsProposeService {
         }
 
         Ally ally = membership.getAlly();  // reuse the already-loaded managed ally
+        if (!ally.isApproved()) {
+            // Hub ADR 0036: a pending ally request only completes its profile;
+            // offers come after staff approve it with a signed agreement.
+            throw new IllegalArgumentException("ally_product.propose.not_approved");
+        }
         Product product = req.productUuid() != null
                 ? productsService.requireOfferable(req.productUuid(), ally)
                 : productsService.createExclusive(ally, req.productCategoryUuid(), req.productType(),

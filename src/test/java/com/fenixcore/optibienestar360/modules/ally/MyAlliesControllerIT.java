@@ -72,7 +72,7 @@ class MyAlliesControllerIT {
         UUID allyUuid = UUID.randomUUID();
         when(myAlliesService.listMyAllies(any())).thenReturn(List.of(
                 new MyAllyDto(allyUuid, "Clínica Demo", List.of("Clínica"), null, null,
-                        AllyRole.OWNER, true, LocalDate.of(2026, 1, 15))));
+                        null, null, null, false, AllyRole.OWNER, true, LocalDate.of(2026, 1, 15))));
 
         String primary = mockMvc.perform(get(PRIMARY_PATH).with(principal("ALLY_VIEW_OWN")))
                 .andExpect(status().isOk())

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .button { display: inline-block; background: #7a5cc9; color: #fff !important; padding: 10px 18px; border-radius: 6px; text-decoration: none; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Tu alianza fue aprobada</h2>
+
+    <p>Hola <span th:text="${contactName}"></span>, aprobamos la alianza de <strong th:text="${allyName}"></strong>.</p>
+
+    <div class="info-box">
+        Vuelve a iniciar sesión en el portal para ver todas las opciones y registra tus ofertas: precios y descuentos para los afiliados. Así aparecerás en el directorio con tus beneficios.
+    </div>
+
+    <p><a class="button" th:href="${portalUrl}">Registrar mis ofertas</a></p>
+    <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${portalUrl}"></span></p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

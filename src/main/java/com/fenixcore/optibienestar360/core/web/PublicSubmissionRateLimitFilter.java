@@ -21,10 +21,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-IP throttle for the anonymous write endpoints — today the public
+ * Per-IP throttle for the anonymous write endpoints — the public
  * self-affiliation form ({@code POST /v1/public/affiliation-requests}), which
  * creates rows and, with a proof attached, uploads a file to storage without
- * any login. Sliding one-hour window kept in memory: per replica, reset on
+ * any login, and the ally request form ({@code POST /v1/public/ally-requests},
+ * hub ADR 0036), which creates an ally and a login. Both share one hourly
+ * budget per IP. Sliding one-hour window kept in memory: per replica, reset on
  * restart, which is enough to stop a script from flooding the review queue
  * and the bucket. The client IP is the container-resolved one
  * ({@code server.forward-headers-strategy=NATIVE}), as in
@@ -35,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
 
     private static final String AFFILIATION_PATH = "/v1/public/affiliation-requests";
+    private static final String ALLY_REQUEST_PATH = "/v1/public/ally-requests";
     private static final long WINDOW_MILLIS = Duration.ofHours(1).toMillis();
     /** Ceiling for the JSON variant of the form (multipart has its own servlet limits). */
     private static final long MAX_JSON_BYTES = 64 * 1024;
@@ -53,7 +56,9 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !("POST".equalsIgnoreCase(request.getMethod()) && AFFILIATION_PATH.equals(request.getRequestURI()));
+        String uri = request.getRequestURI();
+        return !("POST".equalsIgnoreCase(request.getMethod())
+                && (AFFILIATION_PATH.equals(uri) || ALLY_REQUEST_PATH.equals(uri)));
     }
 
     @Override
@@ -70,7 +75,7 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
         }
         String ip = ClientRequestMetadata.from(request).ipAddress();
         if (ip != null && !tryAcquire(ip, System.currentTimeMillis())) {
-            log.warn("Public affiliation submissions throttled for {}", ip);
+            log.warn("Public submissions throttled for {} ({})", ip, request.getRequestURI());
             reject(response);
             return;
         }

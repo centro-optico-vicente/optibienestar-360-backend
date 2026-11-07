@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.ally.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.CityDto;
 import com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto;
@@ -93,6 +94,12 @@ public record AllyDetailDto(
         // ─── Publishing ────────────────────────────────────────────────────
         boolean published,
         Instant publishedAt,
+
+        // ─── Registration lifecycle (V230, hub ADR 0036) — read-only ──────────
+        @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_status") Ally.RegistrationStatus registrationStatus,
+        @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_channel") Ally.RegistrationChannel registrationChannel,
+        String registrationNote,
+        String rejectionReason,
 
         // ─── Medical professions (ally_professions pivot) ──────────────────
         List<ProfessionDto> professions,

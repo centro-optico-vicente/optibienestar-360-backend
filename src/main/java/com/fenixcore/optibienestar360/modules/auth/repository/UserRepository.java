@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     boolean existsByEmail(String email);
 
+    /** A person already holding a login (ally request, hub ADR 0036). */
+    boolean existsByPersonId(Long personId);
+
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
     Optional<User> findByEmailAndActiveTrue(String email);
 

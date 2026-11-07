@@ -187,6 +187,10 @@ public interface AllyMapper {
     @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(allyUser.getAlly().getAllyTypes()))")
     @Mapping(target = "logoUrl",      source = "ally.logoUrl")
     @Mapping(target = "phone",        source = "ally.phone")
+    @Mapping(target = "segment",            source = "ally.segment")
+    @Mapping(target = "registrationStatus", source = "ally.registrationStatus")
+    @Mapping(target = "rejectionReason",    source = "ally.rejectionReason")
+    @Mapping(target = "hasApprovedOffers",  ignore = true)
     MyAllyDto toMyAllyDto(AllyUser allyUser);
 
     /**
