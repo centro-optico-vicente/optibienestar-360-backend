@@ -14,7 +14,8 @@ SET search_path TO app, public;
 --   2. Role ALIADO_PENDIENTE: the self-registered ally user. It only sees and
 --      edits its own ally profile until staff approve the request, when the
 --      role is swapped for ALIADO.
---   3. Permissions: ALLY_UPDATE_OWN (portal profile editor, also for ALIADO)
+--   3. Permissions: ALLY_UPDATE_OWN / ALLY_LICENSE_UPDATE_OWN (portal profile
+--      and own licenses, also for ALIADO)
 --      and the review / import permissions of the new ALLY_REQUESTS domain.
 --
 -- The signed agreement support reuses ally_agreements.signed_pdf_url, which
@@ -77,6 +78,7 @@ INSERT INTO permissions (name, domain_id, description)
 SELECT v.name, pd.permission_domains_id, v.description
 FROM (VALUES
     ('ALLY_UPDATE_OWN',            'ALLIES',        'Editar la ficha del aliado propio desde el portal (como propietario)'),
+    ('ALLY_LICENSE_UPDATE_OWN',    'ALLIES',        'Agregar o quitar las colegiaturas propias desde el portal del aliado (como propietario)'),
     ('ALLY_REGISTRATION_VIEW_ALL', 'ALLY_REQUESTS', 'Ver las solicitudes de alianza'),
     ('ALLY_REGISTRATION_APPROVE',  'ALLY_REQUESTS', 'Aprobar una solicitud de alianza (exige un convenio activo)'),
     ('ALLY_REGISTRATION_REJECT',   'ALLY_REQUESTS', 'Rechazar o reabrir una solicitud de alianza'),
@@ -96,13 +98,13 @@ WHERE r.name IN ('SYSTEM', 'ADMINISTRADOR')
                  'ALLY_REGISTRATION_INVITE', 'ALLY_IMPORT')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- Ally portal: approved allies may edit their own profile too.
+-- Ally portal: approved allies may edit their own profile and licenses too.
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.roles_id, p.permissions_id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ALIADO'
-  AND p.name = 'ALLY_UPDATE_OWN'
+  AND p.name IN ('ALLY_UPDATE_OWN', 'ALLY_LICENSE_UPDATE_OWN')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Pending ally: own profile only (no offers, validator, usages or patients).
@@ -111,7 +113,7 @@ SELECT r.roles_id, p.permissions_id
 FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ALIADO_PENDIENTE'
-  AND p.name IN ('ALLY_VIEW_OWN', 'ALLY_UPDATE_OWN', 'ALLY_OPENING_HOURS_UPDATE_OWN')
+  AND p.name IN ('ALLY_VIEW_OWN', 'ALLY_UPDATE_OWN', 'ALLY_OPENING_HOURS_UPDATE_OWN', 'ALLY_LICENSE_UPDATE_OWN')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- ─── Fail loudly rather than migrate into a half-applied state ──────────────
@@ -119,13 +121,14 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 DO $$
 BEGIN
     IF (SELECT COUNT(*) FROM permissions
-        WHERE name IN ('ALLY_UPDATE_OWN', 'ALLY_REGISTRATION_VIEW_ALL', 'ALLY_REGISTRATION_APPROVE',
-                       'ALLY_REGISTRATION_REJECT', 'ALLY_REGISTRATION_INVITE', 'ALLY_IMPORT')) <> 6 THEN
+        WHERE name IN ('ALLY_UPDATE_OWN', 'ALLY_LICENSE_UPDATE_OWN', 'ALLY_REGISTRATION_VIEW_ALL',
+                       'ALLY_REGISTRATION_APPROVE', 'ALLY_REGISTRATION_REJECT', 'ALLY_REGISTRATION_INVITE',
+                       'ALLY_IMPORT')) <> 7 THEN
         RAISE EXCEPTION 'V228: ally self-registration permissions were not created (ALLIES / ALLY_REQUESTS domain missing?)';
     END IF;
     IF (SELECT COUNT(*) FROM role_permissions rp
-        JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'ALIADO_PENDIENTE') <> 3 THEN
-        RAISE EXCEPTION 'V228: ALIADO_PENDIENTE must hold exactly ALLY_VIEW_OWN, ALLY_UPDATE_OWN and ALLY_OPENING_HOURS_UPDATE_OWN';
+        JOIN roles r ON r.roles_id = rp.role_id AND r.name = 'ALIADO_PENDIENTE') <> 4 THEN
+        RAISE EXCEPTION 'V228: ALIADO_PENDIENTE must hold exactly ALLY_VIEW_OWN, ALLY_UPDATE_OWN, ALLY_OPENING_HOURS_UPDATE_OWN and ALLY_LICENSE_UPDATE_OWN';
     END IF;
     IF EXISTS (SELECT 1 FROM allies WHERE registration_status <> 'APPROVED') THEN
         RAISE EXCEPTION 'V228: existing allies must be backfilled as APPROVED';

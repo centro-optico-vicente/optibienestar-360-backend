@@ -63,7 +63,7 @@ public record MyAllyProfileDto(
      * of the missing ones ({@code logo}, {@code description}, {@code address},
      * {@code city}, {@code googleMapsUrl}, {@code contactPhone},
      * {@code openingHours}, {@code socialMedia}; B2P also
-     * {@code practiceSite}, {@code appointmentPhone}). The portal translates
+     * {@code practiceSite}, {@code appointmentPhone}, {@code licenses}). The portal translates
      * the keys.
      */
     public record Completeness(int percent, List<String> missing) {}

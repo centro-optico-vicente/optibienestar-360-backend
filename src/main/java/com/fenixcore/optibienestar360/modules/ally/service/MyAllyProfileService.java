@@ -15,6 +15,8 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
+import com.fenixcore.optibienestar360.modules.person.repository.PersonProfessionalLicenseRepository;
+import org.springframework.data.domain.Sort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ public class MyAllyProfileService {
     private final AllyOpeningHourRepository openingHourRepository;
     private final AllyProductRepository allyProductRepository;
     private final AlliesService alliesService;
+    private final PersonProfessionalLicenseRepository licenseRepository;
 
     public MyAllyProfileDto get(UUID allyUuid, UUID actorUserUuid) {
         return toDto(requireMembership(allyUuid, actorUserUuid, false).getAlly());
@@ -108,11 +111,16 @@ public class MyAllyProfileService {
                 ally.getRepresentativePosition(),
                 ally.getHostName(), ally.getOfficeNumber(), ally.getAppointmentPhone(), ally.getAssistantName(),
                 ally.getLogoUrl(), hasHours, hasApprovedOffers,
-                completeness(ally, hasHours));
+                completeness(ally, hasHours, hasLicenses(ally)));
     }
 
     /** Recommended items for a useful public profile; the portal shows what is missing. */
-    static MyAllyProfileDto.Completeness completeness(Ally ally, boolean hasOpeningHours) {
+    private boolean hasLicenses(Ally ally) {
+        return ally.getHolderPerson() != null && !licenseRepository
+                .findByPerson_IdAndActiveTrue(ally.getHolderPerson().getId(), Sort.unsorted()).isEmpty();
+    }
+
+    static MyAllyProfileDto.Completeness completeness(Ally ally, boolean hasOpeningHours, boolean hasLicenses) {
         List<String> missing = new ArrayList<>();
         int total = 0;
         total++; if (isBlank(ally.getLogoUrl()))      missing.add("logo");
@@ -130,6 +138,7 @@ public class MyAllyProfileService {
                 missing.add("practiceSite");
             }
             total++; if (isBlank(ally.getAppointmentPhone())) missing.add("appointmentPhone");
+            total++; if (!hasLicenses)                        missing.add("licenses");
         }
         int percent = (int) Math.round(100.0 * (total - missing.size()) / total);
         return new MyAllyProfileDto.Completeness(percent, List.copyOf(missing));
