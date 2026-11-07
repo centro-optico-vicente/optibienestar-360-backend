@@ -19,6 +19,8 @@ public final class RoleNames {
     public static final String ALLY_MEDICAL_OPERATOR = "OPERADOR_MEDICO";
 
     public static final String ALLY = "ALIADO";
+    /** Self-registered ally whose request is still under review (V228, hub ADR 0036): own profile only. */
+    public static final String ALLY_PENDING = "ALIADO_PENDIENTE";
 
     /** Granted on self-service affiliation. */
     public static final String MEMBER = "AFILIADO";

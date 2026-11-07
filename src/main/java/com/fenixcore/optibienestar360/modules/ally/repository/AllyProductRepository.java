@@ -58,6 +58,9 @@ public interface AllyProductRepository extends JpaRepository<AllyProduct, Long>,
 
     List<AllyProduct> findByAllyIdAndReviewStatus(Long allyId, ReviewStatus reviewStatus);
 
+    /** Portal onboarding (hub ADR 0036): does the ally already have an approved, active offer? */
+    boolean existsByAllyIdAndReviewStatusAndActiveTrue(Long allyId, ReviewStatus reviewStatus);
+
     /**
      * "Same product offered by different allies" — cross-ally listing for a
      * catalog product (e.g. every clinic that offers an 'Ophthalmology

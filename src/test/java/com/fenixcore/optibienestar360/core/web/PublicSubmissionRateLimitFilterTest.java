@@ -53,6 +53,15 @@ class PublicSubmissionRateLimitFilterTest {
     }
 
     @Test
+    void theAllyRequestForm_sharesTheSameBudget() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            assertThat(post("/v1/public/affiliation-requests", "10.0.0.5").getStatus()).isEqualTo(200);
+        }
+        assertThat(post("/v1/public/ally-requests", "10.0.0.5").getStatus()).isEqualTo(200);
+        assertThat(post("/v1/public/ally-requests", "10.0.0.5").getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void otherPaths_areNotThrottled() throws Exception {
         for (int i = 0; i < 5; i++) {
             assertThat(post("/v1/public/terms/AFILIADO/preview", "10.0.0.3").getStatus()).isEqualTo(200);

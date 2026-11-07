@@ -1,12 +1,15 @@
 package com.fenixcore.optibienestar360.modules.ally.repository;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +17,18 @@ import java.util.UUID;
 public interface AllyRepository extends JpaRepository<Ally, Long>, JpaSpecificationExecutor<Ally> {
 
     Optional<Ally> findByUuid(UUID uuid);
+
+    /**
+     * Row lock for the ally request transitions (hub ADR 0036): two reviewers
+     * or a double click can't approve / reject the same request twice.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Ally a WHERE a.uuid = :uuid")
+    Optional<Ally> findForUpdateByUuid(@Param("uuid") UUID uuid);
+
+    /** Duplicate check of a professional request: the person's other B2P sites. */
+    List<Ally> findByHolderPersonIdAndSegment(Long personId,
+            com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment segment);
 
     Optional<Ally> findByReferralCode(String referralCode);
 

@@ -52,6 +52,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -174,7 +175,7 @@ public class AlliesService {
 	}
 
     /**
-     * Public-directory query. Filters {@code is_active AND is_published}, so
+     * Public-directory query. Filters {@code is_active AND is_published AND APPROVED}, so
      * anonymous callers never see allies still in onboarding nor
      * temporarily-unpublished ones. All inputs are optional — passing
      * everything null returns every published ally (paginated).
@@ -192,7 +193,7 @@ public class AlliesService {
      *         DTO for which fields are intentionally omitted.
      */
     public Page<PublicAllyListItemDto> publicDirectory(PublicAllySearch search, Pageable pageable) {
-        Specification<Ally> spec = publishedOnly();
+        Specification<Ally> spec = publiclyVisible();
 
         Segment segment = parseSegment(search.segment());
         if (segment != null) {
@@ -297,6 +298,7 @@ public class AlliesService {
         Ally ally = repository.findByUuid(uuid)
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
+                .filter(Ally::isApproved)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
         return enricher.ally(mapper.toPublicDetail(ally, publicBaseUrl));
     }
@@ -306,6 +308,26 @@ public class AlliesService {
     @Transactional
     @Auditable(entity = "ally", action = AuditAction.CREATE)
     public AllyDetailDto create(AllyCreateRequest req) {
+        return mapper.toDetail(build(req, Ally.RegistrationStatus.APPROVED, Ally.RegistrationChannel.ADMIN, null));
+    }
+
+    /**
+     * Ally request (hub ADR 0036): the ally created by {@code /solicitar-alianza}
+     * or the template import. Same validations as {@link #create}, but always
+     * PENDING and never published — {@code req.published()} is ignored — until
+     * staff register the agreement and approve it.
+     */
+    @Transactional
+    @Auditable(entity = "ally", action = AuditAction.CREATE)
+    public AllyDetailDto createRequest(AllyCreateRequest req, Ally.RegistrationChannel channel, String note) {
+        if (channel == Ally.RegistrationChannel.ADMIN) {
+            throw new IllegalArgumentException("ally.registration.channel_invalid");
+        }
+        return mapper.toDetail(build(req, Ally.RegistrationStatus.PENDING, channel, note));
+    }
+
+    private Ally build(AllyCreateRequest req, Ally.RegistrationStatus status, Ally.RegistrationChannel channel,
+                       String note) {
         // Pre-check for duplicate RIF so the client gets 422
         // ally.tax_document.duplicate instead of the generic 409 from the
         // partial UNIQUE index in V11.
@@ -338,8 +360,14 @@ public class AlliesService {
         ally.setReferralCode(normalizeReferralCode(req.referralCode(), null));
         ally.setDescription(req.description());
         ally.setJoinedAt(req.joinedAt());
-        if (req.published() != null) ally.setPublished(req.published());
-        ally.setPublishedAt(req.publishedAt());
+        ally.setRegistrationStatus(status);
+        ally.setRegistrationChannel(channel);
+        ally.setRegistrationNote(note == null || note.isBlank() ? null : note.trim());
+        if (status == Ally.RegistrationStatus.APPROVED) {
+            ally.setApprovedAt(Instant.now(clock));
+            if (req.published() != null) ally.setPublished(req.published());
+            ally.setPublishedAt(req.publishedAt());
+        }
         ally.setProfessions(resolveProfessions(req.professionUuids()));
         // allyNumber is assigned by the DB sequence (V179) — never from the request.
         ally.setCapturedByPromoter(resolvePromoterOptional(req.capturedByPromoterUuid()));
@@ -352,7 +380,7 @@ public class AlliesService {
         // logoUrl is deprecated (hub ADR 0027): the column mirrors the primary gallery image,
         // so a given URL becomes that image instead of being written to the column.
         applyDeprecatedLogoUrl(saved, req.logoUrl());
-        return mapper.toDetail(saved);
+        return saved;
     }
 
     @Transactional
@@ -397,7 +425,13 @@ public class AlliesService {
         if (req.referralCode()        != null) ally.setReferralCode(normalizeReferralCode(req.referralCode(), ally.getId()));
         if (req.description()         != null) ally.setDescription(req.description());
         if (req.joinedAt()            != null) ally.setJoinedAt(req.joinedAt());
-        if (req.published()           != null) ally.setPublished(req.published());
+        if (req.published()           != null) {
+            // Hub ADR 0036: only an approved ally request may reach the public directory.
+            if (req.published() && !ally.isApproved()) {
+                throw new IllegalArgumentException("ally.publish.not_approved");
+            }
+            ally.setPublished(req.published());
+        }
         if (req.publishedAt()         != null) ally.setPublishedAt(req.publishedAt());
         if (req.active()              != null) ally.setActive(req.active());
         if (req.status()              != null) ally.setStatus(req.status());
@@ -725,7 +759,7 @@ public class AlliesService {
      * unchanged, blank text = cleared). The host clinic must be another ally
      * of the B2B segment.
      */
-    private void applySiteFields(Ally ally, AllySegments.SiteFields f, Long currentAllyId) {
+    void applySiteFields(Ally ally, AllySegments.SiteFields f, Long currentAllyId) {
         if (f.hostAllyUuid() != null) {
             Ally host = repository.findByUuid(f.hostAllyUuid())
                     .orElseThrow(() -> new NoSuchElementException("ally.host.not_found"));
@@ -765,7 +799,7 @@ public class AlliesService {
         return isBlank(value) ? null : value.trim();
     }
 
-    private City resolveCityOptional(UUID cityUuid) {
+    City resolveCityOptional(UUID cityUuid) {
         if (cityUuid == null) return null;
         return cityRepository.findByUuid(cityUuid)
                 .orElseThrow(() -> new NoSuchElementException("city.not_found"));
@@ -795,10 +829,17 @@ public class AlliesService {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
     }
 
-    private static Specification<Ally> publishedOnly() {
+    /**
+     * Public visibility (hub ADR 0036): active + published + APPROVED. The DB
+     * CHECK {@code chk_allies_published_requires_approval} already makes
+     * "published but not approved" impossible; the explicit condition keeps
+     * the rule readable and safe if that constraint is ever relaxed.
+     */
+    private static Specification<Ally> publiclyVisible() {
         return (root, query, cb) -> cb.and(
                 cb.isTrue(root.get("active")),
-                cb.isTrue(root.get("published"))
+                cb.isTrue(root.get("published")),
+                cb.equal(root.get("registrationStatus"), Ally.RegistrationStatus.APPROVED)
         );
     }
 

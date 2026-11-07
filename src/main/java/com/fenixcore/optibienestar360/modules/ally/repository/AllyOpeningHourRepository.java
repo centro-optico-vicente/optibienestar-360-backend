@@ -14,6 +14,9 @@ public interface AllyOpeningHourRepository extends JpaRepository<AllyOpeningHour
     @Query("SELECT h FROM AllyOpeningHour h WHERE h.ally.id = :allyId ORDER BY h.dayOfWeek, h.opensAt")
     List<AllyOpeningHour> findWeek(@Param("allyId") Long allyId);
 
+    /** Profile completeness (hub ADR 0036): has the ally loaded any opening range? */
+    boolean existsByAllyId(Long allyId);
+
     /** Drops the whole week before it is replaced (rows are not soft-deleted). */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM AllyOpeningHour h WHERE h.ally.id = :allyId")

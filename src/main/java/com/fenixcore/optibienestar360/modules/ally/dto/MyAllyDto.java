@@ -1,7 +1,9 @@
 package com.fenixcore.optibienestar360.modules.ally.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,8 +42,21 @@ public record MyAllyDto(
         String logoUrl,
         String phone,
 
+        // Registration lifecycle (V228, hub ADR 0036): drives the portal banner and onboarding steps.
+        @Display(value = Display.Kind.ENUM, enumScope = "ally_type.segment") Segment segment,
+        @Display(value = Display.Kind.ENUM, enumScope = "ally.registration_status") Ally.RegistrationStatus registrationStatus,
+        String rejectionReason,
+        boolean hasApprovedOffers,
+
         // The caller's membership in this ally.
         @Display(Display.Kind.ENUM) AllyRole allyRole,
         @Display(Display.Kind.BOOLEAN) boolean primary,
         @Display(Display.Kind.DATE) LocalDate joinedAt
-) {}
+) {
+
+    /** Copy with the onboarding flag, computed by the service (not a column). */
+    public MyAllyDto withHasApprovedOffers(boolean value) {
+        return new MyAllyDto(uuid, name, allyTypeNames, logoUrl, phone, segment, registrationStatus, rejectionReason,
+                value, allyRole, primary, joinedAt);
+    }
+}

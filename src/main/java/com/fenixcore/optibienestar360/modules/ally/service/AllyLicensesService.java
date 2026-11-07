@@ -66,6 +66,7 @@ public class AllyLicensesService {
         Ally ally = allyRepository.findByUuid(allyUuid)
                 .filter(Ally::isActive)
                 .filter(Ally::isPublished)
+                .filter(Ally::isApproved)
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
         Person holder = ally.getHolderPerson();
         if (holder == null) {

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .field { margin: 12px 0; }
+        .label { font-weight: bold; color: #555; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; }
+        .button { display: inline-block; background: #7a5cc9; color: #fff !important; padding: 10px 18px; border-radius: 6px; text-decoration: none; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>New ally request</h2>
+
+    <p>An ally request is waiting for review. The ally can already log in and complete its profile, but it is not listed in the directory until the agreement is registered and the request approved.</p>
+
+    <div class="field"><span class="label">Ally:</span> <span th:text="${allyName}"></span></div>
+    <div class="field" th:if="${segmentLabel}"><span class="label">Type:</span> <span th:text="${segmentLabel}"></span></div>
+    <div class="field"><span class="label">Contact:</span> <span th:text="${contactName}"></span></div>
+    <div class="field" th:if="${contactEmail}"><span class="label">Email:</span> <span th:text="${contactEmail}"></span></div>
+    <div class="field" th:if="${promoterName}"><span class="label">Advisor:</span> <span th:text="${promoterName}"></span></div>
+    <div class="info-box" th:if="${note}"><span class="label">Proposed benefit:</span> <span th:text="${note}"></span></div>
+
+    <p><a class="button" th:href="${reviewUrl}">Review the request</a></p>
+    <p style="font-size: 12px; color: #888;">If the button does not work, copy this link: <span th:text="${reviewUrl}"></span></p>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        This is an automated message. No reply is needed.
+    </div>
+</body>
+</html>
