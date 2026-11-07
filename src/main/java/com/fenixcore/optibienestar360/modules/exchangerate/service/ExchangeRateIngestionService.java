@@ -187,9 +187,14 @@ public class ExchangeRateIngestionService {
             outcome = ExchangeRateWriter.WriteOutcome.ALREADY_HAD_TODAY;
         }
 
-        return outcome == ExchangeRateWriter.WriteOutcome.INSERTED
-                ? new IngestionSummary.CurrencyResult(baseCode, IngestionSummary.Status.FETCHED, null)
-                : new IngestionSummary.CurrencyResult(baseCode, IngestionSummary.Status.ALREADY_HAD_TODAY, null);
+        if (outcome == ExchangeRateWriter.WriteOutcome.INSERTED) {
+            return new IngestionSummary.CurrencyResult(baseCode, IngestionSummary.Status.FETCHED, null);
+        }
+        // Already stored: if its value date is still in the future, the latest
+        // BCV publication is in place; otherwise BCV has not published yet.
+        boolean latestInPlace = valueDate.get().isAfter(LocalDate.now(CARACAS));
+        return new IngestionSummary.CurrencyResult(baseCode,
+                latestInPlace ? IngestionSummary.Status.UP_TO_DATE : IngestionSummary.Status.ALREADY_HAD_TODAY, null);
     }
 
     /**

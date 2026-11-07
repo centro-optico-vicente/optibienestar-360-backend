@@ -132,6 +132,27 @@ class ExchangeRateIngestionServiceTest {
         assertThat(summary.toSummaryMap()).containsEntry("failed", 0).containsEntry("alreadyHadToday", 2);
     }
 
+    @Test
+    void fetchAndStoreLatest_alreadyStoredFutureValueDate_isUpToDate() {
+        Currency ves = currency(1L, "VES");
+        Currency usd = currency(2L, "USD");
+        Currency eur = currency(3L, "EUR");
+        when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
+        when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCode("EUR")).thenReturn(Optional.of(eur));
+        when(countryRepository.findByIsoCode("VE")).thenReturn(Optional.of(venezuela()));
+        stubConfiguredJob();
+
+        when(apiClient.fetchRate(any(), eq(BASE_URL))).thenReturn(Optional.of(response("X", "800.00", "2099-01-05T00:00:00-04:00")));
+        when(businessDayCalculator.previousBusinessDayBefore(any(), any())).thenReturn(LocalDate.of(2026, 9, 3));
+        when(writer.insert(any(), any(), any(), any(), any())).thenReturn(ExchangeRateWriter.WriteOutcome.ALREADY_HAD_TODAY);
+
+        IngestionSummary summary = service().fetchAndStoreLatest();
+
+        assertThat(summary.currencies()).allMatch(r -> r.status() == IngestionSummary.Status.UP_TO_DATE);
+        assertThat(summary.toSummaryMap()).containsEntry("failed", 0).containsEntry("upToDate", 2).containsEntry("alreadyHadToday", 0);
+    }
+
     /**
      * Regression test: a genuine race (another run inserted the same
      * pair/day between {@code ExchangeRateWriter}'s existence check and its

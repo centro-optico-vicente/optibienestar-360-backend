@@ -22,9 +22,11 @@ public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long
     /**
      * "Current rate" lookup (ADR 0015 §2): the latest vigency {@code <= at} for
      * a given (base, quote) pair. Backed by the V85 index
-     * {@code idx_exchange_rates_pair_valid_from}.
+     * {@code idx_exchange_rates_pair_valid_from}. Soft-deleted rows (a removed
+     * {@code MANUAL} entry, {@code is_active = false}) never take part in a
+     * conversion — before V229 they still did.
      */
-    Optional<ExchangeRate> findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(
+    Optional<ExchangeRate> findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(
             Currency baseCurrency, Currency quoteCurrency, Instant at);
 
     Page<ExchangeRate> findByBaseCurrencyAndQuoteCurrency(Currency baseCurrency, Currency quoteCurrency, Pageable pageable);

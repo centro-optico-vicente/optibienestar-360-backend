@@ -10,6 +10,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,8 +26,9 @@ import static org.mockito.Mockito.when;
  * {@code ALREADY_HAD_TODAY}, so {@code JobExecutionService}'s existing
  * fixed-backoff retry engine (job's own {@code max_retry_attempts}/
  * {@code retry_delay_seconds}, V143) retries the whole run. A per-currency
- * FETCH_FAILED/PARSE_FAILED alone does NOT trigger that — only an unchanged
- * rate does (ADR 0015 "degrade, never block" still applies to real errors).
+ * FETCH_FAILED/PARSE_FAILED triggers it too since V229 (the upstream only
+ * exposes the latest publication, so an outage would lose that day for good);
+ * an unchanged rate only counts inside the afternoon publish window.
  */
 @ExtendWith(MockitoExtension.class)
 class FetchExchangeRatesJobRunnerTest {
@@ -32,8 +36,17 @@ class FetchExchangeRatesJobRunnerTest {
     @Mock private ScheduledJobRepository jobRepository;
     @Mock private ExchangeRateIngestionService ingestionService;
 
+    /** 17:00 Caracas — inside the BCV publish window. */
+    private static final Clock AFTERNOON = Clock.fixed(Instant.parse("2026-11-06T21:00:00Z"), ZoneOffset.UTC);
+    /** 07:00 Caracas — the morning catch-up run. */
+    private static final Clock MORNING = Clock.fixed(Instant.parse("2026-11-06T11:00:00Z"), ZoneOffset.UTC);
+
     private FetchExchangeRatesJobRunner sut() {
-        return new FetchExchangeRatesJobRunner(jobRepository, ingestionService);
+        return sut(AFTERNOON);
+    }
+
+    private FetchExchangeRatesJobRunner sut(Clock clock) {
+        return new FetchExchangeRatesJobRunner(jobRepository, ingestionService, clock);
     }
 
     private void stubJobRow() {
@@ -74,7 +87,7 @@ class FetchExchangeRatesJobRunnerTest {
     }
 
     @Test
-    void run_stillSucceedsWhenACurrencyGenuinelyFailsButNoneIsUnchanged() {
+    void run_reportsFailureWhenACurrencyFailsToFetchSoTheRetryPolicyKicksIn() {
         stubJobRow();
         when(ingestionService.fetchAndStoreLatest()).thenReturn(new IngestionSummary(List.of(
                 new IngestionSummary.CurrencyResult("USD", IngestionSummary.Status.FETCH_FAILED, "upstream_unreachable_or_error"),
@@ -82,6 +95,33 @@ class FetchExchangeRatesJobRunnerTest {
         )));
 
         JobRunResult result = sut().run();
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).isEqualTo("rate_fetch_failed");
+    }
+
+    @Test
+    void run_succeedsWhenTheLatestPublicationIsAlreadyStored() {
+        stubJobRow();
+        when(ingestionService.fetchAndStoreLatest()).thenReturn(new IngestionSummary(List.of(
+                new IngestionSummary.CurrencyResult("USD", IngestionSummary.Status.UP_TO_DATE, null),
+                new IngestionSummary.CurrencyResult("EUR", IngestionSummary.Status.UP_TO_DATE, null)
+        )));
+
+        JobRunResult result = sut().run();
+
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void run_morningRunWithNothingNewIsNotAFailure() {
+        stubJobRow();
+        when(ingestionService.fetchAndStoreLatest()).thenReturn(new IngestionSummary(List.of(
+                new IngestionSummary.CurrencyResult("USD", IngestionSummary.Status.ALREADY_HAD_TODAY, null),
+                new IngestionSummary.CurrencyResult("EUR", IngestionSummary.Status.ALREADY_HAD_TODAY, null)
+        )));
+
+        JobRunResult result = sut(MORNING).run();
 
         assertThat(result.success()).isTrue();
     }

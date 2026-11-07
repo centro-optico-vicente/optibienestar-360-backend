@@ -138,6 +138,33 @@ public class BenefitUsage extends BaseEntity {
     @JoinColumn(name = "consumption_currency_id")
     private Currency consumptionCurrency;
 
+    // ─── Conversion snapshot (V229) ────────────────────────────────────────
+    // Both amounts converted to the organization's official currency with the
+    // rate vigente on the usage date, frozen at registration (never recomputed,
+    // same as payments.exchange_rate_used). Null when no rate was vigente.
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "converted_currency_id")
+    private Currency convertedCurrency;
+
+    @Column(name = "consumption_amount_converted", precision = 14, scale = 2)
+    private BigDecimal consumptionAmountConverted;
+
+    /** Units of {@link #convertedCurrency} per 1 unit of {@link #consumptionCurrency}. */
+    @Column(name = "consumption_exchange_rate", precision = 18, scale = 8)
+    private BigDecimal consumptionExchangeRate;
+
+    @Column(name = "copay_amount_converted", precision = 14, scale = 2)
+    private BigDecimal copayAmountConverted;
+
+    /** Units of {@link #convertedCurrency} per 1 unit of {@link #copayCurrency}. */
+    @Column(name = "copay_exchange_rate", precision = 18, scale = 8)
+    private BigDecimal copayExchangeRate;
+
+    /** Operation (publish) date of the rate used; {@code null} when no conversion was needed. */
+    @Column(name = "exchange_rate_date")
+    private LocalDate exchangeRateDate;
+
     // ─── Detail ────────────────────────────────────────────────────────────
 
     /**

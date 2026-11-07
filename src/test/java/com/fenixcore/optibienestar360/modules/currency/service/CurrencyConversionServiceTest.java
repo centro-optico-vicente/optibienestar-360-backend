@@ -71,7 +71,7 @@ class CurrencyConversionServiceTest {
         rate.setOperationDate(LocalDate.of(2026, 8, 29));
 
         when(exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(usd, ves, asOf))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(usd, ves, asOf))
                 .thenReturn(Optional.of(rate));
 
         var result = serviceWithRepo().convert(new BigDecimal("100.00"), usd, ves, asOf);
@@ -98,10 +98,10 @@ class CurrencyConversionServiceTest {
         rate.setOperationDate(LocalDate.of(2026, 8, 29));
 
         when(exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(ves, usd, asOf))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(ves, usd, asOf))
                 .thenReturn(Optional.empty());
         when(exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(usd, ves, asOf))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(usd, ves, asOf))
                 .thenReturn(Optional.of(rate));
 
         var result = serviceWithRepo().convert(new BigDecimal("80542.00"), ves, usd, asOf);
@@ -118,7 +118,7 @@ class CurrencyConversionServiceTest {
         Instant asOf = Instant.parse("2026-09-01T12:00:00Z");
 
         when(exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(any(), any(), any()))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> serviceWithRepo().convert(new BigDecimal("100.00"), usd, ves, asOf))
