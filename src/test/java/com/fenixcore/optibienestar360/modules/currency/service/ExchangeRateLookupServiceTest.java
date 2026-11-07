@@ -74,12 +74,14 @@ class ExchangeRateLookupServiceTest {
     }
 
     @Test
-    void currentWithABareDateResolvesToStartOfDayInAppTimeZone() {
+    void currentWithABareDateResolvesToTheRateInForceThatDay() {
         Currency usd = currency("USD");
         Currency ves = currency("VES");
         when(currencyRepository.findByCode("USD")).thenReturn(Optional.of(usd));
         when(currencyRepository.findByCode("VES")).thenReturn(Optional.of(ves));
-        Instant expectedAsOf = LocalDate.of(2026, 8, 20).atStartOfDay(AppTimeZone.ZONE).toInstant();
+        // End of that day in Caracas (V229): the rate that ruled the business day,
+        // not the start of the day (which still answered the previous day's rate).
+        Instant expectedAsOf = LocalDate.of(2026, 8, 21).atStartOfDay(AppTimeZone.ZONE).toInstant().minusNanos(1);
         when(currencyConversionService.convert(eq(BigDecimal.ONE), eq(usd), eq(ves), eq(expectedAsOf)))
                 .thenReturn(new CurrencyConversionService.ConversionResult(
                         BigDecimal.ONE, new BigDecimal("380.00"), new BigDecimal("380.00"), LocalDate.of(2026, 8, 20)));
