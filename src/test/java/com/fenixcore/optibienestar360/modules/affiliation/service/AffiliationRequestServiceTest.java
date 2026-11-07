@@ -433,6 +433,9 @@ class AffiliationRequestServiceTest {
         advisor.setReferralCode("ANAV42");
         UUID advisorUser = UUID.randomUUID();
         when(promoterRepository.findActiveByUserUuid(advisorUser)).thenReturn(Optional.of(advisor));
+        User advisorLogin = new User();
+        advisorLogin.setUuid(advisorUser);
+        when(userRepository.findByUuid(advisorUser)).thenReturn(Optional.of(advisorLogin));
         when(planRepository.findByUuid(plan.getUuid())).thenReturn(Optional.of(plan));
         when(termsVersionService.requireCurrentPublic(TermType.MEMBER, terms.getUuid())).thenReturn(terms);
         when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
