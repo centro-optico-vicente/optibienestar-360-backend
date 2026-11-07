@@ -15,6 +15,7 @@ import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRep
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProductCategoryRepository;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,7 @@ class BenefitUsagesServiceRegisterTest {
     @Mock private ProductCategoryRepository productCategoryRepository;
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private BenefitUsageMapper mapper;
+    @Mock private ConversionEnricher conversionEnricher;
 
     private final UUID actorUuid = UUID.randomUUID();
     private final UUID membershipUuid = UUID.randomUUID();
@@ -60,7 +62,7 @@ class BenefitUsagesServiceRegisterTest {
 
     private BenefitUsagesService sut() {
         return new BenefitUsagesService(usageRepository, membershipRepository, allyRepository,
-                allyProductRepository, allyUserRepository, currencyRepository, productCategoryRepository, beneficiaryRepository, mapper);
+                allyProductRepository, allyUserRepository, currencyRepository, productCategoryRepository, beneficiaryRepository, mapper, conversionEnricher);
     }
 
     @Test

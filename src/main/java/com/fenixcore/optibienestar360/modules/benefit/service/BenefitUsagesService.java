@@ -20,6 +20,8 @@ import com.fenixcore.optibienestar360.modules.benefit.repository.BenefitUsageRep
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.repository.ProductCategoryRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.service.ConversionEnricher;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
@@ -72,6 +74,7 @@ public class BenefitUsagesService {
     private final ProductCategoryRepository productCategoryRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final BenefitUsageMapper mapper;
+    private final ConversionEnricher conversionEnricher;
 
     /**
      * Powers {@code GET /v1/me/allies/usage-history}. Returns every benefit
@@ -175,8 +178,39 @@ public class BenefitUsagesService {
         usage.setMetadata(request.metadata());
         usage.setNotes(request.notes());
         usage.setStatus(UsageStatus.REGISTERED.name());
+        snapshotConversion(usage);
 
         return mapper.toDto(usageRepository.save(usage));
+    }
+
+    /**
+     * Freezes both amounts converted to the official currency (V229). The rate
+     * is the one vigente on the usage date — a usage of today converts at this
+     * very instant, a back-dated one at the rate that ruled that day
+     * ({@link CurrencyConversionService#vigencyInstantOf}). No vigente rate
+     * leaves the converted columns null; it never blocks the registration.
+     */
+    private void snapshotConversion(BenefitUsage usage) {
+        if (usage.getConsumptionAmount() == null && usage.getCopayAmount() == null) {
+            return;
+        }
+        Instant asOf = usage.getUsageDate().equals(LocalDate.now(com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE))
+                ? usage.getUsageDatetime()
+                : CurrencyConversionService.vigencyInstantOf(usage.getUsageDate());
+
+        ConversionEnricher.Conversion consumption =
+                conversionEnricher.snapshotToOfficial(usage.getConsumptionAmount(), usage.getConsumptionCurrency(), asOf);
+        ConversionEnricher.Conversion copay =
+                conversionEnricher.snapshotToOfficial(usage.getCopayAmount(), usage.getCopayCurrency(), asOf);
+
+        usage.setConsumptionAmountConverted(consumption.amountConverted());
+        usage.setConsumptionExchangeRate(consumption.amountConverted() != null ? consumption.rate() : null);
+        usage.setCopayAmountConverted(copay.amountConverted());
+        usage.setCopayExchangeRate(copay.amountConverted() != null ? copay.rate() : null);
+        usage.setExchangeRateDate(consumption.rateDate() != null ? consumption.rateDate() : copay.rateDate());
+        String officialCode = consumption.currencyCode() != null ? consumption.currencyCode() : copay.currencyCode();
+        usage.setConvertedCurrency(officialCode == null ? null
+                : currencyRepository.findByCode(officialCode).orElse(null));
     }
 
     /**

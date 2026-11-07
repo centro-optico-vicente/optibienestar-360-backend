@@ -51,6 +51,32 @@ public class ConversionEnricher {
         }
     }
 
+    /**
+     * Snapshot of {@code amount} (in {@code from}) converted to the official
+     * currency with the rate vigente at {@code asOf} — for rows that freeze
+     * their conversion when registered (a consumption, V229). Unlike
+     * {@link #toOfficial}, an amount already in the official currency still
+     * answers itself at rate 1 (with a {@code null} date), so every snapshot
+     * row carries a converted amount; only a missing rate degrades to
+     * {@link #none()}.
+     */
+    public Conversion snapshotToOfficial(BigDecimal amount, Currency from, Instant asOf) {
+        if (amount == null || from == null) {
+            return none();
+        }
+        Currency official = organizationRepository.findSingleton().getOfficialCurrency();
+        if (official.getId().equals(from.getId())) {
+            return new Conversion(amount, official.getCode(), BigDecimal.ONE, null);
+        }
+        try {
+            CurrencyConversionService.ConversionResult r = conversionService.convert(
+                    amount, from, official, asOf != null ? asOf : Instant.now());
+            return new Conversion(r.convertedAmount(), official.getCode(), r.rate(), r.rateDate());
+        } catch (NoExchangeRateAvailableException noRate) {
+            return none();
+        }
+    }
+
     /** The organization's official currency code — e.g. to label a persisted snapshot that only recorded the rate, not the target currency. */
     public String officialCurrencyCode() {
         return organizationRepository.findSingleton().getOfficialCurrency().getCode();

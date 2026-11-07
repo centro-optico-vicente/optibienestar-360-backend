@@ -74,7 +74,7 @@ public class CurrencyConversionService {
         }
 
         var direct = exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(from, to, asOf);
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(from, to, asOf);
         if (direct.isPresent()) {
             ExchangeRate rate = direct.get();
             BigDecimal converted = amount.multiply(rate.getRate())
@@ -83,7 +83,7 @@ public class CurrencyConversionService {
         }
 
         var inverse = exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndValidFromLessThanEqualOrderByValidFromDesc(to, from, asOf);
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(to, from, asOf);
         if (inverse.isPresent()) {
             ExchangeRate rate = inverse.get();
             BigDecimal effectiveRate = BigDecimal.ONE.divide(rate.getRate(), RATE_SCALE, RoundingMode.HALF_UP);
@@ -94,6 +94,24 @@ public class CurrencyConversionService {
 
         throw new NoExchangeRateAvailableException(
                 "exchange_rate.not_available:" + from.getCode() + "->" + to.getCode());
+    }
+
+    /**
+     * The instant whose vigente rate is "the rate of {@code date}" for a
+     * document that only carries a calendar date (a consumption, a payment
+     * registered without time): the end of that day in {@link AppTimeZone#ZONE},
+     * never later than now. BCV rates become vigente at 08:00 of their value
+     * date, so the start of the day would still answer the previous day's rate;
+     * the end of the day answers the rate that actually ruled that business day.
+     * {@code null} means today, i.e. now.
+     */
+    public static Instant vigencyInstantOf(LocalDate date) {
+        Instant now = Instant.now();
+        if (date == null) {
+            return now;
+        }
+        Instant endOfDay = date.plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant().minusNanos(1);
+        return endOfDay.isAfter(now) ? now : endOfDay;
     }
 
     private static boolean sameCurrency(Currency a, Currency b) {

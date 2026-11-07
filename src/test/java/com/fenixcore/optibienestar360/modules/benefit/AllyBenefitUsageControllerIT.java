@@ -76,6 +76,7 @@ class AllyBenefitUsageControllerIT {
                 LocalDate.of(2026, 10, 20), null,
                 null, null,
                 null, null,
+                null, null, null, null, null, null,
                 null, null,
                 null, null, null, null,
                 null, null, null);

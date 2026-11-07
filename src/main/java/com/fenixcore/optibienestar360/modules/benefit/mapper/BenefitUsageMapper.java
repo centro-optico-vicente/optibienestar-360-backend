@@ -27,6 +27,7 @@ public interface BenefitUsageMapper {
     @Mapping(target = "productCategoryName", source = "productCategory.name")
     @Mapping(target = "copayCurrency",    source = "copayCurrency.code")
     @Mapping(target = "consumptionCurrency", source = "consumptionCurrency.code")
+    @Mapping(target = "convertedCurrency", source = "convertedCurrency.code")
     BenefitUsageDto toDto(BenefitUsage usage);
 
     /** The beneficiary who consumed, else the holder. */

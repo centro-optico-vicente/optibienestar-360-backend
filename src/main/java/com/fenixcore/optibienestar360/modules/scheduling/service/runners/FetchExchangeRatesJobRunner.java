@@ -6,10 +6,11 @@ import com.fenixcore.optibienestar360.modules.exchangerate.service.IngestionSumm
 import com.fenixcore.optibienestar360.modules.scheduling.repository.ScheduledJobRepository;
 import com.fenixcore.optibienestar360.modules.scheduling.service.JobRunResult;
 import com.fenixcore.optibienestar360.modules.scheduling.service.ScheduledJobRunner;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.LocalTime;
 import java.time.ZoneId;
 
 /**
@@ -39,14 +40,32 @@ import java.time.ZoneId;
  * later than usual), not silently swallowed.</p>
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class FetchExchangeRatesJobRunner implements ScheduledJobRunner {
 
     public static final String CODE = "FETCH_EXCHANGE_RATES";
 
+    /**
+     * BCV publishes in the afternoon. Before this time "nothing new upstream"
+     * is the expected state (e.g. the 07:00 catch-up run when nothing was
+     * missed), so it is not reported as a failure.
+     */
+    static final LocalTime PUBLISH_WINDOW_START = LocalTime.of(16, 0);
+
     private final ScheduledJobRepository jobRepository;
     private final ExchangeRateIngestionService ingestionService;
+    private final Clock clock;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FetchExchangeRatesJobRunner(ScheduledJobRepository jobRepository, ExchangeRateIngestionService ingestionService) {
+        this(jobRepository, ingestionService, Clock.system(AppTimeZone.ZONE));
+    }
+
+    FetchExchangeRatesJobRunner(ScheduledJobRepository jobRepository, ExchangeRateIngestionService ingestionService, Clock clock) {
+        this.jobRepository = jobRepository;
+        this.ingestionService = ingestionService;
+        this.clock = clock;
+    }
 
     @Override
     public String code() {
@@ -68,9 +87,21 @@ public class FetchExchangeRatesJobRunner implements ScheduledJobRunner {
             IngestionSummary summary = ingestionService.fetchAndStoreLatest();
             log.info("FETCH_EXCHANGE_RATES completed: {}", summary.toSummaryMap());
 
+            // A failed fetch is retried too (V229): the upstream only ever exposes
+            // the latest publication, so a run lost to an outage loses that day for good.
+            boolean anyFailed = summary.currencies().stream()
+                    .anyMatch(r -> r.status() == IngestionSummary.Status.FETCH_FAILED
+                            || r.status() == IngestionSummary.Status.PARSE_FAILED);
+            if (anyFailed) {
+                log.warn("FETCH_EXCHANGE_RATES: at least one currency failed to fetch/parse — reporting failure "
+                        + "so the job's retry policy kicks in");
+                return JobRunResult.failure("rate_fetch_failed", summary.toSummaryMap());
+            }
+
             boolean anyUnchanged = summary.currencies().stream()
                     .anyMatch(r -> r.status() == IngestionSummary.Status.ALREADY_HAD_TODAY);
-            if (anyUnchanged) {
+            boolean inPublishWindow = !LocalTime.now(clock.withZone(AppTimeZone.ZONE)).isBefore(PUBLISH_WINDOW_START);
+            if (anyUnchanged && inPublishWindow) {
                 log.warn("FETCH_EXCHANGE_RATES: at least one currency unchanged from the latest stored "
                         + "rate (BCV hasn't published today's rate yet) — reporting failure so the job's "
                         + "retry policy (max_retry_attempts/retry_delay_seconds) kicks in");
