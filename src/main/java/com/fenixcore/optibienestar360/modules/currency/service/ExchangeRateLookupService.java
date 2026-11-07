@@ -52,11 +52,9 @@ public class ExchangeRateLookupService {
      *             time, a commission's calculation instant, ...), or a bare
      *             {@code yyyy-MM-dd} when only a calendar date is known (a
      *             payment registration form typically only has that) — in
-     *             which case it resolves to the start of that day in
-     *             {@link AppTimeZone#ZONE}, the same convention {@code
-     *             PaymentsService.snapshotExchangeRate} already uses, so the
-     *             preview matches what the eventual settlement will
-     *             actually snapshot. {@code null}/blank/unparseable all
+     *             which case it resolves to the rate vigente that day
+     *             ({@link CurrencyConversionService#vigencyInstantOf}) — the
+     *             same rule every date-only snapshot uses (a consumption, ...). {@code null}/blank/unparseable all
      *             mean "right now" — never a reason to fail the preview.
      */
     public CurrentExchangeRateDto current(String baseCode, String quoteCode, String asOf) {
@@ -173,7 +171,7 @@ public class ExchangeRateLookupService {
             // fall through to LocalDate
         }
         try {
-            return LocalDate.parse(asOf).atStartOfDay(AppTimeZone.ZONE).toInstant();
+            return CurrencyConversionService.vigencyInstantOf(LocalDate.parse(asOf));
         } catch (DateTimeException ignored) {
             return Instant.now(); // unparseable — degrade to "now", never fail the preview over this
         }

@@ -49,12 +49,20 @@ public record BenefitUsageDto(
         @Display(Display.Kind.DATETIME) Instant usageDatetime,
 
         // Co-pay
-        @Display(Display.Kind.MONEY) BigDecimal copayAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "copayCurrency") BigDecimal copayAmount,
         String copayCurrency,
 
         // Valor consumido
-        @Display(Display.Kind.MONEY) BigDecimal consumptionAmount,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "consumptionCurrency") BigDecimal consumptionAmount,
         String consumptionCurrency,
+
+        // Conversion snapshot to the official currency (V229) — rate vigente on usageDate, never recomputed
+        String convertedCurrency,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency") BigDecimal copayAmountConverted,
+        BigDecimal copayExchangeRate,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "convertedCurrency") BigDecimal consumptionAmountConverted,
+        BigDecimal consumptionExchangeRate,
+        @Display(Display.Kind.DATE) LocalDate exchangeRateDate,
 
         // Detail
         Map<String, Object> metadata,
