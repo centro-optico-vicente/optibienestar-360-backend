@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Your access link</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f4f4f4; margin:0; padding:0; }
+        .container { max-width:600px; margin:40px auto; background:#fff; border-radius:8px; overflow:hidden; }
+        .header { background:#1e3a5f; padding:24px 32px; }
+        .header h1 { color:#fff; margin:0; font-size:20px; }
+        .body { padding:32px; color:#333; }
+        .token-box { background:#f0f4ff; border:1px solid #c7d7ff; border-radius:6px; padding:16px 24px; margin:24px 0; font-size:15px; word-break:break-all; font-family:monospace; color:#1e3a5f; }
+        .button-wrap { text-align:center; margin:28px 0; }
+        .button { display:inline-block; background:#1e3a5f; color:#ffffff !important; text-decoration:none; font-weight:bold; font-size:16px; padding:14px 28px; border-radius:6px; }
+        .footer { background:#f0f0f0; padding:16px 32px; font-size:12px; color:#888; text-align:center; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>OptiBienestar 360 — Your access link</h1>
+    </div>
+    <div class="body">
+        <p>Hi <strong th:text="${fullName}">User</strong>,</p>
+        <p>We received a request to sign in to your account. Press the button to sign in without a password:</p>
+        <div class="button-wrap">
+            <a class="button" href="#" th:href="${loginUrl}" style="display:inline-block; background:#1e3a5f; color:#ffffff; text-decoration:none; font-weight:bold; font-size:16px; padding:14px 28px; border-radius:6px;">Sign in to my account</a>
+        </div>
+        <p><strong>The link expires in <span th:text="${expiresInMinutes}">15</span> minutes and can be used only once.</strong> If you didn't request it, ignore this email — nobody can sign in without it.</p>
+        <p>Regards,<br/>The OptiBienestar 360 team</p>
+    </div>
+    <div class="footer">
+        This is an automated message. Please do not reply.
+    </div>
+</div>
+</body>
+</html>

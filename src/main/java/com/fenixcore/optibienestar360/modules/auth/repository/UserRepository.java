@@ -36,4 +36,14 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     Optional<User> findWithRolesByUuid(UUID uuid);
 
     Optional<User> findByPasswordResetToken(String token);
+
+    @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
+    Optional<User> findByLoginTokenHash(String tokenHash);
+
+    /**
+     * Login by national ID: {@code persons} holds the document, {@code users.person_id}
+     * is unique, so a (type, number) pair resolves to at most one account.
+     */
+    @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
+    Optional<User> findByPerson_DocumentTypeAndPerson_DocumentNumber(String documentType, String documentNumber);
 }

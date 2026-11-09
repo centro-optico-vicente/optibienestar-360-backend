@@ -68,6 +68,13 @@ public class User extends BaseEntity {
     @Column(name = "password_reset_expires_at")
     private Instant passwordResetExpiresAt;
 
+    /** SHA-256 of the pending single-use access-link token (hub ADR 0037 §4); never the raw value. */
+    @Column(name = "login_token_hash", length = 255)
+    private String loginTokenHash;
+
+    @Column(name = "login_token_expires_at")
+    private Instant loginTokenExpiresAt;
+
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 

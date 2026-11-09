@@ -62,6 +62,18 @@ class PublicSubmissionRateLimitFilterTest {
     }
 
     @Test
+    void theAccessLinkRequest_hasItsOwnBudget_andNeverEatsTheSubmissionOne() throws Exception {
+        // Default of 10 per hour for links; the submission budget here is 3.
+        for (int i = 0; i < 10; i++) {
+            assertThat(post("/v1/auth/magic-link", "10.0.0.6").getStatus()).isEqualTo(200);
+        }
+        assertThat(post("/v1/auth/magic-link", "10.0.0.6").getStatus()).isEqualTo(429);
+        assertThat(post("/v1/public/affiliation-requests", "10.0.0.6").getStatus()).isEqualTo(200);
+        // Consuming a link is not throttled by this filter.
+        assertThat(post("/v1/auth/magic-link/consume", "10.0.0.6").getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void otherPaths_areNotThrottled() throws Exception {
         for (int i = 0; i < 5; i++) {
             assertThat(post("/v1/public/terms/AFILIADO/preview", "10.0.0.3").getStatus()).isEqualTo(200);

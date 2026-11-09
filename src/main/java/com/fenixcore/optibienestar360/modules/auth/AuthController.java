@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.auth;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.LogoutRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.MagicLinkConsumeRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.MagicLinkRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RecoverPasswordRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RefreshRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.ResetPasswordRequest;
@@ -55,6 +57,19 @@ public class AuthController {
     public ResponseEntity<Void> recoverPassword(@Valid @RequestBody RecoverPasswordRequest request) {
         authService.recoverPassword(request);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Always 200, whether or not the account exists (hub ADR 0037 §4); throttled per IP by {@code PublicSubmissionRateLimitFilter}. */
+    @PostMapping("/magic-link")
+    public ResponseEntity<Void> requestMagicLink(@Valid @RequestBody MagicLinkRequest request) {
+        authService.requestMagicLink(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/magic-link/consume")
+    public ResponseEntity<LoginResponse> consumeMagicLink(@Valid @RequestBody MagicLinkConsumeRequest request,
+                                                          HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(authService.consumeMagicLink(request, httpRequest));
     }
 
     @PostMapping("/reset-password")

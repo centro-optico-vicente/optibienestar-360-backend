@@ -85,11 +85,11 @@ class AuthServicePasswordRecoveryTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> sendAndCaptureModel(User user) {
-        when(userRepository.findByEmailAndActiveTrue(user.getEmail())).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(messageSource.getMessage(eq("email.recovery.subject"), isNull(), any(Locale.class)))
                 .thenReturn("subject");
 
-        authService.recoverPassword(new RecoverPasswordRequest(user.getEmail()));
+        authService.recoverPassword(new RecoverPasswordRequest(null, user.getEmail()));
 
         ArgumentCaptor<Map<String, Object>> model = ArgumentCaptor.forClass(Map.class);
         verify(emailService).sendTemplated(eq(user.getEmail()), eq("subject"), eq("password-recovery"),
@@ -128,9 +128,9 @@ class AuthServicePasswordRecoveryTest {
 
     @Test
     void unknownEmail_sendsNothing() {
-        when(userRepository.findByEmailAndActiveTrue("nobody@example.test")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("nobody@example.test")).thenReturn(Optional.empty());
 
-        authService.recoverPassword(new RecoverPasswordRequest("nobody@example.test"));
+        authService.recoverPassword(new RecoverPasswordRequest(null, "nobody@example.test"));
 
         verify(emailService, never()).sendTemplated(anyString(), anyString(), anyString(), any(), any());
     }
