@@ -10,6 +10,8 @@ import com.fenixcore.optibienestar360.modules.auth.dto.ChangePasswordRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.LogoutRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.MagicLinkConsumeRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.MagicLinkRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RecoverPasswordRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.RefreshRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.ResetPasswordRequest;
@@ -52,6 +54,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -60,6 +64,12 @@ public class AuthService {
 
     private static final String GENERIC_AUTH_ERROR = "auth.credentials.invalid";
     private static final Locale DEFAULT_RECIPIENT_LOCALE = Locale.forLanguageTag("es-VE");
+    /** National ID as typed by people: optional V/E letter, optional separator, 5-9 digits ("V-12.345.678" is cleaned first). */
+    private static final Pattern NATIONAL_ID = Pattern.compile("^([VE])?(\\d{5,9})$");
+    private static final Duration MAGIC_LINK_TTL = Duration.ofMinutes(15);
+    /** A fresh link is not re-issued within this window, so the endpoint cannot be used to flood one inbox. */
+    private static final Duration MAGIC_LINK_COOLDOWN = Duration.ofMinutes(1);
+    private static final int MAX_ATTEMPTED_IDENTIFIER_LENGTH = 255;
 
     private final UserRepository userRepository;
     private final SecurityPolicyRepository securityPolicyRepository;
@@ -91,23 +101,30 @@ public class AuthService {
         String userAgent = httpRequest.getHeader("User-Agent");
         String hostname = httpRequest.getRemoteHost();
 
-        // findByEmail (not findByEmailAndActiveTrue) so an inactive account can be
-        // told apart from a nonexistent email for login_audit_log's FAILED_INACTIVE
+        String identifier = request.resolvedIdentifier();
+        String attempted = identifier.length() > MAX_ATTEMPTED_IDENTIFIER_LENGTH
+                ? identifier.substring(0, MAX_ATTEMPTED_IDENTIFIER_LENGTH)
+                : identifier;
+
+        // resolveAccount (not an active-only lookup) so an inactive account can be
+        // told apart from a nonexistent one for login_audit_log's FAILED_INACTIVE
         // (spec 16-audit.md §Login) — the response to the caller stays identical either way.
-        User user = userRepository.findByEmail(request.email()).orElse(null);
+        // The identifier is an email or a national ID; an ID that matches several
+        // accounts resolves to none (generic error).
+        User user = resolveAccount(identifier).orElse(null);
         if (user == null) {
-            loginAuditService.recordFailure(request.email(), null, LoginAuditResult.FAILED_CREDENTIALS,
-                    "email_not_found", ip, userAgent, hostname);
+            loginAuditService.recordFailure(attempted, null, LoginAuditResult.FAILED_CREDENTIALS,
+                    "account_not_found", ip, userAgent, hostname);
             throw new AuthenticationException(GENERIC_AUTH_ERROR);
         }
         if (!user.isActive()) {
-            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_INACTIVE,
+            loginAuditService.recordFailure(attempted, user.getId(), LoginAuditResult.FAILED_INACTIVE,
                     "account_inactive", ip, userAgent, hostname);
             throw new AuthenticationException(GENERIC_AUTH_ERROR);
         }
 
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(Instant.now())) {
-            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_LOCKED,
+            loginAuditService.recordFailure(attempted, user.getId(), LoginAuditResult.FAILED_LOCKED,
                     "account_locked", ip, userAgent, hostname);
             throw new AccountLockedException(user.getLockedUntil());
         }
@@ -116,13 +133,22 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             handleFailedAttempt(user, policy);
-            loginAuditService.recordFailure(request.email(), user.getId(), LoginAuditResult.FAILED_CREDENTIALS,
+            loginAuditService.recordFailure(attempted, user.getId(), LoginAuditResult.FAILED_CREDENTIALS,
                     "bad_password", ip, userAgent, hostname);
             throw new AuthenticationException(GENERIC_AUTH_ERROR);
         }
 
         resetFailedAttempts(user);
+        return issueSession(user, httpRequest, ip, userAgent, hostname);
+    }
 
+    /**
+     * Opens a session for an already-authenticated user (password check or
+     * consumed access link): audit row, token pair, refresh-token registry and
+     * session log. Shared by {@link #login} and {@link #consumeMagicLink}.
+     */
+    private LoginResponse issueSession(User user, HttpServletRequest httpRequest, String ip, String userAgent,
+                                       String hostname) {
         // The active role for a fresh login is the user's default role when it
         // is itself an effective assignment, otherwise the oldest effective one
         // (PermissionResolver.resolveDefaultActiveRole) — permissions are scoped
@@ -345,7 +371,7 @@ public class AuthService {
 
     @Transactional
     public void recoverPassword(RecoverPasswordRequest request) {
-        userRepository.findByEmailAndActiveTrue(request.email()).ifPresent(user -> {
+        resolveAccount(request.resolvedIdentifier()).filter(User::isActive).ifPresent(user -> {
             String rawToken   = generateSecureToken();
             String hashedToken = sha256(rawToken);
 
@@ -371,7 +397,105 @@ public class AuthService {
                     )
             );
         });
-        // Always return void (don't reveal if email exists)
+        // Always return void (don't reveal if the account exists)
+    }
+
+    // ─── Access link (magic link, hub ADR 0037 §4) ────────────────────────────
+
+    /**
+     * Emails a single-use login link (15 min) to the account behind
+     * {@code identifier} (email or national ID). Never reveals whether the
+     * account exists: an unknown, inactive or ambiguous identifier does nothing
+     * and the caller still answers 200. The token lives in its own columns
+     * (V232), so it can never be redeemed as a password reset.
+     */
+    @Transactional
+    public void requestMagicLink(MagicLinkRequest request) {
+        resolveAccount(request.identifier().trim()).filter(User::isActive).ifPresent(user -> {
+            Instant now = Instant.now();
+            Instant pendingExpiry = user.getLoginTokenExpiresAt();
+            if (user.getLoginTokenHash() != null && pendingExpiry != null
+                    && pendingExpiry.isAfter(now.plus(MAGIC_LINK_TTL).minus(MAGIC_LINK_COOLDOWN))) {
+                return;
+            }
+            String rawToken = generateSecureToken();
+            user.setLoginTokenHash(sha256(rawToken));
+            user.setLoginTokenExpiresAt(now.plus(MAGIC_LINK_TTL));
+            userRepository.save(user);
+
+            Locale recipientLocale = resolveRecipientLocale(user.getPerson().getLocale());
+            String subject = messageSource.getMessage("email.magic_link.subject", null, recipientLocale);
+            emailService.sendTemplated(
+                    user.getEmail(),
+                    subject,
+                    "magic-link",
+                    recipientLocale,
+                    Map.of(
+                            "fullName", user.getPerson().getFullName(),
+                            "loginUrl", buildAccessUrl(rawToken, recipientLocale),
+                            "expiresInMinutes", MAGIC_LINK_TTL.toMinutes()
+                    )
+            );
+        });
+    }
+
+    /**
+     * Redeems an access link: the token is cleared on first use, so it works
+     * exactly once, and the caller gets the same session as a password login.
+     */
+    @Transactional
+    public LoginResponse consumeMagicLink(MagicLinkConsumeRequest request, HttpServletRequest httpRequest) {
+        User user = userRepository.findByLoginTokenHash(sha256(request.token()))
+                .orElseThrow(() -> new AuthenticationException("auth.token.invalid_or_expired"));
+
+        if (user.getLoginTokenExpiresAt() == null || user.getLoginTokenExpiresAt().isBefore(Instant.now())) {
+            user.setLoginTokenHash(null);
+            user.setLoginTokenExpiresAt(null);
+            userRepository.save(user);
+            throw new AuthenticationException("auth.token.invalid_or_expired");
+        }
+        if (!user.isActive()) {
+            throw new AuthenticationException("auth.token.invalid_or_expired");
+        }
+
+        user.setLoginTokenHash(null);
+        user.setLoginTokenExpiresAt(null);
+        // Proof of control of the mailbox is as strong as a reset link, which also clears the lockout.
+        resetFailedAttempts(user);
+
+        return issueSession(user, httpRequest, resolveClientIp(httpRequest),
+                httpRequest.getHeader("User-Agent"), httpRequest.getRemoteHost());
+    }
+
+    /**
+     * Resolves a login identifier: an email (contains {@code @}), or a national
+     * ID with or without its letter ({@code V12345678}, {@code V-12.345.678},
+     * {@code 12345678}). Without the letter, V is tried and then E; if both
+     * exist the identifier is ambiguous and resolves to nothing, so the caller
+     * answers with the generic credentials error.
+     */
+    Optional<User> resolveAccount(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return Optional.empty();
+        }
+        String trimmed = identifier.trim();
+        if (trimmed.contains("@")) {
+            return userRepository.findByEmail(trimmed);
+        }
+        Matcher matcher = NATIONAL_ID.matcher(trimmed.toUpperCase(Locale.ROOT).replaceAll("[\\s.\\-]", ""));
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+        String number = matcher.group(2);
+        if (matcher.group(1) != null) {
+            return userRepository.findByPerson_DocumentTypeAndPerson_DocumentNumber(matcher.group(1), number);
+        }
+        Optional<User> asV = userRepository.findByPerson_DocumentTypeAndPerson_DocumentNumber("V", number);
+        Optional<User> asE = userRepository.findByPerson_DocumentTypeAndPerson_DocumentNumber("E", number);
+        if (asV.isPresent() && asE.isPresent()) {
+            return Optional.empty();
+        }
+        return asV.isPresent() ? asV : asE;
     }
 
     /**
@@ -406,6 +530,15 @@ public class AuthService {
         String path = "en".equals(recipientLocale.getLanguage())
                 ? "/en/reset-password"
                 : "/restablecer-clave";
+        return base + path + "?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
+    }
+
+    /** Frontend access page ({@code /acceso}, English under the i18n prefix) with the raw token as query param. */
+    String buildAccessUrl(String rawToken, Locale recipientLocale) {
+        String base = frontendUrl.endsWith("/")
+                ? frontendUrl.substring(0, frontendUrl.length() - 1)
+                : frontendUrl;
+        String path = "en".equals(recipientLocale.getLanguage()) ? "/en/access" : "/acceso";
         return base + path + "?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
     }
 
