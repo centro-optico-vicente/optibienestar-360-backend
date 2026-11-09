@@ -10,6 +10,7 @@ import com.fenixcore.optibienestar360.modules.auth.service.UserService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
+import com.fenixcore.optibienestar360.modules.auth.service.UserInvitationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,7 @@ public class AdminUserController {
 
     private final UserService userService;
     private final AllyUsersService allyUsersService;
+    private final UserInvitationService invitationService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
@@ -74,6 +76,9 @@ public class AdminUserController {
     public ResponseEntity<UserDto> create(@Valid @RequestBody AdminCreateUserRequest request,
                                           @AuthenticationPrincipal CustomUserDetails actor) {
         UserDto created = userService.createUser(request, actor.getUuid());
+        if (request.password() == null || request.password().isBlank()) {
+            invitationService.invite(created.uuid());  // no password typed: email the link to create it
+        }
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
