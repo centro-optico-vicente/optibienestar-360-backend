@@ -31,6 +31,12 @@ import org.springframework.web.multipart.MultipartFile;
  * {@code multipart/form-data} the body is the {@code request} part
  * (application/json) plus an optional {@code support} part with the proof
  * file — same pattern as {@code POST /v1/admin/payments}.</p>
+ *
+ * <p>Since hub ADR 0037 the endpoint is <b>step 1</b> of the step-by-step
+ * registration: with only the identity fields it creates the login and a DRAFT
+ * and answers with the session ({@code session}); the rest is saved through
+ * {@code /v1/me/affiliation-request}. A body that also carries birth date, plan
+ * and contract keeps working as the one-step form.</p>
  * Under {@code /v1/public/**}, already {@code permitAll()}.
  */
 @RestController
@@ -44,7 +50,10 @@ public class PublicAffiliationRequestController {
     @ResponseStatus(HttpStatus.CREATED)
     public AffiliationRequestCreatedDto create(@Valid @RequestBody AffiliationRequestCreateRequest request,
                                                HttpServletRequest httpRequest) {
-        return service.create(request, ClientRequestMetadata.from(httpRequest));
+        if (isOneShot(request)) {
+            return service.create(request, ClientRequestMetadata.from(httpRequest));
+        }
+        return service.startRegistration(request, ClientRequestMetadata.from(httpRequest), httpRequest);
     }
 
     @PostMapping(value = "/affiliation-requests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -53,6 +62,14 @@ public class PublicAffiliationRequestController {
             @Valid @RequestPart("request") AffiliationRequestCreateRequest request,
             @RequestPart(value = "support", required = false) MultipartFile support,
             HttpServletRequest httpRequest) {
-        return service.create(request, support, ClientRequestMetadata.from(httpRequest));
+        if (isOneShot(request)) {
+            return service.create(request, support, ClientRequestMetadata.from(httpRequest));
+        }
+        return service.startRegistration(request, ClientRequestMetadata.from(httpRequest), httpRequest);
+    }
+
+    /** The previous one-step form: birth date, plan and contract all present. Otherwise it is step 1 (a DRAFT). */
+    private static boolean isOneShot(AffiliationRequestCreateRequest request) {
+        return request.birthDate() != null && request.planUuid() != null && request.termsVersionUuid() != null;
     }
 }

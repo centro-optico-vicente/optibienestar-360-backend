@@ -20,10 +20,14 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 /**
  * An affiliation waiting for review (V190) — from the public form or, since
@@ -44,8 +48,11 @@ import java.time.LocalDate;
 @AttributeOverride(name = "id", column = @Column(name = "affiliation_requests_id", nullable = false, updatable = false))
 public class AffiliationRequest extends BaseEntity {
 
-    /** Values of {@code affiliation_requests.status} (V190 CHECK). */
-    public enum Status { PENDING, APPROVED, REJECTED }
+    /**
+     * Values of {@code affiliation_requests.status} (V190 CHECK, DRAFT added in V233): a DRAFT
+     * is a registration still being completed step by step (hub ADR 0037 §2).
+     */
+    public enum Status { DRAFT, PENDING, APPROVED, REJECTED }
 
     /**
      * Values of {@code affiliation_requests.channel} (V194 CHECK): the public
@@ -69,7 +76,7 @@ public class AffiliationRequest extends BaseEntity {
     @Column(name = "document_number", length = 20, nullable = false)
     private String documentNumber;
 
-    @Column(name = "birth_date", nullable = false)
+    @Column(name = "birth_date")
     private LocalDate birthDate;
 
     /** Stored lower-cased; the partial unique index compares {@code LOWER(email)}. */
@@ -83,8 +90,9 @@ public class AffiliationRequest extends BaseEntity {
     @Column(name = "locale", length = 10)
     private String locale;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "plan_id", nullable = false)
+    /** Chosen in the "plan" step; null only while DRAFT (V233 CHECK). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plan_id")
     private Plan plan;
 
     /**
@@ -117,17 +125,17 @@ public class AffiliationRequest extends BaseEntity {
 
     // ─── Contract evidence ──────────────────────────────────────────────────
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "terms_versions_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "terms_versions_id")
     private TermsVersion termsVersion;
 
-    @Column(name = "terms_rendered_content", columnDefinition = "text", nullable = false)
+    @Column(name = "terms_rendered_content", columnDefinition = "text")
     private String termsRenderedContent;
 
-    @Column(name = "terms_content_sha256", length = 64, nullable = false)
+    @Column(name = "terms_content_sha256", length = 64)
     private String termsContentSha256;
 
-    @Column(name = "terms_accepted_at", nullable = false)
+    @Column(name = "terms_accepted_at")
     private Instant termsAcceptedAt;
 
     @Column(name = "ip_address", length = 45)
@@ -222,6 +230,19 @@ public class AffiliationRequest extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id")
     private Payment payment;
+
+    /** Relatives typed in the "family" step ({@code family} JSONB, V233); become beneficiaries on approval. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "family", columnDefinition = "jsonb")
+    private List<Map<String, String>> family;
+
+    /** When the applicant sent the registration to review (left DRAFT). */
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
+    public boolean isDraft() {
+        return Status.DRAFT.name().equals(getStatus());
+    }
 
     public boolean hasReportedPayment() {
         return paymentMethod != null;

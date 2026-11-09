@@ -57,6 +57,7 @@ public class AffiliationRequestNotifier {
         // Assisted approval without password: "create your password" link instead of the login one.
         vars.put("activationUrl", event.activationUrl());
         vars.put("activationTtlHours", activationTtlHours);
+        vars.put("membershipActive", event.membershipActive());
         String template = switch (event.kind()) {
             case RECEIVED -> TEMPLATE_RECEIVED;
             case APPROVED -> TEMPLATE_APPROVED;

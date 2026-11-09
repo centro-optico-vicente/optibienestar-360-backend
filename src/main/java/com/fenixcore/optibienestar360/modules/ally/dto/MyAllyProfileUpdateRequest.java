@@ -13,7 +13,9 @@ import java.util.UUID;
  * 0036). PATCH semantics: {@code null} = unchanged, blank text = cleared.
  * The other segment's fields are rejected (422
  * {@code ally.segment.field_not_allowed}); {@code name} only while the request
- * is PENDING (422 {@code ally.profile.name_locked}).
+ * is PENDING (422 {@code ally.profile.name_locked}). The registration data
+ * ({@code allyTypeUuid}, RIF for B2B, {@code professionUuid} for B2P) is also
+ * editable only while PENDING (422 {@code ally.profile.registration_locked}).
  */
 public record MyAllyProfileUpdateRequest(
         @Size(max = 200) String name,
@@ -41,5 +43,11 @@ public record MyAllyProfileUpdateRequest(
         @Size(max = 200) String hostName,
         @Size(max = 20) String officeNumber,
         @Size(max = 30) String appointmentPhone,
-        @Size(max = 150) String assistantName
+        @Size(max = 150) String assistantName,
+
+        // Registration data (hub ADR 0037 §2): only while the request is PENDING
+        UUID allyTypeUuid,
+        @jakarta.validation.constraints.Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}") String taxDocumentType,
+        @Size(max = 20) @jakarta.validation.constraints.Pattern(regexp = "^[0-9]*$", message = "{validation.tax_document_number.digits}") String taxDocumentNumber,
+        UUID professionUuid
 ) {}

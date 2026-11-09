@@ -103,6 +103,7 @@ public class AllyRequestNotifier {
         vars.put("note", event.note());
         vars.put("reason", event.reason());
         vars.put("activationUrl", event.activationUrl());
+        vars.put("published", event.published());
         vars.put("portalUrl", base() + "/allies");
         vars.put("reviewUrl", base() + "/dashboard/ally-requests/" + event.allyUuid());
         return vars;

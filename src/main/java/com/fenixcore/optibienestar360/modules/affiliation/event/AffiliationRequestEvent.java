@@ -21,7 +21,9 @@ public record AffiliationRequestEvent(
         String planName,
         String advisorName,
         String reason,
-        String activationUrl
+        String activationUrl,
+        /** On APPROVED: whether the membership starts ACTIVE (onboarding policy) instead of waiting for the payment. */
+        boolean membershipActive
 ) {
 
     public enum Kind { RECEIVED, APPROVED, REJECTED }

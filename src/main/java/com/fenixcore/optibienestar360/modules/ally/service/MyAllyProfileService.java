@@ -45,6 +45,7 @@ public class MyAllyProfileService {
     private final AllyProductRepository allyProductRepository;
     private final AlliesService alliesService;
     private final PersonProfessionalLicenseRepository licenseRepository;
+    private final com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository allyRepository;
 
     public MyAllyProfileDto get(UUID allyUuid, UUID actorUserUuid) {
         return toDto(requireMembership(allyUuid, actorUserUuid, false).getAlly());
@@ -74,6 +75,8 @@ public class MyAllyProfileService {
         AllySegments.rejectForeignFields(ally.getSegment(), site);
         alliesService.applySiteFields(ally, site, ally.getId());
 
+        applyRegistrationData(ally, req);
+
         if (req.email() != null)         ally.setEmail(blankToNull(req.email()));
         if (req.phone() != null)         ally.setPhone(blankToNull(req.phone()));
         if (req.whatsapp() != null)      ally.setWhatsapp(blankToNull(req.whatsapp()));
@@ -85,6 +88,56 @@ public class MyAllyProfileService {
         if (req.googleMapsUrl() != null) ally.setGoogleMapsUrl(blankToNull(req.googleMapsUrl()));
         if (req.description() != null)   ally.setDescription(blankToNull(req.description()));
         return toDto(ally);  // managed → dirty-check on commit
+    }
+
+    /**
+     * Type, RIF (B2B) and profession (B2P) — the data a self-registered ally
+     * completes after step 1. Editable only while the request is PENDING.
+     */
+    private void applyRegistrationData(Ally ally, MyAllyProfileUpdateRequest req) {
+        boolean sent = req.allyTypeUuid() != null || req.taxDocumentType() != null
+                || req.taxDocumentNumber() != null || req.professionUuid() != null;
+        if (!sent) {
+            return;
+        }
+        if (ally.getRegistrationStatus() != Ally.RegistrationStatus.PENDING) {
+            throw new IllegalArgumentException("ally.profile.registration_locked");
+        }
+        if (req.allyTypeUuid() != null) {
+            java.util.Set<AllyType> types = alliesService.resolveAllyTypes(List.of(req.allyTypeUuid()));
+            types.forEach(t -> AllySegments.requireTypeOf(ally.getSegment(), t));
+            ally.getAllyTypes().clear();
+            ally.getAllyTypes().addAll(types);
+        }
+        if (req.taxDocumentType() != null || req.taxDocumentNumber() != null) {
+            if (ally.getSegment() != Segment.B2B) {
+                throw new IllegalArgumentException("ally.segment.field_not_allowed");
+            }
+            String type = req.taxDocumentType() != null ? req.taxDocumentType() : ally.getTaxDocumentType();
+            String number = req.taxDocumentNumber() != null ? req.taxDocumentNumber().trim() : ally.getTaxDocumentNumber();
+            boolean changed = !java.util.Objects.equals(type, ally.getTaxDocumentType())
+                    || !java.util.Objects.equals(number, ally.getTaxDocumentNumber());
+            if (changed && type != null && number != null && !number.isBlank()
+                    && allyRepository.existsByTaxDocumentTypeAndTaxDocumentNumber(type, number)) {
+                throw new IllegalArgumentException("ally.tax_document.duplicate");
+            }
+            ally.setTaxDocumentType(type);
+            ally.setTaxDocumentNumber(number == null || number.isBlank() ? null : number);
+        }
+        if (req.professionUuid() != null) {
+            if (ally.getSegment() != Segment.B2P) {
+                throw new IllegalArgumentException("ally.segment.field_not_allowed");
+            }
+            java.util.Set<com.fenixcore.optibienestar360.modules.catalog.entity.Profession> professions =
+                    alliesService.resolveProfessions(List.of(req.professionUuid()));
+            ally.getProfessions().clear();
+            ally.getProfessions().addAll(professions);
+        }
+    }
+
+    /** Completeness of the ally's profile, for the registration progress. */
+    public MyAllyProfileDto.Completeness completenessOf(Ally ally) {
+        return completeness(ally, openingHourRepository.existsByAllyId(ally.getId()), hasLicenses(ally));
     }
 
     // ─── Mapping ────────────────────────────────────────────────────────────
@@ -111,7 +164,11 @@ public class MyAllyProfileService {
                 ally.getRepresentativePosition(),
                 ally.getHostName(), ally.getOfficeNumber(), ally.getAppointmentPhone(), ally.getAssistantName(),
                 ally.getLogoUrl(), hasHours, hasApprovedOffers,
-                completeness(ally, hasHours, hasLicenses(ally)));
+                completeness(ally, hasHours, hasLicenses(ally)),
+                ally.getAllyTypes().stream().map(AllyType::getUuid).toList(),
+                ally.getTaxDocumentType(), ally.getTaxDocumentNumber(),
+                ally.getProfessions().stream().map(p -> p.getUuid()).toList(),
+                ally.getRegistrationSubmittedAt() != null);
     }
 
     /** Recommended items for a useful public profile; the portal shows what is missing. */

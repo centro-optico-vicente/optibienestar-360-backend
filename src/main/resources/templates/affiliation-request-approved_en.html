@@ -34,7 +34,8 @@
         <span th:text="${planName}"></span>
     </div>
 
-    <p>Your membership becomes active once we record your first payment.</p>
+    <p th:if="${membershipActive}">Your membership is already active.</p>
+    <p th:unless="${membershipActive}">Your membership becomes active once we record your first payment.</p>
 
     <th:block th:if="${activationUrl == null}">
         <p><a class="button" th:href="${loginUrl}">Log in</a></p>

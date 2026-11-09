@@ -25,7 +25,9 @@ public record AllyRequestEvent(
         String note,
         String reason,
         String activationUrl,
-        String locale
+        String locale,
+        /** On APPROVED: whether the ally was published right away (onboarding policy) instead of waiting for staff. */
+        boolean published
 ) {
     public enum Kind { RECEIVED, APPROVED, REJECTED, INVITED }
 }

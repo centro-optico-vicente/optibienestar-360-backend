@@ -38,7 +38,7 @@ import java.util.Map;
 public class AffiliationRequestLog {
 
     /** Values of {@code affiliation_request_logs.action} (V190 CHECK). */
-    public enum Action { CREATED, UPDATED, APPROVED, REJECTED }
+    public enum Action { CREATED, UPDATED, SUBMITTED, APPROVED, REJECTED }
 
     /** Keys of each {@link #changes} entry. */
     public static final String CHANGE_FIELD = "field";

@@ -7,12 +7,15 @@ import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
 import com.fenixcore.optibienestar360.common.service.StorageService;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
+import com.fenixcore.optibienestar360.core.exception.UnprocessableDetailsException;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationDraftStepRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationPaymentRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRegistrationDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreatedDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestDetailDto;
@@ -33,14 +36,19 @@ import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.service.AuthService;
 import com.fenixcore.optibienestar360.modules.auth.service.UserService;
+import com.fenixcore.optibienestar360.modules.member.dto.BeneficiaryCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberCreateRequest;
 import com.fenixcore.optibienestar360.modules.member.dto.MemberDetailDto;
+import com.fenixcore.optibienestar360.modules.member.entity.Beneficiary;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
+import com.fenixcore.optibienestar360.modules.member.service.BeneficiariesService;
 import com.fenixcore.optibienestar360.modules.member.service.MembersService;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipCreateRequest;
 import com.fenixcore.optibienestar360.modules.membership.dto.MembershipDto;
@@ -57,6 +65,8 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.payment.service.PaymentsService;
+import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
+import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.person.repository.PersonRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -68,6 +78,7 @@ import com.fenixcore.optibienestar360.modules.terms.service.MemberTermsApplicant
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsVersionService;
 import com.fenixcore.optibienestar360.security.RoleNames;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -173,6 +184,8 @@ public class AffiliationRequestService {
     private final ObjectProvider<StorageService> storageProvider;
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final OnboardingPolicyService onboardingPolicyService;
+    private final UserRoleRepository userRoleRepository;
+    private final BeneficiariesService beneficiariesService;
 
     /** Hours the "create your password" link of an assisted approval stays valid. */
     @Value("${app.affiliation-requests.activation-ttl-hours:72}")
@@ -420,8 +433,12 @@ public class AffiliationRequestService {
     public AffiliationRequestDetailDto approve(UUID uuid, String comment, UUID actorUuid) {
         AffiliationRequest request = lockPending(uuid, "affiliation_request.approve.invalid_state");
         User reviewer = actor(actorUuid);
-        // Someone may have registered the same cédula/email since the request arrived.
-        requireNotRegistered(request.getDocumentType(), request.getDocumentNumber(), request.getEmail());
+        // A DRAFT-born request already owns its login (step 1 created it with the pending role).
+        boolean hasLogin = request.getUser() != null;
+        if (!hasLogin) {
+            // Someone may have registered the same cédula/email since the request arrived.
+            requireNotRegistered(request.getDocumentType(), request.getDocumentNumber(), request.getEmail());
+        }
         requireSelfServicePlan(request.getPlan());
 
         Role memberRole = roleRepository.findByName(RoleNames.MEMBER)
@@ -429,16 +446,21 @@ public class AffiliationRequestService {
 
         // Assisted request without password: an unusable random one until the
         // member sets theirs through the activation link in the approval email.
-        boolean passwordPending = request.getPasswordHash() == null;
-        String passwordHash = passwordPending
-                // 64 hex chars: BCrypt rejects inputs over 72 bytes
-                ? passwordEncoder.encode(UUID.randomUUID().toString().replace("-", "")
-                        + UUID.randomUUID().toString().replace("-", ""))
-                : request.getPasswordHash();
-        UserDto createdUser = userService.createUserWithPasswordHash(new AdminCreateUserRequest(
-                request.getEmail(), request.getFirstName(), null, request.getLastName(), null, null,
-                request.getDocumentType(), request.getDocumentNumber(), null, null, request.getPhone(),
-                List.of(memberRole.getUuid()), memberRole.getUuid()), passwordHash, actorUuid);
+        boolean passwordPending = !hasLogin && request.getPasswordHash() == null;
+        UserDto createdUser = null;
+        if (hasLogin) {
+            swapPendingRole(request.getUser(), memberRole, actorUuid);
+        } else {
+            String passwordHash = passwordPending
+                    // 64 hex chars: BCrypt rejects inputs over 72 bytes
+                    ? passwordEncoder.encode(UUID.randomUUID().toString().replace("-", "")
+                            + UUID.randomUUID().toString().replace("-", ""))
+                    : request.getPasswordHash();
+            createdUser = userService.createUserWithPasswordHash(new AdminCreateUserRequest(
+                    request.getEmail(), request.getFirstName(), null, request.getLastName(), null, null,
+                    request.getDocumentType(), request.getDocumentNumber(), null, null, request.getPhone(),
+                    List.of(memberRole.getUuid()), memberRole.getUuid()), passwordHash, actorUuid);
+        }
 
         String code = request.getReferralCode();
         String origin = request.isAssisted()
@@ -464,13 +486,16 @@ public class AffiliationRequestService {
                 ? Membership.LifecycleStatus.ACTIVE.name()
                 : Membership.LifecycleStatus.SUSPENDED.name());
 
-        User user = userRepository.findByUuid(createdUser.uuid())
-                .orElseThrow(() -> new IllegalStateException("user just created not found"));
+        User user = hasLogin ? request.getUser()
+                : userRepository.findByUuid(createdUser.uuid())
+                        .orElseThrow(() -> new IllegalStateException("user just created not found"));
         Member member = memberRepository.findByUuid(memberDto.uuid())
                 .orElseThrow(() -> new IllegalStateException("member just created not found"));
         if (request.hasReportedPayment()) {
             request.setPayment(registerReportedPayment(request, membership, user, actorUuid));
         }
+
+        addFamily(request, memberDto.uuid());
 
         boolean termsUnchanged = !termsChanged(request);
         if (termsUnchanged) {
@@ -631,6 +656,325 @@ public class AffiliationRequestService {
                 .orElseThrow(() -> new IllegalStateException("payment just created not found"));
     }
 
+    // ─── Step-by-step registration (hub ADR 0037 §2-3) ───────────────────────
+
+    private static final List<String> STEPS = List.of("personal", "plan", "payment", "family");
+
+    /**
+     * Step 1 of {@code /afiliarse}: creates the person, the login (role
+     * {@code AFILIADO_PENDIENTE}; the password is optional) and the DRAFT
+     * request, and opens the session so the person keeps going without
+     * signing in. A cédula or email that already has an account is a 422
+     * {@code ACCOUNT_EXISTS}.
+     */
+    @Transactional
+    public AffiliationRequestCreatedDto startRegistration(AffiliationRequestCreateRequest req,
+                                                          ClientRequestMetadata client,
+                                                          HttpServletRequest httpRequest) {
+        onboardingPolicyService.requireMemberSelfRegistration();
+        String email = normalizeEmail(req.email());
+        String documentNumber = req.documentNumber().trim();
+        if (personRepository.existsByDocumentTypeAndDocumentNumber(req.documentType(), documentNumber)
+                || userRepository.existsByEmail(email)) {
+            throw new UnprocessableDetailsException("affiliation_request.account_exists", null,
+                    Map.of("code", "ACCOUNT_EXISTS"));
+        }
+        String code = req.referralCode() == null || req.referralCode().isBlank()
+                ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
+        Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
+        Role pendingRole = roleRepository.findByName(RoleNames.MEMBER_PENDING)
+                .orElseThrow(() -> new IllegalStateException("role " + RoleNames.MEMBER_PENDING + " missing"));
+
+        // No password: an unusable random one (64 hex chars, BCrypt caps at 72 bytes); the person signs in with an access link.
+        String rawPassword = req.password() == null || req.password().isBlank()
+                ? UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "")
+                : req.password();
+        UserDto created = userService.createUserWithPasswordHash(new AdminCreateUserRequest(
+                email, req.firstName().trim(), null, req.lastName().trim(), null, null,
+                req.documentType(), documentNumber, null, null, blankToNull(req.phone()),
+                List.of(pendingRole.getUuid()), pendingRole.getUuid()), passwordEncoder.encode(rawPassword), null);
+        User user = userRepository.findByUuid(created.uuid())
+                .orElseThrow(() -> new IllegalStateException("user just created not found"));
+
+        ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
+        AffiliationRequest request = new AffiliationRequest();
+        request.setChannel(Channel.SELF_SERVICE.name());
+        request.setFirstName(req.firstName().trim());
+        request.setLastName(req.lastName().trim());
+        request.setDocumentType(req.documentType());
+        request.setDocumentNumber(documentNumber);
+        request.setEmail(email);
+        request.setPhone(blankToNull(req.phone()));
+        request.setLocale(LocaleContextHolder.getLocale().getLanguage().equals("en") ? "en" : "es");
+        request.setPromoter(promoter);
+        request.setReferralCode(code);
+        request.setUser(user);
+        request.setIpAddress(evidence.ipAddress());
+        request.setUserAgent(evidence.userAgent());
+        request.setStatus(Status.DRAFT.name());
+        repository.save(request);
+        writeLog(request, Action.CREATED, null, Status.DRAFT, null, null, null);
+        log.info("Affiliation registration {} started (DRAFT, referral {})", request.getUuid(), code);
+
+        LoginResponse session = authService.openSession(withRoles(user, pendingRole), httpRequest);
+        return new AffiliationRequestCreatedDto(request.getUuid(), request.getStatus(), email,
+                promoter != null ? promoter.getDisplayName() : null, session);
+    }
+
+    /** The caller's latest registration; 404 {@code affiliation_request.not_found} when they have none. */
+    public AffiliationRegistrationDto getMine(UUID userUuid) {
+        return toRegistration(repository.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found")));
+    }
+
+    /**
+     * Saves one step of the caller's DRAFT ({@code personal}, {@code plan},
+     * {@code payment} or {@code family}); each step reads only its own fields
+     * (see {@link AffiliationDraftStepRequest}). {@code support} is the proof of
+     * the payment step.
+     */
+    @Transactional
+    public AffiliationRegistrationDto saveStep(UUID userUuid, String step, AffiliationDraftStepRequest body,
+                                               MultipartFile support, ClientRequestMetadata client) {
+        String key = step == null ? "" : step.trim().toLowerCase(Locale.ROOT);
+        if (!STEPS.contains(key)) {
+            throw new IllegalArgumentException("affiliation_request.step.invalid");
+        }
+        AffiliationRequest request = lockOwnDraft(userUuid);
+        AffiliationDraftStepRequest b = body != null
+                ? body : new AffiliationDraftStepRequest(null, null, null, null, null, null, null, null, null);
+        switch (key) {
+            case "personal" -> savePersonalStep(request, b);
+            case "plan" -> savePlanStep(request, b, client);
+            case "payment" -> savePaymentStep(request, b, support);
+            default -> saveFamilyStep(request, b);
+        }
+        return toRegistration(request);
+    }
+
+    private void savePersonalStep(AffiliationRequest request, AffiliationDraftStepRequest b) {
+        Person person = request.getUser().getPerson();
+        if (b.firstName() != null && !b.firstName().isBlank()) {
+            request.setFirstName(b.firstName().trim());
+            person.setFirstName(b.firstName().trim());
+        }
+        if (b.lastName() != null && !b.lastName().isBlank()) {
+            request.setLastName(b.lastName().trim());
+            person.setLastName(b.lastName().trim());
+        }
+        if (b.birthDate() != null) {
+            request.setBirthDate(b.birthDate());
+            person.setBirthDate(b.birthDate());
+        }
+        if (b.phone() != null) {
+            request.setPhone(blankToNull(b.phone()));
+            person.setPhone(blankToNull(b.phone()));
+        }
+        // A changed name or birth date changes the contract text: termsChanged() then
+        // reports it and the acceptance is asked for again before submitting.
+    }
+
+    private void savePlanStep(AffiliationRequest request, AffiliationDraftStepRequest b, ClientRequestMetadata client) {
+        if (b.planUuid() == null || b.termsVersionUuid() == null) {
+            throw new IllegalArgumentException("affiliation_request.plan.required");
+        }
+        if (!Boolean.TRUE.equals(b.contractAccepted())) {
+            throw new IllegalArgumentException("affiliation_request.contract.not_accepted");
+        }
+        if (request.getBirthDate() == null) {
+            throw new IllegalArgumentException("affiliation_request.personal.required");
+        }
+        Plan plan = planRepository.findByUuid(b.planUuid()).orElse(null);
+        requireSelfServicePlan(plan);
+        TermsVersion terms = termsVersionService.requireCurrentPublic(TermType.MEMBER, b.termsVersionUuid());
+        boolean planChanged = request.getPlan() == null || !request.getPlan().getId().equals(plan.getId());
+        request.setPlan(plan);
+        request.setTermsVersion(terms);
+        String content = memberContractService.render(terms, applicantOf(request));
+        request.setTermsRenderedContent(content);
+        request.setTermsContentSha256(MemberContractService.sha256(content));
+        request.setTermsAcceptedAt(Instant.now());
+        ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
+        request.setIpAddress(evidence.ipAddress());
+        request.setUserAgent(evidence.userAgent());
+        if (planChanged) {
+            clearReportedPayment(request);  // the amount was the previous plan's inscription fee
+        }
+    }
+
+    private void savePaymentStep(AffiliationRequest request, AffiliationDraftStepRequest b, MultipartFile support) {
+        if (request.getPlan() == null) {
+            throw new IllegalArgumentException("affiliation_request.plan.required");
+        }
+        boolean hasSupport = support != null && !support.isEmpty();
+        if (b.payment() == null) {
+            if (hasSupport) {
+                throw new IllegalArgumentException("affiliation_request.payment.support_without_payment");
+            }
+            clearReportedPayment(request);  // the step was skipped or the report withdrawn
+            return;
+        }
+        applyReportedPayment(request, request.getPlan(), b.payment());
+        storeSupportFile(request, hasSupport ? support : null);
+    }
+
+    private void saveFamilyStep(AffiliationRequest request, AffiliationDraftStepRequest b) {
+        List<BeneficiaryCreateRequest> family = b.family() != null ? b.family() : List.of();
+        Plan plan = request.getPlan();
+        if (plan != null && plan.getMaxBeneficiaries() != null && family.size() > plan.getMaxBeneficiaries()) {
+            throw new IllegalArgumentException("member.beneficiary.cap_exceeded");
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        List<Map<String, String>> stored = new ArrayList<>();
+        for (BeneficiaryCreateRequest f : family) {
+            String id = f.documentType() + f.documentNumber().trim();
+            if (id.equals(request.getDocumentType() + request.getDocumentNumber())) {
+                throw new IllegalArgumentException("affiliation_request.family.is_applicant");
+            }
+            if (!seen.add(id)) {
+                throw new IllegalArgumentException("affiliation_request.family.duplicate");
+            }
+            Map<String, String> m = new LinkedHashMap<>();
+            m.put("firstName", f.firstName().trim());
+            m.put("lastName", f.lastName().trim());
+            m.put("documentType", f.documentType());
+            m.put("documentNumber", f.documentNumber().trim());
+            m.put("birthDate", str(f.birthDate()));
+            m.put("relationship", f.relationship().name());
+            m.put("phone", blankToNull(f.phone()));
+            m.put("email", blankToNull(f.email()));
+            stored.add(m);
+        }
+        request.setFamily(stored.isEmpty() ? null : stored);
+    }
+
+    /**
+     * Sends the DRAFT to review: needs the essentials (birth date, plan and the
+     * contract accepted with the current data), moves it to PENDING and applies
+     * the onboarding policy — a policy that approves on submit reuses
+     * {@link #approve} with the system actor.
+     */
+    @Transactional
+    public AffiliationRegistrationDto submit(UUID userUuid) {
+        AffiliationRequest request = lockOwnDraft(userUuid);
+        List<String> missing = new ArrayList<>();
+        if (request.getBirthDate() == null) missing.add("birthDate");
+        if (request.getPlan() == null) missing.add("plan");
+        if (request.getTermsVersion() == null || request.getTermsAcceptedAt() == null || termsChanged(request)) {
+            missing.add("contract");
+        }
+        if (!missing.isEmpty()) {
+            throw new UnprocessableDetailsException("affiliation_request.submit.incomplete", null,
+                    Map.of("missing", missing));
+        }
+        request.setStatus(Status.PENDING.name());
+        request.setSubmittedAt(Instant.now());
+        writeLog(request, Action.SUBMITTED, Status.DRAFT, Status.PENDING, null, null, request.getUser());
+        if (onboardingPolicyService.autoApprovesMember(request.hasReportedPayment())) {
+            // Hub ADR 0037 §1: approved by the onboarding policy, no reviewer (actor "Sistema").
+            // The approval email replaces the "received" one.
+            approve(request.getUuid(), AUTO_APPROVAL_COMMENT, null);
+        } else {
+            eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.RECEIVED, request, null, null));
+        }
+        log.info("Affiliation registration {} submitted → {}", request.getUuid(), request.getStatus());
+        return toRegistration(request);
+    }
+
+    private AffiliationRequest lockOwnDraft(UUID userUuid) {
+        AffiliationRequest own = repository.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        AffiliationRequest request = repository.findForUpdateByUuid(own.getUuid())
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        if (!request.isDraft()) {
+            throw new IllegalArgumentException("affiliation_request.draft.invalid_state");
+        }
+        return request;
+    }
+
+    private static void clearReportedPayment(AffiliationRequest r) {
+        r.setPaymentMethod(null);
+        r.setPaymentBank(null);
+        r.setPaymentAmount(null);
+        r.setPaymentCurrencyCode(null);
+        r.setPaymentIdentification(null);
+        r.setPaymentBankAccountType(null);
+        r.setPaymentBankAccountCode(null);
+        r.setPaymentBankAccountIdentifier(null);
+        r.setPaymentPhone(null);
+        r.setPaymentEmail(null);
+        r.setPaymentReferenceNumber(null);
+        r.setPaymentDate(null);
+        r.setPaymentSupportFileUrl(null);
+        r.setPaymentSupportFileName(null);
+        r.setPaymentSupportFileContentType(null);
+        r.setPaymentSupportFileSizeBytes(null);
+    }
+
+    /** Makes sure the freshly created user's role pivot is visible to the session issuer. */
+    private User withRoles(User user, Role role) {
+        boolean held = user.getUserRoles().stream().anyMatch(ur -> ur.getRole().getId().equals(role.getId()));
+        if (!held) {
+            userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId())
+                    .ifPresent(ur -> user.getUserRoles().add(ur));
+        }
+        return user;
+    }
+
+    /** Pending role off, member role on (and default), as {@code AllyRequestService.swapRole} does for allies. */
+    private void swapPendingRole(User user, Role memberRole, UUID actorUuid) {
+        roleRepository.findByName(RoleNames.MEMBER_PENDING)
+                .flatMap(pending -> userRoleRepository.findByUserIdAndRoleId(user.getId(), pending.getId()))
+                .ifPresent(current -> {
+                    current.setActive(false);
+                    userRoleRepository.save(current);
+                });
+        UserRole target = userRoleRepository.findByUserIdAndRoleId(user.getId(), memberRole.getId()).orElse(null);
+        if (target == null) {
+            target = new UserRole();
+            target.setUser(user);
+            target.setRole(memberRole);
+        } else {
+            target.setActive(true);
+            target.setExpiresAt(null);
+        }
+        target.setAssignedBy(actorUuid);
+        userRoleRepository.save(target);
+        user.setDefaultRole(memberRole);
+    }
+
+    /** Turns the relatives typed in the family step into beneficiaries of the new member. */
+    private void addFamily(AffiliationRequest request, UUID memberUuid) {
+        if (request.getFamily() == null) return;
+        for (Map<String, String> f : request.getFamily()) {
+            String birth = f.get("birthDate");
+            beneficiariesService.add(memberUuid, new BeneficiaryCreateRequest(
+                    f.get("firstName"), null, f.get("lastName"), null,
+                    f.get("documentType"), f.get("documentNumber"),
+                    birth == null ? null : LocalDate.parse(birth),
+                    f.get("phone"), f.get("email"),
+                    Beneficiary.Relationship.valueOf(f.get("relationship")), null));
+        }
+    }
+
+    private AffiliationRegistrationDto toRegistration(AffiliationRequest r) {
+        List<AffiliationRegistrationDto.FamilyMember> family = r.getFamily() == null ? List.of()
+                : r.getFamily().stream().map(f -> new AffiliationRegistrationDto.FamilyMember(
+                        f.get("firstName"), f.get("lastName"), f.get("documentType"), f.get("documentNumber"),
+                        f.get("birthDate") == null ? null : LocalDate.parse(f.get("birthDate")),
+                        f.get("relationship"), f.get("phone"), f.get("email"))).toList();
+        boolean contractAccepted = r.getTermsVersion() != null && r.getTermsAcceptedAt() != null && !termsChanged(r);
+        return new AffiliationRegistrationDto(
+                r.getUuid(), r.getStatus(), r.getFirstName(), r.getLastName(), r.getDocumentType(),
+                r.getDocumentNumber(), r.getBirthDate(), r.getEmail(), r.getPhone(),
+                DisplayRefs.ref((Object) r.getPlan()),
+                r.getTermsVersion() != null ? r.getTermsVersion().getUuid() : null,
+                contractAccepted, paymentOf(r), family,
+                r.getPromoter() != null ? r.getPromoter().getDisplayName() : null, r.getReferralCode(),
+                r.getSubmittedAt(), r.getRejectionReason());
+    }
+
     // ─── Rules ──────────────────────────────────────────────────────────────
 
     /**
@@ -650,6 +994,9 @@ public class AffiliationRequestService {
 
     /** Whether the data as it stands now renders a different contract than the one accepted. */
     boolean termsChanged(AffiliationRequest request) {
+        if (request.getTermsVersion() == null || request.getPlan() == null || request.getBirthDate() == null) {
+            return false;  // a DRAFT without a contract yet has nothing to compare
+        }
         String current = memberContractService.render(request.getTermsVersion(), applicantOf(request));
         return !MemberContractService.sha256(current).equals(request.getTermsContentSha256());
     }
@@ -680,15 +1027,20 @@ public class AffiliationRequestService {
     }
 
     private static Specification<AffiliationRequest> withStatus(Status status) {
+        // Registrations still in progress (DRAFT) stay out of the staff inbox unless asked for.
         return status == null
-                ? (root, query, cb) -> cb.conjunction()
+                ? (root, query, cb) -> cb.notEqual(root.get("status"), Status.DRAFT.name())
                 : (root, query, cb) -> cb.equal(root.get("status"), status.name());
     }
 
     private static Status parseStatus(String status) {
         if (status == null || status.isBlank()) return null;
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        if ("IN_PROGRESS".equals(normalized)) {
+            return Status.DRAFT;
+        }
         try {
-            return Status.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            return Status.valueOf(normalized);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("affiliation_request.status.invalid");
         }
@@ -805,7 +1157,9 @@ public class AffiliationRequestService {
         return new AffiliationRequestEvent(kind, r.getUuid(), r.getChannel(), r.getEmail(), r.getFullName(), r.getLocale(),
                 r.getPlan() != null ? r.getPlan().getName() : null,
                 r.getPromoter() != null ? r.getPromoter().getDisplayName() : null,
-                reason, activationUrl);
+                reason, activationUrl,
+                r.getMembership() != null
+                        && Membership.LifecycleStatus.ACTIVE.name().equals(r.getMembership().getStatus()));
     }
 
     /** TTL of the "create your password" link of an assisted approval ({@code app.affiliation-requests.activation-ttl-hours}). */
