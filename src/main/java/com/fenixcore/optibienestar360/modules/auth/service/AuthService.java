@@ -143,6 +143,16 @@ public class AuthService {
     }
 
     /**
+     * Opens a session for a user the caller has just registered (self-registration
+     * step 1, hub ADR 0037). The user's roles must already be visible on the entity.
+     */
+    @Transactional
+    public LoginResponse openSession(User user, HttpServletRequest httpRequest) {
+        return issueSession(user, httpRequest, resolveClientIp(httpRequest),
+                httpRequest.getHeader("User-Agent"), httpRequest.getRemoteHost());
+    }
+
+    /**
      * Opens a session for an already-authenticated user (password check or
      * consumed access link): audit row, token pair, refresh-token registry and
      * session log. Shared by {@link #login} and {@link #consumeMagicLink}.

@@ -32,6 +32,7 @@ import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestInviteR
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.allyrequest.event.AllyRequestEvent;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.UserDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -52,6 +53,7 @@ import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.security.RoleNames;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -156,6 +158,19 @@ public class AllyRequestService {
 
     @Transactional
     public AllyRequestCreatedDto create(AllyRequestCreateRequest req) {
+        return create(req, null);
+    }
+
+    /**
+     * Step 1 of the registration (hub ADR 0037 §2): creates the PENDING ally
+     * with whatever the form carried and its portal login (role
+     * {@code ALIADO_PENDIENTE}; the password is optional), and opens the
+     * session when {@code httpRequest} is given. A request that already has
+     * every essential datum goes to review right away; otherwise it stays "in
+     * progress" until {@link #submit}.
+     */
+    @Transactional
+    public AllyRequestCreatedDto create(AllyRequestCreateRequest req, HttpServletRequest httpRequest) {
         onboardingPolicyService.requireAllySelfRegistration();
         if (req.homepage() != null && !req.homepage().isBlank()) {
             // Honeypot filled: a bot. Same generic 422 as any invalid request.
@@ -166,20 +181,19 @@ public class AllyRequestService {
             throw new IllegalArgumentException("ally_request.terms.not_accepted");
         }
         Segment segment = req.segment();
-        AllyType type = allyTypeRepository.findByUuid(req.allyTypeUuid())
-                .filter(AllyType::isActive)
-                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
-        if (type.getSegment() != segment) {
-            throw new IllegalArgumentException("ally_request.type.segment_mismatch");
+        AllyType type = null;
+        if (req.allyTypeUuid() != null) {
+            type = allyTypeRepository.findByUuid(req.allyTypeUuid())
+                    .filter(AllyType::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+            if (type.getSegment() != segment) {
+                throw new IllegalArgumentException("ally_request.type.segment_mismatch");
+            }
         }
         Profession profession = null;
         if (segment == Segment.B2B) {
             if (isBlank(req.name())) throw new IllegalArgumentException("ally_request.name.required");
-            if (isBlank(req.taxDocumentType()) || isBlank(req.taxDocumentNumber())) {
-                throw new IllegalArgumentException("ally_request.tax_document.required");
-            }
-        } else {
-            if (req.professionUuid() == null) throw new IllegalArgumentException("ally_request.profession.required");
+        } else if (req.professionUuid() != null) {
             profession = professionRepository.findByUuid(req.professionUuid())
                     .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
         }
@@ -193,7 +207,7 @@ public class AllyRequestService {
         if (existing != null && userRepository.existsByPersonId(existing.getId())) {
             throw signInInstead("ally_request.document.has_account");
         }
-        if (existing != null && segment == Segment.B2P) {
+        if (existing != null && segment == Segment.B2P && profession != null && req.cityUuid() != null) {
             requireNoDuplicateProfessional(existing, req.cityUuid(), profession);
         }
 
@@ -205,9 +219,10 @@ public class AllyRequestService {
         String lastName = req.lastName().trim();
         String mobile = req.mobile().trim();
         String allyName = segment == Segment.B2B ? req.name().trim() : (firstName + " " + lastName);
-        AllyCreateRequest allyReq = allyCreateRequest(allyName, type.getUuid(), segment,
-                segment == Segment.B2B ? req.taxDocumentType() : null,
-                segment == Segment.B2B ? req.taxDocumentNumber().trim() : null,
+        boolean hasTaxDocument = !isBlank(req.taxDocumentType()) && !isBlank(req.taxDocumentNumber());
+        AllyCreateRequest allyReq = allyCreateRequest(allyName, type != null ? type.getUuid() : null, segment,
+                segment == Segment.B2B && hasTaxDocument ? req.taxDocumentType() : null,
+                segment == Segment.B2B && hasTaxDocument ? req.taxDocumentNumber().trim() : null,
                 email, mobile, mobile, null, null, null, req.cityUuid(), null, null,
                 new AllyHolderPersonRequest(req.documentType(), documentNumber, firstName, lastName, null, mobile, email),
                 promoter != null ? promoter.getUuid() : null,
@@ -217,19 +232,93 @@ public class AllyRequestService {
         Ally ally = allyRepository.findByUuid(created.uuid())
                 .orElseThrow(() -> new IllegalStateException("ally just created not found"));
 
+        // No password: an unusable random one (64 hex chars, BCrypt caps at 72 bytes); the person signs in with an access link.
+        String rawPassword = isBlank(req.password())
+                ? UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "")
+                : req.password();
         User user = createPortalUser(email, firstName, lastName, req.documentType(), documentNumber, mobile,
-                passwordEncoder.encode(req.password()), RoleNames.ALLY_PENDING);
+                passwordEncoder.encode(rawPassword), RoleNames.ALLY_PENDING);
         linkOwner(ally, user);
 
-        eventPublisher.publishEvent(event(AllyRequestEvent.Kind.RECEIVED, ally, null, null));
-        log.info("Ally request {} received ({}, referral {})", ally.getUuid(), segment, code);
+        log.info("Ally request {} started ({}, referral {})", ally.getUuid(), segment, code);
+        if (missingEssentials(ally).isEmpty()) {
+            // The one-step form (or a request that arrived complete): straight to review.
+            sendToReview(ally);
+        }
+        LoginResponse session = httpRequest == null ? null
+                : authService.openSession(withPendingRole(user), httpRequest);
+        return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), email,
+                promoter != null ? promoter.getDisplayName() : null, session);
+    }
+
+    /**
+     * Last step ({@code POST /v1/me/allies/{uuid}/submit}): checks the
+     * essentials (type, RIF for B2B / profession for B2P, city), marks the
+     * request as sent and applies the onboarding policy. Only the OWNER, only
+     * once (422 {@code ally_request.submit.invalid_state}).
+     */
+    @Transactional
+    public AllyRequestCreatedDto submit(UUID allyUuid, UUID actorUserUuid) {
+        AllyUser membership = actorUserUuid == null ? null
+                : allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid).orElse(null);
+        if (membership == null || membership.getAllyRole() != AllyRole.OWNER) {
+            throw new org.springframework.security.access.AccessDeniedException("ally.profile.not_allowed");
+        }
+        Ally ally = lock(allyUuid);
+        if (ally.getRegistrationStatus() != Ally.RegistrationStatus.PENDING
+                || ally.getRegistrationSubmittedAt() != null) {
+            throw new IllegalArgumentException("ally_request.submit.invalid_state");
+        }
+        List<String> missing = missingEssentials(ally);
+        if (!missing.isEmpty()) {
+            throw new UnprocessableDetailsException("ally_request.submit.incomplete", null,
+                    java.util.Map.of("missing", missing));
+        }
+        sendToReview(ally);
+        return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), contactEmail(ally),
+                promoterName(ally), null);
+    }
+
+    /** The essentials a request needs before review; keys the portal translates. */
+    static List<String> missingEssentials(Ally ally) {
+        List<String> missing = new ArrayList<>();
+        if (ally.getAllyTypes().isEmpty()) missing.add("allyType");
+        if (ally.getCity() == null) missing.add("city");
+        if (ally.getSegment() == Segment.B2B) {
+            if (isBlank(ally.getTaxDocumentType()) || isBlank(ally.getTaxDocumentNumber())) missing.add("taxDocument");
+        } else if (ally.getProfessions().isEmpty()) {
+            missing.add("profession");
+        }
+        return missing;
+    }
+
+    /**
+     * Marks the request as sent and applies the onboarding policy (hub ADR
+     * 0037 §1): an automatic approval registers the segment's default
+     * agreement (it replaces the "received" notice); otherwise staff are told
+     * about the new request.
+     */
+    private void sendToReview(Ally ally) {
+        ally.setRegistrationSubmittedAt(Instant.now());
         if (onboardingPolicyService.autoApprovesAlly()) {
-            // Hub ADR 0037 §1: approved by the onboarding policy with a default agreement for its segment.
+            AllyType type = ally.getAllyTypes().iterator().next();
             approve(ally.getUuid(), new AllyRequestApproveRequest(defaultAgreement(type), null,
                     AUTO_APPROVAL_COMMENT), null, null);
+        } else {
+            eventPublisher.publishEvent(event(AllyRequestEvent.Kind.RECEIVED, ally, null, null));
         }
-        return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), email,
-                promoter != null ? promoter.getDisplayName() : null);
+    }
+
+    /** Makes sure the freshly created login's role pivot is visible to the session issuer. */
+    private User withPendingRole(User user) {
+        Role role = roleRepository.findByName(RoleNames.ALLY_PENDING)
+                .orElseThrow(() -> new IllegalStateException("role " + RoleNames.ALLY_PENDING + " missing"));
+        boolean held = user.getUserRoles().stream().anyMatch(ur -> ur.getRole().getId().equals(role.getId()));
+        if (!held) {
+            userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId())
+                    .ifPresent(ur -> user.getUserRoles().add(ur));
+        }
+        return user;
     }
 
     /** 422 whose {@code code} property lets the form offer "log in" next to the message. */
@@ -253,12 +342,7 @@ public class AllyRequestService {
 
     /** Requests (allies not created from the admin form), newest first by default. */
     public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q) {
-        Specification<Ally> spec = (root, query, cb) ->
-                cb.notEqual(root.get("registrationChannel"), Ally.RegistrationChannel.ADMIN);
-        Ally.RegistrationStatus st = parseEnum(Ally.RegistrationStatus.class, status, "ally_request.status.invalid");
-        if (st != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("registrationStatus"), st));
-        }
+        Specification<Ally> spec = requestsSpec(status);
         Ally.RegistrationChannel ch = parseEnum(Ally.RegistrationChannel.class, channel, "ally_request.channel.invalid");
         if (ch != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("registrationChannel"), ch));
@@ -269,6 +353,29 @@ public class AllyRequestService {
         return allyRepository.findAll(spec, resolveSort(pageable)).map(this::toListItem);
     }
 
+    /**
+     * The staff inbox: requests not created from the admin form. A self-registered
+     * ally still completing its steps is "in progress" and stays out unless asked
+     * for with {@code status=IN_PROGRESS} (hub ADR 0037 §2).
+     */
+    private Specification<Ally> requestsSpec(String status) {
+        Specification<Ally> spec = (root, query, cb) ->
+                cb.notEqual(root.get("registrationChannel"), Ally.RegistrationChannel.ADMIN);
+        Specification<Ally> inProgress = (root, query, cb) -> cb.and(
+                cb.equal(root.get("registrationChannel"), Ally.RegistrationChannel.SELF_SERVICE),
+                cb.isNull(root.get("registrationSubmittedAt")),
+                cb.equal(root.get("registrationStatus"), Ally.RegistrationStatus.PENDING));
+        if (status != null && "IN_PROGRESS".equalsIgnoreCase(status.trim())) {
+            return spec.and(inProgress);
+        }
+        spec = spec.and(Specification.not(inProgress));
+        Ally.RegistrationStatus st = parseEnum(Ally.RegistrationStatus.class, status, "ally_request.status.invalid");
+        if (st != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("registrationStatus"), st));
+        }
+        return spec;
+    }
+
     public List<SortOrder> effectiveSort(Pageable pageable) {
         return resolveSort(pageable).getSort().stream()
                 .map(o -> new SortOrder(o.getProperty(), o.getDirection().name()))
@@ -276,13 +383,7 @@ public class AllyRequestService {
     }
 
     public long count(String status) {
-        Ally.RegistrationStatus st = parseEnum(Ally.RegistrationStatus.class, status, "ally_request.status.invalid");
-        Specification<Ally> spec = (root, query, cb) ->
-                cb.notEqual(root.get("registrationChannel"), Ally.RegistrationChannel.ADMIN);
-        if (st != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("registrationStatus"), st));
-        }
-        return allyRepository.count(spec);
+        return allyRepository.count(requestsSpec(status));
     }
 
     public AllyRequestDetailDto get(UUID uuid) {
@@ -452,7 +553,7 @@ public class AllyRequestService {
         String activationUrl = authService.issuePasswordSetupLink(user, activationTtl(), Locale.forLanguageTag("es"));
         eventPublisher.publishEvent(new AllyRequestEvent(AllyRequestEvent.Kind.INVITED, ally.getUuid(), ally.getName(),
                 holder.getFirstName() + " " + holder.getLastName(), email, ally.getSegment(),
-                ally.getRegistrationChannel(), promoterName(ally), null, null, activationUrl, "es"));
+                ally.getRegistrationChannel(), promoterName(ally), null, null, activationUrl, "es", false));
         log.info("Ally request {}: contact invited by {}", ally.getUuid(), actorUuid);
         return toDetail(ally);
     }
@@ -491,7 +592,7 @@ public class AllyRequestService {
                                                       UUID cityUuid, String address, String description,
                                                       AllyHolderPersonRequest holder, UUID promoterUuid,
                                                       List<UUID> professionUuids) {
-        return new AllyCreateRequest(name, List.of(allyTypeUuid), taxDocumentType, taxDocumentNumber,
+        return new AllyCreateRequest(name, allyTypeUuid == null ? null : List.of(allyTypeUuid), taxDocumentType, taxDocumentNumber,
                 email, phone, website, whatsapp, instagram, facebook, address, cityUuid, null, null,
                 null, description, null, false, null,
                 segment, holder,
@@ -616,7 +717,7 @@ public class AllyRequestService {
         return new AllyRequestEvent(kind, ally.getUuid(), ally.getName(), contactName(ally),
                 contactEmail(ally), ally.getSegment(), ally.getRegistrationChannel(), promoterName(ally),
                 ally.getRegistrationNote(), reason, activationUrl,
-                kind == AllyRequestEvent.Kind.RECEIVED ? locale : "es");
+                kind == AllyRequestEvent.Kind.RECEIVED ? locale : "es", ally.isPublished());
     }
 
     // ─── Mapping ────────────────────────────────────────────────────────────

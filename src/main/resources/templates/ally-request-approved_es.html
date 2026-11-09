@@ -21,6 +21,9 @@
         Vuelve a iniciar sesión en el portal para ver todas las opciones y registra tus ofertas: precios y descuentos para los afiliados. Así aparecerás en el directorio con tus beneficios.
     </div>
 
+    <p th:if="${published}">Tu ficha ya aparece en el directorio.</p>
+    <p th:unless="${published}">Aparecerás en el directorio cuando el equipo publique tu ficha.</p>
+
     <p><a class="button" th:href="${portalUrl}">Registrar mis ofertas</a></p>
     <p style="font-size: 12px; color: #888;">Si el botón no funciona, copia este enlace: <span th:text="${portalUrl}"></span></p>
 

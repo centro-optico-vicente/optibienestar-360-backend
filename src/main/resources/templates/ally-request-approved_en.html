@@ -21,6 +21,9 @@
         Log in to the portal again to see every option and register your offers: prices and discounts for members. That is how you appear in the directory with your benefits.
     </div>
 
+    <p th:if="${published}">Your profile is already listed in the directory.</p>
+    <p th:unless="${published}">You will appear in the directory once the team publishes your profile.</p>
+
     <p><a class="button" th:href="${portalUrl}">Register my offers</a></p>
     <p style="font-size: 12px; color: #888;">If the button does not work, copy this link: <span th:text="${portalUrl}"></span></p>
 

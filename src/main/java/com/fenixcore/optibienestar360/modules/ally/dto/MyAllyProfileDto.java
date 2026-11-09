@@ -55,7 +55,14 @@ public record MyAllyProfileDto(
         String logoUrl,
         boolean hasOpeningHours,
         boolean hasApprovedOffers,
-        Completeness completeness
+        Completeness completeness,
+
+        // Registration progress (hub ADR 0037 §2): lets the portal resume where the person left off
+        List<UUID> allyTypeUuids,
+        String taxDocumentType,
+        String taxDocumentNumber,
+        List<UUID> professionUuids,
+        boolean submitted
 ) {
 
     /**

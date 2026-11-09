@@ -265,6 +265,13 @@ public class Ally extends BaseEntity {
     @Column(name = "rejection_reason", columnDefinition = "text")
     private String rejectionReason;
 
+    /**
+     * When the applicant sent the request to review (V233, hub ADR 0037 §2);
+     * {@code null} while a self-registered ally is still completing its steps.
+     */
+    @Column(name = "registration_submitted_at")
+    private Instant registrationSubmittedAt;
+
     public boolean isApproved() {
         return registrationStatus == RegistrationStatus.APPROVED;
     }

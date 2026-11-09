@@ -12,7 +12,13 @@ import java.util.UUID;
 
 /**
  * Public "Solicitar alianza" form ({@code POST /v1/public/ally-requests}, hub
- * ADR 0036). One step: the common fields are always required; a commercial
+ * ADR 0036), <b>step 1 of the step-by-step registration</b> (hub ADR 0037 §2):
+ * only {@code segment}, the name (B2B), the contact person, the mobile and the
+ * email are needed; {@code password} is optional (without one the person signs
+ * in with an access link) and the type, RIF / profession and city arrive in
+ * later steps through the ally's own profile. When they are all sent the
+ * request is complete and goes to review right away (the previous one-step
+ * form). Formerly one step: the common fields are always required; a commercial
  * ally (B2B) adds its name and RIF, a professional (B2P) its profession. The
  * segment-conditional checks live in the service (422 with a message key).
  * {@code homepage} is a honeypot the form renders hidden: humans leave it
@@ -20,7 +26,7 @@ import java.util.UUID;
  */
 public record AllyRequestCreateRequest(
         @NotNull Segment segment,
-        @NotNull UUID allyTypeUuid,
+        UUID allyTypeUuid,
 
         // B2B
         @Size(max = 200) String name,
@@ -37,8 +43,8 @@ public record AllyRequestCreateRequest(
         @NotBlank @Size(max = 20) @VenezuelanDocumentNumber String documentNumber,
         @NotBlank @Size(max = 30) String mobile,
         @NotBlank @Email @Size(max = 255) String email,
-        @NotNull UUID cityUuid,
-        @NotBlank @Size(min = 8, max = 128) String password,
+        UUID cityUuid,
+        @Size(min = 8, max = 128) String password,
 
         @Size(max = 20) String referralCode,
         @Size(max = 1000) String benefitNote,

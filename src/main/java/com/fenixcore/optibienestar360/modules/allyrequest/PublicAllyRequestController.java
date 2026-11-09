@@ -28,7 +28,8 @@ public class PublicAllyRequestController {
 
     @PostMapping("/ally-requests")
     @ResponseStatus(HttpStatus.CREATED)
-    public AllyRequestCreatedDto create(@Valid @RequestBody AllyRequestCreateRequest request) {
-        return service.create(request);
+    public AllyRequestCreatedDto create(@Valid @RequestBody AllyRequestCreateRequest request,
+                                        jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return service.create(request, httpRequest);
     }
 }

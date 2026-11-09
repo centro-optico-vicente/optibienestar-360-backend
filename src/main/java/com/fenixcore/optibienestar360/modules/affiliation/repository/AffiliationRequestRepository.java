@@ -21,6 +21,10 @@ public interface AffiliationRequestRepository
     @EntityGraph(attributePaths = {"plan", "promoter", "termsVersion", "reviewedBy", "user", "member", "membership"})
     Optional<AffiliationRequest> findByUuid(UUID uuid);
 
+    /** The caller's latest registration (their own DRAFT / PENDING / decided request), for the portal. */
+    @EntityGraph(attributePaths = {"plan", "promoter", "termsVersion", "user", "user.person"})
+    Optional<AffiliationRequest> findFirstByUser_UuidOrderByCreatedAtDesc(UUID userUuid);
+
     /**
      * Row-locked read for the review transitions (update / approve / reject):
      * two reviewers acting at once queue on the row, so the second one sees

@@ -339,7 +339,12 @@ public class AlliesService {
 
         Ally ally = new Ally();
         ally.setName(req.name());
-        ally.setAllyTypes(resolveAllyTypes(req.allyTypeUuids()));
+        // A self-registered ally starts with only its segment: the type arrives in a later step (hub ADR 0037 §2).
+        boolean typeOptional = status == Ally.RegistrationStatus.PENDING
+                && channel == Ally.RegistrationChannel.SELF_SERVICE
+                && (req.allyTypeUuids() == null || req.allyTypeUuids().isEmpty())
+                && req.segment() != null;
+        ally.setAllyTypes(typeOptional ? new java.util.HashSet<>() : resolveAllyTypes(req.allyTypeUuids()));
         // Segment (V211, hub ADR 0031): explicit, or derived from the types.
         ally.setSegment(req.segment() != null ? req.segment() : AllySegments.derive(ally.getAllyTypes()));
         AllySegments.requireTypesOf(ally);
@@ -690,7 +695,7 @@ public class AlliesService {
                 .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
     }
 
-    private Set<AllyType> resolveAllyTypes(List<UUID> uuids) {
+    public Set<AllyType> resolveAllyTypes(List<UUID> uuids) {
         if (uuids == null || uuids.isEmpty()) {
             throw new IllegalArgumentException("ally_type.min_required");
         }
@@ -811,7 +816,7 @@ public class AlliesService {
                 .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
     }
 
-    private Set<Profession> resolveProfessions(List<UUID> uuids) {
+    public Set<Profession> resolveProfessions(List<UUID> uuids) {
         if (uuids == null || uuids.isEmpty()) {
             return new HashSet<>();
         }

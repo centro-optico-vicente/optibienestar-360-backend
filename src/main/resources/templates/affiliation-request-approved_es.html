@@ -34,7 +34,8 @@
         <span th:text="${planName}"></span>
     </div>
 
-    <p>Tu membresía se activa cuando registremos tu primer pago.</p>
+    <p th:if="${membershipActive}">Tu membresía ya está activa.</p>
+    <p th:unless="${membershipActive}">Tu membresía se activa cuando registremos tu primer pago.</p>
 
     <th:block th:if="${activationUrl == null}">
         <p><a class="button" th:href="${loginUrl}">Iniciar sesión</a></p>

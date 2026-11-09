@@ -25,6 +25,9 @@ public final class RoleNames {
     /** Granted on self-service affiliation. */
     public static final String MEMBER = "AFILIADO";
 
+    /** Self-registered affiliate whose registration is in progress or in review (V233, hub ADR 0037): own registration only. */
+    public static final String MEMBER_PENDING = "AFILIADO_PENDIENTE";
+
     /** Sales advisor (internally {@code promoter}). */
     public static final String ADVISOR = "ASESOR";
 
