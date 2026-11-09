@@ -16,6 +16,10 @@ import java.util.UUID;
  * {@code lastName} as required, plus optional {@code middleName} and
  * {@code secondLastName}.
  *
+ * <p>{@code password} is optional (hub ADR 0037 §5): without one the user is
+ * created with an unusable password and invited by email with a link to
+ * create it ({@code UserInvitationService}).</p>
+ *
  * <p>{@code documentType} + {@code documentNumber} are now both required
  * (cédula is the canonical identity for persons hub lookups via
  * {@code PersonService.findOrCreate}). RIF is optional.</p>
@@ -26,7 +30,7 @@ public record AdminCreateUserRequest(
         @Size(max = 50) String middleName,
         @NotBlank @Size(max = 50) String lastName,
         @Size(max = 50) String secondLastName,
-        @NotBlank @Size(min = 8, max = 128) String password,
+        @Size(min = 8, max = 128) String password,
         @NotBlank @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
         @NotBlank @Size(max = 20) @com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber String documentNumber,
         @Pattern(regexp = "^[JVEGP]$", message = "{validation.tax_document_type.format}") String taxDocumentType,

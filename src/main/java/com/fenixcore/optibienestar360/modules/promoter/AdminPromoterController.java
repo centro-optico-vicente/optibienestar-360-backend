@@ -6,6 +6,10 @@ import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterCreateRequest
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDashboardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterUpdateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.dto.PromoterWithUserCreateRequest;
+import com.fenixcore.optibienestar360.modules.promoter.service.AdvisorOnboardingService;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.fenixcore.optibienestar360.modules.promoter.service.CommissionsService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromoterDashboardService;
 import com.fenixcore.optibienestar360.modules.promoter.service.PromotersService;
@@ -45,6 +49,7 @@ public class AdminPromoterController {
     private final PromotersService promotersService;
     private final PromoterDashboardService promoterDashboardService;
     private final CommissionsService commissionsService;
+    private final AdvisorOnboardingService advisorOnboardingService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
@@ -75,6 +80,23 @@ public class AdminPromoterController {
     @PreAuthorize("hasAuthority('COMMISSION_VIEW_ALL')")
     public ResponseEntity<List<CommissionPeriodSummaryDto>> commissionsSummary(@PathVariable UUID uuid) {
         return ResponseEntity.ok(commissionsService.periodSummaryFor(uuid));
+    }
+
+    /**
+     * Login (role ASESOR) + advisor profile in one step; without a password the
+     * person is invited by email (hub ADR 0037 §5). Needs both
+     * {@code USER_CREATE} and {@code PROMOTER_CREATE}.
+     */
+    @PostMapping("/with-user")
+    @PreAuthorize("hasAuthority('USER_CREATE') and hasAuthority('PROMOTER_CREATE')")
+    public ResponseEntity<PromoterDto> createWithUser(@Valid @RequestBody PromoterWithUserCreateRequest request,
+                                                      @AuthenticationPrincipal CustomUserDetails actor) {
+        PromoterDto created = advisorOnboardingService.createWithUser(request, actor.getUuid());
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .replacePath("/v1/admin/advisors/{uuid}")
+                .buildAndExpand(created.uuid())
+                .toUri();
+        return ResponseEntity.created(location).body(created);
     }
 
     @PostMapping

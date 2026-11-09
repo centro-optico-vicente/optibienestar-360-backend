@@ -167,7 +167,11 @@ public class UserService {
     @Transactional
     @Auditable(entity = "user", action = AuditAction.CREATE)
     public UserDto createUser(AdminCreateUserRequest request, UUID actorUuid) {
-        return create(request, passwordEncoder.encode(request.password()), actorUuid);
+        // No password: an unusable random one (64 hex chars, BCrypt caps at 72 bytes); the caller invites the user.
+        String rawPassword = request.password() == null || request.password().isBlank()
+                ? UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "")
+                : request.password();
+        return create(request, passwordEncoder.encode(rawPassword), actorUuid);
     }
 
     /**
