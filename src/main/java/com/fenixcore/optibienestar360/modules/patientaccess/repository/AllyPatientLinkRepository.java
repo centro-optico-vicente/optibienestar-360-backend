@@ -27,15 +27,15 @@ public interface AllyPatientLinkRepository extends JpaRepository<AllyPatientLink
     @Query(value = "SELECT l FROM AllyPatientLink l JOIN FETCH l.member m JOIN FETCH m.person p " +
                    "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' " +
                    "AND (:q IS NULL OR :q = '' OR " +
-                   "function('immutable_unaccent', lower(p.fullName)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR " +
-                   "function('immutable_unaccent', lower(p.documentNumber)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%')))) " +
+                   "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
+                   "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
                    "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo) " +
                    "ORDER BY l.createdAt DESC",
            countQuery = "SELECT COUNT(l) FROM AllyPatientLink l JOIN l.member m JOIN m.person p " +
                         "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' " +
                         "AND (:q IS NULL OR :q = '' OR " +
-                        "function('immutable_unaccent', lower(p.fullName)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR " +
-                        "function('immutable_unaccent', lower(p.documentNumber)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%')))) " +
+                        "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
+                        "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
                         "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo)")
     Page<AllyPatientLink> findActiveByDoctor(@Param("doctorPersonId") Long doctorPersonId,
                                              @Param("q") String q,

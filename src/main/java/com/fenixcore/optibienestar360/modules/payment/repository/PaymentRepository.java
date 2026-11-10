@@ -55,15 +55,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "  AND (p.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
            "    OR p.beneficiaryPerson.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
            "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)) " +
-           "  AND (function('immutable_unaccent', lower(coalesce(p.adminNotes, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "    OR function('immutable_unaccent', lower(coalesce(p.supportFileName, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "    OR function('immutable_unaccent', lower(coalesce(p.beneficiaryDocument, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "    OR function('immutable_unaccent', lower(coalesce(p.beneficiaryContractNumber, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "    OR function('immutable_unaccent', lower(p.person.fullName)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "    OR function('immutable_unaccent', lower(coalesce(bp.fullName, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
+           "  AND (cast(function('immutable_unaccent', lower(coalesce(p.adminNotes, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.supportFileName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.beneficiaryDocument, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.beneficiaryContractNumber, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(p.person.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(bp.fullName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
            "    OR EXISTS (SELECT 1 FROM PaymentLine l WHERE l.payment = p AND l.active = true " +
-           "         AND (function('immutable_unaccent', lower(coalesce(l.referenceNumber, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) " +
-           "           OR function('immutable_unaccent', lower(coalesce(l.identification, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%')))))) " +
+           "         AND (cast(function('immutable_unaccent', lower(coalesce(l.referenceNumber, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "           OR cast(function('immutable_unaccent', lower(coalesce(l.identification, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)))) " +
            "  AND (:dateFrom IS NULL OR p.paymentDate >= :dateFrom) " +
            "  AND (:dateTo IS NULL OR p.paymentDate < :dateTo)")
     Page<Payment> findOwnByUserUuidAndSearch(@Param("userUuid") UUID userUuid, @Param("q") String q,

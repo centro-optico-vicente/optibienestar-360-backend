@@ -67,8 +67,8 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
                   WHERE au.user.uuid = :userUuid AND au.active = true
               )
               AND (
-                  function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) LIKE function('immutable_unaccent', LOWER(CONCAT('%', :search, '%')))
-                  OR function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) LIKE function('immutable_unaccent', LOWER(CONCAT('%', :search, '%')))
+                  cast(function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
+                  OR cast(function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
                   OR LOWER(CAST(bu.membership.member.uuid AS string)) = LOWER(:search)
               )
             """)
@@ -86,8 +86,8 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
                   WHERE au.user.uuid = :userUuid AND au.active = true
               )
               AND (:search = '' OR (
-                  function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) LIKE function('immutable_unaccent', LOWER(CONCAT('%', :search, '%')))
-                  OR function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) LIKE function('immutable_unaccent', LOWER(CONCAT('%', :search, '%')))
+                  cast(function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
+                  OR cast(function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
                   OR LOWER(CAST(bu.membership.member.uuid AS string)) = LOWER(:search)
               ))
               AND (:dateFrom IS NULL OR bu.usageDate >= :dateFrom)
@@ -146,10 +146,10 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
               AND (:dateFrom IS NULL OR bu.usageDate >= :dateFrom)
               AND (:dateTo IS NULL OR bu.usageDate <= :dateTo)
               AND (:q = '' OR
-                   function('immutable_unaccent', lower(coalesce(p.name, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR
-                   function('immutable_unaccent', lower(bu.productCategory.name)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR
-                   function('immutable_unaccent', lower(bu.ally.name)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR
-                   function('immutable_unaccent', lower(coalesce(bperson.fullName, ''))) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))))
+                   cast(function('immutable_unaccent', lower(coalesce(p.name, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(bu.productCategory.name)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(bu.ally.name)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(coalesce(bperson.fullName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string))
             """)
     Page<BenefitUsage> findByMemberUserUuidFiltered(@Param("userUuid") UUID userUuid,
                                                     @Param("holderOnly") boolean holderOnly,

@@ -130,7 +130,7 @@ public class GenericRecordResolverService {
 
         // 2. Free-text search on the entity's 'name' attribute, if present
         if (trimmedQ != null && hasAttribute(matchingEntityType, "name")) {
-            hql.append(" AND function('immutable_unaccent', LOWER(e.name)) LIKE function('immutable_unaccent', LOWER(:q))");
+            hql.append(" AND cast(function('immutable_unaccent', LOWER(e.name)) as string) LIKE cast(function('immutable_unaccent', LOWER(:q)) as string)");
         }
 
         // 3. Security for 'users' table: Hide users with SYSTEM role if actor is not SYSTEM

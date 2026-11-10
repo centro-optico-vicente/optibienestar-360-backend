@@ -63,8 +63,8 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
               AND p.rank.hierarchyLevel > :minLevel
               AND (:maxLevel IS NULL OR p.rank.hierarchyLevel <= :maxLevel)
               AND (:q IS NULL OR :q = '' OR
-                   function('immutable_unaccent', lower(p.displayName)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))) OR
-                   function('immutable_unaccent', lower(p.referralCode)) LIKE function('immutable_unaccent', lower(concat('%', :q, '%'))))
+                   cast(function('immutable_unaccent', lower(p.displayName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(p.referralCode)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string))
             ORDER BY p.rank.hierarchyLevel, p.displayName
             """)
     List<Promoter> findEligibleSupervisors(@Param("minLevel") int minLevel, @Param("maxLevel") Integer maxLevel,
