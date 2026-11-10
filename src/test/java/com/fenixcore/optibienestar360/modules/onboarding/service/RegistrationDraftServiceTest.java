@@ -1,9 +1,16 @@
 package com.fenixcore.optibienestar360.modules.onboarding.service;
 
+import com.fenixcore.optibienestar360.common.storage.AttachedFile;
+import com.fenixcore.optibienestar360.common.storage.AttachedFileRepository;
+import com.fenixcore.optibienestar360.common.storage.FileVisibility;
+import com.fenixcore.optibienestar360.common.storage.StoredFileCleaner;
+import com.fenixcore.optibienestar360.common.storage.StoredObject;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.repository.AffiliationRequestRepository;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyDraftAccess;
@@ -12,6 +19,8 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.service.TokenBlacklistService;
+import com.fenixcore.optibienestar360.modules.media.MediaTables;
+import com.fenixcore.optibienestar360.modules.media.entity.MediaItem;
 import com.fenixcore.optibienestar360.modules.media.repository.MediaItemRepository;
 import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -21,6 +30,8 @@ import com.fenixcore.optibienestar360.security.RoleNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
@@ -40,6 +51,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +70,9 @@ class RegistrationDraftServiceTest {
     @Mock private PromoterRepository promoterRepository;
     @Mock private UserRoleRepository userRoleRepository;
     @Mock private MediaItemRepository mediaItemRepository;
+    @Mock private AttachedFileRepository attachedFileRepository;
+    @Mock private AllyAgreementRepository allyAgreementRepository;
+    @Mock private StoredFileCleaner storedFileCleaner;
     @Mock private TokenBlacklistService tokenBlacklist;
     @Mock private PlatformTransactionManager transactionManager;
 
@@ -70,8 +85,8 @@ class RegistrationDraftServiceTest {
     @BeforeEach
     void setUp() {
         service = new RegistrationDraftService(affiliationRequests, allyRepository, allyUserRepository,
-                allyDraftAccess, promoterRepository, userRoleRepository, mediaItemRepository, tokenBlacklist,
-                transactionManager);
+                allyDraftAccess, promoterRepository, userRoleRepository, mediaItemRepository, attachedFileRepository,
+                allyAgreementRepository, storedFileCleaner, tokenBlacklist, transactionManager);
         person = new Person();
         person.setId(1L);
         person.setUuid(UUID.randomUUID());
@@ -94,6 +109,8 @@ class RegistrationDraftServiceTest {
         advisorUser.setId(50L);
         advisorUser.setUuid(UUID.randomUUID());
     }
+
+    @Captor private ArgumentCaptor<java.util.Collection<StoredObject>> storedCaptor;
 
     private void holdsOnly(String roleName) {
         Role role = new Role();
@@ -288,6 +305,100 @@ class RegistrationDraftServiceTest {
         assertThatThrownBy(() -> service.discardAdvisorAllyDraft(advisorUser.getUuid(), allyUuid))
                 .isInstanceOf(NoSuchElementException.class);
         verify(allyRepository, never()).delete(any(Ally.class));
+    }
+
+    // ─── Stored files of a discarded draft ──────────────────────────────────
+
+    @Test
+    void discardOwnMemberDraft_schedulesTheDeletionOfThePaymentProof() {
+        AffiliationRequest request = draft(user, false);
+        request.setPaymentSupportFileUrl("confidential/affiliation_requests/abc/proof.pdf");
+        when(affiliationRequests.findFirstByUser_UuidOrderByCreatedAtDesc(user.getUuid())).thenReturn(Optional.of(request));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+        holdsOnly(RoleNames.MEMBER_PENDING);
+
+        service.discardOwnMemberDraft(user.getUuid());
+
+        verify(storedFileCleaner).deleteAfterCommit(storedCaptor.capture());
+        assertThat(storedCaptor.getValue()).containsExactly(
+                new StoredObject(FileVisibility.CONFIDENTIAL, "confidential/affiliation_requests/abc/proof.pdf"));
+    }
+
+    @Test
+    void discardAssistedAffiliationDraft_withoutAProof_schedulesNothingToDelete() {
+        AffiliationRequest request = draft(null, true);
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        service.discardAssistedAffiliationDraft(advisorUser.getUuid(), request.getUuid());
+
+        verify(storedFileCleaner).deleteAfterCommit(storedCaptor.capture());
+        assertThat(storedCaptor.getValue()).isEmpty();
+    }
+
+    @Test
+    void discardAdvisorAllyDraft_schedulesTheGalleryAndAgreementFilesButNotExternalLinks() {
+        Ally ally = allyDraft(Ally.RegistrationChannel.ADVISOR);
+        AttachedFile file = new AttachedFile();
+        file.setVisibility(FileVisibility.PUBLIC);
+        file.setFileKey("public/media_items/m1/photo.png");
+        MediaItem uploaded = new MediaItem();
+        uploaded.setAttachedFile(file);
+        uploaded.setPublicKey("public/media_items/m1/photo.png");
+        MediaItem external = new MediaItem();
+        external.setExternalUrl("https://example.com/logo.png");
+        AllyAgreement signed = new AllyAgreement();
+        signed.setSignedPdfUrl("confidential/ally_agreements/a1/agreement.pdf");
+        AllyAgreement linked = new AllyAgreement();
+        linked.setSignedPdfUrl("https://example.com/agreement.pdf");
+        when(allyDraftAccess.requireOwnDraft(ally.getUuid(), advisorUser.getUuid())).thenReturn(ally);
+        when(allyRepository.findForUpdateByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(allyUserRepository.findByAllyIdAndActiveTrue(eq(ally.getId()), any(Sort.class))).thenReturn(List.of());
+        when(mediaItemRepository.findByOwnerTableAndOwnerUuidAndActiveTrueOrderBySortOrderAscIdAsc(MediaTables.ALLIES, ally.getUuid()))
+                .thenReturn(List.of(uploaded, external));
+        when(allyAgreementRepository.findByAllyId(ally.getId())).thenReturn(List.of(signed, linked));
+
+        service.discardAdvisorAllyDraft(advisorUser.getUuid(), ally.getUuid());
+
+        verify(storedFileCleaner).deleteAfterCommit(storedCaptor.capture());
+        assertThat(storedCaptor.getValue()).containsExactlyInAnyOrder(
+                new StoredObject(FileVisibility.PUBLIC, "public/media_items/m1/photo.png"),
+                new StoredObject(FileVisibility.CONFIDENTIAL, "confidential/ally_agreements/a1/agreement.pdf"));
+        verify(attachedFileRepository).deleteAll(List.of(file));
+    }
+
+    @Test
+    void discardOwnAllyRegistration_ofASubmittedRequest_neverTouchesStoredFiles() {
+        Ally ally = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        ally.setRegistrationSubmittedAt(Instant.now());
+        AllyUser membership = new AllyUser();
+        membership.setAllyRole(AllyUser.AllyRole.OWNER);
+        membership.setUser(user);
+        when(allyUserRepository.findActiveByAllyUuidAndUserUuid(ally.getUuid(), user.getUuid())).thenReturn(Optional.of(membership));
+        when(allyRepository.findForUpdateByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+
+        assertThatThrownBy(() -> service.discardOwnAllyRegistration(ally.getUuid(), user.getUuid()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(storedFileCleaner, never()).deleteAfterCommit(any());
+        verify(attachedFileRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    void purgeAbandoned_schedulesTheFilesOfEachDiscardedDraft() {
+        Instant cutoff = Instant.now().minus(30, ChronoUnit.DAYS);
+        AffiliationRequest abandoned = draft(null, true);
+        abandoned.setPaymentSupportFileUrl("confidential/affiliation_requests/x/proof.jpg");
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(abandoned));
+        when(affiliationRequests.findForUpdateByUuid(abandoned.getUuid())).thenReturn(Optional.of(abandoned));
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
+                eq(Ally.RegistrationStatus.PENDING), anyList(), eq(cutoff))).thenReturn(List.of());
+
+        service.purgeAbandoned(cutoff, cutoff);
+
+        verify(storedFileCleaner, times(1)).deleteAfterCommit(storedCaptor.capture());
+        assertThat(storedCaptor.getValue()).containsExactly(
+                new StoredObject(FileVisibility.CONFIDENTIAL, "confidential/affiliation_requests/x/proof.jpg"));
     }
 
     // ─── Abandoned drafts ───────────────────────────────────────────────────

@@ -1,10 +1,17 @@
 package com.fenixcore.optibienestar360.modules.onboarding.service;
 
+import com.fenixcore.optibienestar360.common.storage.AttachedFile;
+import com.fenixcore.optibienestar360.common.storage.AttachedFileRepository;
+import com.fenixcore.optibienestar360.common.storage.FileVisibility;
+import com.fenixcore.optibienestar360.common.storage.StoredFileCleaner;
+import com.fenixcore.optibienestar360.common.storage.StoredObject;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.repository.AffiliationRequestRepository;
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyAgreement;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser.AllyRole;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyDraftAccess;
@@ -13,6 +20,7 @@ import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.service.TokenBlacklistService;
 import com.fenixcore.optibienestar360.modules.media.MediaTables;
+import com.fenixcore.optibienestar360.modules.media.entity.MediaItem;
 import com.fenixcore.optibienestar360.modules.media.repository.MediaItemRepository;
 import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
@@ -30,6 +38,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -72,13 +81,19 @@ public class RegistrationDraftService {
     private final PromoterRepository promoterRepository;
     private final UserRoleRepository userRoleRepository;
     private final MediaItemRepository mediaItemRepository;
+    private final AttachedFileRepository attachedFileRepository;
+    private final AllyAgreementRepository allyAgreementRepository;
+    private final StoredFileCleaner storedFileCleaner;
     private final TokenBlacklistService tokenBlacklist;
     private final TransactionTemplate perItemTransaction;
 
     public RegistrationDraftService(AffiliationRequestRepository affiliationRequests, AllyRepository allyRepository,
                                     AllyUserRepository allyUserRepository, AllyDraftAccess allyDraftAccess,
                                     PromoterRepository promoterRepository, UserRoleRepository userRoleRepository,
-                                    MediaItemRepository mediaItemRepository, TokenBlacklistService tokenBlacklist,
+                                    MediaItemRepository mediaItemRepository,
+                                    AttachedFileRepository attachedFileRepository,
+                                    AllyAgreementRepository allyAgreementRepository,
+                                    StoredFileCleaner storedFileCleaner, TokenBlacklistService tokenBlacklist,
                                     PlatformTransactionManager transactionManager) {
         this.affiliationRequests = affiliationRequests;
         this.allyRepository = allyRepository;
@@ -87,6 +102,9 @@ public class RegistrationDraftService {
         this.promoterRepository = promoterRepository;
         this.userRoleRepository = userRoleRepository;
         this.mediaItemRepository = mediaItemRepository;
+        this.attachedFileRepository = attachedFileRepository;
+        this.allyAgreementRepository = allyAgreementRepository;
+        this.storedFileCleaner = storedFileCleaner;
         this.tokenBlacklist = tokenBlacklist;
         this.perItemTransaction = new TransactionTemplate(transactionManager);
         this.perItemTransaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -326,24 +344,43 @@ public class RegistrationDraftService {
         }
     }
 
-    /** Deletes the DRAFT (its log rows go with it) and, when it came with a login, tombstones that login. */
+    /**
+     * Deletes the DRAFT (its log rows go with it) and, when it came with a login, tombstones that login. The payment
+     * proof stored for the draft is deleted from the object store once the transaction commits.
+     */
     private void removeMemberDraft(AffiliationRequest request) {
         User user = request.getUser();
+        List<StoredObject> stored = memberDraftObjects(request);
         affiliationRequests.delete(request);
         affiliationRequests.flush();
         if (user != null) {
             tombstoneLogin(user, true, RoleNames.MEMBER_PENDING);
         }
+        storedFileCleaner.deleteAfterCommit(stored);
     }
 
-    /** Deletes the ally (hours, types and member links cascade in the database) and its gallery rows; tombstones its pending logins. */
+    /**
+     * Deletes the ally (hours, types and member links cascade in the database), its gallery rows and their stored
+     * files, and tombstones its pending logins. Gallery images and signed agreement files are deleted from the object
+     * store once the transaction commits.
+     */
     private void removeAllyDraft(Ally ally) {
         List<User> logins = allyUserRepository.findByAllyIdAndActiveTrue(ally.getId(), Sort.unsorted()).stream()
                 .map(AllyUser::getUser)
                 .toList();
         Person holder = ally.getHolderPerson();
-        mediaItemRepository.deleteAll(mediaItemRepository
-                .findByOwnerTableAndOwnerUuidAndActiveTrueOrderBySortOrderAscIdAsc(MediaTables.ALLIES, ally.getUuid()));
+        List<MediaItem> gallery = mediaItemRepository
+                .findByOwnerTableAndOwnerUuidAndActiveTrueOrderBySortOrderAscIdAsc(MediaTables.ALLIES, ally.getUuid());
+        List<StoredObject> stored = allyDraftObjects(ally, gallery);
+        List<AttachedFile> galleryFiles = gallery.stream()
+                .map(MediaItem::getAttachedFile)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        mediaItemRepository.deleteAll(gallery);
+        mediaItemRepository.flush();
+        // The stored file rows of the gallery go once no image references them.
+        attachedFileRepository.deleteAll(galleryFiles);
         allyRepository.delete(ally);
         allyRepository.flush();
         for (User user : logins) {
@@ -352,6 +389,42 @@ public class RegistrationDraftService {
             boolean createdWithLogin = holder != null && createdTogether(user, holder);
             tombstoneLogin(user, createdWithLogin, RoleNames.ALLY_PENDING);
         }
+        storedFileCleaner.deleteAfterCommit(stored);
+    }
+
+    /** The object keys owned by an affiliation draft: the payment proof it carries (private bucket). */
+    static List<StoredObject> memberDraftObjects(AffiliationRequest request) {
+        List<StoredObject> stored = new ArrayList<>();
+        String proofKey = request.getPaymentSupportFileUrl();
+        if (proofKey != null && !proofKey.isBlank()) {
+            stored.add(new StoredObject(FileVisibility.CONFIDENTIAL, proofKey));
+        }
+        return stored;
+    }
+
+    /**
+     * The object keys owned by an ally draft: its gallery images (the stored file's own bucket, or the public bucket
+     * for an image with only a public key) and the signed support file of each of its agreements (private bucket).
+     * External-link images own no object.
+     */
+    private List<StoredObject> allyDraftObjects(Ally ally, List<MediaItem> gallery) {
+        List<StoredObject> stored = new ArrayList<>();
+        for (MediaItem item : gallery) {
+            AttachedFile file = item.getAttachedFile();
+            if (file != null) {
+                stored.add(new StoredObject(file.getVisibility(), file.getFileKey()));
+            } else if (item.getPublicKey() != null) {
+                stored.add(new StoredObject(FileVisibility.PUBLIC, item.getPublicKey()));
+            }
+        }
+        for (AllyAgreement agreement : allyAgreementRepository.findByAllyId(ally.getId())) {
+            String key = agreement.getSignedPdfUrl();
+            // signed_pdf_url may also hold an external link: only an object key owns a stored file.
+            if (key != null && !key.isBlank() && !key.contains("://")) {
+                stored.add(new StoredObject(FileVisibility.CONFIDENTIAL, key));
+            }
+        }
+        return stored;
     }
 
     private static boolean createdTogether(User user, Person person) {
