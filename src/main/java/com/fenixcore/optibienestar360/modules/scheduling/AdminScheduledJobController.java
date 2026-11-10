@@ -66,8 +66,10 @@ public class AdminScheduledJobController {
             @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<ScheduledJobDto> page = jobsService.list(pageable, filter, q, includeInactive);
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<ScheduledJobDto> page = jobsService.list(pageable, filter, q, includeInactive, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSort(pageable)));
     }
 

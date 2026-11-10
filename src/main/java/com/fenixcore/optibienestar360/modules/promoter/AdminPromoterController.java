@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,6 +61,15 @@ public class AdminPromoterController {
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
         Page<PromoterDto> page = promotersService.list(pageable, filter, q, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, promotersService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(promotersService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

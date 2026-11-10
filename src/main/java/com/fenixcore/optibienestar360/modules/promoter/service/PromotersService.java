@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
@@ -131,6 +133,18 @@ public class PromotersService {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
         return repository.findAll(spec, resolvedPageable).map(mapper::toDto);
+    }
+
+    /**
+     * Lightweight advisor options for selects/typeaheads: label = display name,
+     * code = referral code. {@code q} is accent- and case-insensitive over both;
+     * {@code currentValues} are always included so a selected advisor keeps its label.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Promoter> spec = activeOnly()
+                .and(SearchSpecifications.acrossFields(q, "displayName", "referralCode"));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                Promoter::getUuid, Promoter::getReferralCode, Promoter::getDisplayName, Promoter::isActive);
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */

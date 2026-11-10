@@ -114,6 +114,12 @@ public class MemberDocumentService {
 
     /** As above with an optional accent/case-insensitive free-text {@code q} over file name and document type. */
     public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, String q, Pageable pageable) {
+        return list(memberUuid, currentUserUuid, hasViewAll, q, null, null, pageable);
+    }
+
+    /** Same plus an inclusive Caracas-day range on the upload date ({@code createdAt}). */
+    public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, String q,
+                                        java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable) {
         Member member = findMember(memberUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "member_document", pageable);
@@ -122,6 +128,7 @@ public class MemberDocumentService {
                 .filter(d -> hasViewAll || visibleTo(d, currentUserUuid))
                 .filter(TextSearch.<MemberDocument>matching(q,
                         MemberDocument::getFileName, d -> d.getDocumentType() == null ? null : d.getDocumentType().name()))
+                .filter(d -> com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantIn(dateFrom, dateTo).test(d.getCreatedAt()))
                 .map(this::toDto)
                 .toList();
     }

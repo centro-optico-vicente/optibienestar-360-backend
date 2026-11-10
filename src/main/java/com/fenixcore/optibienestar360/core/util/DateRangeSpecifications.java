@@ -89,4 +89,25 @@ public final class DateRangeSpecifications {
             return cb.and(preds.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
     }
+
+    // ─── In-memory variants (small, already-loaded sub-lists such as detail-page tabs) ─────────
+
+    /** In-memory twin of {@link #instantBetween}: true when {@code value} falls in the Caracas-day range. */
+    public static java.util.function.Predicate<Instant> instantIn(LocalDate dateFrom, LocalDate dateTo) {
+        return value -> {
+            if (dateFrom == null && dateTo == null) return true;
+            if (value == null) return false;
+            return (dateFrom == null || !value.isBefore(dateFrom.atStartOfDay(AppTimeZone.ZONE).toInstant()))
+                    && (dateTo == null || value.isBefore(dateTo.plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant()));
+        };
+    }
+
+    /** In-memory twin of {@link #dateBetween}: inclusive range over a {@link LocalDate}. */
+    public static java.util.function.Predicate<LocalDate> dateIn(LocalDate dateFrom, LocalDate dateTo) {
+        return value -> {
+            if (dateFrom == null && dateTo == null) return true;
+            if (value == null) return false;
+            return (dateFrom == null || !value.isBefore(dateFrom)) && (dateTo == null || !value.isAfter(dateTo));
+        };
+    }
 }
