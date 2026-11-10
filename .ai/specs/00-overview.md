@@ -24,6 +24,7 @@
 | 16 | [Auditoría](16-audit.md) | Login, cambios de datos, reportes |
 | 17 | [Marca en documentos](17-brand-documents.md) | Logo, fuentes, colores y pie en reportes/PDF/emails, con defaults del classpath si la organización no configuró |
 | 18 | [Contratos (T&C)](18-terms-acceptance.md) | Variables de plantilla (montos sin tasa congelada), aceptación por convenio de aliado, historial y diferencias |
+| 19 | [Búsqueda y filtros de listados](19-list-search-filters.md) | `q` sin tildes, filtros maestros, rangos de fecha, reglas de `LEFT JOIN`/`EXISTS` y de HQL |
 
 ## Specs cross-stack relevantes (hub)
 
