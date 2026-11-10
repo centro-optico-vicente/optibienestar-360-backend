@@ -33,6 +33,7 @@ public class MyAllyLicensesService {
     private final AllyUserRepository allyUserRepository;
     private final AllyLicensesService licensesService;
     private final LicensingBodyRepository licensingBodyRepository;
+    private final AllyDraftAccess draftAccess;
 
     public List<AllyLicenseDto> list(UUID allyUuid, UUID actorUserUuid) {
         requireMembership(allyUuid, actorUserUuid, false);
@@ -65,7 +66,8 @@ public class MyAllyLicensesService {
     private void requireMembership(UUID allyUuid, UUID actorUserUuid, boolean ownerOnly) {
         AllyUser membership = actorUserUuid == null ? null
                 : allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid).orElse(null);
-        if (membership == null || (ownerOnly && membership.getAllyRole() != AllyRole.OWNER)) {
+        if ((membership == null || (ownerOnly && membership.getAllyRole() != AllyRole.OWNER))
+                && draftAccess.findOwnDraft(allyUuid, actorUserUuid).isEmpty()) {
             throw new AccessDeniedException("ally.profile.not_allowed");
         }
     }

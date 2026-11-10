@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationDraftStartRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -20,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -53,7 +55,8 @@ import java.util.UUID;
  *   ({@code personal | plan | payment | family}) saves a step
  *   ({@code AFFILIATION_REQUEST_DRAFT_UPDATE_ASSISTED}) and {@code POST /drafts/{uuid}/submit}
  *   sends it to review ({@code AFFILIATION_REQUEST_DRAFT_SUBMIT_ASSISTED}). Another
- *   advisor's draft is a 404. The one-shot {@code POST} above keeps working.</li>
+ *   advisor's draft is a 404; {@code DELETE /drafts/{uuid}} discards the caller's own draft
+ *   ({@code AFFILIATION_REQUEST_DRAFT_DISCARD_ASSISTED}). The one-shot {@code POST} above keeps working.</li>
  * </ul>
  * {@code /v1/me/advisor/affiliation-requests} is the primary path;
  * {@code /v1/advisors/me/...} is the secondary path (not deprecated).
@@ -65,6 +68,7 @@ import java.util.UUID;
 public class AdvisorAffiliationRequestController {
 
     private final AffiliationRequestService service;
+    private final RegistrationDraftService draftService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_OWN')")
@@ -141,5 +145,13 @@ public class AdvisorAffiliationRequestController {
     public ResponseEntity<AffiliationRegistrationDto> submitDraft(@AuthenticationPrincipal CustomUserDetails actor,
                                                                   @PathVariable UUID uuid) {
         return ResponseEntity.ok(service.submitAssisted(actor.getUuid(), uuid));
+    }
+
+    @DeleteMapping("/drafts/{uuid}")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_DISCARD_ASSISTED')")
+    public ResponseEntity<Void> discardDraft(@AuthenticationPrincipal CustomUserDetails actor,
+                                             @PathVariable UUID uuid) {
+        draftService.discardAssistedAffiliationDraft(actor.getUuid(), uuid);
+        return ResponseEntity.noContent().build();
     }
 }

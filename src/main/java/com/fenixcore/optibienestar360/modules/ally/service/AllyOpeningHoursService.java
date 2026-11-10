@@ -40,6 +40,7 @@ public class AllyOpeningHoursService {
     private final AllyRepository allyRepository;
     private final AllyOpeningHourRepository hourRepository;
     private final AllyUserRepository allyUserRepository;
+    private final AllyDraftAccess draftAccess;
 
     public List<OpeningHourDto> get(UUID allyUuid) {
         return toDtos(hourRepository.findWeek(findAlly(allyUuid).getId()));
@@ -100,7 +101,8 @@ public class AllyOpeningHoursService {
     private void requireMembership(UUID allyUuid, UUID actorUserUuid, boolean ownerOnly) {
         AllyUser membership = actorUserUuid == null ? null
                 : allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid).orElse(null);
-        if (membership == null || (ownerOnly && membership.getAllyRole() != AllyRole.OWNER)) {
+        if ((membership == null || (ownerOnly && membership.getAllyRole() != AllyRole.OWNER))
+                && draftAccess.findOwnDraft(allyUuid, actorUserUuid).isEmpty()) {
             throw new AccessDeniedException("ally.opening_hours.not_allowed");
         }
     }

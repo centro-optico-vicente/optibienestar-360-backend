@@ -280,7 +280,7 @@ public class Ally extends BaseEntity {
     public enum RegistrationStatus { PENDING, APPROVED, REJECTED }
 
     /** Where the ally came from (ADR 0036). */
-    public enum RegistrationChannel { ADMIN, SELF_SERVICE, IMPORT }
+    public enum RegistrationChannel { ADMIN, SELF_SERVICE, IMPORT, ADVISOR }
 
     // ─── Professions (ally_professions pivot) ────────────────────────────────
 

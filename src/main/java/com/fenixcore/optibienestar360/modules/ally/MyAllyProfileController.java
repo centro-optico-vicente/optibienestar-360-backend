@@ -23,7 +23,10 @@ import java.util.UUID;
  * (role {@code ALIADO_PENDIENTE}) completes it while staff review the
  * request; an approved ally keeps it up to date. Reading needs
  * {@code ALLY_VIEW_OWN}, writing {@code ALLY_UPDATE_OWN}; both are also
- * membership based (any member reads, the OWNER writes).
+ * membership based (any member reads, the OWNER writes). The advisor that
+ * captured an ally (hub ADR 0037 §5) reaches the same endpoints while the
+ * request is still a draft, with {@code ALLY_DRAFT_VIEW_ASSISTED} /
+ * {@code ALLY_DRAFT_UPDATE_ASSISTED}; the service checks that the draft is theirs.
  */
 @RestController
 @RequestMapping({"/v1/me/allies/{allyUuid}/profile", "/v1/allies/me/{allyUuid}/profile"})
@@ -33,14 +36,14 @@ public class MyAllyProfileController {
     private final MyAllyProfileService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ALLY_VIEW_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_VIEW_OWN', 'ALLY_DRAFT_VIEW_ASSISTED')")
     public ResponseEntity<MyAllyProfileDto> get(@PathVariable UUID allyUuid,
                                                 @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(service.get(allyUuid, actor.getUuid()));
     }
 
     @PutMapping
-    @PreAuthorize("hasAuthority('ALLY_UPDATE_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_UPDATE_OWN', 'ALLY_DRAFT_UPDATE_ASSISTED')")
     public ResponseEntity<MyAllyProfileDto> update(@PathVariable UUID allyUuid,
                                                    @Valid @RequestBody MyAllyProfileUpdateRequest request,
                                                    @AuthenticationPrincipal CustomUserDetails actor) {
