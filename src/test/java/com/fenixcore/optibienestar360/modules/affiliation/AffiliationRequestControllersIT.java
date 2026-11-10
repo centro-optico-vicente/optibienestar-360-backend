@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
+import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +74,9 @@ class AffiliationRequestControllersIT {
     @MockitoBean
     private AffiliationRequestService service;
 
+    @MockitoBean
+    private RegistrationDraftService draftService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -103,7 +108,7 @@ class AffiliationRequestControllersIT {
     private static Page<AffiliationRequestListItemDto> onePage() {
         return new PageImpl<>(List.of(new AffiliationRequestListItemDto(UUID.randomUUID(), "María Pérez", "V",
                 "12345678", "maria@example.com", null, null, null, "SELF_SERVICE", "PENDING",
-                Instant.parse("2026-10-20T14:00:00Z"), null)));
+                Instant.parse("2026-10-20T14:00:00Z"), null, false, null, null)));
     }
 
     // ─── Public submit ──────────────────────────────────────────────────────
@@ -302,5 +307,50 @@ class AffiliationRequestControllersIT {
     void advisorList_primaryPath_anonymous_is401() throws Exception {
         mockMvc.perform(get("/v1/me/advisor/affiliation-requests"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ─── Retention of drafts ────────────────────────────────────────────────
+
+    @Test
+    void adminRetain_requiresDraftRetain_and_after_submit_is422() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        String body = "{\"retain\":true,\"note\":\"open negotiation\"}";
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/retain", uuid).with(principal("AFFILIATION_REQUEST_VIEW_ALL"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        verify(draftService, never()).retainAffiliationDraft(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
+
+        when(draftService.retainAffiliationDraft(any(), eq(uuid), eq(true), eq("open negotiation")))
+                .thenReturn(new DraftRetentionDto(uuid, true, "open negotiation", Instant.parse("2026-11-09T12:00:00Z")));
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/retain", uuid).with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.retainFromCleanup").value(true));
+
+        when(draftService.retainAffiliationDraft(any(), eq(uuid), eq(false), any()))
+                .thenThrow(new IllegalArgumentException("affiliation_request.retain.invalid_state"));
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/retain", uuid).with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"retain\":false}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void advisorRetain_requiresRetainAssisted_andNeedsTheRetainFlag() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        mockMvc.perform(put("/v1/me/advisor/affiliation-requests/drafts/{uuid}/retain", uuid).with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"retain\":true}"))
+                .andExpect(status().isForbidden());
+
+        when(draftService.retainAdvisorAffiliationDraft(any(), eq(uuid), eq(true), isNull()))
+                .thenReturn(new DraftRetentionDto(uuid, true, null, null));
+        mockMvc.perform(put("/v1/me/advisor/affiliation-requests/drafts/{uuid}/retain", uuid)
+                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"retain\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/v1/me/advisor/affiliation-requests/drafts/{uuid}/retain", uuid)
+                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }

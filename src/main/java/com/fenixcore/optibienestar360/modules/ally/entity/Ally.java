@@ -272,6 +272,21 @@ public class Ally extends BaseEntity {
     @Column(name = "registration_submitted_at")
     private Instant registrationSubmittedAt;
 
+    /** Draft held open from the abandoned-draft cleanup (V237); only meaningful while the registration is a draft. */
+    @Column(name = "retain_from_cleanup", nullable = false)
+    private boolean retainFromCleanup;
+
+    /** Optional reason of the retention (max 200); null when not retained. */
+    @Column(name = "retain_note", length = 200)
+    private String retainNote;
+
+    /** User who set the retention. */
+    @Column(name = "retained_by")
+    private java.util.UUID retainedBy;
+
+    @Column(name = "retained_at")
+    private Instant retainedAt;
+
     public boolean isApproved() {
         return registrationStatus == RegistrationStatus.APPROVED;
     }

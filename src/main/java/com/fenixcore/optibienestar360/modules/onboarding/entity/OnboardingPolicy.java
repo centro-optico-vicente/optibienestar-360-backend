@@ -65,6 +65,14 @@ public class OnboardingPolicy extends BaseAuditEntity {
     @Column(name = "allow_ally_self_registration", nullable = false)
     private boolean allowAllySelfRegistration = true;
 
+    /** Days without changes before an abandoned affiliation draft is discarded (V237), at least 1. */
+    @Column(name = "member_draft_retention_days", nullable = false)
+    private int memberDraftRetentionDays = 15;
+
+    /** Days without changes before an abandoned ally draft is discarded (V237), at least 1. */
+    @Column(name = "ally_draft_retention_days", nullable = false)
+    private int allyDraftRetentionDays = 30;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "member_approval_mode", nullable = false, length = 30)
     private MemberApprovalMode memberApprovalMode = MemberApprovalMode.MANUAL;

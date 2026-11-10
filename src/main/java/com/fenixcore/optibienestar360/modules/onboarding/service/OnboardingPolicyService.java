@@ -29,6 +29,9 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class OnboardingPolicyService {
 
+    static final int MIN_RETENTION_DAYS = 1;
+    static final int MAX_RETENTION_DAYS = 365;
+
     private final OnboardingPolicyRepository repository;
 
     public OnboardingPolicyDto get() {
@@ -66,12 +69,17 @@ public class OnboardingPolicyService {
             throw new IllegalArgumentException("onboarding_policy.ally_modes.read_only");
         }
 
+        requireRetention(req.memberDraftRetentionDays());
+        requireRetention(req.allyDraftRetentionDays());
+
         policy.setAllowMemberSelfRegistration(memberOpen);
         policy.setAllowAllySelfRegistration(allyOpen);
         policy.setMemberApprovalMode(Objects.requireNonNull(req.memberApprovalMode()));
         policy.setMemberActivationMode(Objects.requireNonNull(req.memberActivationMode()));
         policy.setAllyApprovalMode(Objects.requireNonNull(req.allyApprovalMode()));
         policy.setAllyPublishMode(Objects.requireNonNull(req.allyPublishMode()));
+        policy.setMemberDraftRetentionDays(req.memberDraftRetentionDays());
+        policy.setAllyDraftRetentionDays(req.allyDraftRetentionDays());
         return toDto(repository.save(policy));
     }
 
@@ -128,7 +136,23 @@ public class OnboardingPolicyService {
         return current().getAllyPublishMode() == AllyPublishMode.ON_APPROVAL;
     }
 
+    /** Days an abandoned affiliation draft is kept (counted from its last change). */
+    public int memberDraftRetentionDays() {
+        return current().getMemberDraftRetentionDays();
+    }
+
+    /** Days an abandoned ally draft is kept (counted from its last change). */
+    public int allyDraftRetentionDays() {
+        return current().getAllyDraftRetentionDays();
+    }
+
     // ─── Internals ──────────────────────────────────────────────────────────
+
+    private static void requireRetention(Integer days) {
+        if (days == null || days < MIN_RETENTION_DAYS || days > MAX_RETENTION_DAYS) {
+            throw new IllegalArgumentException("onboarding_policy.draft_retention.invalid");
+        }
+    }
 
     private OnboardingPolicy current() {
         return repository.findFirstByActiveTrue().orElseGet(OnboardingPolicy::new);
@@ -142,6 +166,8 @@ public class OnboardingPolicyService {
                 p.getMemberApprovalMode(),
                 p.getMemberActivationMode(),
                 p.getAllyApprovalMode(),
-                p.getAllyPublishMode());
+                p.getAllyPublishMode(),
+                p.getMemberDraftRetentionDays(),
+                p.getAllyDraftRetentionDays());
     }
 }

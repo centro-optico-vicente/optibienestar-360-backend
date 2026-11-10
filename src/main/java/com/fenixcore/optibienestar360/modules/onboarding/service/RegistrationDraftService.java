@@ -14,6 +14,7 @@ import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository
 import com.fenixcore.optibienestar360.modules.auth.service.TokenBlacklistService;
 import com.fenixcore.optibienestar360.modules.media.MediaTables;
 import com.fenixcore.optibienestar360.modules.media.repository.MediaItemRepository;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -47,6 +48,12 @@ import java.util.UUID;
  * <p>Only DRAFT / not-yet-submitted registrations qualify: a request already sent to review
  * ({@code PENDING}, reviewed, approved or rejected) is refused with a 422 and is never touched by
  * the cleanup job.</p>
+ *
+ * <p><b>Retention (V237).</b> A draft held open (negotiation in progress, waiting for information) can be
+ * flagged {@code retain_from_cleanup}; the cleanup skips it. The advisor sets or clears the flag on the drafts in their
+ * scope (their own, or self-registered ones nobody is attributed to), staff on any registration in progress. Setting the flag touches the row, so releasing it
+ * gives the draft a fresh retention window. A retained draft that is submitted just stops being a draft: the
+ * flag is then ignored.</p>
  */
 @Service
 @Slf4j
@@ -144,22 +151,118 @@ public class RegistrationDraftService {
         log.info("Assisted ally draft {} discarded by its advisor", allyUuid);
     }
 
+    // ─── Retention ──────────────────────────────────────────────────────────
+
+    /**
+     * The advisor retains / releases an affiliation draft in their scope: their own (assisted, or self-registered
+     * through their QR) or a self-registered one nobody is attributed to. Another advisor's is a 404.
+     */
+    @Transactional
+    public DraftRetentionDto retainAdvisorAffiliationDraft(UUID advisorUserUuid, UUID uuid, boolean retain, String note) {
+        Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        AffiliationRequest request = affiliationRequests.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        if (request.getPromoter() != null && !request.getPromoter().getId().equals(advisor.getId())) {
+            throw new NoSuchElementException("affiliation_request.not_found");
+        }
+        if (request.isAssisted() && request.getPromoter() == null) {
+            throw new NoSuchElementException("affiliation_request.not_found");
+        }
+        return applyMemberRetention(request, advisorUserUuid, retain, note);
+    }
+
+    /** Staff retains / releases any affiliation draft. */
+    @Transactional
+    public DraftRetentionDto retainAffiliationDraft(UUID actorUserUuid, UUID uuid, boolean retain, String note) {
+        AffiliationRequest request = affiliationRequests.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        return applyMemberRetention(request, actorUserUuid, retain, note);
+    }
+
+    /**
+     * The advisor retains / releases an ally registration in their scope: one they captured, or a self-registered one
+     * no advisor brought in. Another advisor's is a 404.
+     */
+    @Transactional
+    public DraftRetentionDto retainAdvisorAllyDraft(UUID advisorUserUuid, UUID allyUuid, boolean retain, String note) {
+        Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        Ally ally = allyRepository.findForUpdateByUuid(allyUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally_request.not_found"));
+        Promoter capturedBy = ally.getCapturedByPromoter();
+        boolean own = capturedBy != null && capturedBy.getId().equals(advisor.getId());
+        boolean unattributed = capturedBy == null && ally.getRegistrationChannel() == Ally.RegistrationChannel.SELF_SERVICE;
+        if (!own && !unattributed) {
+            throw new NoSuchElementException("ally_request.not_found");
+        }
+        return applyAllyRetention(ally, advisorUserUuid, retain, note);
+    }
+
+    /** Staff retains / releases any ally registration that is still in progress (self-service or advisor-captured). */
+    @Transactional
+    public DraftRetentionDto retainAllyRegistration(UUID actorUserUuid, UUID allyUuid, boolean retain, String note) {
+        Ally ally = allyRepository.findForUpdateByUuid(allyUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally_request.not_found"));
+        return applyAllyRetention(ally, actorUserUuid, retain, note);
+    }
+
+    private DraftRetentionDto applyMemberRetention(AffiliationRequest request, UUID actorUserUuid, boolean retain, String note) {
+        if (!request.isDraft()) {
+            throw new IllegalArgumentException("affiliation_request.retain.invalid_state");
+        }
+        request.setRetainFromCleanup(retain);
+        request.setRetainNote(retain ? normalizeNote(note) : null);
+        request.setRetainedBy(retain ? actorUserUuid : null);
+        request.setRetainedAt(retain ? Instant.now() : null);
+        affiliationRequests.save(request);
+        log.info("Affiliation draft {} {} cleanup by {}", request.getUuid(), retain ? "retained from" : "released to", actorUserUuid);
+        return new DraftRetentionDto(request.getUuid(), request.isRetainFromCleanup(), request.getRetainNote(),
+                request.getRetainedAt());
+    }
+
+    private DraftRetentionDto applyAllyRetention(Ally ally, UUID actorUserUuid, boolean retain, String note) {
+        if (!isAllyDraft(ally)) {
+            throw new IllegalArgumentException("ally_request.retain.invalid_state");
+        }
+        ally.setRetainFromCleanup(retain);
+        ally.setRetainNote(retain ? normalizeNote(note) : null);
+        ally.setRetainedBy(retain ? actorUserUuid : null);
+        ally.setRetainedAt(retain ? Instant.now() : null);
+        allyRepository.save(ally);
+        log.info("Ally registration {} {} cleanup by {}", ally.getUuid(), retain ? "retained from" : "released to", actorUserUuid);
+        return new DraftRetentionDto(ally.getUuid(), ally.isRetainFromCleanup(), ally.getRetainNote(), ally.getRetainedAt());
+    }
+
+    private static String normalizeNote(String note) {
+        return note == null || note.isBlank() ? null : note.trim();
+    }
+
+    /** An ally registration still in progress: self-service or advisor-captured, pending and never sent to review. */
+    private static boolean isAllyDraft(Ally ally) {
+        return ally.getRegistrationStatus() == Ally.RegistrationStatus.PENDING
+                && ally.getRegistrationSubmittedAt() == null
+                && (ally.getRegistrationChannel() == Ally.RegistrationChannel.SELF_SERVICE
+                        || ally.getRegistrationChannel() == Ally.RegistrationChannel.ADVISOR);
+    }
+
     // ─── Abandoned drafts ───────────────────────────────────────────────────
 
     /**
-     * Discards every DRAFT affiliation registration and every in-progress ally registration (self-service or
-     * advisor-captured) untouched since {@code cutoff}. One transaction per registration: a failure is logged and
-     * counted and does not stop the rest. Submitted requests never match.
+     * Discards every DRAFT affiliation registration untouched since {@code memberCutoff} and every in-progress ally
+     * registration (self-service or advisor-captured) untouched since {@code allyCutoff}: the two kinds keep
+     * different retention windows. A draft flagged {@code retain_from_cleanup} is always skipped. One transaction
+     * per registration: a failure is logged and counted and does not stop the rest. Submitted requests never match.
      */
-    public CleanupResult purgeAbandoned(Instant cutoff) {
+    public CleanupResult purgeAbandoned(Instant memberCutoff, Instant allyCutoff) {
         int members = 0;
         int allies = 0;
         int failures = 0;
         for (AffiliationRequest candidate : affiliationRequests
-                .findByStatusAndUpdatedAtBefore(AffiliationRequest.Status.DRAFT.name(), cutoff)) {
+                .findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore(AffiliationRequest.Status.DRAFT.name(), memberCutoff)) {
             UUID uuid = candidate.getUuid();
             try {
-                Boolean removed = perItemTransaction.execute(tx -> purgeMemberDraft(uuid, cutoff));
+                Boolean removed = perItemTransaction.execute(tx -> purgeMemberDraft(uuid, memberCutoff));
                 if (Boolean.TRUE.equals(removed)) members++;
             } catch (RuntimeException ex) {
                 failures++;
@@ -167,12 +270,12 @@ public class RegistrationDraftService {
             }
         }
         for (Ally candidate : allyRepository
-                .findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+                .findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
                         Ally.RegistrationStatus.PENDING,
-                        List.of(Ally.RegistrationChannel.SELF_SERVICE, Ally.RegistrationChannel.ADVISOR), cutoff)) {
+                        List.of(Ally.RegistrationChannel.SELF_SERVICE, Ally.RegistrationChannel.ADVISOR), allyCutoff)) {
             UUID uuid = candidate.getUuid();
             try {
-                Boolean removed = perItemTransaction.execute(tx -> purgeAllyDraft(uuid, cutoff));
+                Boolean removed = perItemTransaction.execute(tx -> purgeAllyDraft(uuid, allyCutoff));
                 if (Boolean.TRUE.equals(removed)) allies++;
             } catch (RuntimeException ex) {
                 failures++;
@@ -182,10 +285,10 @@ public class RegistrationDraftService {
         return new CleanupResult(members, allies, failures);
     }
 
-    /** Re-checks under the row lock that the draft is still a draft and still abandoned. */
+    /** Re-checks under the row lock that the draft is still a draft, still abandoned and not retained. */
     private boolean purgeMemberDraft(UUID uuid, Instant cutoff) {
         AffiliationRequest request = affiliationRequests.findForUpdateByUuid(uuid).orElse(null);
-        if (request == null || !request.isDraft() || request.getUpdatedAt() == null
+        if (request == null || !request.isDraft() || request.isRetainFromCleanup() || request.getUpdatedAt() == null
                 || !request.getUpdatedAt().isBefore(cutoff)) {
             return false;
         }
@@ -196,6 +299,7 @@ public class RegistrationDraftService {
     private boolean purgeAllyDraft(UUID uuid, Instant cutoff) {
         Ally ally = allyRepository.findForUpdateByUuid(uuid).orElse(null);
         if (ally == null || ally.getRegistrationStatus() != Ally.RegistrationStatus.PENDING
+                || ally.isRetainFromCleanup()
                 || ally.getRegistrationSubmittedAt() != null || ally.getUpdatedAt() == null
                 || !ally.getUpdatedAt().isBefore(cutoff)
                 || (ally.getRegistrationChannel() != Ally.RegistrationChannel.SELF_SERVICE

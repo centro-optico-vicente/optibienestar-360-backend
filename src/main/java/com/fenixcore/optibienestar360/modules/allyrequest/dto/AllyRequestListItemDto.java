@@ -27,5 +27,9 @@ public record AllyRequestListItemDto(
         String registrationNote,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         boolean hasUser,
-        boolean hasActiveAgreement
+        boolean hasActiveAgreement,
+        /** Draft held out of the abandoned-draft cleanup (V237); only meaningful while the registration is in progress. */
+        boolean retainFromCleanup,
+        String retainNote,
+        @Display(Display.Kind.DATETIME) Instant retainedAt
 ) {}

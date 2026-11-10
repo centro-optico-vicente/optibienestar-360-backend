@@ -13,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRoleRepository;
 import com.fenixcore.optibienestar360.modules.auth.service.TokenBlacklistService;
 import com.fenixcore.optibienestar360.modules.media.repository.MediaItemRepository;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
@@ -299,15 +300,15 @@ class RegistrationDraftServiceTest {
         sentMeanwhile.setUuid(UUID.randomUUID());
         sentMeanwhile.setStatus(AffiliationRequest.Status.PENDING.name());
         Ally allyAbandoned = allyDraft(Ally.RegistrationChannel.ADVISOR);
-        when(affiliationRequests.findByStatusAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(abandoned, sentMeanwhile));
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(abandoned, sentMeanwhile));
         when(affiliationRequests.findForUpdateByUuid(abandoned.getUuid())).thenReturn(Optional.of(abandoned));
         when(affiliationRequests.findForUpdateByUuid(sentMeanwhile.getUuid())).thenReturn(Optional.of(sentMeanwhile));
-        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
                 eq(Ally.RegistrationStatus.PENDING), anyList(), eq(cutoff))).thenReturn(List.of(allyAbandoned));
         when(allyRepository.findForUpdateByUuid(allyAbandoned.getUuid())).thenReturn(Optional.of(allyAbandoned));
         when(allyUserRepository.findByAllyIdAndActiveTrue(eq(allyAbandoned.getId()), any(Sort.class))).thenReturn(List.of());
 
-        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff);
+        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff, cutoff);
 
         assertThat(result.memberDrafts()).isEqualTo(1);
         assertThat(result.allyDrafts()).isEqualTo(1);
@@ -322,12 +323,12 @@ class RegistrationDraftServiceTest {
         Instant cutoff = Instant.now().minus(30, ChronoUnit.DAYS);
         AffiliationRequest touched = draft(null, true);
         touched.setUpdatedAt(Instant.now());
-        when(affiliationRequests.findByStatusAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(touched));
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(touched));
         when(affiliationRequests.findForUpdateByUuid(touched.getUuid())).thenReturn(Optional.of(touched));
-        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
                 eq(Ally.RegistrationStatus.PENDING), anyList(), eq(cutoff))).thenReturn(List.of());
 
-        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff);
+        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff, cutoff);
 
         assertThat(result.memberDrafts()).isZero();
         verify(affiliationRequests, never()).delete(any(AffiliationRequest.class));
@@ -339,16 +340,208 @@ class RegistrationDraftServiceTest {
         AffiliationRequest broken = draft(null, true);
         AffiliationRequest fine = draft(null, true);
         fine.setUuid(UUID.randomUUID());
-        when(affiliationRequests.findByStatusAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(broken, fine));
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(broken, fine));
         when(affiliationRequests.findForUpdateByUuid(broken.getUuid())).thenThrow(new IllegalStateException("db down"));
         when(affiliationRequests.findForUpdateByUuid(fine.getUuid())).thenReturn(Optional.of(fine));
-        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
                 eq(Ally.RegistrationStatus.PENDING), anyList(), eq(cutoff))).thenReturn(List.of());
 
-        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff);
+        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff, cutoff);
 
         assertThat(result.failures()).isEqualTo(1);
         assertThat(result.memberDrafts()).isEqualTo(1);
         verify(affiliationRequests).delete(fine);
+    }
+
+    @Test
+    void purgeAbandoned_neverDiscardsADraftRetainedMeanwhile() {
+        Instant cutoff = Instant.now().minus(30, ChronoUnit.DAYS);
+        AffiliationRequest retained = draft(null, true);
+        retained.setRetainFromCleanup(true);
+        Ally allyRetained = allyDraft(Ally.RegistrationChannel.ADVISOR);
+        allyRetained.setRetainFromCleanup(true);
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", cutoff)).thenReturn(List.of(retained));
+        when(affiliationRequests.findForUpdateByUuid(retained.getUuid())).thenReturn(Optional.of(retained));
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
+                eq(Ally.RegistrationStatus.PENDING), anyList(), eq(cutoff))).thenReturn(List.of(allyRetained));
+        when(allyRepository.findForUpdateByUuid(allyRetained.getUuid())).thenReturn(Optional.of(allyRetained));
+
+        RegistrationDraftService.CleanupResult result = service.purgeAbandoned(cutoff, cutoff);
+
+        assertThat(result.memberDrafts()).isZero();
+        assertThat(result.allyDrafts()).isZero();
+        verify(affiliationRequests, never()).delete(any(AffiliationRequest.class));
+        verify(allyRepository, never()).delete(any(Ally.class));
+    }
+
+    @Test
+    void purgeAbandoned_usesEachKindsOwnCutoff() {
+        Instant memberCutoff = Instant.now().minus(15, ChronoUnit.DAYS);
+        Instant allyCutoff = Instant.now().minus(30, ChronoUnit.DAYS);
+        when(affiliationRequests.findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", memberCutoff)).thenReturn(List.of());
+        when(allyRepository.findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
+                eq(Ally.RegistrationStatus.PENDING), anyList(), eq(allyCutoff))).thenReturn(List.of());
+
+        service.purgeAbandoned(memberCutoff, allyCutoff);
+
+        verify(affiliationRequests).findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore("DRAFT", memberCutoff);
+        verify(allyRepository).findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
+                eq(Ally.RegistrationStatus.PENDING), anyList(), eq(allyCutoff));
+    }
+
+    // ─── Retention ──────────────────────────────────────────────────────────
+
+    @Test
+    void retainAdvisorAffiliationDraft_byItsAdvisor_setsTheFlagNoteAndAudit() {
+        AffiliationRequest request = draft(null, true);
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        DraftRetentionDto dto = service.retainAdvisorAffiliationDraft(advisorUser.getUuid(), request.getUuid(), true, "  waiting for the cédula  ");
+
+        assertThat(request.isRetainFromCleanup()).isTrue();
+        assertThat(request.getRetainNote()).isEqualTo("waiting for the cédula");
+        assertThat(request.getRetainedBy()).isEqualTo(advisorUser.getUuid());
+        assertThat(request.getRetainedAt()).isNotNull();
+        assertThat(dto.retainFromCleanup()).isTrue();
+        verify(affiliationRequests).save(request);
+    }
+
+    @Test
+    void retainAdvisorAffiliationDraft_release_clearsTheNoteAndAudit() {
+        AffiliationRequest request = draft(null, true);
+        request.setRetainFromCleanup(true);
+        request.setRetainNote("x");
+        request.setRetainedBy(advisorUser.getUuid());
+        request.setRetainedAt(Instant.now());
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        service.retainAdvisorAffiliationDraft(advisorUser.getUuid(), request.getUuid(), false, "ignored");
+
+        assertThat(request.isRetainFromCleanup()).isFalse();
+        assertThat(request.getRetainNote()).isNull();
+        assertThat(request.getRetainedBy()).isNull();
+        assertThat(request.getRetainedAt()).isNull();
+    }
+
+    @Test
+    void retainAdvisorAffiliationDraft_ofAnotherAdvisor_isNotFound() {
+        AffiliationRequest request = draft(null, true);
+        Promoter other = new Promoter();
+        other.setId(99L);
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(other));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.retainAdvisorAffiliationDraft(advisorUser.getUuid(), request.getUuid(), true, null))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("affiliation_request.not_found");
+        assertThat(request.isRetainFromCleanup()).isFalse();
+    }
+
+    @Test
+    void retainAdvisorAffiliationDraft_worksOnAnUnattributedSelfRegisteredDraft_butNotOnAnotherAdvisorsQrDraft() {
+        AffiliationRequest unattributed = draft(user, false);
+        AffiliationRequest anotherQr = draft(user, false);
+        anotherQr.setUuid(UUID.randomUUID());
+        Promoter other = new Promoter();
+        other.setId(99L);
+        anotherQr.setPromoter(other);
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(affiliationRequests.findForUpdateByUuid(unattributed.getUuid())).thenReturn(Optional.of(unattributed));
+        when(affiliationRequests.findForUpdateByUuid(anotherQr.getUuid())).thenReturn(Optional.of(anotherQr));
+
+        service.retainAdvisorAffiliationDraft(advisorUser.getUuid(), unattributed.getUuid(), true, "called today");
+
+        assertThat(unattributed.isRetainFromCleanup()).isTrue();
+        assertThatThrownBy(() -> service.retainAdvisorAffiliationDraft(advisorUser.getUuid(), anotherQr.getUuid(), true, null))
+                .isInstanceOf(NoSuchElementException.class);
+        assertThat(anotherQr.isRetainFromCleanup()).isFalse();
+    }
+
+    @Test
+    void retainAffiliationDraft_byStaff_worksOnASelfServiceDraft() {
+        AffiliationRequest request = draft(user, false);
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        service.retainAffiliationDraft(advisorUser.getUuid(), request.getUuid(), true, null);
+
+        assertThat(request.isRetainFromCleanup()).isTrue();
+        assertThat(request.getRetainNote()).isNull();
+        assertThat(request.getRetainedBy()).isEqualTo(advisorUser.getUuid());
+    }
+
+    @Test
+    void retainAffiliationDraft_afterTheSubmit_isRefused() {
+        AffiliationRequest request = draft(user, false);
+        request.setStatus(AffiliationRequest.Status.PENDING.name());
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.retainAffiliationDraft(advisorUser.getUuid(), request.getUuid(), true, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("affiliation_request.retain.invalid_state");
+        assertThat(request.isRetainFromCleanup()).isFalse();
+    }
+
+    @Test
+    void retainAdvisorAllyDraft_ofTheAdvisorOrUnattributedSelfRegistered_setsTheFlag() {
+        Ally own = allyDraft(Ally.RegistrationChannel.ADVISOR);
+        own.setCapturedByPromoter(advisor);
+        Ally unattributed = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        unattributed.setUuid(UUID.randomUUID());
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(allyRepository.findForUpdateByUuid(own.getUuid())).thenReturn(Optional.of(own));
+        when(allyRepository.findForUpdateByUuid(unattributed.getUuid())).thenReturn(Optional.of(unattributed));
+
+        DraftRetentionDto dto = service.retainAdvisorAllyDraft(advisorUser.getUuid(), own.getUuid(), true, "negotiating");
+        service.retainAdvisorAllyDraft(advisorUser.getUuid(), unattributed.getUuid(), true, null);
+
+        assertThat(own.isRetainFromCleanup()).isTrue();
+        assertThat(own.getRetainNote()).isEqualTo("negotiating");
+        assertThat(own.getRetainedBy()).isEqualTo(advisorUser.getUuid());
+        assertThat(dto.retainNote()).isEqualTo("negotiating");
+        assertThat(unattributed.isRetainFromCleanup()).isTrue();
+        verify(allyRepository).save(own);
+    }
+
+    @Test
+    void retainAdvisorAllyDraft_ofAnotherAdvisor_isNotFound() {
+        Promoter other = new Promoter();
+        other.setId(99L);
+        Ally theirs = allyDraft(Ally.RegistrationChannel.ADVISOR);
+        theirs.setCapturedByPromoter(other);
+        when(promoterRepository.findActiveByUserUuid(advisorUser.getUuid())).thenReturn(Optional.of(advisor));
+        when(allyRepository.findForUpdateByUuid(theirs.getUuid())).thenReturn(Optional.of(theirs));
+
+        assertThatThrownBy(() -> service.retainAdvisorAllyDraft(advisorUser.getUuid(), theirs.getUuid(), true, null))
+                .isInstanceOf(NoSuchElementException.class);
+        verify(allyRepository, never()).save(any(Ally.class));
+    }
+
+    @Test
+    void retainAllyRegistration_byStaff_worksOnASelfServiceRegistration() {
+        Ally ally = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        when(allyRepository.findForUpdateByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+
+        service.retainAllyRegistration(advisorUser.getUuid(), ally.getUuid(), true, null);
+
+        assertThat(ally.isRetainFromCleanup()).isTrue();
+    }
+
+    @Test
+    void retainAllyRegistration_afterTheSubmitOrOfAnAdminAlly_isRefused() {
+        Ally submitted = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        submitted.setRegistrationSubmittedAt(Instant.now());
+        Ally admin = allyDraft(Ally.RegistrationChannel.ADMIN);
+        admin.setUuid(UUID.randomUUID());
+        when(allyRepository.findForUpdateByUuid(submitted.getUuid())).thenReturn(Optional.of(submitted));
+        when(allyRepository.findForUpdateByUuid(admin.getUuid())).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> service.retainAllyRegistration(advisorUser.getUuid(), submitted.getUuid(), true, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_request.retain.invalid_state");
+        assertThatThrownBy(() -> service.retainAllyRegistration(advisorUser.getUuid(), admin.getUuid(), true, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(submitted.isRetainFromCleanup()).isFalse();
     }
 }
