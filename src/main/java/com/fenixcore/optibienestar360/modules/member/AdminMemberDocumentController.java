@@ -69,8 +69,11 @@ public class AdminMemberDocumentController {
             @PathVariable UUID memberUuid,
             @AuthenticationPrincipal CustomUserDetails actor,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             Pageable pageable) {
-        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor), q, pageable));
+        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor), q,
+                dateFrom, dateTo, pageable));
     }
 
     /** Recaudos completeness checklist — reserved for reviewers holding {@code MEMBER_DOCUMENT_VIEW_ALL}. */

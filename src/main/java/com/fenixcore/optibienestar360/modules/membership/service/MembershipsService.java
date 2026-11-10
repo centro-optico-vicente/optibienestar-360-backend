@@ -145,8 +145,22 @@ public class MembershipsService {
     // ─── Listing under a member ─────────────────────────────────────────────
 
     public List<MembershipDto> listForMember(UUID memberUuid) {
+        return listForMember(memberUuid, null, null, null);
+    }
+
+    /**
+     * The member's memberships, newest enrollment first, optionally narrowed by an accent/case-insensitive
+     * {@code q} over plan name/code and an inclusive {@code enrolledAt} range ({@code dateFrom}/{@code dateTo}).
+     */
+    public List<MembershipDto> listForMember(UUID memberUuid, String q, java.time.LocalDate dateFrom,
+                                             java.time.LocalDate dateTo) {
         Member member = findMember(memberUuid);
+        var inRange = com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.dateIn(dateFrom, dateTo);
         return membershipRepository.findByMemberIdOrderByEnrolledAtDesc(member.getId()).stream()
+                .filter(m -> inRange.test(m.getEnrolledAt()))
+                .filter(com.fenixcore.optibienestar360.core.util.TextSearch.<Membership>matching(q,
+                        m -> m.getPlan() == null ? null : m.getPlan().getName(),
+                        m -> m.getPlan() == null ? null : m.getPlan().getCode()))
                 .map(this::enrich)
                 .toList();
     }

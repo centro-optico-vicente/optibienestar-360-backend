@@ -95,6 +95,12 @@ public class ScheduledJobsService {
     }
 
     public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        return list(pageable, filter, q, includeInactive, null, null);
+    }
+
+    /** Same plus an inclusive Caracas-day range on the job's {@code lastRunAt} ({@code dateFrom}/{@code dateTo}). */
+    public Page<ScheduledJobDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+                                      java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "scheduled_job", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "scheduled_job");
@@ -107,6 +113,7 @@ public class ScheduledJobsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("lastRunAt", dateFrom, dateTo));
         return jobRepository.findAll(spec, resolvedPageable).map(job -> withRunnerInfo(mapper.toDto(job), job));
     }
 

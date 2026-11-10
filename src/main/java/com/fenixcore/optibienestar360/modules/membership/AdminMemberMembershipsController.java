@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -39,8 +40,12 @@ public class AdminMemberMembershipsController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBERSHIP_VIEW_ALL')")
-    public ResponseEntity<List<MembershipDto>> list(@PathVariable UUID memberUuid) {
-        return ResponseEntity.ok(membershipsService.listForMember(memberUuid));
+    public ResponseEntity<List<MembershipDto>> list(
+            @PathVariable UUID memberUuid,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        return ResponseEntity.ok(membershipsService.listForMember(memberUuid, q, dateFrom, dateTo));
     }
 
     @GetMapping("/{uuid}")

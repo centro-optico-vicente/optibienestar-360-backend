@@ -127,6 +127,12 @@ public class UserService {
     /** Same as above plus an optional {@code roleUuid} master filter (users holding that active role). */
     public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid,
                                    UUID roleUuid) {
+        return listUsers(filter, q, includeInactive, pageable, actorUuid, roleUuid, null, null);
+    }
+
+    /** Same plus an inclusive Caracas-day {@code createdAt} range ({@code dateFrom}/{@code dateTo}). */
+    public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid,
+                                   UUID roleUuid, java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "user", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "user");
@@ -140,6 +146,7 @@ public class UserService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("createdAt", dateFrom, dateTo));
         if (roleUuid != null) {
             spec = spec.and((root, query, cb) -> {
                 var sub = query.subquery(Long.class);

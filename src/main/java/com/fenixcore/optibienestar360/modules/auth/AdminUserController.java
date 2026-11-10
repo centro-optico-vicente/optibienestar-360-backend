@@ -50,9 +50,12 @@ public class AdminUserController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @RequestParam(required = false) UUID roleUuid,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        Page<UserDto> page = userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid(), roleUuid);
+        Page<UserDto> page = userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid(), roleUuid,
+                dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, userService.effectiveSort(pageable)));
     }
 
