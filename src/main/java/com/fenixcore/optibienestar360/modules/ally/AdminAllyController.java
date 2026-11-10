@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally;
 
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyAdvisorAssignRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
@@ -56,11 +57,12 @@ public class AdminAllyController {
 			@PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID promoterUuid) {
 		// Reports back which columns/directions an unsorted request actually landed
 		// on (entity_config → system_configs → createdAt DESC) — the table has no
 		// other way to reflect that default in its header arrows.
-		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive);
+		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive, promoterUuid);
 		return ResponseEntity.ok(new AppliedSortPage<>(page, alliesService.effectiveSort(pageable)));
     }
 
@@ -86,6 +88,14 @@ public class AdminAllyController {
     public ResponseEntity<AllyDetailDto> update(@PathVariable UUID uuid,
                                                 @Valid @RequestBody AllyUpdateRequest request) {
         return ResponseEntity.ok(alliesService.update(uuid, request));
+    }
+
+    /** Assigns, changes or clears (null {@code promoterUuid}) the advisor who brought the ally in. */
+    @PutMapping("/{uuid}/advisor")
+    @PreAuthorize("hasAuthority('ALLY_ASSIGN_PROMOTER')")
+    public ResponseEntity<AllyDetailDto> assignAdvisor(@PathVariable UUID uuid,
+                                                       @RequestBody AllyAdvisorAssignRequest request) {
+        return ResponseEntity.ok(alliesService.assignAdvisor(uuid, request.promoterUuid()));
     }
 
     @GetMapping("/{uuid}/usage")

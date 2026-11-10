@@ -342,7 +342,16 @@ public class AllyRequestService {
 
     /** Requests (allies not created from the admin form), newest first by default. */
     public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q) {
+        return list(pageable, status, channel, q, null);
+    }
+
+    /** Same inbox, optionally only the requests the advisor {@code promoterUuid} brought in. */
+    public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q,
+                                             UUID promoterUuid) {
         Specification<Ally> spec = requestsSpec(status);
+        if (promoterUuid != null) {
+            spec = spec.and(AlliesService.capturedBy(promoterUuid));
+        }
         Ally.RegistrationChannel ch = parseEnum(Ally.RegistrationChannel.class, channel, "ally_request.channel.invalid");
         if (ch != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("registrationChannel"), ch));
@@ -727,6 +736,7 @@ public class AllyRequestService {
         return new AllyRequestListItemDto(ally.getUuid(), ally.getAllyNumber(), ally.getName(), ally.getSegment(),
                 typeNames(ally), ally.getRegistrationStatus(), ally.getRegistrationChannel(),
                 contactName(ally), contactEmail(ally), contactPhone(ally), DisplayRefs.ref(ally.getCity()),
+                DisplayRefs.ref(ally.getCapturedByPromoter()),
                 ally.getRegistrationNote(), ally.getCreatedAt(), hasUser, !activeAgreements(ally).isEmpty());
     }
 

@@ -52,15 +52,16 @@ public class AdminAllyRequestController {
     private final AllyRequestService service;
     private final AllyImportService importService;
 
-    /** {@code ?status=PENDING|APPROVED|REJECTED}, {@code ?channel=SELF_SERVICE|IMPORT}, {@code ?q=}; newest first by default. */
+    /** {@code ?status=PENDING|APPROVED|REJECTED}, {@code ?channel=SELF_SERVICE|IMPORT}, {@code ?q=}, {@code ?promoterUuid=} (the advisor who brought the ally in); newest first by default. */
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_REGISTRATION_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<AllyRequestListItemDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String channel,
-            @RequestParam(required = false) String q) {
-        Page<AllyRequestListItemDto> page = service.list(pageable, status, channel, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID promoterUuid) {
+        Page<AllyRequestListItemDto> page = service.list(pageable, status, channel, q, promoterUuid);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

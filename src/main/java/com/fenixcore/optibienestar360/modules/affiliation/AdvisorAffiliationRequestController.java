@@ -1,8 +1,11 @@
 package com.fenixcore.optibienestar360.modules.affiliation;
 
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationDraftStepRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRegistrationDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreatedDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationDraftStartRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -13,16 +16,23 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.UUID;
 
 /**
  * Advisor portal, the caller's own affiliation requests. The advisor is
@@ -35,6 +45,15 @@ import org.springframework.web.bind.annotation.RestController;
  *   ({@code AFFILIATION_REQUEST_CREATE_ASSISTED}). Same validations as the
  *   public form; the request is attributed to the caller, the password is
  *   optional.</li>
+ *   <li>{@code /drafts} — the same assisted affiliation as a DRAFT saved step by step
+ *   and resumed later (hub ADR 0037 §5), one granular permission per action:
+ *   {@code POST /drafts} starts it ({@code AFFILIATION_REQUEST_CREATE_ASSISTED}),
+ *   {@code GET /drafts} and {@code GET /drafts/{uuid}} list and read the caller's own
+ *   ({@code AFFILIATION_REQUEST_VIEW_OWN}), {@code PATCH /drafts/{uuid}/{step}}
+ *   ({@code personal | plan | payment | family}) saves a step
+ *   ({@code AFFILIATION_REQUEST_DRAFT_UPDATE_ASSISTED}) and {@code POST /drafts/{uuid}/submit}
+ *   sends it to review ({@code AFFILIATION_REQUEST_DRAFT_SUBMIT_ASSISTED}). Another
+ *   advisor's draft is a 404. The one-shot {@code POST} above keeps working.</li>
  * </ul>
  * {@code /v1/me/advisor/affiliation-requests} is the primary path;
  * {@code /v1/advisors/me/...} is the secondary path (not deprecated).
@@ -63,5 +82,64 @@ public class AdvisorAffiliationRequestController {
                                                        @Valid @RequestBody AssistedAffiliationRequestCreateRequest request,
                                                        HttpServletRequest httpRequest) {
         return service.createAssisted(request, actor.getUuid(), ClientRequestMetadata.from(httpRequest));
+    }
+
+    // ─── Assisted drafts ────────────────────────────────────────────────────
+
+    @GetMapping("/drafts")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_OWN')")
+    public ResponseEntity<Page<AffiliationRequestListItemDto>> drafts(
+            @AuthenticationPrincipal CustomUserDetails actor,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(service.listAssistedDrafts(actor.getUuid(), pageable));
+    }
+
+    @PostMapping("/drafts")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_CREATE_ASSISTED')")
+    public AffiliationRegistrationDto startDraft(@AuthenticationPrincipal CustomUserDetails actor,
+                                                 @Valid @RequestBody AssistedAffiliationDraftStartRequest request,
+                                                 HttpServletRequest httpRequest) {
+        return service.startAssistedDraft(request, actor.getUuid(), ClientRequestMetadata.from(httpRequest));
+    }
+
+    @GetMapping("/drafts/{uuid}")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_OWN')")
+    public ResponseEntity<AffiliationRegistrationDto> getDraft(@AuthenticationPrincipal CustomUserDetails actor,
+                                                               @PathVariable UUID uuid) {
+        return ResponseEntity.ok(service.getAssistedDraft(actor.getUuid(), uuid));
+    }
+
+    @PatchMapping("/drafts/{uuid}/{step}")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_UPDATE_ASSISTED')")
+    public ResponseEntity<AffiliationRegistrationDto> saveDraftStep(
+            @AuthenticationPrincipal CustomUserDetails actor,
+            @PathVariable UUID uuid,
+            @PathVariable String step,
+            @Valid @RequestBody AffiliationDraftStepRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(service.saveAssistedStep(actor.getUuid(), uuid, step, request, null,
+                ClientRequestMetadata.from(httpRequest)));
+    }
+
+    /** The payment step with the proof of payment as the {@code support} part. */
+    @PatchMapping(value = "/drafts/{uuid}/{step}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_UPDATE_ASSISTED')")
+    public ResponseEntity<AffiliationRegistrationDto> saveDraftStepMultipart(
+            @AuthenticationPrincipal CustomUserDetails actor,
+            @PathVariable UUID uuid,
+            @PathVariable String step,
+            @Valid @RequestPart("request") AffiliationDraftStepRequest request,
+            @RequestPart(value = "support", required = false) MultipartFile support,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(service.saveAssistedStep(actor.getUuid(), uuid, step, request, support,
+                ClientRequestMetadata.from(httpRequest)));
+    }
+
+    @PostMapping("/drafts/{uuid}/submit")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_SUBMIT_ASSISTED')")
+    public ResponseEntity<AffiliationRegistrationDto> submitDraft(@AuthenticationPrincipal CustomUserDetails actor,
+                                                                  @PathVariable UUID uuid) {
+        return ResponseEntity.ok(service.submitAssisted(actor.getUuid(), uuid));
     }
 }

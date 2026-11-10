@@ -22,6 +22,8 @@ public record AllyRequestListItemDto(
         String contactEmail,
         String contactPhone,
         @Display DisplayRef city,
+        /** Advisor who brought the ally in; {@code promoter_Uuid} / {@code promoter_Display}, null = none. */
+        @Display DisplayRef promoter,
         String registrationNote,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         boolean hasUser,

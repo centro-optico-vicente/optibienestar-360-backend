@@ -45,7 +45,7 @@ public class AdminAffiliationRequestController {
 
     private final AffiliationRequestService service;
 
-    /** {@code ?status=PENDING|APPROVED|REJECTED} (all when absent), {@code ?q=} free text; newest first by default. */
+    /** {@code ?status=PENDING|APPROVED|REJECTED|IN_PROGRESS} (all but the drafts when absent; {@code IN_PROGRESS} lists the DRAFTs, including the advisors' assisted ones), {@code ?q=} free text; newest first by default. */
     @GetMapping
     @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<AffiliationRequestListItemDto>> list(

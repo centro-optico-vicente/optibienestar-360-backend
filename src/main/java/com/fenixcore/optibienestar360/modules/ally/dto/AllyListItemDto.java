@@ -30,6 +30,8 @@ public record AllyListItemDto(
 
         List<String> allyTypeNames,
         @Display DisplayRef city,
+        /** Advisor who brought the ally in (V179 {@code captured_by_promoter_id}); {@code capturedByPromoter_Uuid} / {@code _Display}, null = none. */
+        @Display DisplayRef capturedByPromoter,
 
         String taxDocumentType,
         String taxDocumentNumber,

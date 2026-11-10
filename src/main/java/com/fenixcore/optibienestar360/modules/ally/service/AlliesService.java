@@ -4,12 +4,14 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyHolderPersonRequest;
+import com.fenixcore.optibienestar360.modules.ally.dto.AdvisorAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyDetailDto;
@@ -46,6 +48,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -103,7 +106,8 @@ public class AlliesService {
 		Map.of(
 			// ADR 0014: the public sort key for a FK column is its `_Display` alias.
 			// allyType is no longer sortable here — it's multi-valued (M:N) since V157.
-			"city_Display", "city.name"
+			"city_Display", "city.name",
+			"capturedByPromoter_Display", "capturedByPromoter.displayName"
 		)
 	);
 
@@ -149,6 +153,12 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        return list(pageable, filter, q, includeInactive, null);
+    }
+
+    /** Same list, optionally only the allies the advisor {@code promoterUuid} brought in (404 when it does not exist). */
+    public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+                                      UUID promoterUuid) {
 		Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
 			"ally", pageable);
 		Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally");
@@ -160,8 +170,51 @@ public class AlliesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        if (promoterUuid != null) {
+            resolvePromoterOptional(promoterUuid);  // a typo'd uuid is a 404, not an empty list
+            spec = spec.and(capturedBy(promoterUuid));
+        }
 		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
 	}
+
+    /** Allies whose advisor ({@code captured_by_promoter_id}) is the promoter with this uuid. */
+    public static Specification<Ally> capturedBy(UUID promoterUuid) {
+        return (root, query, cb) -> cb.equal(root.get("capturedByPromoter").get("uuid"), promoterUuid);
+    }
+
+    /**
+     * Advisor portal, read-only: the allies the caller's advisor record brought in, newest first,
+     * {@code ?q=} on the name. 404 {@code me.promoter.not_found} when the caller is not an active advisor.
+     */
+    @Transactional(readOnly = true)
+    public Page<AdvisorAllyListItemDto> listCapturedBy(UUID advisorUserUuid, String q, Pageable pageable) {
+        Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        Specification<Ally> spec = capturedBy(advisor.getUuid());
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, "name"));
+        }
+        Pageable byNewest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return repository.findAll(spec, byNewest).map(a -> new AdvisorAllyListItemDto(
+                a.getUuid(), a.getAllyNumber(), a.getName(), a.getSegment(),
+                a.getAllyTypes().stream().map(AllyType::getName).sorted().toList(),
+                DisplayRefs.ref(a.getCity()), a.getRegistrationStatus(), a.isPublished(), a.isActive(),
+                a.getCreatedAt()));
+    }
+
+    /**
+     * Assigns, changes or clears ({@code promoterUuid == null}) the advisor who brought the ally in.
+     * Audited as an ally UPDATE: the before / after snapshots are the detail DTO, which carries
+     * {@code capturedByPromoter}, so the change shows in the ally's change log with the actor.
+     */
+    @Transactional
+    @Auditable(entity = "ally", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public AllyDetailDto assignAdvisor(UUID uuid, UUID promoterUuid) {
+        Ally ally = findManaged(uuid);
+        ally.setCapturedByPromoter(resolvePromoterOptional(promoterUuid));
+        return mapper.toDetail(ally);
+    }
 
 	/**
 	 * The sort {@link #list} actually applies for {@code pageable} — see
@@ -440,7 +493,7 @@ public class AlliesService {
         if (req.publishedAt()         != null) ally.setPublishedAt(req.publishedAt());
         if (req.active()              != null) ally.setActive(req.active());
         if (req.status()              != null) ally.setStatus(req.status());
-        if (req.capturedByPromoterUuid() != null) ally.setCapturedByPromoter(resolvePromoterOptional(req.capturedByPromoterUuid()));
+        // capturedByPromoterUuid is not applied here: changing the advisor needs ALLY_ASSIGN_PROMOTER (assignAdvisor).
         if (req.representativeName()  != null) ally.setRepresentativeName(req.representativeName());
         if (req.representativeDocumentType()   != null) ally.setRepresentativeDocumentType(req.representativeDocumentType());
         if (req.representativeDocumentNumber() != null) ally.setRepresentativeDocumentNumber(req.representativeDocumentNumber());

@@ -41,6 +41,7 @@ final class WireSamples {
                 UUID.fromString("00000000-0000-0000-0000-000000000001"), "Optica Sample", 7, AllyType.Segment.B2B,
                 List.of("Optica"),
                 new DisplayRef(UUID.fromString("00000000-0000-0000-0000-0000000000c1"), "CCS", "Caracas"),
+                new DisplayRef(UUID.fromString("00000000-0000-0000-0000-0000000000d1"), "ABC123", "Ana Asesora"),
                 "J", "123456789", null, null,
                 true, Instant.parse("2026-01-02T03:04:05Z"),
                 true, "APPROVED", Instant.parse("2026-01-01T00:00:00Z")));

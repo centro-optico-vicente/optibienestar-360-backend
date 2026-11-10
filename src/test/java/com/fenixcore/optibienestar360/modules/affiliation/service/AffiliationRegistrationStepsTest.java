@@ -215,7 +215,7 @@ class AffiliationRegistrationStepsTest {
 
         AffiliationRegistrationDto dto = service.saveStep(user.getUuid(), "personal",
                 new AffiliationDraftStepRequest(null, null, LocalDate.of(1985, 3, 15), "0414-9999999",
-                        null, null, null, null, null), null, null);
+                        null, null, null, null, null, null, null, null), null, null);
 
         assertThat(r.getBirthDate()).isEqualTo(LocalDate.of(1985, 3, 15));
         assertThat(r.getPhone()).isEqualTo("0414-9999999");
