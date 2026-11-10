@@ -22,6 +22,7 @@ import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepos
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyAgreementsService;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyDraftAccess;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AgreementSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestApproveRequest;
@@ -30,6 +31,7 @@ import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestCreated
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestInviteRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestListItemDto;
+import com.fenixcore.optibienestar360.modules.allyrequest.dto.AssistedAllyDraftStartRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.event.AllyRequestEvent;
 import com.fenixcore.optibienestar360.modules.auth.dto.AdminCreateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
@@ -134,6 +136,7 @@ public class AllyRequestService {
     private final ObjectProvider<StorageService> storageProvider;
     private final PresignedUrlPolicy presignedUrlPolicy;
     private final OnboardingPolicyService onboardingPolicyService;
+    private final AllyDraftAccess draftAccess;
 
     @Value("${app.ally-requests.activation-ttl-hours:72}")
     private long activationTtlHours = DEFAULT_ACTIVATION_TTL_HOURS;
@@ -279,6 +282,102 @@ public class AllyRequestService {
                 promoterName(ally), null);
     }
 
+    // ─── Advisor-assisted capture (hub ADR 0037 §5) ─────────────────────────
+
+    /**
+     * Starts an ally capture from the advisor portal: the PENDING ally (channel {@code ADVISOR}) attributed to the
+     * caller's advisor record, with its contact person as holder and <em>no login</em>. Like assisted affiliation it
+     * is not blocked by the self-registration switch. The login of the contact person is created on
+     * {@link #submitAssisted}, with the access-link invitation. 404 {@code me.promoter.not_found} when the caller
+     * is not an active advisor.
+     */
+    @Transactional
+    public AllyRequestCreatedDto startAssistedDraft(AssistedAllyDraftStartRequest req, UUID advisorUserUuid) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        Segment segment = req.segment();
+        AllyType type = null;
+        if (req.allyTypeUuid() != null) {
+            type = allyTypeRepository.findByUuid(req.allyTypeUuid())
+                    .filter(AllyType::isActive)
+                    .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+            if (type.getSegment() != segment) {
+                throw new IllegalArgumentException("ally_request.type.segment_mismatch");
+            }
+        }
+        Profession profession = null;
+        if (segment == Segment.B2B) {
+            if (isBlank(req.name())) throw new IllegalArgumentException("ally_request.name.required");
+        } else if (req.professionUuid() != null) {
+            profession = professionRepository.findByUuid(req.professionUuid())
+                    .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
+        }
+        String email = normalizeEmail(req.email());
+        String documentNumber = req.documentNumber().trim();
+        if (userRepository.existsByEmail(email)) {
+            throw signInInstead("ally_request.email.taken");
+        }
+        Person existing = personService.findByDocument(req.documentType(), documentNumber).orElse(null);
+        if (existing != null && userRepository.existsByPersonId(existing.getId())) {
+            throw signInInstead("ally_request.document.has_account");
+        }
+        String firstName = req.firstName().trim();
+        String lastName = req.lastName().trim();
+        String mobile = req.mobile().trim();
+        String allyName = segment == Segment.B2B ? req.name().trim() : (firstName + " " + lastName);
+        AllyCreateRequest allyReq = allyCreateRequest(allyName, type != null ? type.getUuid() : null, segment,
+                null, null, email, mobile, mobile, null, null, null, req.cityUuid(), null, null,
+                new AllyHolderPersonRequest(req.documentType(), documentNumber, firstName, lastName, null, mobile, email),
+                advisor.getUuid(), profession != null ? List.of(profession.getUuid()) : null);
+        AllyDetailDto created = alliesService.createRequest(allyReq, Ally.RegistrationChannel.ADVISOR,
+                req.benefitNote());
+        log.info("Assisted ally draft {} started by advisor {} ({})", created.uuid(), advisor.getReferralCode(), segment);
+        return new AllyRequestCreatedDto(created.uuid(), Ally.RegistrationStatus.PENDING, email,
+                advisor.getDisplayName(), null);
+    }
+
+    /** The advisor's own ally drafts (captured, never sent to review), newest first. */
+    public Page<AllyRequestListItemDto> listAssistedDrafts(UUID advisorUserUuid, Pageable pageable) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        Specification<Ally> spec = AlliesService.capturedBy(advisor.getUuid())
+                .and((root, query, cb) -> cb.and(
+                        cb.equal(root.get("registrationChannel"), Ally.RegistrationChannel.ADVISOR),
+                        cb.equal(root.get("registrationStatus"), Ally.RegistrationStatus.PENDING),
+                        cb.isNull(root.get("registrationSubmittedAt"))));
+        return allyRepository.findAll(spec, resolveSort(pageable)).map(this::toListItem);
+    }
+
+    /**
+     * Sends the advisor's own draft to review. Same essentials as the owner's submit (422
+     * {@code ally_request.submit.incomplete} with the {@code missing} keys), then: the contact person gets their
+     * login (role {@code ALIADO_PENDIENTE}) and the "create your password" email, and the onboarding policy
+     * applies — {@code ally_approval_mode} / {@code ally_publish_mode} exactly as for a self-registration (an
+     * automatic approval swaps the role to {@code ALIADO}). Another advisor's draft is a 404.
+     */
+    @Transactional
+    public AllyRequestCreatedDto submitAssisted(UUID advisorUserUuid, UUID allyUuid) {
+        Ally visible = draftAccess.requireOwnDraft(allyUuid, advisorUserUuid);
+        Ally ally = lock(visible.getUuid());
+        if (ally.getRegistrationStatus() != Ally.RegistrationStatus.PENDING
+                || ally.getRegistrationSubmittedAt() != null) {
+            throw new IllegalArgumentException("ally_request.draft.invalid_state");
+        }
+        List<String> missing = missingEssentials(ally);
+        if (!missing.isEmpty()) {
+            throw new UnprocessableDetailsException("ally_request.submit.incomplete", null,
+                    java.util.Map.of("missing", missing));
+        }
+        // Login first (pending role), so an automatic approval swaps it to ALIADO like any other ally.
+        invite(ally.getUuid(), null, advisorUserUuid);
+        sendToReview(ally);
+        return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), contactEmail(ally),
+                promoterName(ally), null);
+    }
+
+    private Promoter requireAdvisor(UUID advisorUserUuid) {
+        return promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+    }
+
     /** The essentials a request needs before review; keys the portal translates. */
     static List<String> missingEssentials(Ally ally) {
         List<String> missing = new ArrayList<>();
@@ -371,7 +470,7 @@ public class AllyRequestService {
         Specification<Ally> spec = (root, query, cb) ->
                 cb.notEqual(root.get("registrationChannel"), Ally.RegistrationChannel.ADMIN);
         Specification<Ally> inProgress = (root, query, cb) -> cb.and(
-                cb.equal(root.get("registrationChannel"), Ally.RegistrationChannel.SELF_SERVICE),
+                root.get("registrationChannel").in(Ally.RegistrationChannel.SELF_SERVICE, Ally.RegistrationChannel.ADVISOR),
                 cb.isNull(root.get("registrationSubmittedAt")),
                 cb.equal(root.get("registrationStatus"), Ally.RegistrationStatus.PENDING));
         if (status != null && "IN_PROGRESS".equalsIgnoreCase(status.trim())) {

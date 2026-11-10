@@ -12,6 +12,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,4 +49,7 @@ public interface AffiliationRequestRepository
 
     boolean existsByDocumentTypeAndDocumentNumberAndStatusAndIdNot(String documentType, String documentNumber,
                                                                    String status, Long id);
+
+    /** Registrations still in {@code status} that nobody touched since {@code cutoff} — the abandoned-draft cleanup. */
+    List<AffiliationRequest> findByStatusAndUpdatedAtBefore(String status, Instant cutoff);
 }

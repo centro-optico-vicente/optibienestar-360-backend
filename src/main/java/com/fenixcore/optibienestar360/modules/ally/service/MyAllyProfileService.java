@@ -46,15 +46,16 @@ public class MyAllyProfileService {
     private final AlliesService alliesService;
     private final PersonProfessionalLicenseRepository licenseRepository;
     private final com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository allyRepository;
+    private final AllyDraftAccess draftAccess;
 
     public MyAllyProfileDto get(UUID allyUuid, UUID actorUserUuid) {
-        return toDto(requireMembership(allyUuid, actorUserUuid, false).getAlly());
+        return toDto(accessibleAlly(allyUuid, actorUserUuid, false));
     }
 
     @Transactional
     @Auditable(entity = "ally", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public MyAllyProfileDto update(UUID allyUuid, UUID actorUserUuid, MyAllyProfileUpdateRequest req) {
-        Ally ally = requireMembership(allyUuid, actorUserUuid, true).getAlly();
+        Ally ally = accessibleAlly(allyUuid, actorUserUuid, true);
         if (ally.getRegistrationStatus() == Ally.RegistrationStatus.REJECTED) {
             throw new IllegalArgumentException("ally.profile.rejected");
         }
@@ -199,6 +200,20 @@ public class MyAllyProfileService {
         }
         int percent = (int) Math.round(100.0 * (total - missing.size()) / total);
         return new MyAllyProfileDto.Completeness(percent, List.copyOf(missing));
+    }
+
+    /**
+     * The ally the caller may reach: one they are an active member of ({@code ownerOnly} for writes) or the
+     * draft ally they captured as an advisor (hub ADR 0037 §5).
+     */
+    private Ally accessibleAlly(UUID allyUuid, UUID actorUserUuid, boolean ownerOnly) {
+        AllyUser membership = actorUserUuid == null ? null
+                : allyUserRepository.findActiveByAllyUuidAndUserUuid(allyUuid, actorUserUuid).orElse(null);
+        if (membership != null && (!ownerOnly || membership.getAllyRole() == AllyRole.OWNER)) {
+            return membership.getAlly();
+        }
+        return draftAccess.findOwnDraft(allyUuid, actorUserUuid)
+                .orElseThrow(() -> new AccessDeniedException("ally.profile.not_allowed"));
     }
 
     /** Active membership of the caller in the ally; {@code ownerOnly} for writes. */

@@ -36,21 +36,21 @@ public class MyAllyLicensesController {
     private final MyAllyLicensesService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ALLY_VIEW_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_VIEW_OWN', 'ALLY_DRAFT_VIEW_ASSISTED')")
     public ResponseEntity<List<AllyLicenseDto>> list(@PathVariable UUID allyUuid,
                                                      @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(service.list(allyUuid, actor.getUuid()));
     }
 
     @GetMapping("/bodies")
-    @PreAuthorize("hasAuthority('ALLY_VIEW_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_VIEW_OWN', 'ALLY_DRAFT_VIEW_ASSISTED')")
     public ResponseEntity<List<DisplayRef>> bodies(@PathVariable UUID allyUuid,
                                                    @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(service.bodies(allyUuid, actor.getUuid()));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ALLY_LICENSE_UPDATE_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_LICENSE_UPDATE_OWN', 'ALLY_DRAFT_UPDATE_ASSISTED')")
     public ResponseEntity<AllyLicenseDto> add(@PathVariable UUID allyUuid,
                                               @Valid @RequestBody AllyLicenseRequest request,
                                               @AuthenticationPrincipal CustomUserDetails actor) {
@@ -58,7 +58,7 @@ public class MyAllyLicensesController {
     }
 
     @DeleteMapping("/{licenseUuid}")
-    @PreAuthorize("hasAuthority('ALLY_LICENSE_UPDATE_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_LICENSE_UPDATE_OWN', 'ALLY_DRAFT_UPDATE_ASSISTED')")
     public ResponseEntity<Void> delete(@PathVariable UUID allyUuid, @PathVariable UUID licenseUuid,
                                        @AuthenticationPrincipal CustomUserDetails actor) {
         service.delete(allyUuid, licenseUuid, actor.getUuid());

@@ -19,6 +19,14 @@ public interface AllyRepository extends JpaRepository<Ally, Long>, JpaSpecificat
     Optional<Ally> findByUuid(UUID uuid);
 
     /**
+     * Registrations still in progress (never sent to review) of the given channels that nobody touched since
+     * {@code cutoff} — the abandoned-draft cleanup.
+     */
+    List<Ally> findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+            Ally.RegistrationStatus status, java.util.Collection<Ally.RegistrationChannel> channels,
+            java.time.Instant cutoff);
+
+    /**
      * Row lock for the ally request transitions (hub ADR 0036): two reviewers
      * or a double click can't approve / reject the same request twice.
      */

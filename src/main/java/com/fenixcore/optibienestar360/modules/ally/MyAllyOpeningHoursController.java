@@ -40,7 +40,7 @@ public class MyAllyOpeningHoursController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAuthority('ALLY_OPENING_HOURS_UPDATE_OWN')")
+    @PreAuthorize("hasAnyAuthority('ALLY_OPENING_HOURS_UPDATE_OWN', 'ALLY_DRAFT_UPDATE_ASSISTED')")
     public ResponseEntity<List<OpeningHourDto>> replace(@PathVariable UUID allyUuid,
                                                         @Valid @RequestBody OpeningHoursRequest request,
                                                         @AuthenticationPrincipal CustomUserDetails actor) {

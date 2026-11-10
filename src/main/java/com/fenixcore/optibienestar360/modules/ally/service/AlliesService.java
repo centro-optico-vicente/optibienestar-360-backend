@@ -394,7 +394,7 @@ public class AlliesService {
         ally.setName(req.name());
         // A self-registered ally starts with only its segment: the type arrives in a later step (hub ADR 0037 §2).
         boolean typeOptional = status == Ally.RegistrationStatus.PENDING
-                && channel == Ally.RegistrationChannel.SELF_SERVICE
+                && (channel == Ally.RegistrationChannel.SELF_SERVICE || channel == Ally.RegistrationChannel.ADVISOR)
                 && (req.allyTypeUuids() == null || req.allyTypeUuids().isEmpty())
                 && req.segment() != null;
         ally.setAllyTypes(typeOptional ? new java.util.HashSet<>() : resolveAllyTypes(req.allyTypeUuids()));

@@ -39,12 +39,13 @@ class AllyOpeningHoursServiceTest {
     @Mock private AllyRepository allyRepository;
     @Mock private AllyOpeningHourRepository hourRepository;
     @Mock private AllyUserRepository allyUserRepository;
+    @Mock private AllyDraftAccess draftAccess;
 
     private final UUID actorUuid = UUID.randomUUID();
     private final Ally ally = ally();
 
     private AllyOpeningHoursService sut() {
-        return new AllyOpeningHoursService(allyRepository, hourRepository, allyUserRepository);
+        return new AllyOpeningHoursService(allyRepository, hourRepository, allyUserRepository, draftAccess);
     }
 
     @Test
