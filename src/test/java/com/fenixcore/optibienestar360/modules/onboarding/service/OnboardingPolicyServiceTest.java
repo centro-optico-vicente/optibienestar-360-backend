@@ -47,7 +47,13 @@ class OnboardingPolicyServiceTest {
     private static OnboardingPolicyUpdateRequest request(boolean member, boolean ally, MemberApprovalMode approval,
                                                          MemberActivationMode activation, AllyApprovalMode allyApproval,
                                                          AllyPublishMode publish) {
-        return new OnboardingPolicyUpdateRequest(member, ally, approval, activation, allyApproval, publish);
+        return new OnboardingPolicyUpdateRequest(member, ally, approval, activation, allyApproval, publish, 15, 30);
+    }
+
+    private static OnboardingPolicyUpdateRequest retention(Integer memberDays, Integer allyDays) {
+        return new OnboardingPolicyUpdateRequest(true, true, MemberApprovalMode.MANUAL,
+                MemberActivationMode.ON_PAYMENT_APPROVED, AllyApprovalMode.MANUAL_WITH_AGREEMENT, AllyPublishMode.MANUAL,
+                memberDays, allyDays);
     }
 
     @Test
@@ -84,6 +90,44 @@ class OnboardingPolicyServiceTest {
         assertThat(policy.getMemberActivationMode()).isEqualTo(MemberActivationMode.IMMEDIATE);
         assertThat(policy.getAllyApprovalMode()).isEqualTo(AllyApprovalMode.AUTO_ON_SUBMIT);
         assertThat(policy.getAllyPublishMode()).isEqualTo(AllyPublishMode.ON_APPROVAL);
+    }
+
+    @Test
+    void draftRetention_defaultsTo15And30Days_andIsNotInThePublicView() {
+        when(repository.findFirstByActiveTrue()).thenReturn(Optional.empty());
+        OnboardingPolicyService service = service();
+
+        assertThat(service.memberDraftRetentionDays()).isEqualTo(15);
+        assertThat(service.allyDraftRetentionDays()).isEqualTo(30);
+        assertThat(service.get().memberDraftRetentionDays()).isEqualTo(15);
+        assertThat(service.get().allyDraftRetentionDays()).isEqualTo(30);
+        assertThat(service.publicView().toString()).doesNotContain("etention");
+    }
+
+    @Test
+    void update_storesTheDraftRetention_andZeroMeansNeverClean() {
+        OnboardingPolicy policy = active(new OnboardingPolicy());
+        when(repository.save(any(OnboardingPolicy.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OnboardingPolicyDto dto = service().update(retention(0, 365));
+
+        assertThat(policy.getMemberDraftRetentionDays()).isZero();
+        assertThat(policy.getAllyDraftRetentionDays()).isEqualTo(365);
+        assertThat(dto.memberDraftRetentionDays()).isZero();
+        assertThat(dto.allyDraftRetentionDays()).isEqualTo(365);
+    }
+
+    @Test
+    void update_withARetentionOutOfRange_isRefused() {
+        active(new OnboardingPolicy());
+        OnboardingPolicyService service = service();
+
+        assertThatThrownBy(() -> service.update(retention(-1, 30)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("onboarding_policy.draft_retention.invalid");
+        assertThatThrownBy(() -> service.update(retention(15, 366)))
+                .hasMessage("onboarding_policy.draft_retention.invalid");
+        verify(repository, never()).save(any());
     }
 
     @Test

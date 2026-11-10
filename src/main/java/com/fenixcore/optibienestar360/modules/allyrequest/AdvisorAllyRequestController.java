@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestCreated
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestListItemDto;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AssistedAllyDraftStartRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.service.AllyRequestService;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionRequest;
 import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -41,6 +44,8 @@ import java.util.UUID;
  *   <li>{@code POST /drafts/{uuid}/submit} — creates the contact person's login, sends the invitation and sends the
  *   request to review ({@code ALLY_DRAFT_SUBMIT_ASSISTED}).</li>
  *   <li>{@code DELETE /drafts/{uuid}} — discards the draft ({@code ALLY_DRAFT_DISCARD_ASSISTED}).</li>
+ *   <li>{@code PUT /drafts/{uuid}/retain} — holds the draft out of the abandoned-draft cleanup or releases it
+ *   ({@code ALLY_DRAFT_RETAIN_ASSISTED}).</li>
  * </ul>
  * {@code /v1/me/advisor/ally-requests} is the primary path; {@code /v1/advisors/me/...} the secondary one.
  */
@@ -80,5 +85,14 @@ public class AdvisorAllyRequestController {
                                              @PathVariable UUID uuid) {
         draftService.discardAdvisorAllyDraft(actor.getUuid(), uuid);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/drafts/{uuid}/retain")
+    @PreAuthorize("hasAuthority('ALLY_DRAFT_RETAIN_ASSISTED')")
+    public ResponseEntity<DraftRetentionDto> retainDraft(@AuthenticationPrincipal CustomUserDetails actor,
+                                                         @PathVariable UUID uuid,
+                                                         @Valid @RequestBody DraftRetentionRequest request) {
+        return ResponseEntity.ok(draftService.retainAdvisorAllyDraft(actor.getUuid(), uuid,
+                request.retain(), request.note()));
     }
 }

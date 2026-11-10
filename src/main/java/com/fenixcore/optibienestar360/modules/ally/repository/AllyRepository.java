@@ -20,9 +20,9 @@ public interface AllyRepository extends JpaRepository<Ally, Long>, JpaSpecificat
 
     /**
      * Registrations still in progress (never sent to review) of the given channels that nobody touched since
-     * {@code cutoff} — the abandoned-draft cleanup.
+     * {@code cutoff} and that were not retained — the abandoned-draft cleanup.
      */
-    List<Ally> findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndUpdatedAtBefore(
+    List<Ally> findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
             Ally.RegistrationStatus status, java.util.Collection<Ally.RegistrationChannel> channels,
             java.time.Instant cutoff);
 

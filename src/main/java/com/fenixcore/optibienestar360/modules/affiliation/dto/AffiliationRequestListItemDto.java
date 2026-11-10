@@ -12,7 +12,8 @@ import java.util.UUID;
  * The applicant's identity stays flat; plan and advisor follow the
  * {@code _Display} convention (hub ADR 0014). {@code channel} tells a public
  * self-affiliation ({@code SELF_SERVICE}) from one filled by the advisor
- * ({@code ASSISTED}, V194).
+ * ({@code ASSISTED}, V194). {@code retainFromCleanup} (+ note and moment, V237) marks a draft held out of the
+ * abandoned-draft cleanup.
  */
 public record AffiliationRequestListItemDto(
         UUID uuid,
@@ -26,5 +27,8 @@ public record AffiliationRequestListItemDto(
         @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.channel") String channel,
         @Display(value = Display.Kind.ENUM, enumScope = "affiliation_request.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
-        @Display(Display.Kind.DATETIME) Instant reviewedAt
+        @Display(Display.Kind.DATETIME) Instant reviewedAt,
+        boolean retainFromCleanup,
+        String retainNote,
+        @Display(Display.Kind.DATETIME) Instant retainedAt
 ) {}

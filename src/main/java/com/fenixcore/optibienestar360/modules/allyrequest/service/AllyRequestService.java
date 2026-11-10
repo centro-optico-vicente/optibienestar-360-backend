@@ -836,7 +836,8 @@ public class AllyRequestService {
                 typeNames(ally), ally.getRegistrationStatus(), ally.getRegistrationChannel(),
                 contactName(ally), contactEmail(ally), contactPhone(ally), DisplayRefs.ref(ally.getCity()),
                 DisplayRefs.ref(ally.getCapturedByPromoter()),
-                ally.getRegistrationNote(), ally.getCreatedAt(), hasUser, !activeAgreements(ally).isEmpty());
+                ally.getRegistrationNote(), ally.getCreatedAt(), hasUser, !activeAgreements(ally).isEmpty(),
+                ally.isRetainFromCleanup(), ally.getRetainNote(), ally.getRetainedAt());
     }
 
     private AllyRequestDetailDto toDetail(Ally ally) {

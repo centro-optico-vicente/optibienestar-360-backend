@@ -1144,7 +1144,8 @@ public class AffiliationRequestService {
                 r.getTermsVersion() != null ? r.getTermsVersion().getUuid() : null,
                 contractAccepted, paymentOf(r), family,
                 r.getPromoter() != null ? r.getPromoter().getDisplayName() : null, r.getReferralCode(),
-                r.getSubmittedAt(), r.getRejectionReason());
+                r.getSubmittedAt(), r.getRejectionReason(),
+                r.isRetainFromCleanup(), r.getRetainNote(), r.getRetainedAt());
     }
 
     // ─── Rules ──────────────────────────────────────────────────────────────
@@ -1269,7 +1270,8 @@ public class AffiliationRequestService {
         return new AffiliationRequestListItemDto(
                 r.getUuid(), r.getFullName(), r.getDocumentType(), r.getDocumentNumber(), r.getEmail(), r.getPhone(),
                 DisplayRefs.ref((Object) r.getPlan()), advisorRef(r.getPromoter()), r.getChannel(),
-                r.getStatus(), r.getCreatedAt(), r.getReviewedAt());
+                r.getStatus(), r.getCreatedAt(), r.getReviewedAt(),
+                r.isRetainFromCleanup(), r.getRetainNote(), r.getRetainedAt());
     }
 
     private AffiliationRequestDetailDto toDetail(AffiliationRequest r) {

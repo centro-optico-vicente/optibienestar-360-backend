@@ -33,7 +33,10 @@ public record AffiliationRegistrationDto(
         String advisorName,
         String referralCode,
         @Display(Display.Kind.DATETIME) Instant submittedAt,
-        String rejectionReason
+        String rejectionReason,
+        boolean retainFromCleanup,
+        String retainNote,
+        @Display(Display.Kind.DATETIME) Instant retainedAt
 ) {
 
     /** A relative typed in the family step. */

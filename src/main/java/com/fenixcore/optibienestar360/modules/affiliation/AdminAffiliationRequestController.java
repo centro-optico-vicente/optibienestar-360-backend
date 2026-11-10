@@ -7,6 +7,9 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestRejectRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionRequest;
+import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -36,7 +39,9 @@ import java.util.UUID;
  * per action: {@code AFFILIATION_REQUEST_VIEW_ALL} (list + detail with its
  * log), {@code _UPDATE} (correct the data while PENDING), {@code _APPROVE}
  * (creates the user, the member and the SUSPENDED membership) and
- * {@code _REJECT} (reason required, emailed to the applicant).
+ * {@code _REJECT} (reason required, emailed to the applicant). {@code PUT /{uuid}/retain}
+ * ({@code AFFILIATION_REQUEST_DRAFT_RETAIN}) holds a draft out of the abandoned-draft cleanup or
+ * releases it; 422 once the request was sent to review.
  */
 @RestController
 @RequestMapping("/v1/admin/affiliation-requests")
@@ -44,6 +49,7 @@ import java.util.UUID;
 public class AdminAffiliationRequestController {
 
     private final AffiliationRequestService service;
+    private final RegistrationDraftService draftService;
 
     /** {@code ?status=PENDING|APPROVED|REJECTED|IN_PROGRESS} (all but the drafts when absent; {@code IN_PROGRESS} lists the DRAFTs, including the advisors' assisted ones), {@code ?q=} free text; newest first by default. */
     @GetMapping
@@ -104,5 +110,15 @@ public class AdminAffiliationRequestController {
             @AuthenticationPrincipal CustomUserDetails actor) {
         String reason = request != null ? request.reason() : null;
         return ResponseEntity.ok(service.reject(uuid, reason, actor.getUuid()));
+    }
+
+    @PutMapping("/{uuid}/retain")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_RETAIN')")
+    public ResponseEntity<DraftRetentionDto> retain(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody DraftRetentionRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(draftService.retainAffiliationDraft(actor.getUuid(), uuid,
+                request.retain(), request.note()));
     }
 }

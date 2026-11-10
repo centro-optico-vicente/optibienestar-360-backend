@@ -45,7 +45,8 @@ class OnboardingPolicyControllersIT {
     private static final String VALID_BODY = """
             {"allowMemberSelfRegistration":true,"allowAllySelfRegistration":false,
              "memberApprovalMode":"AUTO_ON_SUBMIT","memberActivationMode":"ON_PAYMENT_APPROVED",
-             "allyApprovalMode":"MANUAL_WITH_AGREEMENT","allyPublishMode":"MANUAL"}
+             "allyApprovalMode":"MANUAL_WITH_AGREEMENT","allyPublishMode":"MANUAL",
+             "memberDraftRetentionDays":15,"allyDraftRetentionDays":30}
             """;
 
     @Autowired
@@ -63,7 +64,7 @@ class OnboardingPolicyControllersIT {
 
     private static OnboardingPolicyDto dto() {
         return new OnboardingPolicyDto(UUID.randomUUID(), true, false, MemberApprovalMode.AUTO_ON_SUBMIT,
-                MemberActivationMode.ON_PAYMENT_APPROVED, AllyApprovalMode.MANUAL_WITH_AGREEMENT, AllyPublishMode.MANUAL);
+                MemberActivationMode.ON_PAYMENT_APPROVED, AllyApprovalMode.MANUAL_WITH_AGREEMENT, AllyPublishMode.MANUAL, 15, 30);
     }
 
     @Test

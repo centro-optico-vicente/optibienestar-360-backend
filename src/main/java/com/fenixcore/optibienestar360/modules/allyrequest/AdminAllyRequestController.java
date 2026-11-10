@@ -11,6 +11,9 @@ import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestRejectR
 import com.fenixcore.optibienestar360.modules.allyrequest.importer.AllyImportService;
 import com.fenixcore.optibienestar360.modules.allyrequest.importer.AllyImportTemplate;
 import com.fenixcore.optibienestar360.modules.allyrequest.service.AllyRequestService;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionDto;
+import com.fenixcore.optibienestar360.modules.onboarding.dto.DraftRetentionRequest;
+import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,7 +46,9 @@ import java.util.UUID;
  * from the template (Excel, or CSV separated by semicolon, comma or tab).
  * One granular permission per action: {@code ALLY_REGISTRATION_VIEW_ALL}
  * (list, count, detail, support link), {@code _APPROVE}, {@code _REJECT}
- * (reject and reopen), {@code _INVITE}, and {@code ALLY_IMPORT}.
+ * (reject and reopen), {@code _INVITE}, and {@code ALLY_IMPORT}. {@code PUT /{uuid}/retain}
+ * ({@code ALLY_REGISTRATION_RETAIN}) holds a registration in progress out of the abandoned-draft cleanup or
+ * releases it; 422 once it was sent to review.
  */
 @RestController
 @RequestMapping("/v1/admin/ally-requests")
@@ -51,6 +57,7 @@ public class AdminAllyRequestController {
 
     private final AllyRequestService service;
     private final AllyImportService importService;
+    private final RegistrationDraftService draftService;
 
     /** {@code ?status=PENDING|APPROVED|REJECTED}, {@code ?channel=SELF_SERVICE|IMPORT}, {@code ?q=}, {@code ?promoterUuid=} (the advisor who brought the ally in); newest first by default. */
     @GetMapping
@@ -157,5 +164,15 @@ public class AdminAllyRequestController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
                 .contentType(type)
                 .body(body);
+    }
+
+    @PutMapping("/{uuid}/retain")
+    @PreAuthorize("hasAuthority('ALLY_REGISTRATION_RETAIN')")
+    public ResponseEntity<DraftRetentionDto> retain(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody DraftRetentionRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(draftService.retainAllyRegistration(actor.getUuid(), uuid,
+                request.retain(), request.note()));
     }
 }

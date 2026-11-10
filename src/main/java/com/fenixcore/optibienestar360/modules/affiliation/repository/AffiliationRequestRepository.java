@@ -50,6 +50,9 @@ public interface AffiliationRequestRepository
     boolean existsByDocumentTypeAndDocumentNumberAndStatusAndIdNot(String documentType, String documentNumber,
                                                                    String status, Long id);
 
-    /** Registrations still in {@code status} that nobody touched since {@code cutoff} — the abandoned-draft cleanup. */
-    List<AffiliationRequest> findByStatusAndUpdatedAtBefore(String status, Instant cutoff);
+    /**
+     * Registrations still in {@code status} that nobody touched since {@code cutoff} and that were not retained —
+     * the abandoned-draft cleanup.
+     */
+    List<AffiliationRequest> findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore(String status, Instant cutoff);
 }

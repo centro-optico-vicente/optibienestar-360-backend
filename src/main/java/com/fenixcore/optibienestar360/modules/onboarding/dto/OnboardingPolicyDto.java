@@ -11,7 +11,8 @@ import java.util.UUID;
  * The active onboarding policy ({@code GET/PUT /v1/admin/onboarding-policy}).
  * {@code uuid} is {@code null} only when no row exists and these are the
  * in-code defaults (today's behavior). The enum labels are translated in the
- * frontend, so there is no {@code _Display} pair (hub ADR 0014).
+ * frontend, so there is no {@code _Display} pair (hub ADR 0014). The draft retention days (V237; 0 = never
+ * clean up that kind) are admin-only: the public policy does not carry them.
  */
 public record OnboardingPolicyDto(
         UUID uuid,
@@ -20,5 +21,7 @@ public record OnboardingPolicyDto(
         MemberApprovalMode memberApprovalMode,
         MemberActivationMode memberActivationMode,
         AllyApprovalMode allyApprovalMode,
-        AllyPublishMode allyPublishMode
+        AllyPublishMode allyPublishMode,
+        int memberDraftRetentionDays,
+        int allyDraftRetentionDays
 ) {}
