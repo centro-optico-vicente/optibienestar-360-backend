@@ -108,9 +108,20 @@ public class PatientAccessService {
     }
 
     /** "Mis pacientes": the doctor's active links, from any of their sites. */
-    public Page<AllyPatientLinkDto> patients(UUID allyUuid, UUID actorUuid, Pageable pageable) {
+    public Page<AllyPatientLinkDto> patients(UUID allyUuid, UUID actorUuid, String q, Pageable pageable) {
+        return patients(allyUuid, actorUuid, q, null, null, pageable);
+    }
+
+    /** Adds an inclusive range ({@code dateFrom}/{@code dateTo}, Caracas days) on the day the link was opened. */
+    public Page<AllyPatientLinkDto> patients(UUID allyUuid, UUID actorUuid, String q,
+                                             java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable) {
         Context ctx = requireDoctorContext(allyUuid, actorUuid);
-        return linkRepository.findActiveByDoctor(ctx.doctor().getId(), pageable).map(this::toDto);
+        String term = q == null ? "" : q.trim();
+        java.time.Instant from = dateFrom == null ? null
+                : dateFrom.atStartOfDay(com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE).toInstant();
+        java.time.Instant to = dateTo == null ? null
+                : dateTo.plusDays(1).atStartOfDay(com.fenixcore.optibienestar360.core.util.AppTimeZone.ZONE).toInstant();
+        return linkRepository.findActiveByDoctor(ctx.doctor().getId(), term, from, to, pageable).map(this::toDto);
     }
 
     /** Reads the patient's medical history (read-only) and logs the read. */

@@ -43,6 +43,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentUpdateReques
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCategory;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentListFilter;
 import com.fenixcore.optibienestar360.modules.payment.entity.PaymentLine;
 import com.fenixcore.optibienestar360.modules.payment.mapper.PaymentMapper;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentCategoryRepository;
@@ -69,11 +70,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -127,8 +135,20 @@ public class PaymentsService {
 
     /** {@code referenceNumber} dropped since V117 — now on {@code payment_lines}, see {@link #ALLOWED_FILTER_FIELDS}. */
     private static final String[] SEARCHABLE_FIELDS = {
-            "adminNotes", "supportFileName"
+            "adminNotes", "supportFileName", "beneficiaryDocument", "beneficiaryContractNumber",
+            "person.fullName", "person.documentNumber"
     };
+
+    /** Searched on the nullable {@code promoter} association (explicit LEFT JOIN — see {@link #searchSpec}). */
+    private static final String[] SEARCHABLE_PROMOTER_FIELDS = {"displayName", "referralCode"};
+
+    /** Searched on the nullable {@code beneficiaryPerson} association. */
+    private static final String[] SEARCHABLE_BENEFICIARY_FIELDS = {"fullName", "documentNumber"};
+
+    /** Searched on {@code payment_lines} — the bank reference moved there in V117. */
+    private static final String[] SEARCHABLE_LINE_FIELDS = {"referenceNumber", "identification"};
+
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Caracas");
 
     /** {@code plan_Display} → plan's catalog name (ADR 0014 default; only FK Payment's list DTO surfaces as a display column). */
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -203,7 +223,22 @@ public class PaymentsService {
      * the full history, not a curated query.
      */
     public Page<PaymentDto> listForUser(UUID userUuid, Pageable pageable) {
-        return paymentRepository.findOwnByUserUuid(userUuid, pageable).map(this::toDtoWithCredit);
+        return listForUser(userUuid, null, pageable);
+    }
+
+    /** As {@link #listForUser(UUID, Pageable)} with an optional accent/case-insensitive free-text {@code q}. */
+    public Page<PaymentDto> listForUser(UUID userUuid, String q, Pageable pageable) {
+        return listForUser(userUuid, q, null, null, pageable);
+    }
+
+    /** Adds an inclusive {@code paymentDate} range ({@code dateFrom}/{@code dateTo}, Caracas days). */
+    public Page<PaymentDto> listForUser(UUID userUuid, String q, LocalDate dateFrom, LocalDate dateTo, Pageable pageable) {
+        Instant from = dateFrom == null ? null : dateFrom.atStartOfDay(BUSINESS_ZONE).toInstant();
+        Instant to = dateTo == null ? null : dateTo.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        if (q == null || q.isBlank()) {
+            return paymentRepository.findOwnByUserUuid(userUuid, from, to, pageable).map(this::toDtoWithCredit);
+        }
+        return paymentRepository.findOwnByUserUuidAndSearch(userUuid, q.trim(), from, to, pageable).map(this::toDtoWithCredit);
     }
 
     /**
@@ -218,6 +253,17 @@ public class PaymentsService {
      * subset (their own network's rows), not a query builder.
      */
     public Page<PaymentDto> listForPromoter(UUID actorUserUuid, String direction, Pageable pageable) {
+        return listForPromoter(actorUserUuid, direction, null, pageable);
+    }
+
+    /** As {@link #listForPromoter(UUID, String, Pageable)} with an optional free-text {@code q} (same fields as the admin search). */
+    public Page<PaymentDto> listForPromoter(UUID actorUserUuid, String direction, String q, Pageable pageable) {
+        return listForPromoter(actorUserUuid, direction, q, null, null, pageable);
+    }
+
+    /** Adds an inclusive {@code paymentDate} range ({@code dateFrom}/{@code dateTo}, Caracas days). */
+    public Page<PaymentDto> listForPromoter(UUID actorUserUuid, String direction, String q,
+                                            LocalDate dateFrom, LocalDate dateTo, Pageable pageable) {
         Promoter promoter = promoterRepository.findActiveByUserUuid(actorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("payment", pageable);
@@ -225,6 +271,10 @@ public class PaymentsService {
         Specification<Payment> spec = activeOnly()
                 .and(directionIs(direction))
                 .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), promoter.getId()));
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(searchSpec(q));
+        }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("paymentDate", dateFrom, dateTo));
         return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
     }
 
@@ -246,6 +296,11 @@ public class PaymentsService {
      *                  unknown field).
      */
     public Page<PaymentDto> list(Pageable pageable, String filter, String q, String direction) {
+        return list(pageable, filter, q, direction, PaymentListFilter.none());
+    }
+
+    public Page<PaymentDto> list(Pageable pageable, String filter, String q, String direction,
+                                 PaymentListFilter filters) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "payment", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "payment");
@@ -262,9 +317,84 @@ public class PaymentsService {
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
         if (q != null && !q.isBlank()) {
-            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+            spec = spec.and(searchSpec(q));
+        }
+        if (filters != null) {
+            spec = spec.and(masterFilters(filters));
         }
         return paymentRepository.findAll(spec, resolvedPageable).map(this::toDtoWithCredit);
+    }
+
+    /**
+     * Free-text search (accent- and case-insensitive) over the payment's own
+     * fields, the payer, the beneficiary, the advisor and any line's
+     * reference/identification. Nullable associations use explicit LEFT JOINs —
+     * navigating them with {@code get()} would add an inner join and silently
+     * drop payments that have no advisor or beneficiary.
+     */
+    private static Specification<Payment> searchSpec(String q) {
+        return (root, query, cb) -> {
+            Join<Payment, ?> promoter = root.join("promoter", JoinType.LEFT);
+            Join<Payment, ?> beneficiary = root.join("beneficiaryPerson", JoinType.LEFT);
+            Subquery<Long> lines = query.subquery(Long.class);
+            Root<PaymentLine> line = lines.from(PaymentLine.class);
+            lines.select(cb.literal(1L)).where(
+                    cb.equal(line.get("payment"), root),
+                    cb.isTrue(line.get("active")),
+                    SearchSpecifications.anyLike(cb, line, q, SEARCHABLE_LINE_FIELDS));
+            return cb.or(
+                    SearchSpecifications.anyLike(cb, root, q, SEARCHABLE_FIELDS),
+                    SearchSpecifications.anyLike(cb, promoter, q, SEARCHABLE_PROMOTER_FIELDS),
+                    SearchSpecifications.anyLike(cb, beneficiary, q, SEARCHABLE_BENEFICIARY_FIELDS),
+                    cb.exists(lines));
+        };
+    }
+
+    /** AND of the master-table filters actually provided; absent ones are no-ops. */
+    private static Specification<Payment> masterFilters(PaymentListFilter f) {
+        return (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (f.memberUuid() != null) {
+                Join<Payment, ?> beneficiary = root.join("beneficiaryPerson", JoinType.LEFT);
+                Subquery<Long> personIds = query.subquery(Long.class);
+                Root<Member> member = personIds.from(Member.class);
+                personIds.select(member.get("person").get("id")).where(cb.equal(member.get("uuid"), f.memberUuid()));
+                ps.add(cb.or(
+                        root.get("person").get("id").in(personIds),
+                        beneficiary.get("id").in(personIds)));
+            }
+            if (f.categoryUuid() != null) {
+                ps.add(cb.equal(root.get("paymentType").get("uuid"), f.categoryUuid()));
+            }
+            if (f.promoterUuid() != null) {
+                Join<Payment, ?> promoter = root.join("promoter", JoinType.LEFT);
+                ps.add(cb.equal(promoter.get("uuid"), f.promoterUuid()));
+            }
+            if (f.paymentMethodUuid() != null || f.bankUuid() != null) {
+                Subquery<Long> lines = query.subquery(Long.class);
+                Root<PaymentLine> line = lines.from(PaymentLine.class);
+                List<Predicate> lp = new ArrayList<>();
+                lp.add(cb.equal(line.get("payment"), root));
+                lp.add(cb.isTrue(line.get("active")));
+                if (f.paymentMethodUuid() != null) {
+                    lp.add(cb.equal(line.get("paymentType").get("uuid"), f.paymentMethodUuid()));
+                }
+                if (f.bankUuid() != null) {
+                    lp.add(cb.equal(line.get("bank").get("uuid"), f.bankUuid()));
+                }
+                lines.select(cb.literal(1L)).where(lp.toArray(new Predicate[0]));
+                ps.add(cb.exists(lines));
+            }
+            if (f.dateFrom() != null) {
+                ps.add(cb.greaterThanOrEqualTo(root.<Instant>get("paymentDate"),
+                        f.dateFrom().atStartOfDay(BUSINESS_ZONE).toInstant()));
+            }
+            if (f.dateTo() != null) {
+                ps.add(cb.lessThan(root.<Instant>get("paymentDate"),
+                        f.dateTo().plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()));
+            }
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
     }
 
     private static Specification<Payment> directionIs(String direction) {

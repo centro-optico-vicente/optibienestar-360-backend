@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.core.audit.entity.ReportAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
 import com.fenixcore.optibienestar360.core.audit.repository.ReportAuditLogRepository;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import io.github.perplexhub.rsql.RSQLJPASupport;
@@ -49,9 +50,19 @@ public class ReportAuditQueryService {
     private final AuditDisplayResolver auditDisplayResolver;
     private final ObjectProvider<StorageService> storageProvider;
 
+    /** Free-text {@code ?q=} fields (accent/case-insensitive): report, entity, its identifier and the file name. */
+    private static final String[] SEARCHABLE_FIELDS = {"reportType", "entityKey", "entityIdentifier", "fileName"};
+
     @Transactional(readOnly = true)
     public Page<ReportAuditLogDto> list(Pageable pageable, String reportType, String entityKey, UUID entityUuid,
                                          UUID actorUuid, String format, Instant from, Instant to, String filter) {
+        return list(pageable, reportType, entityKey, entityUuid, actorUuid, format, from, to, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ReportAuditLogDto> list(Pageable pageable, String reportType, String entityKey, UUID entityUuid,
+                                         UUID actorUuid, String format, Instant from, Instant to, String filter,
+                                         String q) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
         }
@@ -84,6 +95,8 @@ public class ReportAuditQueryService {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "audit.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }
+
+        spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
 
         return reportAuditLogRepository.findAll(spec, pageable).map(this::toDto);
     }

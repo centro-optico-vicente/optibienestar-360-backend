@@ -57,8 +57,15 @@ public class AdminAffiliationRequestController {
     public ResponseEntity<AppliedSortPage<AffiliationRequestListItemDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String q) {
-        Page<AffiliationRequestListItemDto> page = service.list(pageable, status, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID planUuid,
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) UUID paymentMethodUuid,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<AffiliationRequestListItemDto> page = service.list(pageable, status, q,
+                new com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListFilter(
+                        planUuid, promoterUuid, paymentMethodUuid, dateFrom, dateTo));
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

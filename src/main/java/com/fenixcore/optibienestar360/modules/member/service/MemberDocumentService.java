@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.common.service.StorageService;
@@ -108,12 +109,19 @@ public class MemberDocumentService {
     }
 
     public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, Pageable pageable) {
+        return list(memberUuid, currentUserUuid, hasViewAll, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over file name and document type. */
+    public List<MemberDocumentDto> list(UUID memberUuid, UUID currentUserUuid, boolean hasViewAll, String q, Pageable pageable) {
         Member member = findMember(memberUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "member_document", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "member_document");
         return documentRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
                 .filter(d -> hasViewAll || visibleTo(d, currentUserUuid))
+                .filter(TextSearch.<MemberDocument>matching(q,
+                        MemberDocument::getFileName, d -> d.getDocumentType() == null ? null : d.getDocumentType().name()))
                 .map(this::toDto)
                 .toList();
     }

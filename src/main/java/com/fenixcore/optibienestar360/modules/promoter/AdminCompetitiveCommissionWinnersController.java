@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -52,10 +53,22 @@ public class AdminCompetitiveCommissionWinnersController {
     @GetMapping("/ties")
     @PreAuthorize("hasAuthority('COMPETITIVE_COMMISSION_AWARD_VIEW_ALL')")
     public ResponseEntity<Page<CompetitiveTieDto>> listTies(@PageableDefault(size = 50) Pageable pageable,
-            @RequestParam(required = false) String filter) {
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate dateTo) {
         Specification<CompetitiveCommissionTie> spec = (root, query, cb) -> cb.conjunction();
+        // Free-text search over the rule name and the tie reason (accent/case-insensitive).
+        spec = spec.and(SearchSpecifications.acrossFields(q, "rule.name", "reason"));
         if (filter != null && !filter.isBlank()) {
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+        // Same period semantics as the awards list: periodStart >= dateFrom and periodEnd <= dateTo.
+        if (dateFrom != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<LocalDate>get("periodStart"), dateFrom));
+        }
+        if (dateTo != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.<LocalDate>get("periodEnd"), dateTo));
         }
         return ResponseEntity.ok(tieRepository.findAll(spec, pageable).map(CompetitiveTieDto::from));
     }

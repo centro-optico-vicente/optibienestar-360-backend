@@ -49,8 +49,9 @@ public class AdminScheduledJobRunAuditController {
             @RequestParam(required = false) Outcome outcome,
             @RequestParam(required = false) TriggerSource triggeredBy,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
-        Page<ScheduledJobRunDto> page = jobsService.listAllRuns(pageable, jobUuid, outcome, triggeredBy, from, to);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String q) {
+        Page<ScheduledJobRunDto> page = jobsService.listAllRuns(pageable, jobUuid, outcome, triggeredBy, from, to, q);
         return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSortRuns(pageable)));
     }
 

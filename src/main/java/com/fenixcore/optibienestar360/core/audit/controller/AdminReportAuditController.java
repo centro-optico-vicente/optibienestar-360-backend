@@ -48,9 +48,10 @@ public class AdminReportAuditController {
             @RequestParam(required = false) String format,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required = false) String filter) {
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
         return ResponseEntity.ok(reportAuditQueryService.list(
-                pageable, reportType, entityKey, entityUuid, actorUuid, format, from, to, filter));
+                pageable, reportType, entityKey, entityUuid, actorUuid, format, from, to, filter, q));
     }
 
     @GetMapping("/{uuid}/download")

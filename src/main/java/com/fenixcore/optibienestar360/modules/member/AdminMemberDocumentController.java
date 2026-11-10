@@ -68,8 +68,9 @@ public class AdminMemberDocumentController {
     public ResponseEntity<List<MemberDocumentDto>> list(
             @PathVariable UUID memberUuid,
             @AuthenticationPrincipal CustomUserDetails actor,
+            @RequestParam(required = false) String q,
             Pageable pageable) {
-        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor), pageable));
+        return ResponseEntity.ok(documentService.list(memberUuid, actor.getUuid(), hasViewAll(actor), q, pageable));
     }
 
     /** Recaudos completeness checklist — reserved for reviewers holding {@code MEMBER_DOCUMENT_VIEW_ALL}. */

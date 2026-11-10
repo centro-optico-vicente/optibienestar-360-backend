@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.core.audit;
 
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogDto;
 import com.fenixcore.optibienestar360.core.audit.dto.DataChangeAuditLogPageDto;
 import com.fenixcore.optibienestar360.core.audit.entity.DataChangeAuditLog;
@@ -51,6 +52,14 @@ public class DataChangeAuditQueryService {
     public DataChangeAuditLogPageDto list(Pageable pageable, String entityKey, UUID entityUuid,
                                            UUID actorUuid, AuditAction action,
                                            Instant from, Instant to, String filter) {
+        return list(pageable, entityKey, entityUuid, actorUuid, action, from, to, filter, null);
+    }
+
+    /** Same as above plus a free-text {@code q} (accent/case-insensitive) over entity key and request path/method. */
+    @Transactional(readOnly = true)
+    public DataChangeAuditLogPageDto list(Pageable pageable, String entityKey, UUID entityUuid,
+                                           UUID actorUuid, AuditAction action,
+                                           Instant from, Instant to, String filter, String q) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
         }
@@ -82,6 +91,10 @@ public class DataChangeAuditQueryService {
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "audit.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, "entityKey", "requestPath", "requestMethod"));
         }
 
         Page<DataChangeAuditLogDto> page = dataChangeAuditLogRepository.findAll(spec, pageable).map(this::toDto);

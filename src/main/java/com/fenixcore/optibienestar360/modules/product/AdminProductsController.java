@@ -56,8 +56,11 @@ public class AdminProductsController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) ProductType type,
             @RequestParam(required = false) Boolean exclusive,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<ProductListItemDto> page = productsService.list(pageable, filter, q, type, exclusive, includeInactive);
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) UUID ownerAllyUuid) {
+        Page<ProductListItemDto> page = productsService.list(pageable, filter, q, type, exclusive, includeInactive,
+                categoryUuid, ownerAllyUuid);
         return ResponseEntity.ok(new AppliedSortPage<>(page, productsService.effectiveSort(pageable)));
     }
 

@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.payment.entity.PaymentCreditClaim;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +14,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Transactional(readOnly = true)
-public interface PaymentCreditClaimRepository extends JpaRepository<PaymentCreditClaim, Long> {
+public interface PaymentCreditClaimRepository extends JpaRepository<PaymentCreditClaim, Long>,
+        JpaSpecificationExecutor<PaymentCreditClaim> {
 
     Optional<PaymentCreditClaim> findByUuid(UUID uuid);
 

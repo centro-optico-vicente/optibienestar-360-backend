@@ -53,8 +53,11 @@ public class AdminCorporateContractController {
     public ResponseEntity<AppliedSortPage<CorporateContractDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        Page<CorporateContractDto> page = service.list(pageable, filter, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID planUuid,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<CorporateContractDto> page = service.list(pageable, filter, q, planUuid, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

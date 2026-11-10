@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.time.LocalDate;
 import java.net.URI;
 import java.util.UUID;
 
@@ -50,8 +52,11 @@ public class AdminExchangeRateController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String base,
             @RequestParam(required = false) String quote,
-            @RequestParam(required = false) String filter) {
-        Page<ExchangeRateDto> page = service.list(pageable, base, quote, filter);
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        Page<ExchangeRateDto> page = service.list(pageable, base, quote, filter, q, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

@@ -121,6 +121,12 @@ public class UserService {
     // ─── Admin CRUD ───────────────────────────────────────────────────────────
 
     public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid) {
+        return listUsers(filter, q, includeInactive, pageable, actorUuid, null);
+    }
+
+    /** Same as above plus an optional {@code roleUuid} master filter (users holding that active role). */
+    public Page<UserDto> listUsers(String filter, String q, boolean includeInactive, Pageable pageable, UUID actorUuid,
+                                   UUID roleUuid) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "user", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "user");
@@ -133,6 +139,17 @@ public class UserService {
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (roleUuid != null) {
+            spec = spec.and((root, query, cb) -> {
+                var sub = query.subquery(Long.class);
+                var urRoot = sub.from(UserRole.class);
+                sub.select(urRoot.get("id")).where(
+                        cb.equal(urRoot.get("user"), root),
+                        cb.isTrue(urRoot.get("active")),
+                        cb.equal(urRoot.get("role").get("uuid"), roleUuid));
+                return cb.exists(sub);
+            });
         }
         // Only SYSTEM actors may see SYSTEM users; hide them from everyone else.
         if (!isSystemActor(actorUuid)) {

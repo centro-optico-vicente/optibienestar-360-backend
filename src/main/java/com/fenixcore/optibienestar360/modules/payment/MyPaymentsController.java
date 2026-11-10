@@ -56,8 +56,11 @@ public class MyPaymentsController {
 	@PreAuthorize("hasAnyAuthority('PAYMENT_VIEW_OWN', 'COLLECTION_VIEW_OWN')")
     public ResponseEntity<Page<PaymentDto>> list(
             @PageableDefault(size = 20, sort = "receivedAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(paymentsService.listForUser(actor.getUuid(), pageable));
+        return ResponseEntity.ok(paymentsService.listForUser(actor.getUuid(), q, dateFrom, dateTo, pageable));
     }
 
     /** {@code ?draft=true} starts the payment at {@code DRAFT} — see {@code AdminPaymentController.register}. */

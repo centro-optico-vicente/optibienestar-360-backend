@@ -61,9 +61,10 @@ public class AdminDataChangeAuditController {
             @RequestParam(required = false) AuditAction action,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required = false) String filter) {
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q) {
         return ResponseEntity.ok(dataChangeAuditQueryService.list(
-                pageable, entityKey, entityUuid, actorUuid, action, from, to, filter));
+                pageable, entityKey, entityUuid, actorUuid, action, from, to, filter, q));
     }
 
     @GetMapping("/first-change")

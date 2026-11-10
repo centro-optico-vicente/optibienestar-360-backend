@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.core.util;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
@@ -48,19 +49,28 @@ public final class SearchSpecifications {
         if (q == null || q.isBlank() || fields.length == 0) {
             return (root, query, cb) -> cb.conjunction();
         }
+        return (root, query, cb) -> anyLike(cb, root, q, fields);
+    }
+
+    /**
+     * Builds the OR of unaccented case-insensitive LIKE predicates over
+     * {@code fields} of {@code from}. Exposed so a service can reuse the exact
+     * same expression on an explicit {@code LEFT JOIN} (nullable association)
+     * or inside an {@code EXISTS} subquery, where {@link #acrossFields} —
+     * which navigates with implicit inner joins — does not fit.
+     */
+    public static Predicate anyLike(CriteriaBuilder cb, Path<?> from, String q, String... fields) {
         String normalized = "%" + q.trim().toLowerCase() + "%";
-        return (root, query, cb) -> {
-            Expression<String> pattern = cb.function(
-                    "immutable_unaccent", String.class, cb.literal(normalized));
-            Predicate[] preds = new Predicate[fields.length];
-            for (int i = 0; i < fields.length; i++) {
-                Expression<String> field = cb.function(
-                        "immutable_unaccent", String.class,
-                        cb.lower(resolvePath(root, fields[i]).as(String.class)));
-                preds[i] = cb.like(field, pattern);
-            }
-            return cb.or(preds);
-        };
+        Expression<String> pattern = cb.function(
+                "immutable_unaccent", String.class, cb.literal(normalized));
+        Predicate[] preds = new Predicate[fields.length];
+        for (int i = 0; i < fields.length; i++) {
+            Expression<String> field = cb.function(
+                    "immutable_unaccent", String.class,
+                    cb.lower(resolvePath(from, fields[i]).as(String.class)));
+            preds[i] = cb.like(field, pattern);
+        }
+        return cb.or(preds);
     }
 
     /**

@@ -77,6 +77,12 @@ public class AllyProductsAdminService {
 
     /** The ally's active offers, paginated; optional {@code type} and free-text {@code q} over the product. */
     public Page<AllyProductDto> listForAlly(UUID allyUuid, ProductType type, String q, Pageable pageable) {
+        return listForAlly(allyUuid, type, null, q, pageable);
+    }
+
+    /** Same as above plus an optional product-category filter ({@code categoryUuid}). */
+    public Page<AllyProductDto> listForAlly(UUID allyUuid, ProductType type, UUID categoryUuid, String q,
+                                            Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, ENTITY_KEY);
@@ -86,6 +92,10 @@ public class AllyProductsAdminService {
                 cb.isTrue(root.get("active")));
         if (type != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("product").get("productType"), type));
+        }
+        if (categoryUuid != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("product").get("productCategory").get("uuid"), categoryUuid));
         }
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));

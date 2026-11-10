@@ -50,8 +50,10 @@ public class AdminSubsidyController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) UUID memberUuid,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        Page<SubsidyDto> page = service.list(pageable, memberUuid, filter, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<SubsidyDto> page = service.list(pageable, memberUuid, filter, q, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

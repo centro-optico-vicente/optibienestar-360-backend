@@ -101,6 +101,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListFilter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -328,13 +329,47 @@ public class AffiliationRequestService {
 
     /** Admin list, optional {@code status} filter and free-text {@code q}, newest first by default. */
     public Page<AffiliationRequestListItemDto> list(Pageable pageable, String status, String q) {
+        return list(pageable, status, q, AffiliationRequestListFilter.none());
+    }
+
+    public Page<AffiliationRequestListItemDto> list(Pageable pageable, String status, String q,
+                                                    AffiliationRequestListFilter filters) {
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, ENTITY_KEY);
         Specification<AffiliationRequest> spec = withStatus(parseStatus(status));
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        if (filters != null) {
+            spec = spec.and(masterFilters(filters));
+        }
         return repository.findAll(spec, resolved).map(this::toListItem);
+    }
+
+    /** AND of the master-table filters provided; nullable associations use explicit LEFT JOINs. */
+    private static Specification<AffiliationRequest> masterFilters(AffiliationRequestListFilter f) {
+        java.time.ZoneId zone = java.time.ZoneId.of("America/Caracas");
+        return (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> ps = new java.util.ArrayList<>();
+            if (f.planUuid() != null) {
+                ps.add(cb.equal(root.join("plan", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.planUuid()));
+            }
+            if (f.promoterUuid() != null) {
+                ps.add(cb.equal(root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.promoterUuid()));
+            }
+            if (f.paymentMethodUuid() != null) {
+                ps.add(cb.equal(root.join("paymentMethod", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.paymentMethodUuid()));
+            }
+            if (f.dateFrom() != null) {
+                ps.add(cb.greaterThanOrEqualTo(root.<java.time.Instant>get("createdAt"),
+                        f.dateFrom().atStartOfDay(zone).toInstant()));
+            }
+            if (f.dateTo() != null) {
+                ps.add(cb.lessThan(root.<java.time.Instant>get("createdAt"),
+                        f.dateTo().plusDays(1).atStartOfDay(zone).toInstant()));
+            }
+            return cb.and(ps.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
@@ -347,6 +382,17 @@ public class AffiliationRequestService {
      * (their active advisor record). 404 when the caller is not an advisor.
      */
     public Page<AffiliationRequestListItemDto> listForAdvisor(UUID userUuid, Pageable pageable, String status) {
+        return listForAdvisor(userUuid, pageable, status, null);
+    }
+
+    /** Same as above plus a free-text {@code q} (accent/case-insensitive) over the applicant's name, document, email and phone. */
+    public Page<AffiliationRequestListItemDto> listForAdvisor(UUID userUuid, Pageable pageable, String status, String q) {
+        return listForAdvisor(userUuid, pageable, status, q, null, null);
+    }
+
+    /** Adds an inclusive creation-day range ({@code dateFrom}/{@code dateTo}, Caracas days) on {@code createdAt}. */
+    public Page<AffiliationRequestListItemDto> listForAdvisor(UUID userUuid, Pageable pageable, String status, String q,
+                                                              java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Promoter advisor = promoterRepository.findActiveByUserUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
@@ -354,6 +400,10 @@ public class AffiliationRequestService {
         Long advisorId = advisor.getId();
         Specification<AffiliationRequest> spec = withStatus(parseStatus(status))
                 .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), advisorId));
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("createdAt", dateFrom, dateTo));
         return repository.findAll(spec, resolved).map(this::toListItem);
     }
 

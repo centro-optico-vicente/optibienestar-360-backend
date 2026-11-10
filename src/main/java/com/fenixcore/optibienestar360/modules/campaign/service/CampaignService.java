@@ -108,6 +108,12 @@ public class CampaignService {
     }
 
     public Page<CampaignDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        return list(pageable, filter, q, includeInactive, null, null);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: campaigns whose {@code [startsAt, endsAt]} window overlaps the range (Caracas days). */
+    public Page<CampaignDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+                                  java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("campaign", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "campaign");
         Specification<Campaign> spec = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
@@ -118,6 +124,7 @@ public class CampaignService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.overlapsOffset("startsAt", "endsAt", dateFrom, dateTo));
         return repository.findAll(spec, resolvedPageable).map(this::toDto);
     }
 

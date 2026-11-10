@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.member.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
@@ -94,10 +95,18 @@ public class BeneficiariesService {
     private final DefaultSortResolver defaultSortResolver;
 
     public List<BeneficiaryDto> listForMember(UUID memberUuid, Pageable pageable) {
+        return listForMember(memberUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over name, document and relationship. */
+    public List<BeneficiaryDto> listForMember(UUID memberUuid, String q, Pageable pageable) {
         Member member = findMember(memberUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("beneficiary", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "beneficiary");
         return beneficiaryRepository.findByMemberIdAndActiveTrue(member.getId(), resolved.getSort()).stream()
+                .filter(TextSearch.<Beneficiary>matching(q,
+                        b -> b.getPerson().getFullName(), b -> b.getPerson().getDocumentNumber(),
+                        b -> b.getRelationship() == null ? null : b.getRelationship().name()))
                 .map(this::toDto)
                 .toList();
     }

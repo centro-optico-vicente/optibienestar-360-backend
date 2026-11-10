@@ -69,7 +69,11 @@ public class SubsidiesService {
             "validFrom", "validUntil", "active", "status", "createdAt", "updatedAt"
     );
 
-    private static final String[] SEARCHABLE_FIELDS = {"reason"};
+    private static final String[] SEARCHABLE_FIELDS = {
+            "reason",
+            // Non-null FK: a plain dotted path keeps every row.
+            "member.person.fullName", "member.person.documentNumber"
+    };
 
     /** {@code member_Display} is a 2-hop path — {@code Subsidy.member} then {@code Member.person.fullName} (see {@code SubsidyDto.from}). */
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
@@ -90,6 +94,12 @@ public class SubsidiesService {
     }
 
     public Page<SubsidyDto> list(Pageable pageable, UUID memberUuid, String filter, String q) {
+        return list(pageable, memberUuid, filter, q, null, null);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: subsidies whose {@code [validFrom, validUntil]} window overlaps the range. */
+    public Page<SubsidyDto> list(Pageable pageable, UUID memberUuid, String filter, String q,
+                                 java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "subsidy", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "subsidy");
@@ -104,6 +114,7 @@ public class SubsidiesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.overlaps("validFrom", "validUntil", dateFrom, dateTo));
         return repository.findAll(spec, resolvedPageable).map(SubsidyDto::from);
     }
 

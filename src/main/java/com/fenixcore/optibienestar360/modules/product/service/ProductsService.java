@@ -80,6 +80,12 @@ public class ProductsService {
      */
     public Page<ProductListItemDto> list(Pageable pageable, String filter, String q, ProductType type,
                                          Boolean exclusive, boolean includeInactive) {
+        return list(pageable, filter, q, type, exclusive, includeInactive, null, null);
+    }
+
+    public Page<ProductListItemDto> list(Pageable pageable, String filter, String q, ProductType type,
+                                         Boolean exclusive, boolean includeInactive,
+                                         UUID categoryUuid, UUID ownerAllyUuid) {
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, ENTITY_KEY);
 
@@ -100,6 +106,12 @@ public class ProductsService {
             spec = spec.and((root, query, cb) -> exclusive
                     ? cb.isNotNull(root.get("ownerAlly"))
                     : cb.isNull(root.get("ownerAlly")));
+        }
+        if (categoryUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("productCategory").get("uuid"), categoryUuid));
+        }
+        if (ownerAllyUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("ownerAlly").get("uuid"), ownerAllyUuid));
         }
         return repository.findAll(spec, resolved).map(p -> mapper.toListItem(p, publicBaseUrl));
     }

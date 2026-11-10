@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -53,7 +55,22 @@ public class ExchangeRateService {
     private final CurrencyRepository currencyRepository;
     private final DefaultSortResolver defaultSortResolver;
 
+    /** Free-text {@code ?q=} fields: both currencies' code and name (accent/case-insensitive). */
+    private static final String[] SEARCHABLE_FIELDS = {
+            "baseCurrency.code", "baseCurrency.name", "quoteCurrency.code", "quoteCurrency.name"
+    };
+
     public Page<ExchangeRateDto> list(Pageable pageable, String base, String quote, String filter) {
+        return list(pageable, base, quote, filter, null, null, null);
+    }
+
+    /**
+     * @param q        free-text over the pair's currency codes/names
+     * @param dateFrom inclusive lower bound on {@code operationDate}
+     * @param dateTo   inclusive upper bound on {@code operationDate}
+     */
+    public Page<ExchangeRateDto> list(Pageable pageable, String base, String quote, String filter,
+                                      String q, LocalDate dateFrom, LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("exchange_rate", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "exchange_rate");
 
@@ -65,6 +82,15 @@ public class ExchangeRateService {
         if (quote != null && !quote.isBlank()) {
             Currency quoteCurrency = resolveCurrency(quote);
             spec = spec.and((root, query, cb) -> cb.equal(root.get("quoteCurrency"), quoteCurrency));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (dateFrom != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<LocalDate>get("operationDate"), dateFrom));
+        }
+        if (dateTo != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.<LocalDate>get("operationDate"), dateTo));
         }
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "exchange_rate.filter.field_not_allowed");
