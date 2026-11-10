@@ -44,8 +44,9 @@ import java.util.UUID;
  *   <li>{@code POST /drafts/{uuid}/submit} — creates the contact person's login, sends the invitation and sends the
  *   request to review ({@code ALLY_DRAFT_SUBMIT_ASSISTED}).</li>
  *   <li>{@code DELETE /drafts/{uuid}} — discards the draft ({@code ALLY_DRAFT_DISCARD_ASSISTED}).</li>
- *   <li>{@code PUT /drafts/{uuid}/retain} — holds the draft out of the abandoned-draft cleanup or releases it
- *   ({@code ALLY_DRAFT_RETAIN_ASSISTED}).</li>
+ *   <li>{@code GET /in-progress} and {@code PUT /drafts/{uuid}/retain} — find and keep out of the abandoned-draft
+ *   cleanup (or release) a registration in progress the caller captured or a self-registered one no advisor brought
+ *   in ({@code ALLY_DRAFT_RETAIN_ADVISOR}).</li>
  * </ul>
  * {@code /v1/me/advisor/ally-requests} is the primary path; {@code /v1/advisors/me/...} the secondary one.
  */
@@ -62,6 +63,14 @@ public class AdvisorAllyRequestController {
     public ResponseEntity<Page<AllyRequestListItemDto>> drafts(@AuthenticationPrincipal CustomUserDetails actor,
                                                                @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(service.listAssistedDrafts(actor.getUuid(), pageable));
+    }
+
+    /** In-progress registrations to keep: the ones the caller captured and the unattributed self-registered ones. */
+    @GetMapping("/in-progress")
+    @PreAuthorize("hasAuthority('ALLY_DRAFT_RETAIN_ADVISOR')")
+    public ResponseEntity<Page<AllyRequestListItemDto>> inProgress(@AuthenticationPrincipal CustomUserDetails actor,
+                                                                   @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(service.listInProgressForAdvisor(actor.getUuid(), pageable));
     }
 
     @PostMapping("/drafts")
@@ -88,7 +97,7 @@ public class AdvisorAllyRequestController {
     }
 
     @PutMapping("/drafts/{uuid}/retain")
-    @PreAuthorize("hasAuthority('ALLY_DRAFT_RETAIN_ASSISTED')")
+    @PreAuthorize("hasAuthority('ALLY_DRAFT_RETAIN_ADVISOR')")
     public ResponseEntity<DraftRetentionDto> retainDraft(@AuthenticationPrincipal CustomUserDetails actor,
                                                          @PathVariable UUID uuid,
                                                          @Valid @RequestBody DraftRetentionRequest request) {

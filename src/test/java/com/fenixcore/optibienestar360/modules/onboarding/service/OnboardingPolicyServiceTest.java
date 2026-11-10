@@ -105,15 +105,15 @@ class OnboardingPolicyServiceTest {
     }
 
     @Test
-    void update_storesTheDraftRetention_andZeroMeansNeverClean() {
+    void update_storesTheDraftRetention() {
         OnboardingPolicy policy = active(new OnboardingPolicy());
         when(repository.save(any(OnboardingPolicy.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        OnboardingPolicyDto dto = service().update(retention(0, 365));
+        OnboardingPolicyDto dto = service().update(retention(1, 365));
 
-        assertThat(policy.getMemberDraftRetentionDays()).isZero();
+        assertThat(policy.getMemberDraftRetentionDays()).isEqualTo(1);
         assertThat(policy.getAllyDraftRetentionDays()).isEqualTo(365);
-        assertThat(dto.memberDraftRetentionDays()).isZero();
+        assertThat(dto.memberDraftRetentionDays()).isEqualTo(1);
         assertThat(dto.allyDraftRetentionDays()).isEqualTo(365);
     }
 
@@ -122,7 +122,7 @@ class OnboardingPolicyServiceTest {
         active(new OnboardingPolicy());
         OnboardingPolicyService service = service();
 
-        assertThatThrownBy(() -> service.update(retention(-1, 30)))
+        assertThatThrownBy(() -> service.update(retention(0, 30)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("onboarding_policy.draft_retention.invalid");
         assertThatThrownBy(() -> service.update(retention(15, 366)))

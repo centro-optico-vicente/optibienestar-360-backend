@@ -996,6 +996,24 @@ public class AffiliationRequestService {
         return repository.findAll(spec, resolved).map(this::toListItem);
     }
 
+    /**
+     * The registrations in progress an advisor may find to keep them out of the abandoned-draft cleanup: their own
+     * (assisted, or self-registered through their QR) and the self-registered ones nobody is attributed to. Another
+     * advisor's never shows.
+     */
+    @Transactional(readOnly = true)
+    public Page<AffiliationRequestListItemDto> listInProgressForAdvisor(UUID advisorUserUuid, Pageable pageable) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, ENTITY_KEY);
+        Long advisorId = advisor.getId();
+        Specification<AffiliationRequest> spec = withStatus(Status.DRAFT)
+                .and((root, query, cb) -> cb.or(
+                        cb.isNull(root.get("promoter")),
+                        cb.equal(root.get("promoter").get("id"), advisorId)));
+        return repository.findAll(spec, resolved).map(this::toListItem);
+    }
+
     /** What is saved so far in one of the caller's assisted drafts, to resume it. */
     @Transactional(readOnly = true)
     public AffiliationRegistrationDto getAssistedDraft(UUID advisorUserUuid, UUID uuid) {

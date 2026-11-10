@@ -60,8 +60,9 @@ import java.util.UUID;
  *   sends it to review ({@code AFFILIATION_REQUEST_DRAFT_SUBMIT_ASSISTED}). Another
  *   advisor's draft is a 404; {@code DELETE /drafts/{uuid}} discards the caller's own draft
  *   ({@code AFFILIATION_REQUEST_DRAFT_DISCARD_ASSISTED}). {@code PUT /drafts/{uuid}/retain}
- *   ({@code retain}, optional {@code note}) holds the caller's own draft out of the abandoned-draft cleanup or
- *   releases it ({@code AFFILIATION_REQUEST_DRAFT_RETAIN_ASSISTED}). The one-shot {@code POST} above keeps working.</li>
+ *   ({@code retain}, optional {@code note}) keeps a draft of the caller's scope out of the abandoned-draft cleanup
+ *   or releases it, and {@code GET /in-progress} lists that scope: the caller's own drafts (assisted or from their
+ *   QR) and the self-registered ones nobody is attributed to ({@code AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR}). The one-shot {@code POST} above keeps working.</li>
  * </ul>
  * {@code /v1/me/advisor/affiliation-requests} is the primary path;
  * {@code /v1/advisors/me/...} is the secondary path (not deprecated).
@@ -101,6 +102,15 @@ public class AdvisorAffiliationRequestController {
             @AuthenticationPrincipal CustomUserDetails actor,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(service.listAssistedDrafts(actor.getUuid(), pageable));
+    }
+
+    /** In-progress registrations to keep: the caller's own and the unattributed self-registered ones. */
+    @GetMapping("/in-progress")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR')")
+    public ResponseEntity<Page<AffiliationRequestListItemDto>> inProgress(
+            @AuthenticationPrincipal CustomUserDetails actor,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(service.listInProgressForAdvisor(actor.getUuid(), pageable));
     }
 
     @PostMapping("/drafts")
@@ -161,11 +171,11 @@ public class AdvisorAffiliationRequestController {
     }
 
     @PutMapping("/drafts/{uuid}/retain")
-    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_RETAIN_ASSISTED')")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR')")
     public ResponseEntity<DraftRetentionDto> retainDraft(@AuthenticationPrincipal CustomUserDetails actor,
                                                          @PathVariable UUID uuid,
                                                          @Valid @RequestBody DraftRetentionRequest request) {
-        return ResponseEntity.ok(draftService.retainAssistedAffiliationDraft(actor.getUuid(), uuid,
+        return ResponseEntity.ok(draftService.retainAdvisorAffiliationDraft(actor.getUuid(), uuid,
                 request.retain(), request.note()));
     }
 }

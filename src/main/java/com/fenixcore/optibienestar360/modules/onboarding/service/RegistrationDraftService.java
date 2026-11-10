@@ -50,8 +50,8 @@ import java.util.UUID;
  * the cleanup job.</p>
  *
  * <p><b>Retention (V237).</b> A draft held open (negotiation in progress, waiting for information) can be
- * flagged {@code retain_from_cleanup}; the cleanup skips it. The advisor sets or clears the flag on their own
- * assisted drafts, staff on any registration in progress. Setting the flag touches the row, so releasing it
+ * flagged {@code retain_from_cleanup}; the cleanup skips it. The advisor sets or clears the flag on the drafts in their
+ * scope (their own, or self-registered ones nobody is attributed to), staff on any registration in progress. Setting the flag touches the row, so releasing it
  * gives the draft a fresh retention window. A retained draft that is submitted just stops being a draft: the
  * flag is then ignored.</p>
  */
@@ -153,15 +153,20 @@ public class RegistrationDraftService {
 
     // ─── Retention ──────────────────────────────────────────────────────────
 
-    /** The advisor retains / releases one of their own assisted affiliation drafts; another advisor's is a 404. */
+    /**
+     * The advisor retains / releases an affiliation draft in their scope: their own (assisted, or self-registered
+     * through their QR) or a self-registered one nobody is attributed to. Another advisor's is a 404.
+     */
     @Transactional
-    public DraftRetentionDto retainAssistedAffiliationDraft(UUID advisorUserUuid, UUID uuid, boolean retain, String note) {
+    public DraftRetentionDto retainAdvisorAffiliationDraft(UUID advisorUserUuid, UUID uuid, boolean retain, String note) {
         Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
         AffiliationRequest request = affiliationRequests.findForUpdateByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
-        if (!request.isAssisted() || request.getPromoter() == null
-                || !request.getPromoter().getId().equals(advisor.getId())) {
+        if (request.getPromoter() != null && !request.getPromoter().getId().equals(advisor.getId())) {
+            throw new NoSuchElementException("affiliation_request.not_found");
+        }
+        if (request.isAssisted() && request.getPromoter() == null) {
             throw new NoSuchElementException("affiliation_request.not_found");
         }
         return applyMemberRetention(request, advisorUserUuid, retain, note);
@@ -175,12 +180,22 @@ public class RegistrationDraftService {
         return applyMemberRetention(request, actorUserUuid, retain, note);
     }
 
-    /** The advisor retains / releases an ally they captured while it is still a draft; another advisor's is a 404. */
+    /**
+     * The advisor retains / releases an ally registration in their scope: one they captured, or a self-registered one
+     * no advisor brought in. Another advisor's is a 404.
+     */
     @Transactional
     public DraftRetentionDto retainAdvisorAllyDraft(UUID advisorUserUuid, UUID allyUuid, boolean retain, String note) {
-        Ally visible = allyDraftAccess.requireOwnDraft(allyUuid, advisorUserUuid);
-        Ally ally = allyRepository.findForUpdateByUuid(visible.getUuid())
+        Promoter advisor = promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        Ally ally = allyRepository.findForUpdateByUuid(allyUuid)
                 .orElseThrow(() -> new NoSuchElementException("ally_request.not_found"));
+        Promoter capturedBy = ally.getCapturedByPromoter();
+        boolean own = capturedBy != null && capturedBy.getId().equals(advisor.getId());
+        boolean unattributed = capturedBy == null && ally.getRegistrationChannel() == Ally.RegistrationChannel.SELF_SERVICE;
+        if (!own && !unattributed) {
+            throw new NoSuchElementException("ally_request.not_found");
+        }
         return applyAllyRetention(ally, advisorUserUuid, retain, note);
     }
 
@@ -236,14 +251,14 @@ public class RegistrationDraftService {
     /**
      * Discards every DRAFT affiliation registration untouched since {@code memberCutoff} and every in-progress ally
      * registration (self-service or advisor-captured) untouched since {@code allyCutoff}: the two kinds keep
-     * different retention windows (a {@code null} cutoff skips that kind). A draft flagged {@code retain_from_cleanup} is always skipped. One transaction
+     * different retention windows. A draft flagged {@code retain_from_cleanup} is always skipped. One transaction
      * per registration: a failure is logged and counted and does not stop the rest. Submitted requests never match.
      */
     public CleanupResult purgeAbandoned(Instant memberCutoff, Instant allyCutoff) {
         int members = 0;
         int allies = 0;
         int failures = 0;
-        for (AffiliationRequest candidate : memberCutoff == null ? List.<AffiliationRequest>of() : affiliationRequests
+        for (AffiliationRequest candidate : affiliationRequests
                 .findByStatusAndRetainFromCleanupFalseAndUpdatedAtBefore(AffiliationRequest.Status.DRAFT.name(), memberCutoff)) {
             UUID uuid = candidate.getUuid();
             try {
@@ -254,7 +269,7 @@ public class RegistrationDraftService {
                 log.warn("Could not discard the abandoned affiliation draft {}", uuid, ex);
             }
         }
-        for (Ally candidate : allyCutoff == null ? List.<Ally>of() : allyRepository
+        for (Ally candidate : allyRepository
                 .findByRegistrationStatusAndRegistrationSubmittedAtIsNullAndRegistrationChannelInAndRetainFromCleanupFalseAndUpdatedAtBefore(
                         Ally.RegistrationStatus.PENDING,
                         List.of(Ally.RegistrationChannel.SELF_SERVICE, Ally.RegistrationChannel.ADVISOR), allyCutoff)) {

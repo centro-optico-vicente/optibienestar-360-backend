@@ -29,7 +29,7 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class OnboardingPolicyService {
 
-    static final int MIN_RETENTION_DAYS = 0;
+    static final int MIN_RETENTION_DAYS = 1;
     static final int MAX_RETENTION_DAYS = 365;
 
     private final OnboardingPolicyRepository repository;
@@ -136,12 +136,12 @@ public class OnboardingPolicyService {
         return current().getAllyPublishMode() == AllyPublishMode.ON_APPROVAL;
     }
 
-    /** Days an abandoned affiliation draft is kept (counted from its last change); 0 = never clean up. */
+    /** Days an abandoned affiliation draft is kept (counted from its last change). */
     public int memberDraftRetentionDays() {
         return current().getMemberDraftRetentionDays();
     }
 
-    /** Days an abandoned ally draft is kept (counted from its last change); 0 = never clean up. */
+    /** Days an abandoned ally draft is kept (counted from its last change). */
     public int allyDraftRetentionDays() {
         return current().getAllyDraftRetentionDays();
     }

@@ -341,15 +341,15 @@ class AffiliationRequestControllersIT {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"retain\":true}"))
                 .andExpect(status().isForbidden());
 
-        when(draftService.retainAssistedAffiliationDraft(any(), eq(uuid), eq(true), isNull()))
+        when(draftService.retainAdvisorAffiliationDraft(any(), eq(uuid), eq(true), isNull()))
                 .thenReturn(new DraftRetentionDto(uuid, true, null, null));
         mockMvc.perform(put("/v1/me/advisor/affiliation-requests/drafts/{uuid}/retain", uuid)
-                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ASSISTED"))
+                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"retain\":true}"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(put("/v1/me/advisor/affiliation-requests/drafts/{uuid}/retain", uuid)
-                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ASSISTED"))
+                        .with(principal("AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR"))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }

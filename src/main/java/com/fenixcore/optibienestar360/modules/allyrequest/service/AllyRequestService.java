@@ -347,6 +347,22 @@ public class AllyRequestService {
     }
 
     /**
+     * The ally registrations in progress an advisor may find to keep them out of the abandoned-draft cleanup: the ones
+     * they captured and the self-registered ones no advisor brought in. Another advisor's never shows.
+     */
+    public Page<AllyRequestListItemDto> listInProgressForAdvisor(UUID advisorUserUuid, Pageable pageable) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        Specification<Ally> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("registrationStatus"), Ally.RegistrationStatus.PENDING),
+                cb.isNull(root.get("registrationSubmittedAt")),
+                cb.or(
+                        cb.equal(root.get("capturedByPromoter").get("uuid"), advisor.getUuid()),
+                        cb.and(cb.isNull(root.get("capturedByPromoter")),
+                                cb.equal(root.get("registrationChannel"), Ally.RegistrationChannel.SELF_SERVICE))));
+        return allyRepository.findAll(spec, resolveSort(pageable)).map(this::toListItem);
+    }
+
+    /**
      * Sends the advisor's own draft to review. Same essentials as the owner's submit (422
      * {@code ally_request.submit.incomplete} with the {@code missing} keys), then: the contact person gets their
      * login (role {@code ALIADO_PENDIENTE}) and the "create your password" email, and the onboarding policy

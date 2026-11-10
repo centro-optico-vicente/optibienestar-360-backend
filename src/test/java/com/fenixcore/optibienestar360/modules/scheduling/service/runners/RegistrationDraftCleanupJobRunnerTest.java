@@ -16,11 +16,10 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** The abandoned-draft cleanup job: per-kind retention read from the onboarding policy, 0 = never, and the run summary. */
+/** The abandoned-draft cleanup job: per-kind retention read from the onboarding policy and the run summary. */
 @ExtendWith(MockitoExtension.class)
 class RegistrationDraftCleanupJobRunnerTest {
 
@@ -49,26 +48,6 @@ class RegistrationDraftCleanupJobRunnerTest {
         assertThat(result.success()).isTrue();
         assertThat(result.summary()).containsEntry("memberDrafts", 3).containsEntry("allyDrafts", 2)
                 .containsEntry("failures", 0).containsEntry("memberRetentionDays", 15).containsEntry("allyRetentionDays", 30);
-    }
-
-    @Test
-    void run_zeroDaysForBothKindsMeansNothingIsCleaned() {
-        JobRunResult result = runner(0, 0).run();
-
-        verify(draftService, never()).purgeAbandoned(any(), any());
-        assertThat(result.success()).isTrue();
-        assertThat(result.summary()).containsEntry("skipped", true);
-    }
-
-    @Test
-    void run_zeroDaysForOneKindSkipsOnlyThatKind() {
-        when(draftService.purgeAbandoned(any(), any())).thenReturn(new CleanupResult(0, 1, 0));
-
-        runner(0, 30).run();
-
-        ArgumentCaptor<Instant> allyCutoff = ArgumentCaptor.forClass(Instant.class);
-        verify(draftService).purgeAbandoned(org.mockito.ArgumentMatchers.isNull(), allyCutoff.capture());
-        assertThat(allyCutoff.getValue()).isEqualTo(Instant.parse("2026-10-10T12:00:00Z"));
     }
 
     @Test
