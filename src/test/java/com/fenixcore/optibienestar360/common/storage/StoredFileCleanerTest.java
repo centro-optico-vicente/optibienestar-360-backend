@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -43,8 +44,8 @@ class StoredFileCleanerTest {
 
     private void storageAvailable() {
         when(storageProvider.getIfAvailable()).thenReturn(storage);
-        when(storage.getBucket()).thenReturn("private-bucket");
-        when(storage.getPublicBucket()).thenReturn("public-bucket");
+        lenient().when(storage.getBucket()).thenReturn("private-bucket");
+        lenient().when(storage.getPublicBucket()).thenReturn("public-bucket");
     }
 
     @Test
