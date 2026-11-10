@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -46,9 +47,12 @@ public class AllyPatientController {
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_MEDICAL_RECORD_VIEW_PATIENT')")
     public ResponseEntity<Page<AllyPatientLinkDto>> patients(@PathVariable UUID allyUuid,
+                                                             @RequestParam(required = false) String q,
+                                                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+                                                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
                                                              @PageableDefault(size = 20) Pageable pageable,
                                                              @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(patientAccessService.patients(allyUuid, actor.getUuid(), pageable));
+        return ResponseEntity.ok(patientAccessService.patients(allyUuid, actor.getUuid(), q, dateFrom, dateTo, pageable));
     }
 
     /** Opens the link after a QR scan of the member's credential (never for a typed document). */

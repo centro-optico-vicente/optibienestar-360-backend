@@ -52,6 +52,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fenixcore.optibienestar360.modules.member.dto.MemberListFilter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -160,6 +161,11 @@ public class MembersService {
     }
 
     public Page<MemberListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
+        return list(pageable, filter, q, includeInactive, MemberListFilter.none());
+    }
+
+    public Page<MemberListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+                                        MemberListFilter filters) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "member", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "member");
@@ -171,7 +177,42 @@ public class MembersService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        if (filters != null) {
+            spec = spec.and(masterFilters(filters));
+            spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications
+                    .dateBetween("enrolledAt", filters.dateFrom(), filters.dateTo()));
+        }
         return memberRepository.findAll(spec, resolvedPageable).map(mapper::toListItem);
+    }
+
+    /**
+     * AND of the master-table filters provided. Nullable associations (advisor,
+     * occupation, city, gender, contract) use explicit LEFT JOINs so a missing
+     * value never drops rows from an unfiltered dimension.
+     */
+    private static Specification<Member> masterFilters(MemberListFilter f) {
+        return (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> ps = new java.util.ArrayList<>();
+            if (f.promoterUuid() != null) {
+                ps.add(cb.equal(root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.promoterUuid()));
+            }
+            if (f.occupationUuid() != null) {
+                ps.add(cb.equal(root.join("occupation", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.occupationUuid()));
+            }
+            if (f.corporateContractUuid() != null) {
+                ps.add(cb.equal(root.join("corporateContract", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.corporateContractUuid()));
+            }
+            if (f.genderUuid() != null) {
+                ps.add(cb.equal(root.join("person").join("gender", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.genderUuid()));
+            }
+            if (f.cityUuid() != null) {
+                ps.add(cb.equal(root.join("person").join("city", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.cityUuid()));
+            }
+            if (f.confirmed() != null) {
+                ps.add(f.confirmed() ? cb.isNotNull(root.get("confirmedAt")) : cb.isNull(root.get("confirmedAt")));
+            }
+            return cb.and(ps.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */

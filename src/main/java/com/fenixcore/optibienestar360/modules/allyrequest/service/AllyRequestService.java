@@ -66,6 +66,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyListFilter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -457,15 +458,27 @@ public class AllyRequestService {
 
     /** Requests (allies not created from the admin form), newest first by default. */
     public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q) {
-        return list(pageable, status, channel, q, null);
+        return list(pageable, status, channel, q, AllyListFilter.none());
     }
 
     /** Same inbox, optionally only the requests the advisor {@code promoterUuid} brought in. */
     public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q,
                                              UUID promoterUuid) {
+        return list(pageable, status, channel, q, new AllyListFilter(null, null, null, null, promoterUuid));
+    }
+
+    public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q,
+                                             AllyListFilter filters) {
+        return list(pageable, status, channel, q, filters, null, null);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: inclusive Caracas-day range on the request's {@code createdAt}. */
+    public Page<AllyRequestListItemDto> list(Pageable pageable, String status, String channel, String q,
+                                             AllyListFilter filters, java.time.LocalDate dateFrom,
+                                             java.time.LocalDate dateTo) {
         Specification<Ally> spec = requestsSpec(status);
-        if (promoterUuid != null) {
-            spec = spec.and(AlliesService.capturedBy(promoterUuid));
+        if (filters != null && filters.promoterUuid() != null) {
+            spec = spec.and(AlliesService.capturedBy(filters.promoterUuid()));
         }
         Ally.RegistrationChannel ch = parseEnum(Ally.RegistrationChannel.class, channel, "ally_request.channel.invalid");
         if (ch != null) {
@@ -474,6 +487,8 @@ public class AllyRequestService {
         if (!isBlank(q)) {
             spec = spec.and(SearchSpecifications.acrossFields(q, "name", "email", "taxDocumentNumber", "tradeName"));
         }
+        spec = spec.and(AlliesService.masterFilters(filters));
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("createdAt", dateFrom, dateTo));
         return allyRepository.findAll(spec, resolveSort(pageable)).map(this::toListItem);
     }
 

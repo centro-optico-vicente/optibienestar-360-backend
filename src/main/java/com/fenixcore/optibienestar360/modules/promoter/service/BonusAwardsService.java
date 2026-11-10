@@ -56,7 +56,9 @@ public class BonusAwardsService {
             ));
 
     private static final String[] SEARCHABLE_FIELDS = {
-            "ruleNameSnapshot", "payoutReference", "adminNotes"
+            "ruleNameSnapshot", "payoutReference", "adminNotes",
+            // Non-null FK: a plain dotted path keeps every row.
+            "promoter.displayName", "promoter.referralCode"
     };
 
     private final PromoterBonusAwardRepository repository;
@@ -73,6 +75,12 @@ public class BonusAwardsService {
     }
 
     public Page<BonusAwardDto> list(Pageable pageable, String filter, String q) {
+        return list(pageable, filter, q, null, null);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: inclusive Caracas-day range on {@code evaluatedAt}. */
+    public Page<BonusAwardDto> list(Pageable pageable, String filter, String q,
+                                    java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "bonus_award", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "bonus_award");
@@ -85,6 +93,7 @@ public class BonusAwardsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("evaluatedAt", dateFrom, dateTo));
         return repository.findAll(spec, resolvedPageable).map(a -> BonusAwardDto.from(a, conversionEnricher));
     }
 
@@ -141,8 +150,19 @@ public class BonusAwardsService {
 
     /** A promoter's own awards, newest first. 404 when the caller is not a promoter. */
     public Page<BonusAwardDto> listOwn(UUID userUuid, Pageable pageable) {
+        return listOwn(userUuid, null, pageable);
+    }
+
+    /** As {@link #listOwn(UUID, Pageable)} with an optional accent/case-insensitive free-text {@code q}. */
+    public Page<BonusAwardDto> listOwn(UUID userUuid, String q, Pageable pageable) {
         Promoter promoter = promoterRepository.findActiveByUserUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+        if (q != null && !q.isBlank()) {
+            Specification<PromoterBonusAward> spec = activeOnly()
+                    .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), promoter.getId()))
+                    .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+            return repository.findAll(spec, pageable).map(BonusAwardDto::from);
+        }
         return repository.findByPromoterIdAndActiveTrueOrderByCreatedAtDesc(promoter.getId(), pageable)
                 .map(BonusAwardDto::from);
     }

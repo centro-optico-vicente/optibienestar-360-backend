@@ -75,9 +75,12 @@ public class AdminCommissionController {
             @RequestParam(required = false) UUID promoterTypeUuid,
             @RequestParam(required = false) UUID promoterRankUuid,
             @RequestParam(required = false) UUID campaignUuid,
-            @RequestParam(required = false) Commission.RuleSource ruleSource) {
+            @RequestParam(required = false) Commission.RuleSource ruleSource,
+            @RequestParam(required = false) UUID memberUuid,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
         Page<CommissionDto> page = commissionsService.list(pageable, filter, q, includeInactive,
-                promoterTypeUuid, promoterRankUuid, campaignUuid, ruleSource);
+                promoterTypeUuid, promoterRankUuid, campaignUuid, ruleSource, memberUuid, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, commissionsService.effectiveSort(pageable)));
     }
 

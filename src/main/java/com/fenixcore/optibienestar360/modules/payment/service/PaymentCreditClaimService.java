@@ -1,5 +1,12 @@
 package com.fenixcore.optibienestar360.modules.payment.service;
 
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+import org.springframework.data.jpa.domain.Specification;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
@@ -48,12 +55,50 @@ public class PaymentCreditClaimService {
 
     // ─── Reads ──────────────────────────────────────────────────────────────
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Caracas");
+
+    /** Free-text {@code ?q=} fields (accent/case-insensitive): the claim text and the paying person. */
+    private static final String[] SEARCHABLE_FIELDS = {
+            "reason", "comment", "payment.person.fullName", "payment.person.documentNumber"
+    };
+
     public Page<PaymentClaimDto> list(String status, Pageable pageable) {
-        String normalized = status == null || status.isBlank() ? null : status.trim().toUpperCase();
-        Page<PaymentCreditClaim> page = normalized == null
-                ? repository.findByActiveTrue(pageable)
-                : repository.findByActiveTrueAndClaimStatus(normalized, pageable);
-        return page.map(PaymentCreditClaimService::toDto);
+        return list(status, null, null, null, null, pageable);
+    }
+
+    /**
+     * @param q          free-text over the claim reason/comment and the payer's name/document
+     * @param memberUuid the affiliate whose person made the payment
+     * @param dateFrom   inclusive lower bound on the day the claim was opened (Caracas day)
+     * @param dateTo     inclusive upper bound on the day the claim was opened (Caracas day)
+     */
+    public Page<PaymentClaimDto> list(String status, String q, UUID memberUuid, LocalDate dateFrom,
+                                      LocalDate dateTo, Pageable pageable) {
+        Specification<PaymentCreditClaim> spec = (root, query, cb) -> cb.isTrue(root.get("active"));
+        if (status != null && !status.isBlank()) {
+            String normalized = status.trim().toUpperCase();
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("claimStatus"), normalized));
+        }
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (memberUuid != null) {
+            spec = spec.and((root, query, cb) -> {
+                Subquery<Long> personIds = query.subquery(Long.class);
+                Root<Member> member = personIds.from(Member.class);
+                personIds.select(member.get("person").get("id")).where(cb.equal(member.get("uuid"), memberUuid));
+                return root.get("payment").get("person").get("id").in(personIds);
+            });
+        }
+        if (dateFrom != null) {
+            Instant from = dateFrom.atStartOfDay(BUSINESS_ZONE).toInstant();
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<Instant>get("openedAt"), from));
+        }
+        if (dateTo != null) {
+            Instant to = dateTo.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+            spec = spec.and((root, query, cb) -> cb.lessThan(root.<Instant>get("openedAt"), to));
+        }
+        return repository.findAll(spec, pageable).map(PaymentCreditClaimService::toDto);
     }
 
     public Optional<PaymentClaimDto> openClaimOf(Payment payment) {

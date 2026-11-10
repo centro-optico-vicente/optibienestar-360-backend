@@ -279,6 +279,13 @@ public class ScheduledJobsService {
      */
     public Page<ScheduledJobRunDto> listAllRuns(Pageable pageable, UUID jobUuid, ScheduledJobRun.Outcome outcome,
                                                  ScheduledJobRun.TriggerSource triggeredBy, Instant from, Instant to) {
+        return listAllRuns(pageable, jobUuid, outcome, triggeredBy, from, to, null);
+    }
+
+    /** Same as above plus a free-text {@code q} over the job's code/name and the run's error message. */
+    public Page<ScheduledJobRunDto> listAllRuns(Pageable pageable, UUID jobUuid, ScheduledJobRun.Outcome outcome,
+                                                 ScheduledJobRun.TriggerSource triggeredBy, Instant from, Instant to,
+                                                 String q) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_RUN_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
         }
@@ -298,6 +305,11 @@ public class ScheduledJobsService {
         }
         if (to != null) {
             spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("startedAt"), to));
+        }
+
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q,
+                    "scheduledJob.code", "scheduledJob.displayName", "errorMessage"));
         }
 
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("scheduled_job_run", pageable);

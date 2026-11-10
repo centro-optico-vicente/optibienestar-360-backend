@@ -39,8 +39,10 @@ public class AdminBonusAwardController {
     public ResponseEntity<AppliedSortPage<BonusAwardDto>> list(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
-            @RequestParam(required = false) String q) {
-        Page<BonusAwardDto> page = bonusAwardsService.list(pageable, filter, q);
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<BonusAwardDto> page = bonusAwardsService.list(pageable, filter, q, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, bonusAwardsService.effectiveSort(pageable)));
     }
 

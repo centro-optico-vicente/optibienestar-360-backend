@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import com.fenixcore.optibienestar360.modules.member.dto.MemberListFilter;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -52,8 +53,18 @@ public class AdminMemberController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<MemberListItemDto> page = membersService.list(pageable, filter, q, includeInactive);
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) UUID genderUuid,
+            @RequestParam(required = false) UUID cityUuid,
+            @RequestParam(required = false) UUID occupationUuid,
+            @RequestParam(required = false) UUID corporateContractUuid,
+            @RequestParam(required = false) Boolean confirmed,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        MemberListFilter filters = new MemberListFilter(promoterUuid, genderUuid, cityUuid, occupationUuid,
+                corporateContractUuid, confirmed, dateFrom, dateTo);
+        Page<MemberListItemDto> page = membersService.list(pageable, filter, q, includeInactive, filters);
         return ResponseEntity.ok(new AppliedSortPage<>(page, membersService.effectiveSort(pageable)));
     }
 

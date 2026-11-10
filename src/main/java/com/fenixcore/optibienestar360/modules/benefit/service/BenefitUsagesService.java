@@ -99,6 +99,13 @@ public class BenefitUsagesService {
         return usageRepository.findByAllyUserUuidAndSearch(userUuid, search.trim(), pageable).map(mapper::toDto);
     }
 
+    /** Ally feed with text search plus an inclusive {@code usageDate} range ({@code dateFrom}/{@code dateTo}, Caracas days). */
+    public Page<BenefitUsageDto> listForAllyUser(UUID userUuid, String search, java.time.LocalDate dateFrom,
+                                                 java.time.LocalDate dateTo, Pageable pageable) {
+        String term = search == null ? "" : search.trim();
+        return usageRepository.findByAllyUserUuidFiltered(userUuid, term, dateFrom, dateTo, pageable).map(mapper::toDto);
+    }
+
     /**
      * Powers {@code GET /v1/me/usage-history} (vertical-9). The member's own
      * benefit-consumption feed across every ally, scoped to the caller via the
@@ -118,7 +125,8 @@ public class BenefitUsagesService {
             return listForMemberUser(userUuid, pageable);
         }
         return usageRepository.findByMemberUserUuidFiltered(userUuid, filter.holderOnly(), filter.beneficiaryUuid(),
-                filter.productUuid(), filter.productCategoryUuid(), pageable).map(mapper::toDto);
+                filter.productUuid(), filter.productCategoryUuid(),
+                filter.q() == null ? "" : filter.q().trim(), filter.dateFrom(), filter.dateTo(), pageable).map(mapper::toDto);
     }
 
     /** Powers {@code GET /v1/me/usage-history/summary}: consumption grouped by service. */
@@ -131,10 +139,21 @@ public class BenefitUsagesService {
         return usageRepository.summarizeByPersonForMemberUser(userUuid);
     }
 
-    /** Optional filters of the affiliate's consumption history. */
-    public record UsageFilter(boolean holderOnly, UUID beneficiaryUuid, UUID productUuid, UUID productCategoryUuid) {
+    /**
+     * Optional filters of the affiliate's consumption history: who consumed, what, a free-text {@code q}
+     * (service, category, ally, beneficiary) and an inclusive usage-date range.
+     */
+    public record UsageFilter(boolean holderOnly, UUID beneficiaryUuid, UUID productUuid, UUID productCategoryUuid,
+                              String q, java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
+
+        /** Pre-{@code q} constructor kept so existing callers and tests compile. */
+        public UsageFilter(boolean holderOnly, UUID beneficiaryUuid, UUID productUuid, UUID productCategoryUuid) {
+            this(holderOnly, beneficiaryUuid, productUuid, productCategoryUuid, null, null, null);
+        }
+
         public boolean isEmpty() {
-            return !holderOnly && beneficiaryUuid == null && productUuid == null && productCategoryUuid == null;
+            return !holderOnly && beneficiaryUuid == null && productUuid == null && productCategoryUuid == null
+                    && (q == null || q.isBlank()) && dateFrom == null && dateTo == null;
         }
     }
 

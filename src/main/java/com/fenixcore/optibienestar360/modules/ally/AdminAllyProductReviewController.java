@@ -49,8 +49,10 @@ public class AdminAllyProductReviewController {
             @RequestParam(required = false) UUID allyUuid,
             @RequestParam(required = false) UUID productCategoryUuid,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(reviewService.pendingQueue(allyUuid, productCategoryUuid, q, pageable));
+        return ResponseEntity.ok(reviewService.pendingQueue(allyUuid, productCategoryUuid, q, dateFrom, dateTo, pageable));
     }
 
     @PostMapping("/{uuid}/approve")

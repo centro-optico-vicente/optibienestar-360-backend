@@ -45,8 +45,11 @@ public class AdminCompanyBankAccountController {
     public ResponseEntity<Page<CompanyBankAccountDto>> list(
             @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(service.list(pageable, q, includeInactive));
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID bankUuid,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String accountType) {
+        return ResponseEntity.ok(service.list(pageable, q, includeInactive, bankUuid, currencyCode, accountType));
     }
 
     @GetMapping("/v1/admin/company-bank-accounts/{uuid}")

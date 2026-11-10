@@ -67,12 +67,37 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
                   WHERE au.user.uuid = :userUuid AND au.active = true
               )
               AND (
-                  LOWER(bu.membership.member.person.documentNumber) LIKE LOWER(CONCAT('%', :search, '%'))
-                  OR LOWER(bu.membership.member.person.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+                  cast(function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
+                  OR cast(function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
                   OR LOWER(CAST(bu.membership.member.uuid AS string)) = LOWER(:search)
               )
             """)
     Page<BenefitUsage> findByAllyUserUuidAndSearch(@Param("userUuid") UUID userUuid, @Param("search") String search, Pageable pageable);
+
+    /**
+     * Ally-side feed with the same search as {@link #findByAllyUserUuidAndSearch} (blank {@code search}
+     * = no text filter) plus an inclusive {@code usageDate} range (null bound = open).
+     */
+    @Query("""
+            SELECT bu FROM BenefitUsage bu
+            WHERE bu.active = true
+              AND bu.ally.id IN (
+                  SELECT au.ally.id FROM AllyUser au
+                  WHERE au.user.uuid = :userUuid AND au.active = true
+              )
+              AND (:search = '' OR (
+                  cast(function('immutable_unaccent', LOWER(bu.membership.member.person.documentNumber)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
+                  OR cast(function('immutable_unaccent', LOWER(bu.membership.member.person.fullName)) as string) LIKE cast(function('immutable_unaccent', LOWER(CONCAT('%', :search, '%'))) as string)
+                  OR LOWER(CAST(bu.membership.member.uuid AS string)) = LOWER(:search)
+              ))
+              AND (:dateFrom IS NULL OR bu.usageDate >= :dateFrom)
+              AND (:dateTo IS NULL OR bu.usageDate <= :dateTo)
+            """)
+    Page<BenefitUsage> findByAllyUserUuidFiltered(@Param("userUuid") UUID userUuid,
+                                                  @Param("search") String search,
+                                                  @Param("dateFrom") java.time.LocalDate dateFrom,
+                                                  @Param("dateTo") java.time.LocalDate dateTo,
+                                                  Pageable pageable);
 
     /**
      * Powers {@code GET /v1/me/usage-history} (vertical-9) — every benefit usage
@@ -95,7 +120,9 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
 
     /**
      * {@link #findByMemberUserUuid} narrowed by who consumed and by what — the
-     * filters of the affiliate's "Mis consumos" screen. Every filter is optional:
+     * filters of the affiliate's "Mis consumos" screen. Every filter is optional ({@code q} is {@code ''} when
+     * absent; it matches service, category, ally and beneficiary name, accent/case-insensitively; the date range is
+     * inclusive on {@code usageDate}):
      * {@code holderOnly} keeps the holder's own usages, {@code beneficiaryUuid}
      * one beneficiary's, {@code productUuid} one catalog product (across allies)
      * and {@code productCategoryUuid} one category. LEFT JOINs so the holder's
@@ -107,6 +134,7 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
             LEFT JOIN b.user bun
             LEFT JOIN bu.allyProduct ap
             LEFT JOIN ap.product p
+            LEFT JOIN b.person bperson
             WHERE bu.active = true
               AND (bu.membership.member.person.id =
                        (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)
@@ -115,12 +143,22 @@ public interface BenefitUsageRepository extends JpaRepository<BenefitUsage, Long
               AND (:beneficiaryUuid IS NULL OR b.uuid = :beneficiaryUuid)
               AND (:productUuid IS NULL OR p.uuid = :productUuid)
               AND (:productCategoryUuid IS NULL OR bu.productCategory.uuid = :productCategoryUuid)
+              AND (:dateFrom IS NULL OR bu.usageDate >= :dateFrom)
+              AND (:dateTo IS NULL OR bu.usageDate <= :dateTo)
+              AND (:q = '' OR
+                   cast(function('immutable_unaccent', lower(coalesce(p.name, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(bu.productCategory.name)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(bu.ally.name)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR
+                   cast(function('immutable_unaccent', lower(coalesce(bperson.fullName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string))
             """)
     Page<BenefitUsage> findByMemberUserUuidFiltered(@Param("userUuid") UUID userUuid,
                                                     @Param("holderOnly") boolean holderOnly,
                                                     @Param("beneficiaryUuid") UUID beneficiaryUuid,
                                                     @Param("productUuid") UUID productUuid,
                                                     @Param("productCategoryUuid") UUID productCategoryUuid,
+                                                    @Param("q") String q,
+                                                    @Param("dateFrom") java.time.LocalDate dateFrom,
+                                                    @Param("dateTo") java.time.LocalDate dateTo,
                                                     Pageable pageable);
 
     /**

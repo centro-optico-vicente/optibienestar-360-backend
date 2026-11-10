@@ -45,9 +45,10 @@ public class AdminAllyProductsController {
     @PreAuthorize("hasAuthority('ALLY_PRODUCT_VIEW_ALL')")
     public ResponseEntity<Page<AllyProductDto>> list(@PathVariable UUID allyUuid,
                                                      @RequestParam(required = false) ProductType type,
+                                                     @RequestParam(required = false) UUID categoryUuid,
                                                      @RequestParam(required = false) String q,
                                                      Pageable pageable) {
-        return ResponseEntity.ok(offersService.listForAlly(allyUuid, type, q, pageable));
+        return ResponseEntity.ok(offersService.listForAlly(allyUuid, type, categoryUuid, q, pageable));
     }
 
     @GetMapping("/{uuid}")

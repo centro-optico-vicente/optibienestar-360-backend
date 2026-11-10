@@ -49,9 +49,10 @@ public class AdminUserController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) UUID roleUuid,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        Page<UserDto> page = userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid());
+        Page<UserDto> page = userService.listUsers(filter, q, includeInactive, pageable, actor.getUuid(), roleUuid);
         return ResponseEntity.ok(new AppliedSortPage<>(page, userService.effectiveSort(pageable)));
     }
 

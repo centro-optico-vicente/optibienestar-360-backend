@@ -92,7 +92,7 @@ class PromoterBonusesControllerIT {
 
     @Test
     void myBonuses_withPermission_is200() throws Exception {
-        when(bonusAwardsService.listOwn(any(UUID.class), any()))
+        when(bonusAwardsService.listOwn(any(UUID.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(awardDto())));
 
         mockMvc.perform(get("/v1/me/advisor/bonuses").with(principal("BONUS_VIEW_OWN")))
@@ -103,7 +103,7 @@ class PromoterBonusesControllerIT {
 
     @Test
     void myBonuses_notAPromoter_is404() throws Exception {
-        when(bonusAwardsService.listOwn(any(UUID.class), any()))
+        when(bonusAwardsService.listOwn(any(UUID.class), any(), any()))
                 .thenThrow(new NoSuchElementException("me.promoter.not_found"));
 
         mockMvc.perform(get("/v1/me/advisor/bonuses").with(principal("BONUS_VIEW_OWN")))
@@ -114,7 +114,7 @@ class PromoterBonusesControllerIT {
 
     @Test
     void secondaryAdvisorsMePath_answersLikePrimary_withSameSecurity() throws Exception {
-        when(bonusAwardsService.listOwn(any(UUID.class), any()))
+        when(bonusAwardsService.listOwn(any(UUID.class), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(awardDto())));
 
         mockMvc.perform(get("/v1/advisors/me/bonuses"))

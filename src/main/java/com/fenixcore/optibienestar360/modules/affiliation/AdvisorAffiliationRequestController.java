@@ -81,8 +81,11 @@ public class AdvisorAffiliationRequestController {
     public ResponseEntity<Page<AffiliationRequestListItemDto>> mine(
             @AuthenticationPrincipal CustomUserDetails actor,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(service.listForAdvisor(actor.getUuid(), pageable, status));
+        return ResponseEntity.ok(service.listForAdvisor(actor.getUuid(), pageable, status, q, dateFrom, dateTo));
     }
 
     @PostMapping

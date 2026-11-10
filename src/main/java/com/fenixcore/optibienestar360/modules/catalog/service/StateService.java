@@ -61,7 +61,16 @@ public class StateService {
     private StateService self;
 
     public Page<StateDto> list(Pageable pageable, String filter, String q, String countryIsoCode, boolean includeInactive) {
-        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, countryIsoCode)) {
+        return list(pageable, filter, q, countryIsoCode, null, includeInactive);
+    }
+
+    /**
+     * @param countryUuid parent filter by the country's uuid — the master-table twin of {@code countryIsoCode},
+     *                    same shape as the cities' {@code stateUuid}; the admin catalog screen's dropdown sends it.
+     */
+    public Page<StateDto> list(Pageable pageable, String filter, String q, String countryIsoCode, UUID countryUuid,
+                               boolean includeInactive) {
+        if (!includeInactive && ListQuery.isUnfilteredUnpaged(pageable, filter, q, countryIsoCode, countryUuid)) {
             return new PageImpl<>(self.loadAllForDropdown());
         }
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
@@ -80,6 +89,9 @@ public class StateService {
         if (countryIsoCode != null && !countryIsoCode.isBlank()) {
             spec = spec.and((root, query, cb) ->
                     cb.equal(root.get("country").get("isoCode"), countryIsoCode));
+        }
+        if (countryUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("country").get("uuid"), countryUuid));
         }
         return repository.findAll(spec, resolvedPageable).map(StateService::toDto);
     }

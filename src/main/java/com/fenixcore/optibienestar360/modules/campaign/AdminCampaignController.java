@@ -53,8 +53,10 @@ public class AdminCampaignController {
             @PageableDefault(size = 50) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "false") boolean includeInactive) {
-        Page<CampaignDto> page = campaignService.list(pageable, filter, q, includeInactive);
+            @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<CampaignDto> page = campaignService.list(pageable, filter, q, includeInactive, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, campaignService.effectiveSort(pageable)));
     }
 

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.dto.OptionDto;
@@ -242,12 +243,19 @@ public class RoleService {
 
     /** Users currently assigned to {@code roleUuid} (active pivot rows only). */
     public List<RoleUserDto> listUsers(UUID roleUuid, Pageable pageable) {
+        return listUsers(roleUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over email and full name. */
+    public List<RoleUserDto> listUsers(UUID roleUuid, String q, Pageable pageable) {
         Role role = findRole(roleUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "role_user", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, ROLE_USER_SORTABLE_FIELDS, "role_user");
         return userRoleRepository.findByRoleIdAndActiveTrue(role.getId(), resolved.getSort()).stream()
                 .map(UserRole::getUser)
+                .filter(TextSearch.<User>matching(q, User::getEmail,
+                        u -> u.getPerson() == null ? null : u.getPerson().getFullName()))
                 .map(userMapper::toRoleUserDto)
                 .toList();
     }

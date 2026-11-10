@@ -224,8 +224,9 @@ public class AdminCatalogsController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(name = "country", required = false) String countryIsoCode,
+            @RequestParam(required = false) UUID countryUuid,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
-        Page<StateDto> page = stateService.list(pageable, filter, q, countryIsoCode, includeInactive);
+        Page<StateDto> page = stateService.list(pageable, filter, q, countryIsoCode, countryUuid, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, stateService.effectiveSort(pageable)));
     }
 

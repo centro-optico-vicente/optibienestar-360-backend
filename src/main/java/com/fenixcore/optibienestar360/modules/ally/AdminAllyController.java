@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyCreateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyListFilter;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -58,11 +59,16 @@ public class AdminAllyController {
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
-            @RequestParam(required = false) UUID promoterUuid) {
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) UUID allyTypeUuid,
+            @RequestParam(required = false) UUID professionUuid,
+            @RequestParam(required = false) UUID stateUuid,
+            @RequestParam(required = false) UUID cityUuid) {
 		// Reports back which columns/directions an unsorted request actually landed
 		// on (entity_config → system_configs → createdAt DESC) — the table has no
 		// other way to reflect that default in its header arrows.
-		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive, promoterUuid);
+		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive,
+				new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid));
 		return ResponseEntity.ok(new AppliedSortPage<>(page, alliesService.effectiveSort(pageable)));
     }
 

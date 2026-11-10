@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.core.audit;
 
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.audit.dto.LoginAuditLogDto;
 import com.fenixcore.optibienestar360.core.audit.entity.LoginAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.LoginAuditLogRepository;
@@ -51,6 +52,12 @@ public class LoginAuditQueryService {
     @Transactional(readOnly = true)
     public Page<LoginAuditLogDto> list(Pageable pageable, UUID uuid, String email, UUID userUuid, LoginAuditResult result,
                                         Instant from, Instant to, String filter) {
+        return list(pageable, uuid, email, userUuid, result, from, to, filter, null);
+    }
+
+    /** Same as above plus a free-text {@code q} (accent/case-insensitive) over email, IP, host, agent and failure reason. */
+    public Page<LoginAuditLogDto> list(Pageable pageable, UUID uuid, String email, UUID userUuid, LoginAuditResult result,
+                                        Instant from, Instant to, String filter, String q) {
         if (pageable.isPaged() && pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("audit.page.size.exceeded");
         }
@@ -79,6 +86,11 @@ public class LoginAuditQueryService {
         if (filter != null && !filter.isBlank()) {
             RsqlFieldValidator.validate(filter, ALLOWED_FILTER_FIELDS, "audit.filter.field_not_allowed");
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
+        }
+
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q,
+                    "attemptedEmail", "ipAddress", "hostname", "userAgent", "failureReason"));
         }
 
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("login_audit_log", pageable);

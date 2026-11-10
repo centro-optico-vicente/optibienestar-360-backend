@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyListFilter;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,8 +68,15 @@ public class AdminAllyRequestController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String channel,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) UUID promoterUuid) {
-        Page<AllyRequestListItemDto> page = service.list(pageable, status, channel, q, promoterUuid);
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) UUID allyTypeUuid,
+            @RequestParam(required = false) UUID professionUuid,
+            @RequestParam(required = false) UUID stateUuid,
+            @RequestParam(required = false) UUID cityUuid,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+        Page<AllyRequestListItemDto> page = service.list(pageable, status, channel, q,
+                new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid), dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

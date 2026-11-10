@@ -95,6 +95,17 @@ public class CorporateContractsService {
     }
 
     public Page<CorporateContractDto> list(Pageable pageable, String filter, String q) {
+        return list(pageable, filter, q, null);
+    }
+
+    /** Same as above plus an optional {@code planUuid} master filter. */
+    public Page<CorporateContractDto> list(Pageable pageable, String filter, String q, UUID planUuid) {
+        return list(pageable, filter, q, planUuid, null, null);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: inclusive Caracas-day range on the contract's registration day ({@code createdAt}). */
+    public Page<CorporateContractDto> list(Pageable pageable, String filter, String q, UUID planUuid,
+                                           java.time.LocalDate dateFrom, java.time.LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "corporate_contract", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "corporate_contract");
@@ -107,6 +118,10 @@ public class CorporateContractsService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        if (planUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.join("plan", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), planUuid));
+        }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("createdAt", dateFrom, dateTo));
         return repository.findAll(spec, resolvedPageable).map(CorporateContractDto::from);
     }
 

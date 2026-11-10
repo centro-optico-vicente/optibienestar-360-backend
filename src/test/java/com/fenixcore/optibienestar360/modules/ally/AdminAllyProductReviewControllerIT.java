@@ -88,7 +88,7 @@ class AdminAllyProductReviewControllerIT {
 
     @Test
     void pending_withPermission_is200() throws Exception {
-        when(reviewService.pendingQueue(any(), any(), any(), any()))
+        when(reviewService.pendingQueue(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(serviceDto(ReviewStatus.PROPOSED))));
 
         mockMvc.perform(get("/v1/admin/ally-products/pending").with(principal("ALLY_PRODUCT_APPROVE")))
@@ -176,7 +176,7 @@ class AdminAllyProductReviewControllerIT {
 
     @Test
     void deprecatedAllyServicesAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(reviewService.pendingQueue(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(reviewService.pendingQueue(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/v1/admin/ally-services/pending").with(principal("ALLY_VIEW_ALL")))
                 .andExpect(status().isForbidden());

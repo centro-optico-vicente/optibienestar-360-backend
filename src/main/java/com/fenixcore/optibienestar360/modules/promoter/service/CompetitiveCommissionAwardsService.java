@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter.service;
 
+import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
+import java.time.LocalDate;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -46,9 +48,42 @@ public class CompetitiveCommissionAwardsService {
     private final OrganizationRepository organizationRepository;
     private final CurrencyConversionService conversionService;
 
+    /** Free-text {@code ?q=} fields (accent/case-insensitive): rule name, advisor and payout reference. */
+    private static final String[] SEARCHABLE_FIELDS = {
+            "rule.name", "promoter.displayName", "promoter.referralCode", "payoutReference"
+    };
+
     @Transactional(readOnly = true)
     public Page<CompetitiveAwardDto> list(Pageable pageable, String filter) {
+        return list(pageable, filter, null, null, null, null, null);
+    }
+
+    /**
+     * @param q            free-text over rule name, advisor name/code and payout reference
+     * @param ruleUuid     the competitive rule
+     * @param promoterUuid the awarded advisor
+     * @param dateFrom     inclusive lower bound on {@code periodStart}
+     * @param dateTo       inclusive upper bound on {@code periodEnd}
+     */
+    @Transactional(readOnly = true)
+    public Page<CompetitiveAwardDto> list(Pageable pageable, String filter, String q, UUID ruleUuid,
+                                          UUID promoterUuid, LocalDate dateFrom, LocalDate dateTo) {
         Specification<CompetitiveCommissionAward> spec = (root, query, cb) -> cb.conjunction();
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (ruleUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("rule").get("uuid"), ruleUuid));
+        }
+        if (promoterUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("promoter").get("uuid"), promoterUuid));
+        }
+        if (dateFrom != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<LocalDate>get("periodStart"), dateFrom));
+        }
+        if (dateTo != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.<LocalDate>get("periodEnd"), dateTo));
+        }
         if (filter != null && !filter.isBlank()) {
             spec = spec.and(RSQLJPASupport.toSpecification(filter));
         }

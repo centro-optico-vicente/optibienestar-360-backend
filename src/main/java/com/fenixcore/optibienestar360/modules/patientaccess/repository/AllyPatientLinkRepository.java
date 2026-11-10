@@ -20,12 +20,32 @@ public interface AllyPatientLinkRepository extends JpaRepository<AllyPatientLink
     Optional<AllyPatientLink> findActive(@Param("doctorPersonId") Long doctorPersonId,
                                          @Param("memberId") Long memberId);
 
-    /** The doctor's patients ("Mis pacientes"), newest link first. */
-    @Query(value = "SELECT l FROM AllyPatientLink l JOIN FETCH l.member m JOIN FETCH m.person " +
-                   "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' ORDER BY l.createdAt DESC",
-           countQuery = "SELECT COUNT(l) FROM AllyPatientLink l " +
-                        "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE'")
-    Page<AllyPatientLink> findActiveByDoctor(@Param("doctorPersonId") Long doctorPersonId, Pageable pageable);
+    /**
+     * The doctor's patients ("Mis pacientes"), newest link first. {@code q} (blank = no filter) matches the
+     * patient's name or document, ignoring case and accents.
+     */
+    @Query(value = "SELECT l FROM AllyPatientLink l JOIN FETCH l.member m JOIN FETCH m.person p " +
+                   "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' " +
+                   "AND (:q IS NULL OR :q = '' OR " +
+                   "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
+                   "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
+                   "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo) " +
+                   "ORDER BY l.createdAt DESC",
+           countQuery = "SELECT COUNT(l) FROM AllyPatientLink l JOIN l.member m JOIN m.person p " +
+                        "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' " +
+                        "AND (:q IS NULL OR :q = '' OR " +
+                        "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
+                        "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
+                        "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo)")
+    Page<AllyPatientLink> findActiveByDoctor(@Param("doctorPersonId") Long doctorPersonId,
+                                             @Param("q") String q,
+                                             @Param("dateFrom") java.time.Instant dateFrom,
+                                             @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /** Unbounded variant. */
+    default Page<AllyPatientLink> findActiveByDoctor(Long doctorPersonId, String q, Pageable pageable) {
+        return findActiveByDoctor(doctorPersonId, q, null, null, pageable);
+    }
 
     /** Every link of a member (active and revoked), newest first. */
     @Query("SELECT l FROM AllyPatientLink l JOIN FETCH l.doctorPerson JOIN FETCH l.createdAtAlly " +

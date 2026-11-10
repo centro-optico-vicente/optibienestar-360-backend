@@ -38,7 +38,12 @@ public class AllyUsageHistoryController {
     public ResponseEntity<Page<BenefitUsageDto>> list(
             @PageableDefault(size = 20, sort = "usageDate", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(benefitUsagesService.listForAllyUser(actor.getUuid(), search, pageable));
+        // `q` is the standard param name; `search` stays as a backward-compatible alias.
+        String term = (q != null && !q.isBlank()) ? q : search;
+        return ResponseEntity.ok(benefitUsagesService.listForAllyUser(actor.getUuid(), term, dateFrom, dateTo, pageable));
     }
 }

@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -62,8 +64,13 @@ public class CommissionsService {
                     "promoter_Code", "promoter.referralCode"
             ));
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Caracas");
+
     private static final String[] SEARCHABLE_FIELDS = {
-            "payoutReference", "adminNotes", "tierNameSnapshot", "voidReason"
+            "payoutReference", "adminNotes", "tierNameSnapshot", "voidReason",
+            // Related names (all non-null FKs, so plain dotted paths are safe — no row is dropped by the inner join).
+            "promoter.displayName", "promoter.referralCode",
+            "member.person.fullName", "member.person.documentNumber"
     };
 
     private final CommissionRepository repository;
@@ -156,6 +163,17 @@ public class CommissionsService {
      */
     public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
             UUID promoterTypeUuid, UUID promoterRankUuid, UUID campaignUuid, Commission.RuleSource ruleSource) {
+        return list(pageable, filter, q, includeInactive, promoterTypeUuid, promoterRankUuid, campaignUuid,
+                ruleSource, null, null, null);
+    }
+
+    /**
+     * Same as above plus the affiliate filter and an inclusive {@code earnedAt} day range
+     * (Caracas business day, ADR 0010) — first-class params because RSQL can't express them safely.
+     */
+    public Page<CommissionDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+            UUID promoterTypeUuid, UUID promoterRankUuid, UUID campaignUuid, Commission.RuleSource ruleSource,
+            UUID memberUuid, LocalDate dateFrom, LocalDate dateTo) {
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
                 "commission", pageable);
         Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "commission");
@@ -179,6 +197,17 @@ public class CommissionsService {
         }
         if (ruleSource != null) {
             spec = spec.and(ruleSourceIs(ruleSource));
+        }
+        if (memberUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("member").get("uuid"), memberUuid));
+        }
+        if (dateFrom != null) {
+            Instant from = dateFrom.atStartOfDay(BUSINESS_ZONE).toInstant();
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.<Instant>get("earnedAt"), from));
+        }
+        if (dateTo != null) {
+            Instant to = dateTo.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+            spec = spec.and((root, query, cb) -> cb.lessThan(root.<Instant>get("earnedAt"), to));
         }
         return repository.findAll(spec, resolvedPageable).map(c -> enrich(mapper.toDto(c), c));
     }

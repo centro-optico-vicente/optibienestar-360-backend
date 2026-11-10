@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -41,8 +42,9 @@ public class AdminRoleUsersController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_USER_VIEW_ALL')")
-    public ResponseEntity<List<RoleUserDto>> list(@PathVariable UUID roleUuid, Pageable pageable) {
-        return ResponseEntity.ok(roleService.listUsers(roleUuid, pageable));
+    public ResponseEntity<List<RoleUserDto>> list(@PathVariable UUID roleUuid,
+                                                       @RequestParam(required = false) String q, Pageable pageable) {
+        return ResponseEntity.ok(roleService.listUsers(roleUuid, q, pageable));
     }
 
     @PostMapping

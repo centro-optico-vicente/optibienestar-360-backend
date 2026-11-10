@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
@@ -47,10 +48,17 @@ public class AllyAgreementsService {
     private final DefaultSortResolver defaultSortResolver;
 
     public List<AllyAgreementDto> listForAlly(UUID allyUuid, Pageable pageable) {
+        return listForAlly(allyUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over agreement type and terms. */
+    public List<AllyAgreementDto> listForAlly(UUID allyUuid, String q, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted("ally_agreement", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_agreement");
         return agreementRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
+                .filter(TextSearch.<AllyAgreement>matching(q,
+                        a -> a.getAgreementType() == null ? null : a.getAgreementType().name(), AllyAgreement::getTerms))
                 .map(mapper::toAgreementDto)
                 .toList();
     }

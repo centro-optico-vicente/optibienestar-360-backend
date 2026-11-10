@@ -47,8 +47,9 @@ public class AdminLoginAuditController {
 			@RequestParam(required = false) LoginAuditResult result,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-			@RequestParam(required = false) String filter) {
-		Page<LoginAuditLogDto> page = loginAuditQueryService.list(pageable, uuid, email, userUuid, result, from, to, filter);
+			@RequestParam(required = false) String filter,
+			@RequestParam(required = false) String q) {
+		Page<LoginAuditLogDto> page = loginAuditQueryService.list(pageable, uuid, email, userUuid, result, from, to, filter, q);
 		return ResponseEntity.ok(new AppliedSortPage<>(page, loginAuditQueryService.effectiveSort(pageable)));
 	}
 

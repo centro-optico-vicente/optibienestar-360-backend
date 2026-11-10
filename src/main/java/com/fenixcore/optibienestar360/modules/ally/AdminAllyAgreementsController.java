@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -42,8 +43,9 @@ public class AdminAllyAgreementsController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_AGREEMENT_VIEW_ALL')")
-    public ResponseEntity<List<AllyAgreementDto>> list(@PathVariable UUID allyUuid, Pageable pageable) {
-        return ResponseEntity.ok(agreementsService.listForAlly(allyUuid, pageable));
+    public ResponseEntity<List<AllyAgreementDto>> list(@PathVariable UUID allyUuid,
+                                                          @RequestParam(required = false) String q, Pageable pageable) {
+        return ResponseEntity.ok(agreementsService.listForAlly(allyUuid, q, pageable));
     }
 
     @GetMapping("/{uuid}")

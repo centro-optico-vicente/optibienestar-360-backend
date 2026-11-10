@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUserCreateRequest;
@@ -71,11 +72,20 @@ public class AllyUsersService {
     private final DefaultSortResolver defaultSortResolver;
 
     public List<AllyUserDto> listForAlly(UUID allyUuid, Pageable pageable) {
+        return listForAlly(allyUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over email, full name and role. */
+    public List<AllyUserDto> listForAlly(UUID allyUuid, String q, Pageable pageable) {
         Ally ally = findAlly(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "ally_user", pageable);
         Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, "ally_user");
         return allyUserRepository.findByAllyIdAndActiveTrue(ally.getId(), resolved.getSort()).stream()
+                .filter(TextSearch.<AllyUser>matching(q,
+                        au -> au.getUser().getEmail(),
+                        au -> au.getUser().getPerson() == null ? null : au.getUser().getPerson().getFullName(),
+                        au -> au.getAllyRole() == null ? null : au.getAllyRole().name()))
                 .map(mapper::toAllyUserDto)
                 .toList();
     }

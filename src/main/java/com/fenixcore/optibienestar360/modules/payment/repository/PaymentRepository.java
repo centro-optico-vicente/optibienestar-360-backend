@@ -31,8 +31,49 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "WHERE p.active = true AND p.direction = 'IN' " +
            "  AND (p.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
            "    OR p.beneficiaryPerson.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
-           "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid))")
-    Page<Payment> findOwnByUserUuid(@Param("userUuid") UUID userUuid, Pageable pageable);
+           "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)) " +
+           "  AND (:dateFrom IS NULL OR p.paymentDate >= :dateFrom) " +
+           "  AND (:dateTo IS NULL OR p.paymentDate < :dateTo)")
+    Page<Payment> findOwnByUserUuid(@Param("userUuid") UUID userUuid,
+                                    @Param("dateFrom") java.time.Instant dateFrom,
+                                    @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /** Unbounded variant. */
+    default Page<Payment> findOwnByUserUuid(UUID userUuid, Pageable pageable) {
+        return findOwnByUserUuid(userUuid, null, null, pageable);
+    }
+
+    /**
+     * Same as {@link #findOwnByUserUuid} plus a free-text {@code :q} (accent/case-insensitive, via the
+     * {@code immutable_unaccent} wrapper) over the payment's notes, file name, beneficiary snapshots, the
+     * payer/beneficiary names and any line's reference/identification.
+     */
+    @Query("SELECT p FROM Payment p " +
+           "LEFT JOIN p.membership m LEFT JOIN m.member mm " +
+           "LEFT JOIN p.beneficiaryPerson bp " +
+           "WHERE p.active = true AND p.direction = 'IN' " +
+           "  AND (p.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
+           "    OR p.beneficiaryPerson.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
+           "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)) " +
+           "  AND (cast(function('immutable_unaccent', lower(coalesce(p.adminNotes, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.supportFileName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.beneficiaryDocument, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(p.beneficiaryContractNumber, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(p.person.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR cast(function('immutable_unaccent', lower(coalesce(bp.fullName, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "    OR EXISTS (SELECT 1 FROM PaymentLine l WHERE l.payment = p AND l.active = true " +
+           "         AND (cast(function('immutable_unaccent', lower(coalesce(l.referenceNumber, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
+           "           OR cast(function('immutable_unaccent', lower(coalesce(l.identification, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)))) " +
+           "  AND (:dateFrom IS NULL OR p.paymentDate >= :dateFrom) " +
+           "  AND (:dateTo IS NULL OR p.paymentDate < :dateTo)")
+    Page<Payment> findOwnByUserUuidAndSearch(@Param("userUuid") UUID userUuid, @Param("q") String q,
+                                             @Param("dateFrom") java.time.Instant dateFrom,
+                                             @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /** Unbounded variant. */
+    default Page<Payment> findOwnByUserUuidAndSearch(UUID userUuid, String q, Pageable pageable) {
+        return findOwnByUserUuidAndSearch(userUuid, q, null, null, pageable);
+    }
 
     /**
      * Number of APPROVED payments across all of a member's memberships.

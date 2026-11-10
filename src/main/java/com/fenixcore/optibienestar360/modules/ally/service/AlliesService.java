@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.ally.service;
 
+import com.fenixcore.optibienestar360.core.util.TextSearch;
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
@@ -40,6 +41,7 @@ import com.fenixcore.optibienestar360.modules.person.service.PersonService;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import io.github.perplexhub.rsql.RSQLJPASupport;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyListFilter;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -153,12 +155,18 @@ public class AlliesService {
      * render N rows).
      */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive) {
-        return list(pageable, filter, q, includeInactive, null);
+        return list(pageable, filter, q, includeInactive, AllyListFilter.none());
     }
 
     /** Same list, optionally only the allies the advisor {@code promoterUuid} brought in (404 when it does not exist). */
     public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
                                       UUID promoterUuid) {
+        return list(pageable, filter, q, includeInactive,
+                new AllyListFilter(null, null, null, null, promoterUuid));
+    }
+
+    public Page<AllyListItemDto> list(Pageable pageable, String filter, String q, boolean includeInactive,
+                                      AllyListFilter filters) {
 		Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted(
 			"ally", pageable);
 		Pageable resolvedPageable = SortFieldValidator.resolve(defaultedPageable, SORTABLE_FIELDS, "ally");
@@ -170,10 +178,11 @@ public class AlliesService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
-        if (promoterUuid != null) {
-            resolvePromoterOptional(promoterUuid);  // a typo'd uuid is a 404, not an empty list
-            spec = spec.and(capturedBy(promoterUuid));
+        if (filters != null && filters.promoterUuid() != null) {
+            resolvePromoterOptional(filters.promoterUuid());  // a typo'd uuid is a 404, not an empty list
+            spec = spec.and(capturedBy(filters.promoterUuid()));
         }
+        spec = spec.and(masterFilters(filters));
 		return repository.findAll(spec, resolvedPageable).map(mapper::toListItem);
 	}
 
@@ -214,6 +223,42 @@ public class AlliesService {
         Ally ally = findManaged(uuid);
         ally.setCapturedByPromoter(resolvePromoterOptional(promoterUuid));
         return mapper.toDetail(ally);
+    }
+
+    /**
+     * AND of the master-table filters actually provided; absent ones are no-ops.
+     * Many-to-many filters use an {@code IN (subquery)} so an ally with several
+     * types/professions is never duplicated in the page. Shared with the
+     * ally-requests inbox, which lists the same {@link Ally} rows.
+     */
+    public static Specification<Ally> masterFilters(AllyListFilter f) {
+        return (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (f == null) {
+                return cb.conjunction();
+            }
+            if (f.allyTypeUuid() != null) {
+                Subquery<Long> sq = query.subquery(Long.class);
+                Root<Ally> a = sq.from(Ally.class);
+                Join<Ally, ?> t = a.join("allyTypes");
+                sq.select(a.get("id")).where(cb.equal(t.get("uuid"), f.allyTypeUuid()));
+                ps.add(root.get("id").in(sq));
+            }
+            if (f.professionUuid() != null) {
+                Subquery<Long> sq = query.subquery(Long.class);
+                Root<Ally> a = sq.from(Ally.class);
+                Join<Ally, ?> p = a.join("professions");
+                sq.select(a.get("id")).where(cb.equal(p.get("uuid"), f.professionUuid()));
+                ps.add(root.get("id").in(sq));
+            }
+            if (f.cityUuid() != null) {
+                ps.add(cb.equal(root.get("city").get("uuid"), f.cityUuid()));
+            }
+            if (f.stateUuid() != null) {
+                ps.add(cb.equal(root.get("city").get("state").get("uuid"), f.stateUuid()));
+            }
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
     }
 
 	/**
@@ -608,6 +653,12 @@ public class AlliesService {
 
     public List<com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto>
             listProfessions(UUID allyUuid, Pageable pageable) {
+        return listProfessions(allyUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over code, name and description. */
+    public List<com.fenixcore.optibienestar360.modules.catalog.dto.ProfessionDto>
+            listProfessions(UUID allyUuid, String q, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "ally_profession", pageable);
@@ -616,7 +667,10 @@ public class AlliesService {
         // by a repository query) — sorted here by reflection instead of at the DB.
         List<Profession> professions = new ArrayList<>(ally.getProfessions());
         professions.sort(professionComparator(sort));
-        return professions.stream().map(mapper::toProfessionDto).toList();
+        return professions.stream()
+                .filter(TextSearch.<Profession>matching(q,
+                        Profession::getCode, Profession::getName, Profession::getDescription))
+                .map(mapper::toProfessionDto).toList();
     }
 
     private static Comparator<Profession> professionComparator(Sort sort) {
@@ -677,6 +731,12 @@ public class AlliesService {
      */
     public List<com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto>
             listAllyTypes(UUID allyUuid, Pageable pageable) {
+        return listAllyTypes(allyUuid, null, pageable);
+    }
+
+    /** As above with an optional accent/case-insensitive free-text {@code q} over code, name and description. */
+    public List<com.fenixcore.optibienestar360.modules.catalog.dto.AllyTypeDto>
+            listAllyTypes(UUID allyUuid, String q, Pageable pageable) {
         Ally ally = findManaged(allyUuid);
         Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(
                 "ally_ally_type", pageable);
@@ -685,7 +745,10 @@ public class AlliesService {
         // by a repository query) — sorted here by reflection instead of at the DB.
         List<AllyType> allyTypes = new ArrayList<>(ally.getAllyTypes());
         allyTypes.sort(allyTypeComparator(sort));
-        return allyTypes.stream().map(mapper::toAllyTypeDto).toList();
+        return allyTypes.stream()
+                .filter(TextSearch.<AllyType>matching(q,
+                        AllyType::getCode, AllyType::getName, AllyType::getDescription))
+                .map(mapper::toAllyTypeDto).toList();
     }
 
     private static Comparator<AllyType> allyTypeComparator(Sort sort) {

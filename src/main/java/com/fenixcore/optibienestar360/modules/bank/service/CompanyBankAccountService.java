@@ -41,7 +41,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class CompanyBankAccountService {
 
-    private static final String[] SEARCHABLE_FIELDS = {"accountNumber", "holderName", "holderDocument"};
+    private static final String[] SEARCHABLE_FIELDS = {"accountNumber", "holderName", "holderDocument", "bank.name", "bank.shortName"};
     private static final Map<String, SortFieldValidator.SortableField> SORTABLE_FIELDS =
             SortFieldValidator.sortableFieldsOf(CompanyBankAccount.class, Map.of());
 
@@ -52,6 +52,16 @@ public class CompanyBankAccountService {
     private final DefaultSortResolver defaultSortResolver;
 
     public Page<CompanyBankAccountDto> list(Pageable pageable, String q, boolean includeInactive) {
+        return list(pageable, q, includeInactive, null, null, null);
+    }
+
+    /**
+     * @param bankUuid     the account's bank
+     * @param currencyCode the account's currency (ISO code, case-insensitive)
+     * @param accountType  the account type (e.g. checking/savings), exact match
+     */
+    public Page<CompanyBankAccountDto> list(Pageable pageable, String q, boolean includeInactive,
+                                            UUID bankUuid, String currencyCode, String accountType) {
         Pageable resolved = SortFieldValidator.resolve(
                 defaultSortResolver.withDefaultSortIfUnsorted("company_bank_account", pageable),
                 SORTABLE_FIELDS, "company_bank_account");
@@ -60,6 +70,17 @@ public class CompanyBankAccountService {
                 : (root, query, cb) -> cb.equal(root.get("active"), Boolean.TRUE);
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        }
+        if (bankUuid != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("bank").get("uuid"), bankUuid));
+        }
+        if (currencyCode != null && !currencyCode.isBlank()) {
+            String code = currencyCode.trim().toUpperCase();
+            spec = spec.and((root, query, cb) -> cb.equal(cb.upper(root.get("currency").get("code")), code));
+        }
+        if (accountType != null && !accountType.isBlank()) {
+            String type = accountType.trim();
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("accountType"), type));
         }
         return repository.findAll(spec, resolved).map(CompanyBankAccountService::toDto);
     }

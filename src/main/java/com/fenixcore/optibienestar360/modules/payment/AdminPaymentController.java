@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.payment.dto.PaymentCreateRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDiscountRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentLinesUpdateRequest;
+import com.fenixcore.optibienestar360.modules.payment.dto.PaymentListFilter;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentRejectRequest;
 import com.fenixcore.optibienestar360.modules.payment.dto.PaymentSupportUrlDto;
 import com.fenixcore.optibienestar360.modules.payment.dto.OutPaymentCreateRequest;
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -39,6 +41,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -84,8 +87,17 @@ public class AdminPaymentController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) String direction) {
-        Page<PaymentDto> page = paymentsService.list(pageable, filter, q, direction);
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) UUID memberUuid,
+            @RequestParam(required = false) UUID paymentMethodUuid,
+            @RequestParam(required = false) UUID bankUuid,
+            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        PaymentListFilter filters = new PaymentListFilter(memberUuid, paymentMethodUuid, bankUuid, categoryUuid,
+                promoterUuid, dateFrom, dateTo);
+        Page<PaymentDto> page = paymentsService.list(pageable, filter, q, direction, filters);
         return ResponseEntity.ok(new AppliedSortPage<>(page, paymentsService.effectiveSort(pageable)));
     }
 

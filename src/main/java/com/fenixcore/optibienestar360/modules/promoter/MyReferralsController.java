@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -34,7 +35,11 @@ public class MyReferralsController {
     @PreAuthorize("hasAuthority('REFERRAL_CODE_VIEW_OWN')")
     public ResponseEntity<Page<MyReferralDto>> list(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(referralsService.listForUser(actor.getUuid(), pageable));
+        return ResponseEntity.ok(referralsService.listForUser(actor.getUuid(), status, q, dateFrom, dateTo, pageable));
     }
 }

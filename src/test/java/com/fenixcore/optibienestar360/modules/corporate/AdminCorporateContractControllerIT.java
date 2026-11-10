@@ -100,7 +100,7 @@ class AdminCorporateContractControllerIT {
 
     @Test
     void list_withPermission_is200() throws Exception {
-        when(service.list(any(), any(), any())).thenReturn(new PageImpl<>(List.of(contractDto())));
+        when(service.list(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of(contractDto())));
 
         mockMvc.perform(get("/v1/admin/corporate-contracts").with(principal("CORPORATE_CONTRACT_VIEW_ALL")))
                 .andExpect(status().isOk())

@@ -78,7 +78,7 @@ public class MembershipsService {
         }
         if (c.q() != null && !c.q().isBlank()) {
             spec = spec.and(com.fenixcore.optibienestar360.core.util.SearchSpecifications.acrossFields(c.q(),
-                    "member.person.firstName", "member.person.lastName", "member.person.documentNumber"));
+                    "member.person.fullName", "member.person.documentNumber", "member.person.email", "member.person.phone"));
         }
         if (c.memberUuid() != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("member").get("uuid"), c.memberUuid()));

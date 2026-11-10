@@ -71,6 +71,13 @@ public class AllyProductReviewService {
      * optionally filtered by ally and/or service category.
      */
     public Page<AllyProductDto> pendingQueue(UUID allyUuid, UUID productCategoryUuid, String q, Pageable pageable) {
+        return pendingQueue(allyUuid, productCategoryUuid, q, null, null, pageable);
+    }
+
+    /** {@code dateFrom}/{@code dateTo}: inclusive Caracas-day range on the day the offer was submitted ({@code createdAt}). */
+    public Page<AllyProductDto> pendingQueue(UUID allyUuid, UUID productCategoryUuid, String q,
+                                             java.time.LocalDate dateFrom, java.time.LocalDate dateTo,
+                                             Pageable pageable) {
         Specification<AllyProduct> spec = (root, query, cb) -> cb.and(
                 cb.isTrue(root.get("active")),
                 root.get("reviewStatus").in(ReviewStatus.PROPOSED, ReviewStatus.IN_REVIEW));
@@ -84,6 +91,7 @@ public class AllyProductReviewService {
         if (q != null && !q.isBlank()) {
             spec = spec.and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
         }
+        spec = spec.and(com.fenixcore.optibienestar360.core.util.DateRangeSpecifications.instantBetween("createdAt", dateFrom, dateTo));
         return serviceRepository.findAll(spec, pageable).map(service -> mapper.toAllyProductDto(service, publicBaseUrl));
     }
 

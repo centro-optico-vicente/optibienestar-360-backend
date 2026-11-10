@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -31,7 +32,8 @@ public class PromoterBonusesController {
     @PreAuthorize("hasAuthority('BONUS_VIEW_OWN')")
     public ResponseEntity<Page<BonusAwardDto>> myBonuses(
             @AuthenticationPrincipal CustomUserDetails actor,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(bonusAwardsService.listOwn(actor.getUuid(), pageable));
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(bonusAwardsService.listOwn(actor.getUuid(), q, pageable));
     }
 }

@@ -1,5 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promoter;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CompetitiveAwardDto;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CompetitiveAwardPayRequest;
 import com.fenixcore.optibienestar360.modules.promoter.dto.CompetitiveAwardSettlementDto;
@@ -40,8 +42,13 @@ public class AdminCompetitiveCommissionAwardController {
     @GetMapping
     @PreAuthorize("hasAuthority('COMPETITIVE_COMMISSION_AWARD_VIEW_ALL')")
     public ResponseEntity<Page<CompetitiveAwardDto>> list(@PageableDefault(size = 50) Pageable pageable,
-            @RequestParam(required = false) String filter) {
-        return ResponseEntity.ok(service.list(pageable, filter));
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID ruleUuid,
+            @RequestParam(required = false) UUID promoterUuid,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        return ResponseEntity.ok(service.list(pageable, filter, q, ruleUuid, promoterUuid, dateFrom, dateTo));
     }
 
     @GetMapping("/{uuid}")
