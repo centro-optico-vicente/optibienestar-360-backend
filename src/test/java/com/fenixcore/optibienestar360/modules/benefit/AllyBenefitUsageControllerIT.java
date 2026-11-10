@@ -130,7 +130,7 @@ class AllyBenefitUsageControllerIT {
 
     @Test
     void history_withPermission_is200() throws Exception {
-        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
+        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(usage())));
 
         mockMvc.perform(get("/v1/me/allies/usage-history").with(principal("ALLY_VIEW_OWN")))
@@ -143,7 +143,7 @@ class AllyBenefitUsageControllerIT {
     @Test
     void secondaryAlliesMePaths_answerLikePrimary_withSameSecurity() throws Exception {
         when(benefitUsagesService.register(any(), any())).thenReturn(usage());
-        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(Pageable.class)))
+        when(benefitUsagesService.listForAllyUser(any(UUID.class), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(usage())));
 
         mockMvc.perform(post("/v1/allies/me/benefit-usages")

@@ -180,9 +180,9 @@ class AffiliationRequestControllersIT {
         mockMvc.perform(get("/v1/admin/affiliation-requests")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/v1/admin/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
                 .andExpect(status().isForbidden());
-        verify(service, never()).list(any(), any(), any());
+        verify(service, never()).list(any(), any(), any(), any());
 
-        when(service.list(any(), eq("PENDING"), isNull())).thenReturn(onePage());
+        when(service.list(any(), eq("PENDING"), isNull(), any())).thenReturn(onePage());
         mockMvc.perform(get("/v1/admin/affiliation-requests").param("status", "PENDING")
                         .with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
                 .andExpect(status().isOk())
@@ -272,9 +272,9 @@ class AffiliationRequestControllersIT {
     void advisorList_requiresViewOwn_notViewAll() throws Exception {
         mockMvc.perform(get("/v1/me/advisor/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
                 .andExpect(status().isForbidden());
-        verify(service, never()).listForAdvisor(any(), any(), any());
+        verify(service, never()).listForAdvisor(any(), any(), any(), any(), any(), any());
 
-        when(service.listForAdvisor(any(UUID.class), any(), any())).thenReturn(onePage());
+        when(service.listForAdvisor(any(UUID.class), any(), any(), any(), any(), any())).thenReturn(onePage());
         mockMvc.perform(get("/v1/me/advisor/affiliation-requests").with(principal("AFFILIATION_REQUEST_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].documentNumber").value("12345678"));
@@ -282,7 +282,7 @@ class AffiliationRequestControllersIT {
 
     @Test
     void advisorList_whenNotAnAdvisor_is404() throws Exception {
-        when(service.listForAdvisor(any(UUID.class), any(), any()))
+        when(service.listForAdvisor(any(UUID.class), any(), any(), any(), any(), any()))
                 .thenThrow(new java.util.NoSuchElementException("me.promoter.not_found"));
 
         mockMvc.perform(get("/v1/me/advisor/affiliation-requests").param("status", "PENDING")
@@ -292,7 +292,7 @@ class AffiliationRequestControllersIT {
 
     @Test
     void advisorList_secondaryAdvisorsMePath_answersLikePrimary_withSameSecurity() throws Exception {
-        when(service.listForAdvisor(any(UUID.class), any(), any())).thenReturn(onePage());
+        when(service.listForAdvisor(any(UUID.class), any(), any(), any(), any(), any())).thenReturn(onePage());
 
         mockMvc.perform(get("/v1/advisors/me/affiliation-requests"))
                 .andExpect(status().isUnauthorized());
