@@ -16,7 +16,7 @@ import java.util.Map;
 
 /**
  * Daily job (V236): discards the registrations that stayed in DRAFT — never sent to review — for more than
- * {@code app.onboarding.draft-cleanup.retention-days} days (default 30), freeing their cédula and email. Seeded as
+ * {@code app.onboarding.draft-cleanup.retention-days} days (default 7), freeing their cédula and email. Seeded as
  * {@code REGISTRATION_DRAFT_CLEANUP} in {@code scheduled_jobs}; it can be paused there or with
  * {@code app.onboarding.draft-cleanup.enabled=false} (the run then reports {@code skipped}). No logic lives here:
  * {@link RegistrationDraftService#purgeAbandoned} does the work and never touches a submitted request.
@@ -26,7 +26,7 @@ import java.util.Map;
 public class RegistrationDraftCleanupJobRunner implements ScheduledJobRunner {
 
     public static final String CODE = "REGISTRATION_DRAFT_CLEANUP";
-    static final int DEFAULT_RETENTION_DAYS = 30;
+    static final int DEFAULT_RETENTION_DAYS = 7;
 
     private final RegistrationDraftService draftService;
     private final Clock clock;
@@ -37,7 +37,7 @@ public class RegistrationDraftCleanupJobRunner implements ScheduledJobRunner {
             RegistrationDraftService draftService,
             Clock clock,
             @Value("${app.onboarding.draft-cleanup.enabled:true}") boolean enabled,
-            @Value("${app.onboarding.draft-cleanup.retention-days:30}") int retentionDays) {
+            @Value("${app.onboarding.draft-cleanup.retention-days:7}") int retentionDays) {
         this.draftService = draftService;
         this.clock = clock;
         this.enabled = enabled;

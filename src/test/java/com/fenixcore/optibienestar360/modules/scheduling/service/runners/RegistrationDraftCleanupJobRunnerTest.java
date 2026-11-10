@@ -51,14 +51,14 @@ class RegistrationDraftCleanupJobRunnerTest {
     }
 
     @Test
-    void run_fallsBackToThirtyDaysWhenTheRetentionIsNotPositive() {
+    void run_fallsBackToSevenDaysWhenTheRetentionIsNotPositive() {
         when(draftService.purgeAbandoned(any())).thenReturn(new CleanupResult(0, 0, 0));
 
         new RegistrationDraftCleanupJobRunner(draftService, NOW, true, 0).run();
 
         ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
         verify(draftService).purgeAbandoned(cutoff.capture());
-        assertThat(cutoff.getValue()).isEqualTo(Instant.parse("2026-10-10T12:00:00Z"));
+        assertThat(cutoff.getValue()).isEqualTo(Instant.parse("2026-11-02T12:00:00Z"));
     }
 
     @Test
