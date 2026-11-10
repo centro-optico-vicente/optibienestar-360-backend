@@ -59,6 +59,7 @@ public interface AllyMapper {
      * single-FK convention and is exposed as a plain label list instead.
      */
     @Mapping(target = "allyTypeNames", expression = "java(extractAllyTypeNames(ally.getAllyTypes()))")
+    @Mapping(target = "capturedByPromoter", expression = "java(promoterRef(ally.getCapturedByPromoter()))")
     AllyListItemDto toListItem(Ally ally);
 
     /** Sanitized projection for the public directory. See {@link PublicAllyListItemDto}. */

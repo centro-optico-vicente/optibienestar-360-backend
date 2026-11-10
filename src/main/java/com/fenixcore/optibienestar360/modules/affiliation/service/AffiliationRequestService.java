@@ -23,6 +23,7 @@ import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequest
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestLogDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestPaymentDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestUpdateRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationDraftStartRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AssistedAffiliationRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.entity.AffiliationRequest.Channel;
@@ -737,42 +738,95 @@ public class AffiliationRequestService {
     @Transactional
     public AffiliationRegistrationDto saveStep(UUID userUuid, String step, AffiliationDraftStepRequest body,
                                                MultipartFile support, ClientRequestMetadata client) {
+        String key = stepKey(step);
+        return toRegistration(applyStep(lockOwnDraft(userUuid), key, body, support, client));
+    }
+
+    private static String stepKey(String step) {
         String key = step == null ? "" : step.trim().toLowerCase(Locale.ROOT);
         if (!STEPS.contains(key)) {
             throw new IllegalArgumentException("affiliation_request.step.invalid");
         }
-        AffiliationRequest request = lockOwnDraft(userUuid);
+        return key;
+    }
+
+    /** Dispatches one step into a locked DRAFT; shared by the person's own flow and the advisor's assisted one. */
+    private AffiliationRequest applyStep(AffiliationRequest request, String key, AffiliationDraftStepRequest body,
+                                         MultipartFile support, ClientRequestMetadata client) {
         AffiliationDraftStepRequest b = body != null
-                ? body : new AffiliationDraftStepRequest(null, null, null, null, null, null, null, null, null);
+                ? body : new AffiliationDraftStepRequest(null, null, null, null, null, null, null, null, null, null, null, null);
         switch (key) {
             case "personal" -> savePersonalStep(request, b);
             case "plan" -> savePlanStep(request, b, client);
             case "payment" -> savePaymentStep(request, b, support);
             default -> saveFamilyStep(request, b);
         }
-        return toRegistration(request);
+        return request;
     }
 
     private void savePersonalStep(AffiliationRequest request, AffiliationDraftStepRequest b) {
-        Person person = request.getUser().getPerson();
+        // An assisted draft may have no login yet (the person is created on approval): then
+        // only the request row holds the data, and the advisor can still correct the identity.
+        Person person = request.getUser() != null ? request.getUser().getPerson() : null;
+        if (request.getUser() == null) {
+            saveAssistedIdentity(request, b);
+        }
         if (b.firstName() != null && !b.firstName().isBlank()) {
             request.setFirstName(b.firstName().trim());
-            person.setFirstName(b.firstName().trim());
+            if (person != null) person.setFirstName(b.firstName().trim());
         }
         if (b.lastName() != null && !b.lastName().isBlank()) {
             request.setLastName(b.lastName().trim());
-            person.setLastName(b.lastName().trim());
+            if (person != null) person.setLastName(b.lastName().trim());
         }
         if (b.birthDate() != null) {
             request.setBirthDate(b.birthDate());
-            person.setBirthDate(b.birthDate());
+            if (person != null) person.setBirthDate(b.birthDate());
         }
         if (b.phone() != null) {
             request.setPhone(blankToNull(b.phone()));
-            person.setPhone(blankToNull(b.phone()));
+            if (person != null) person.setPhone(blankToNull(b.phone()));
         }
         // A changed name or birth date changes the contract text: termsChanged() then
         // reports it and the acceptance is asked for again before submitting.
+    }
+
+    /** Corrects the cédula / email of an assisted draft that has no login; the same checks as when it started. */
+    private void saveAssistedIdentity(AffiliationRequest request, AffiliationDraftStepRequest b) {
+        String documentType = b.documentType() != null && !b.documentType().isBlank()
+                ? b.documentType().trim() : request.getDocumentType();
+        String documentNumber = b.documentNumber() != null && !b.documentNumber().isBlank()
+                ? b.documentNumber().trim() : request.getDocumentNumber();
+        String email = b.email() != null && !b.email().isBlank() ? normalizeEmail(b.email()) : request.getEmail();
+        boolean documentChanged = !documentType.equals(request.getDocumentType())
+                || !documentNumber.equals(request.getDocumentNumber());
+        boolean emailChanged = !email.equals(request.getEmail());
+        if (documentChanged || emailChanged) {
+            requireNotRegistered(documentType, documentNumber, email);
+            requireNoOpenRequest(documentType, documentNumber, email, request.getId(), Status.PENDING, Status.DRAFT);
+        }
+        request.setDocumentType(documentType);
+        request.setDocumentNumber(documentNumber);
+        request.setEmail(email);
+    }
+
+    /**
+     * No other request in the given statuses with the same cédula / email. Starting or correcting a
+     * draft checks PENDING and DRAFT; submitting checks only PENDING (the database also keeps
+     * those unique), so two drafts of the same person never block each other's submit.
+     */
+    private void requireNoOpenRequest(String documentType, String documentNumber, String email, Long selfId,
+                                      Status... statuses) {
+        long id = selfId != null ? selfId : -1L;
+        for (Status open : statuses) {
+            String suffix = open == Status.PENDING ? "pending" : "draft";
+            if (repository.existsByDocumentTypeAndDocumentNumberAndStatusAndIdNot(documentType, documentNumber, open.name(), id)) {
+                throw new IllegalArgumentException("affiliation_request.document." + suffix);
+            }
+            if (repository.existsByEmailIgnoreCaseAndStatusAndIdNot(email, open.name(), id)) {
+                throw new IllegalArgumentException("affiliation_request.email." + suffix);
+            }
+        }
     }
 
     private void savePlanStep(AffiliationRequest request, AffiliationDraftStepRequest b, ClientRequestMetadata client) {
@@ -858,6 +912,11 @@ public class AffiliationRequestService {
     @Transactional
     public AffiliationRegistrationDto submit(UUID userUuid) {
         AffiliationRequest request = lockOwnDraft(userUuid);
+        return submitDraft(request, request.getUser());
+    }
+
+    /** DRAFT → PENDING for a locked draft; {@code actor} is who sent it (the person, or the advisor of an assisted one). */
+    private AffiliationRegistrationDto submitDraft(AffiliationRequest request, User actor) {
         List<String> missing = new ArrayList<>();
         if (request.getBirthDate() == null) missing.add("birthDate");
         if (request.getPlan() == null) missing.add("plan");
@@ -870,7 +929,7 @@ public class AffiliationRequestService {
         }
         request.setStatus(Status.PENDING.name());
         request.setSubmittedAt(Instant.now());
-        writeLog(request, Action.SUBMITTED, Status.DRAFT, Status.PENDING, null, null, request.getUser());
+        writeLog(request, Action.SUBMITTED, Status.DRAFT, Status.PENDING, null, null, actor);
         if (onboardingPolicyService.autoApprovesMember(request.hasReportedPayment())) {
             // Hub ADR 0037 §1: approved by the onboarding policy, no reviewer (actor "Sistema").
             // The approval email replaces the "received" one.
@@ -880,6 +939,119 @@ public class AffiliationRequestService {
         }
         log.info("Affiliation registration {} submitted → {}", request.getUuid(), request.getStatus());
         return toRegistration(request);
+    }
+
+    // ─── Assisted drafts (advisor portal, hub ADR 0037 §5) ───────────────────
+
+    /**
+     * Starts an assisted affiliation as a DRAFT the advisor completes step by
+     * step and can resume later. Unlike the person's own step 1 it creates no
+     * login: the person is created on approval, exactly as with the one-shot
+     * assisted request. Not blocked by the self-registration switch (it is not
+     * self-registration). The DRAFT is attributed to the caller's active advisor
+     * record; 404 {@code me.promoter.not_found} otherwise.
+     */
+    @Transactional
+    public AffiliationRegistrationDto startAssistedDraft(AssistedAffiliationDraftStartRequest req, UUID advisorUserUuid,
+                                                         ClientRequestMetadata client) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        String email = normalizeEmail(req.email());
+        String documentNumber = req.documentNumber().trim();
+        requireNotRegistered(req.documentType(), documentNumber, email);
+        requireNoOpenRequest(req.documentType(), documentNumber, email, null, Status.PENDING, Status.DRAFT);
+
+        User actor = actor(advisorUserUuid);
+        ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
+        AffiliationRequest request = new AffiliationRequest();
+        request.setChannel(Channel.ASSISTED.name());
+        request.setFirstName(req.firstName().trim());
+        request.setLastName(req.lastName().trim());
+        request.setDocumentType(req.documentType());
+        request.setDocumentNumber(documentNumber);
+        request.setEmail(email);
+        request.setPhone(blankToNull(req.phone()));
+        request.setLocale(LocaleContextHolder.getLocale().getLanguage().equals("en") ? "en" : "es");
+        request.setPromoter(advisor);
+        request.setReferralCode(advisor.getReferralCode());
+        request.setIpAddress(evidence.ipAddress());
+        request.setUserAgent(evidence.userAgent());
+        request.setStatus(Status.DRAFT.name());
+        request.setCreatedBy(actor.getUuid());
+        repository.save(request);
+        writeLog(request, Action.CREATED, null, Status.DRAFT, null, null, actor);
+        log.info("Assisted affiliation draft {} started by advisor {}", request.getUuid(), advisor.getReferralCode());
+        return toRegistration(request);
+    }
+
+    /** The advisor's own assisted drafts (not the self-service ones of their QR), newest first. */
+    @Transactional(readOnly = true)
+    public Page<AffiliationRequestListItemDto> listAssistedDrafts(UUID advisorUserUuid, Pageable pageable) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        Pageable defaulted = defaultSortResolver.withDefaultSortIfUnsorted(ENTITY_KEY, pageable);
+        Pageable resolved = SortFieldValidator.resolve(defaulted, SORTABLE_FIELDS, ENTITY_KEY);
+        Long advisorId = advisor.getId();
+        Specification<AffiliationRequest> spec = withStatus(Status.DRAFT)
+                .and((root, query, cb) -> cb.equal(root.get("promoter").get("id"), advisorId))
+                .and((root, query, cb) -> cb.equal(root.get("channel"), Channel.ASSISTED.name()));
+        return repository.findAll(spec, resolved).map(this::toListItem);
+    }
+
+    /** What is saved so far in one of the caller's assisted drafts, to resume it. */
+    @Transactional(readOnly = true)
+    public AffiliationRegistrationDto getAssistedDraft(UUID advisorUserUuid, UUID uuid) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        AffiliationRequest request = repository.findByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        requireOwnAssisted(request, advisor);
+        return toRegistration(request);
+    }
+
+    /** Saves one step ({@code personal | plan | payment | family}) of the caller's assisted draft. */
+    @Transactional
+    public AffiliationRegistrationDto saveAssistedStep(UUID advisorUserUuid, UUID uuid, String step,
+                                                       AffiliationDraftStepRequest body, MultipartFile support,
+                                                       ClientRequestMetadata client) {
+        String key = stepKey(step);
+        return toRegistration(applyStep(lockAssistedDraft(advisorUserUuid, uuid), key, body, support, client));
+    }
+
+    /**
+     * Sends the caller's assisted draft to review: the same essentials as the
+     * person's own submit, then the same onboarding policy (the log row carries
+     * the advisor as actor). Re-checks that nobody registered the cédula or
+     * email while the draft was open.
+     */
+    @Transactional
+    public AffiliationRegistrationDto submitAssisted(UUID advisorUserUuid, UUID uuid) {
+        AffiliationRequest request = lockAssistedDraft(advisorUserUuid, uuid);
+        requireNotRegistered(request.getDocumentType(), request.getDocumentNumber(), request.getEmail());
+        requireNoOpenRequest(request.getDocumentType(), request.getDocumentNumber(), request.getEmail(), request.getId(),
+                Status.PENDING);
+        return submitDraft(request, actor(advisorUserUuid));
+    }
+
+    private Promoter requireAdvisor(UUID advisorUserUuid) {
+        return promoterRepository.findActiveByUserUuid(advisorUserUuid)
+                .orElseThrow(() -> new NoSuchElementException("me.promoter.not_found"));
+    }
+
+    /** An advisor only reaches the assisted drafts attributed to them; anyone else's is a 404, never a 403. */
+    private static void requireOwnAssisted(AffiliationRequest request, Promoter advisor) {
+        if (!request.isAssisted() || request.getPromoter() == null
+                || !request.getPromoter().getId().equals(advisor.getId())) {
+            throw new NoSuchElementException("affiliation_request.not_found");
+        }
+    }
+
+    private AffiliationRequest lockAssistedDraft(UUID advisorUserUuid, UUID uuid) {
+        Promoter advisor = requireAdvisor(advisorUserUuid);
+        AffiliationRequest request = repository.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        requireOwnAssisted(request, advisor);
+        if (!request.isDraft()) {
+            throw new IllegalArgumentException("affiliation_request.draft.invalid_state");
+        }
+        return request;
     }
 
     private AffiliationRequest lockOwnDraft(UUID userUuid) {

@@ -74,7 +74,10 @@ public record AllyUpdateRequest(
         @Size(max = 100) String representativePosition,
 
         // ─── Agreement file + representative (V179) — allyNumber is never accepted ─
-        /** Advisor (promoter) who captured the ally; null = none (create) / unchanged (update). */
+        /**
+         * Advisor (promoter) who captured the ally; null = none (create). Ignored on update: changing it
+         * afterwards needs {@code ALLY_ASSIGN_PROMOTER} through {@code PUT /v1/admin/allies/{uuid}/advisor}.
+         */
         UUID capturedByPromoterUuid,
         // Deprecated since V211: use holder.
         @Size(max = 210) String representativeName,
