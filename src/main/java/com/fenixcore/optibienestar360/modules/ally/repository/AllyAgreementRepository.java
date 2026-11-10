@@ -21,6 +21,9 @@ public interface AllyAgreementRepository extends JpaRepository<AllyAgreement, Lo
 
     List<AllyAgreement> findByAllyIdAndActiveTrue(Long allyId, Sort sort);
 
+    /** Every agreement of the ally, active or not — the stored support files of a discarded draft. */
+    List<AllyAgreement> findByAllyId(Long allyId);
+
     /** Usage check for {@code AlliesService.countUsages} — ALL rows (active + inactive). */
     long countByAllyId(Long allyId);
 
