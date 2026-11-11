@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.allyrequest.dto;
 
+import com.fenixcore.optibienestar360.core.validation.PhoneNumber;
 import com.fenixcore.optibienestar360.core.validation.VenezuelanDocumentNumber;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import jakarta.validation.constraints.Email;
@@ -41,7 +42,7 @@ public record AllyRequestCreateRequest(
         @NotBlank @Size(max = 50) String lastName,
         @NotBlank @Pattern(regexp = "^[VE]$", message = "{validation.document_type.format}") String documentType,
         @NotBlank @Size(max = 20) @VenezuelanDocumentNumber String documentNumber,
-        @NotBlank @Size(max = 30) String mobile,
+        @NotBlank @Size(max = 30) @PhoneNumber String mobile,
         @NotBlank @Email @Size(max = 255) String email,
         UUID cityUuid,
         @Size(min = 8, max = 128) String password,
