@@ -7,6 +7,8 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -49,8 +51,13 @@ import java.util.function.Supplier;
  * accept, and records their acceptance. The audience of each kind is decided
  * by the entity the user is linked to, never by role name:
  * <ul>
- *   <li><b>MEMBER</b> (membership agreement): every user, whatever their
- *   roles — the current version of the type.</li>
+ *   <li><b>MEMBER</b> (membership agreement): users holding an effective
+ *   member role — {@code AFILIADO} or {@code AFILIADO_PENDIENTE} (titular or
+ *   beneficiary with portal access) — the current version of the type. Allies,
+ *   advisors and staff without a member role are not asked for it (backend#412:
+ *   a self-registered ally was signing the member contract as "EL AFILIADO
+ *   TITULAR"). The member role is the only marker shared by a pending
+ *   self-registration and an approved membership.</li>
  *   <li><b>ADVISOR</b> (advisor mandate): users with an active, non-system
  *   advisor record ({@code promoters.user_id}, {@code is_active}, not
  *   {@code is_system} — so never the INSTITUCION advisor), whatever their
@@ -184,9 +191,11 @@ public class TermsAcceptanceService {
     private List<Due> pendingDues(User user) {
         Instant now = Instant.now();
         List<Due> required = new ArrayList<>();
-        currentOf(TermType.MEMBER, now)
-                .ifPresent(v -> required.add(new Due(v, null,
-                        () -> TermsRenderContext.of(variableResolver.forMember(user)))));
+        if (isMember(user)) {
+            currentOf(TermType.MEMBER, now)
+                    .ifPresent(v -> required.add(new Due(v, null,
+                            () -> TermsRenderContext.of(variableResolver.forMember(user)))));
+        }
         activeAdvisor(user.getUuid()).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
                 .ifPresent(v -> required.add(new Due(v, null,
                         () -> TermsRenderContext.of(variableResolver.forAdvisor(advisor))))));
@@ -447,6 +456,16 @@ public class TermsAcceptanceService {
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 not available", impossible);
         }
+    }
+
+    /** Roles of the MEMBER contract's audience: a member, pending (self-registration) or approved. */
+    static final Set<String> MEMBER_ROLE_NAMES = Set.of(RoleNames.MEMBER, RoleNames.MEMBER_PENDING);
+
+    /** Whether the user holds an effective member role (see the class javadoc, backend#412). */
+    static boolean isMember(User user) {
+        return user.getUserRoles() != null && user.getUserRoles().stream()
+                .filter(UserRole::isEffective)
+                .anyMatch(assignment -> MEMBER_ROLE_NAMES.contains(assignment.getRole().getName()));
     }
 
     private User requireUser(UUID userUuid) {

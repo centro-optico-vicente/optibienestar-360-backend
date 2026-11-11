@@ -101,18 +101,64 @@ class TermsAcceptanceServiceTest {
         lenient().when(allyUserRepository.findActiveByUserUuid(user.getUuid())).thenReturn(memberships);
         stubCurrent(TermType.MEMBER, memberTerms);
         stubCurrent(TermType.ADVISOR, advisorTerms);
+        // The fixture is a member: the MEMBER contract's audience (backend#412). Tests about who is NOT a member
+        // clear the roles first.
+        grantRole(RoleNames.MEMBER);
     }
 
     @Test
-    void member_isPendingForAnAdminWithoutTheAffiliateRole() {
+    void member_isPendingForAMember() {
+        assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+    }
+
+    @Test
+    void member_isPendingForAPendingMemberSelfRegistration() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.MEMBER_PENDING);
+
+        assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+    }
+
+    @Test
+    void member_isNotPendingForAnAdminWithoutTheMemberRole() {
+        user.getUserRoles().clear();
         grantRole(RoleNames.ADMINISTRATOR);
 
-        assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+        assertThat(pendingTypes()).isEmpty();
     }
 
     @Test
-    void member_isPendingForAUserWithNoRoleAtAll() {
-        assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
+    void member_isNotPendingForAUserWithNoRoleAtAll() {
+        user.getUserRoles().clear();
+
+        assertThat(pendingTypes()).isEmpty();
+    }
+
+    @Test
+    void member_isNotPendingForASelfRegisteredAlly() {
+        // backend#412: the pending ally was asked to sign the member contract as "EL AFILIADO TITULAR".
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ALLY_PENDING);
+
+        assertThat(pendingTypes()).isEmpty();
+        assertThat(service.hasPending(user.getUuid(), TermType.MEMBER)).isFalse();
+    }
+
+    @Test
+    void member_isNotPendingForAnAdvisorWhoIsNotAMember() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ADVISOR);
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
+
+        assertThat(pendingTypes()).containsExactly(TermType.ADVISOR);
+    }
+
+    @Test
+    void member_isNotPendingWhenTheMemberRoleIsNoLongerEffective() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.MEMBER).setActive(false);
+
+        assertThat(pendingTypes()).isEmpty();
     }
 
     @Test

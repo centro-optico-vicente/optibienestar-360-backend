@@ -55,7 +55,8 @@ public class TermsVersion extends BaseEntity {
      * Spanish value stored in {@code terms_versions.term_type} and exchanged
      * through the API (V139 CHECK, renamed ASESOR → ASESOR in V185):
      * <ul>
-     *   <li>{@link TermType#MEMBER} ({@code AFILIADO}) — membership agreement, every user accepts it;</li>
+     *   <li>{@link TermType#MEMBER} ({@code AFILIADO}) — membership agreement, accepted by members
+     *       (users with an AFILIADO / AFILIADO_PENDIENTE role);</li>
      *   <li>{@link TermType#ADVISOR} ({@code ASESOR}) — sales advisor mandate;</li>
      *   <li>{@link TermType#ALLY} ({@code ALIADO}) — ally agreement template, accepted by the users
      *       of an ally whose active agreement links it.</li>
