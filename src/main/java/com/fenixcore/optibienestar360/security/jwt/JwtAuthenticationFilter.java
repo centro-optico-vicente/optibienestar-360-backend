@@ -72,7 +72,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 .toList();
 
                         CustomUserDetails principal = CustomUserDetails.fromJwt(
-                                UUID.fromString(subject), jti, locale, sessionId, authorities);
+                                UUID.fromString(subject), jti, locale, sessionId,
+                                jwtService.extractActiveRoleUuid(token), authorities);
 
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(principal, null, authorities);

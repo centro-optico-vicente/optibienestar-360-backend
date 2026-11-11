@@ -25,6 +25,10 @@ public class CustomUserDetails implements UserDetails {
     @Getter
     private final UUID sessionId;
 
+    /** The {@code role_uuid} claim (session's active role) — {@code null} for DB-loaded instances or roleless tokens. */
+    @Getter
+    private final UUID activeRoleUuid;
+
     private final String email;
     private final String passwordHash;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -37,11 +41,18 @@ public class CustomUserDetails implements UserDetails {
 
     public CustomUserDetails(Long id, UUID uuid, String jti, String locale, UUID sessionId, String email, String passwordHash,
                              Collection<? extends GrantedAuthority> authorities, boolean active) {
+        this(id, uuid, jti, locale, sessionId, null, email, passwordHash, authorities, active);
+    }
+
+    public CustomUserDetails(Long id, UUID uuid, String jti, String locale, UUID sessionId, UUID activeRoleUuid,
+                             String email, String passwordHash,
+                             Collection<? extends GrantedAuthority> authorities, boolean active) {
         this.id = id;
         this.uuid = uuid;
         this.jti = jti;
         this.locale = locale;
         this.sessionId = sessionId;
+        this.activeRoleUuid = activeRoleUuid;
         this.email = email;
         this.passwordHash = passwordHash;
         this.authorities = authorities;
@@ -57,7 +68,14 @@ public class CustomUserDetails implements UserDetails {
     /** Same as {@link #fromJwt(UUID, String, String, Collection)}, carrying the {@code sid} claim too. */
     public static CustomUserDetails fromJwt(UUID uuid, String jti, String locale, UUID sessionId,
                                             Collection<? extends GrantedAuthority> authorities) {
-        return new CustomUserDetails(null, uuid, jti, locale, sessionId, uuid.toString(), null, authorities, true);
+        return fromJwt(uuid, jti, locale, sessionId, null, authorities);
+    }
+
+    /** Same as above, carrying the {@code role_uuid} claim too, so reissued tokens keep the session's active role. */
+    public static CustomUserDetails fromJwt(UUID uuid, String jti, String locale, UUID sessionId, UUID activeRoleUuid,
+                                            Collection<? extends GrantedAuthority> authorities) {
+        return new CustomUserDetails(null, uuid, jti, locale, sessionId, activeRoleUuid, uuid.toString(), null,
+                authorities, true);
     }
 
     @Override

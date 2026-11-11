@@ -181,7 +181,8 @@ public class AuthService {
 
         String accessToken  = jwtService.generateAccessToken(subject, permissions, userLocale, sessionId.orElse(null),
                 activeRole.getUuid(), activeRole.getName());
-        String refreshToken = jwtService.generateRefreshToken(subject, sessionId.orElse(null));
+        String refreshToken = jwtService.generateRefreshToken(subject, sessionId.orElse(null),
+                activeRole.getUuid(), activeRole.getName());
 
         String accessJti  = jwtService.extractJti(accessToken);
         String refreshJti = jwtService.extractJti(refreshToken);
@@ -230,29 +231,32 @@ public class AuthService {
         UUID sessionId = jwtService.extractSessionId(token);
 
         // A silent refresh cannot change the active role — carry it forward
-        // from the incoming token (absent on tokens minted before this claim
-        // existed, in which case the reissued token stays roleless too). If
-        // that role stopped being effective in the meantime (e.g. an admin
-        // revoked it), fall back to the user's current default role rather
-        // than failing the refresh outright.
+        // from the incoming refresh token, which carries it since backend#411.
+        // A refresh token minted before that has no role: resolve the user's
+        // default role, exactly as a fresh login would, instead of reissuing a
+        // roleless token with the union of every role's permissions. If the
+        // carried role stopped being effective in the meantime (e.g. an admin
+        // revoked it, or staff approved a pending registration), fall back to
+        // the user's current default role rather than failing the refresh.
         UUID activeRoleUuid = jwtService.extractActiveRoleUuid(token);
         String activeRoleName = jwtService.extractActiveRoleName(token);
-        List<String> permissions;
+        List<String> permissions = null;
         if (activeRoleUuid != null) {
             try {
                 permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
             } catch (IllegalArgumentException stale) {
-                UserRole fallback = permissionResolver.resolveDefaultActiveRole(user);
-                activeRoleUuid = fallback.getRole().getUuid();
-                activeRoleName = fallback.getRole().getName();
-                permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
+                activeRoleUuid = null;
             }
-        } else {
-            permissions = collectPermissions(user);
+        }
+        if (activeRoleUuid == null) {
+            UserRole fallback = permissionResolver.resolveDefaultActiveRole(user);
+            activeRoleUuid = fallback.getRole().getUuid();
+            activeRoleName = fallback.getRole().getName();
+            permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
         }
         String newAccessToken  = jwtService.generateAccessToken(subject, permissions, user.getPerson().getLocale(),
                 sessionId, activeRoleUuid, activeRoleName);
-        String newRefreshToken = jwtService.generateRefreshToken(subject, sessionId);
+        String newRefreshToken = jwtService.generateRefreshToken(subject, sessionId, activeRoleUuid, activeRoleName);
 
         String newAccessJti    = jwtService.extractJti(newAccessToken);
         if (sessionId != null) {
@@ -359,7 +363,8 @@ public class AuthService {
 
         String newAccessToken  = jwtService.generateAccessToken(subject, permissions, userLocale,
                 newSessionId.orElse(null), targetRole.getUuid(), targetRole.getName());
-        String newRefreshToken = jwtService.generateRefreshToken(subject, newSessionId.orElse(null));
+        String newRefreshToken = jwtService.generateRefreshToken(subject, newSessionId.orElse(null),
+                targetRole.getUuid(), targetRole.getName());
 
         String newAccessJti = jwtService.extractJti(newAccessToken);
         newSessionId.ifPresent(sid -> loginAuditService.attachJti(sid, newAccessJti));
@@ -629,15 +634,28 @@ public class AuthService {
     /** @param sessionId carried forward from the current token's {@code sid} claim (principal.getSessionId()) — same session, just a new locale claim. */
     @Transactional
     public AccessTokenResponse updateMyLocale(UUID userUuid, String newLocale, String currentJti, UUID sessionId) {
+        return updateMyLocale(userUuid, newLocale, currentJti, sessionId, null);
+    }
+
+    /**
+     * @param activeRoleUuid the current token's {@code role_uuid} claim (principal.getActiveRoleUuid()): a locale
+     *        change keeps the session's active role and its permissions (backend#411). {@code null} or no longer
+     *        effective → the user's default role, as on login.
+     */
+    @Transactional
+    public AccessTokenResponse updateMyLocale(UUID userUuid, String newLocale, String currentJti, UUID sessionId,
+                                              UUID activeRoleUuid) {
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .orElseThrow(() -> new AuthenticationException("auth.user.not_found"));
 
         user.getPerson().setLocale(newLocale);
         // No explicit save — managed entity → dirty-check on tx commit.
 
-        List<String> permissions = collectPermissions(user);
+        Role activeRole = effectiveRoleOrDefault(user, activeRoleUuid);
+        List<String> permissions = permissionResolver.resolvePermissionNamesForActiveRole(user, activeRole.getUuid());
         String subject = user.getUuid().toString();
-        String newAccessToken = jwtService.generateAccessToken(subject, permissions, newLocale, sessionId);
+        String newAccessToken = jwtService.generateAccessToken(subject, permissions, newLocale, sessionId,
+                activeRole.getUuid(), activeRole.getName());
         if (sessionId != null) {
             loginAuditService.attachJti(sessionId, jwtService.extractJti(newAccessToken));
         }
@@ -680,11 +698,25 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    private List<String> collectPermissions(User user) {
-        // Delegates to PermissionResolver so SYSTEM users receive the full
-        // permission catalog (superuser) and this stays in sync with the
-        // authority resolution in UserDetailsServiceImpl.
-        return permissionResolver.resolvePermissionNames(user);
+    /**
+     * The session's active role when it is still an effective assignment of the user, otherwise the user's default
+     * active role (same choice as a fresh login). Tokens are always scoped to one role — never the union of every
+     * role's permissions (backend#411).
+     */
+    private Role effectiveRoleOrDefault(User user, UUID activeRoleUuid) {
+        if (activeRoleUuid != null) {
+            try {
+                permissionResolver.resolvePermissionNamesForActiveRole(user, activeRoleUuid);
+                return user.getUserRoles().stream()
+                        .map(UserRole::getRole)
+                        .filter(role -> activeRoleUuid.equals(role.getUuid()))
+                        .findFirst()
+                        .orElseGet(() -> permissionResolver.resolveDefaultActiveRole(user).getRole());
+            } catch (IllegalArgumentException stale) {
+                // Revoked or expired meanwhile: fall through to the default role.
+            }
+        }
+        return permissionResolver.resolveDefaultActiveRole(user).getRole();
     }
 
     private void logSession(User user, String jti, HttpServletRequest req, String loginLocale) {

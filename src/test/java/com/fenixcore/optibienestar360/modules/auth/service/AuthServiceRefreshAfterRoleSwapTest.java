@@ -108,7 +108,7 @@ class AuthServiceRefreshAfterRoleSwapTest {
                 .thenReturn(List.of("ALLY_VIEW_OWN", "ALLY_PRODUCT_CREATE_OWN"));
         when(jwtService.generateAccessToken(eq(subject), any(), any(), isNull(), eq(ally.getUuid()),
                 eq(RoleNames.ALLY))).thenReturn("new-access");
-        when(jwtService.generateRefreshToken(subject, null)).thenReturn("new-refresh");
+        when(jwtService.generateRefreshToken(subject, null, ally.getUuid(), RoleNames.ALLY)).thenReturn("new-refresh");
         when(jwtService.extractJti("new-access")).thenReturn("new-access-jti");
         when(jwtService.extractJti("new-refresh")).thenReturn("new-refresh-jti");
         when(userMapper.toDto(user)).thenReturn(mock(UserDto.class));
