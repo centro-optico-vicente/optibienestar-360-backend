@@ -119,7 +119,7 @@ class AuthServiceRoleSwitchTest {
                 .thenReturn(List.of("PAYMENT_APPROVE"));
         when(jwtService.generateAccessToken(anyString(), any(), any(), any(), any(), anyString()))
                 .thenReturn("new-access-token");
-        when(jwtService.generateRefreshToken(anyString(), any())).thenReturn("new-refresh-token");
+        when(jwtService.generateRefreshToken(anyString(), any(), any(), any())).thenReturn("new-refresh-token");
         when(jwtService.extractJti("new-access-token")).thenReturn("new-access-jti");
         when(jwtService.extractJti("new-refresh-token")).thenReturn("new-refresh-jti");
         when(jwtService.extractJti("old-refresh-token")).thenReturn("old-refresh-jti");
@@ -137,6 +137,8 @@ class AuthServiceRoleSwitchTest {
         ArgumentCaptor<List<String>> permissionsCaptor = ArgumentCaptor.forClass(List.class);
         verify(jwtService).generateAccessToken(anyString(), permissionsCaptor.capture(), any(), any(),
                 eq(operadorRole.getUuid()), eq(RoleNames.OPERATOR));
+        // The refresh token carries the target role too, so a later refresh stays on it (backend#411).
+        verify(jwtService).generateRefreshToken(anyString(), any(), eq(operadorRole.getUuid()), eq(RoleNames.OPERATOR));
         // Scoped to OPERADOR only — never the union that would also include USER_VIEW_ALL.
         assertThat(permissionsCaptor.getValue()).containsExactly("PAYMENT_APPROVE");
 

@@ -360,7 +360,7 @@ class AuthServiceAccessTest {
                 anyInt(), any())).thenReturn(Optional.of(UUID.randomUUID()));
         when(jwtService.generateAccessToken(anyString(), any(), any(), any(), any(), anyString()))
                 .thenReturn("access-token");
-        when(jwtService.generateRefreshToken(anyString(), any())).thenReturn("refresh-token");
+        when(jwtService.generateRefreshToken(anyString(), any(), any(), any())).thenReturn("refresh-token");
         when(jwtService.extractJti("access-token")).thenReturn("access-jti");
         when(jwtService.extractJti("refresh-token")).thenReturn("refresh-jti");
         when(userMapper.toDto(user)).thenReturn(mock(UserDto.class));

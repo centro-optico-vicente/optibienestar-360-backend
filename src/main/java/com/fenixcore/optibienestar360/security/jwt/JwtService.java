@@ -59,7 +59,16 @@ public class JwtService {
     }
 
     public String generateRefreshToken(String subject, UUID sessionId) {
-        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null, sessionId, null, null);
+        return generateRefreshToken(subject, sessionId, null, null);
+    }
+
+    /**
+     * Refresh token that carries the session's active role ({@code role_uuid} / {@code role_name}), so
+     * {@code AuthService.refresh} reissues the access token for that same role (backend#411). Without it every
+     * refresh fell back to a roleless token with the union of the user's permissions.
+     */
+    public String generateRefreshToken(String subject, UUID sessionId, UUID roleUuid, String roleName) {
+        return buildToken(subject, List.of(), refreshExpirationMs, "refresh", null, sessionId, roleUuid, roleName);
     }
 
     public Claims extractAllClaims(String token) {
