@@ -12955,7 +12955,6 @@ GRANT SELECT ON TABLE app.file_download_links TO optibienestar360_readonly;
 
 GRANT SELECT,USAGE ON SEQUENCE app.file_download_links_file_download_links_id_seq TO optibienestar360_app;
 GRANT SELECT,USAGE ON SEQUENCE app.file_download_links_file_download_links_id_seq TO optibienestar360_readonly;
-
 --
 -- Name: TABLE file_type_policies; Type: ACL; Schema: app; Owner: -
 --
