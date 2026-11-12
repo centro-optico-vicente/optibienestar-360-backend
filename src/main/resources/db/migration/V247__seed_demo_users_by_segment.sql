@@ -86,7 +86,7 @@ BEGIN
     VALUES (p_email, v_hash, v_role, TRUE, 'ACTIVE', p_person)
     RETURNING users_id INTO v_id;
     INSERT INTO user_roles (user_id, role_id) VALUES (v_id, v_role);
-    INSERT INTO user_password_history (user_id, password_hash) VALUES (v_id);
+    INSERT INTO user_password_history (user_id, password_hash) VALUES (v_id, v_hash);
     -- Every user is asked for the member agreement on first login; accept it
     -- up front so the videos open on the real home screen.
     PERFORM pg_temp.demo_accept(v_id, 'AFILIADO');
