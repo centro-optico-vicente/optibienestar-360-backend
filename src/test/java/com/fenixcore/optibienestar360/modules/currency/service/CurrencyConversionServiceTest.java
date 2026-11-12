@@ -4,7 +4,10 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.exchangerate.entity.ExchangeRate;
 import com.fenixcore.optibienestar360.modules.exchangerate.repository.ExchangeRateRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -12,11 +15,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -123,5 +131,111 @@ class CurrencyConversionServiceTest {
 
         assertThatThrownBy(() -> serviceWithRepo().convert(new BigDecimal("100.00"), usd, ves, asOf))
                 .isInstanceOf(NoExchangeRateAvailableException.class);
+    }
+
+    @AfterEach
+    void clearSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(s -> s.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    private static ExchangeRate rate(Currency base, Currency quote, String value, String validFrom, LocalDate operationDate) {
+        ExchangeRate r = new ExchangeRate();
+        r.setBaseCurrency(base);
+        r.setQuoteCurrency(quote);
+        r.setRate(new BigDecimal(value));
+        r.setValidFrom(Instant.parse(validFrom));
+        r.setOperationDate(operationDate);
+        return r;
+    }
+
+    @Test
+    void withinATransactionRepeatedLookupsOfAPairResolveFromOneHistoryLoad() {
+        // A listing converting every row: 1 single-row query, then 1 history load,
+        // then everything in memory — instead of one query per row.
+        TransactionSynchronizationManager.initSynchronization();
+        Currency usd = currency(1L, "USD", 2);
+        Currency ves = currency(2L, "VES", 2);
+        ExchangeRate older = rate(usd, ves, "800.00", "2026-08-01T00:00:00Z", LocalDate.of(2026, 7, 31));
+        ExchangeRate newer = rate(usd, ves, "900.00", "2026-09-01T00:00:00Z", LocalDate.of(2026, 8, 31));
+        Instant first = Instant.parse("2026-09-05T12:00:00Z");
+
+        when(exchangeRateRepository
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(usd, ves, first))
+                .thenReturn(Optional.of(newer));
+        when(exchangeRateRepository
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(eq(usd), eq(ves), any()))
+                .thenReturn(List.of(older, newer));
+
+        var svc = serviceWithRepo();
+        var a = svc.convert(BigDecimal.ONE, usd, ves, first);
+        var b = svc.convert(BigDecimal.ONE, usd, ves, Instant.parse("2026-09-10T12:00:00Z"));
+        var c = svc.convert(BigDecimal.ONE, usd, ves, Instant.parse("2026-08-15T12:00:00Z"));
+        var d = svc.convert(BigDecimal.ONE, usd, ves, Instant.parse("2026-09-20T12:00:00Z"));
+
+        assertThat(a.rate()).isEqualByComparingTo("900.00");
+        assertThat(b.rate()).isEqualByComparingTo("900.00");
+        assertThat(c.rate()).isEqualByComparingTo("800.00");      // floor picks the rate vigente back then
+        assertThat(c.rateDate()).isEqualTo(LocalDate.of(2026, 7, 31));
+        assertThat(d.rate()).isEqualByComparingTo("900.00");
+        verify(exchangeRateRepository, times(1))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(any(), any(), any());
+        verify(exchangeRateRepository, times(1))
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(any(), any(), any());
+    }
+
+    @Test
+    void withinATransactionAnEmptyDirectHistoryKeepsTheInverseFallbackInMemory() {
+        // VES -> USD: the direct pair is never ingested. After the second lookup
+        // both directions are memoized, so further rows cost no query at all.
+        TransactionSynchronizationManager.initSynchronization();
+        Currency usd = currency(1L, "USD", 2);
+        Currency ves = currency(2L, "VES", 2);
+        ExchangeRate usdVes = rate(usd, ves, "800.00", "2026-08-01T00:00:00Z", LocalDate.of(2026, 7, 31));
+
+        when(exchangeRateRepository
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(eq(ves), eq(usd), any()))
+                .thenReturn(Optional.empty());
+        when(exchangeRateRepository
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(eq(usd), eq(ves), any()))
+                .thenReturn(Optional.of(usdVes));
+        when(exchangeRateRepository
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(eq(ves), eq(usd), any()))
+                .thenReturn(List.of());
+        when(exchangeRateRepository
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(eq(usd), eq(ves), any()))
+                .thenReturn(List.of(usdVes));
+
+        var svc = serviceWithRepo();
+        for (int i = 0; i < 5; i++) {
+            var r = svc.convert(new BigDecimal("800.00"), ves, usd, Instant.parse("2026-09-0" + (i + 1) + "T12:00:00Z"));
+            assertThat(r.convertedAmount()).isEqualByComparingTo("1.00");
+        }
+        verify(exchangeRateRepository, times(2))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(any(), any(), any());
+        verify(exchangeRateRepository, times(2))
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(any(), any(), any());
+    }
+
+    @Test
+    void withoutATransactionEveryLookupQueriesAsBefore() {
+        Currency usd = currency(1L, "USD", 2);
+        Currency ves = currency(2L, "VES", 2);
+        ExchangeRate r = rate(usd, ves, "800.00", "2026-08-01T00:00:00Z", LocalDate.of(2026, 7, 31));
+        when(exchangeRateRepository
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(eq(usd), eq(ves), any()))
+                .thenReturn(Optional.of(r));
+
+        var svc = serviceWithRepo();
+        svc.convert(BigDecimal.ONE, usd, ves, Instant.parse("2026-09-01T12:00:00Z"));
+        svc.convert(BigDecimal.ONE, usd, ves, Instant.parse("2026-09-02T12:00:00Z"));
+
+        verify(exchangeRateRepository, times(2))
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(any(), any(), any());
+        verify(exchangeRateRepository, never())
+                .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(any(), any(), any());
     }
 }
