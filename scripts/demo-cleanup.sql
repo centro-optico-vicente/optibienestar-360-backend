@@ -1,6 +1,6 @@
 -- ============================================================
 -- demo-cleanup.sql — inactivate (default) or delete the demo users and data
--- seeded by V245__seed_demo_users_by_segment.sql. Run it before the
+-- seeded by V247__seed_demo_users_by_segment.sql. Run it before the
 -- production launch on any database that ever had DEMO_SEED_ENABLED=true.
 --
 -- Usage (on the server, as the migration role):
@@ -9,7 +9,7 @@
 --   ... psql -v commit=1 ...                    → inactivate and COMMIT.
 --   ... psql -v commit=1 -v hard_delete=1 ...   → delete and COMMIT.
 --
--- What counts as demo (the tags V245 puts on every row):
+-- What counts as demo (the tags V247 puts on every row):
 --   - users / persons / allies / promoters with an e-mail ending in
 --     @optibienestar360.centroopticovicente.com
 --   - persons with document V-96000001 .. V-96000013 (holders, beneficiaries

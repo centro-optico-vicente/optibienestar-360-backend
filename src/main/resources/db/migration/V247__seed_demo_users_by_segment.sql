@@ -1,14 +1,14 @@
 SET search_path TO app, public;
 
 -- ============================================================
--- V245: one generic demo user per segment, with complete data, for demo
+-- V247: one generic demo user per segment, with complete data, for demo
 -- videos and walkthroughs.
 --
 -- GUARDED: does nothing unless the Flyway placeholder demo_seed_enabled is
 -- 'true' (env DEMO_SEED_ENABLED). It is 'false' in application.properties,
 -- so production never gets these rows. NOTE: Flyway records this version even
 -- when it is a no-op, so an environment that wants the demo users must have
--- DEMO_SEED_ENABLED=true the first time it migrates past V245.
+-- DEMO_SEED_ENABLED=true the first time it migrates past V247.
 --
 -- Password of each user = the local part of its e-mail (asesor@... → asesor,
 -- aliado.comercial@... → aliado.comercial), hashed with app.bcrypt_hash (V20).
@@ -252,11 +252,11 @@ DECLARE
     i int;
 BEGIN
     IF '${demo_seed_enabled}' <> 'true' THEN
-        RAISE NOTICE 'V245: demo seed disabled (demo_seed_enabled <> true), nothing inserted';
+        RAISE NOTICE 'V247: demo seed disabled (demo_seed_enabled <> true), nothing inserted';
         RETURN;
     END IF;
     IF EXISTS (SELECT 1 FROM users WHERE email = 'administrador' || c_domain) THEN
-        RAISE NOTICE 'V245: demo users already present, skipped';
+        RAISE NOTICE 'V247: demo users already present, skipped';
         RETURN;
     END IF;
     v_city     := (SELECT cities_id FROM cities WHERE name = 'Acarigua' ORDER BY cities_id LIMIT 1);
@@ -271,7 +271,7 @@ BEGIN
      ORDER BY (code = 'INDIVIDUAL') DESC, (type = 'INDIVIDUAL' AND is_active) DESC, is_active DESC, plans_id
      LIMIT 1;
     IF v_plan_fam.plans_id IS NULL OR v_usd IS NULL OR v_rank IS NULL THEN
-        RAISE EXCEPTION 'V245: missing catalogs (plans, USD currency or ASESOR rank)';
+        RAISE EXCEPTION 'V247: missing catalogs (plans, USD currency or ASESOR rank)';
     END IF;
     v_enrolled := (v_m0 - interval '2 months')::date + 4;
 
@@ -503,7 +503,7 @@ BEGIN
                                'Sesión de psicoterapia de 50 minutos.', 'SERVICE', 'TERAPIA',
                                25, v_usd, 20, NULL, TRUE, v_u_admin, NULL);
 
-    RAISE NOTICE 'V245: demo users seeded (9 users, 3 members, 3 allies)';
+    RAISE NOTICE 'V247: demo users seeded (9 users, 3 members, 3 allies)';
 END
 $$;
 
