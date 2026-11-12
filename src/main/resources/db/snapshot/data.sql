@@ -1826,6 +1826,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 233	238	system configs pdf render limit	SQL	V238__system_configs_pdf_render_limit.sql	863823778	snapshot	2026-01-01 00:00:00	0	t
 234	240	login audit log indexes	SQL	V240__login_audit_log_indexes.sql	592221643	snapshot	2026-01-01 00:00:00	0	t
 235	242	audit log indexes	SQL	V242__audit_log_indexes.sql	-735227598	snapshot	2026-01-01 00:00:00	0	t
+236	243	growth tables indexes	SQL	V243__growth_tables_indexes.sql	-1662585640	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;

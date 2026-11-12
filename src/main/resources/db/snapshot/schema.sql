@@ -122,7 +122,7 @@ $$;
 
 CREATE FUNCTION app.immutable_unaccent(text) RETURNS text
     LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
-    AS $_$ SELECT unaccent('unaccent', $1) $_$;
+    AS $_$ SELECT app.unaccent('app.unaccent'::regdictionary, $1) $_$;
 
 --
 -- Name: set_membership_contract_number(); Type: FUNCTION; Schema: app; Owner: -
@@ -284,7 +284,8 @@ CREATE TABLE app.affiliation_requests (
     CONSTRAINT ck_affiliation_requests_payment_method_date CHECK (((payment_method_id IS NULL) = (payment_date IS NULL))),
     CONSTRAINT ck_affiliation_requests_rejection_reason CHECK ((((status)::text <> 'REJECTED'::text) OR ((rejection_reason IS NOT NULL) AND (btrim(rejection_reason) <> ''::text)))),
     CONSTRAINT ck_affiliation_requests_status CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90');
 
 --
 -- Name: TABLE affiliation_requests; Type: COMMENT; Schema: app; Owner: -
@@ -1962,7 +1963,8 @@ CREATE TABLE app.commissions (
     CONSTRAINT commissions_flat_amount_check CHECK (((flat_amount IS NULL) OR (flat_amount >= (0)::numeric))),
     CONSTRAINT commissions_period_strategy_check CHECK (((period_strategy)::text = ANY ((ARRAY['DAILY'::character varying, 'WEEKLY'::character varying, 'BIWEEKLY'::character varying, 'MONTHLY'::character varying, 'QUARTERLY'::character varying, 'SEMIANNUAL'::character varying, 'ANNUAL'::character varying])::text[]))),
     CONSTRAINT commissions_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PAID'::character varying, 'VOIDED'::character varying, 'DISPUTED'::character varying])::text[])))
-);
+)
+WITH (autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: COLUMN commissions.collection_days; Type: COMMENT; Schema: app; Owner: -
@@ -2891,7 +2893,8 @@ CREATE TABLE app.memberships (
     CONSTRAINT memberships_inscription_fee_check CHECK ((inscription_fee >= (0)::numeric)),
     CONSTRAINT memberships_monthly_fee_check CHECK ((monthly_fee >= (0)::numeric)),
     CONSTRAINT memberships_status_check CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'SUSPENDED'::character varying, 'EXPIRED'::character varying, 'CANCELED'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90');
 
 --
 -- Name: COLUMN memberships.billing_start_day; Type: COMMENT; Schema: app; Owner: -
@@ -3761,7 +3764,8 @@ CREATE TABLE app.membership_charges (
     CONSTRAINT chk_membership_charges_period_end_after_start CHECK ((period_end >= period_start)),
     CONSTRAINT membership_charges_amount_check CHECK ((amount >= (0)::numeric)),
     CONSTRAINT membership_charges_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'COVERED'::character varying, 'OVERDUE'::character varying, 'WAIVED'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90');
 
 --
 -- Name: membership_charges_membership_charges_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -4410,7 +4414,8 @@ CREATE TABLE app.payments (
     CONSTRAINT payments_amount_check CHECK ((amount > (0)::numeric)),
     CONSTRAINT payments_exchange_rate_used_check CHECK (((exchange_rate_used IS NULL) OR (exchange_rate_used > (0)::numeric))),
     CONSTRAINT payments_status_check CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90', autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: COLUMN payments.beneficiary_person_id; Type: COMMENT; Schema: app; Owner: -
@@ -8209,6 +8214,12 @@ CREATE INDEX idx_affiliation_requests_promoter ON app.affiliation_requests USING
 CREATE INDEX idx_affiliation_requests_status_created ON app.affiliation_requests USING btree (status, created_at DESC);
 
 --
+-- Name: idx_affiliation_requests_status_updated; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_affiliation_requests_status_updated ON app.affiliation_requests USING btree (status, updated_at);
+
+--
 -- Name: idx_allies_captured_by_promoter; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8237,12 +8248,6 @@ CREATE INDEX idx_allies_name_unaccent ON app.allies USING gin (app.immutable_una
 --
 
 CREATE INDEX idx_allies_person_id ON app.allies USING btree (person_id) WHERE (person_id IS NOT NULL);
-
---
--- Name: idx_allies_published; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_allies_published ON app.allies USING btree (is_published) WHERE is_published;
 
 --
 -- Name: idx_allies_registration_pending; Type: INDEX; Schema: app; Owner: -
@@ -8593,6 +8598,12 @@ CREATE INDEX idx_commission_tiers_campaign ON app.commission_tiers USING btree (
 CREATE INDEX idx_commission_tiers_lookup ON app.commission_tiers USING btree (plan_type, applies_to, threshold_count DESC) WHERE is_active;
 
 --
+-- Name: idx_commissions_active_created; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_commissions_active_created ON app.commissions USING btree (created_at DESC) WHERE is_active;
+
+--
 -- Name: idx_commissions_collection_tier; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8603,6 +8614,12 @@ CREATE INDEX idx_commissions_collection_tier ON app.commissions USING btree (col
 --
 
 CREATE INDEX idx_commissions_currency ON app.commissions USING btree (currency_id);
+
+--
+-- Name: idx_commissions_earned_window; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_commissions_earned_window ON app.commissions USING btree (earned_at) WHERE (is_active AND ((status)::text = ANY ((ARRAY['APPROVED'::character varying, 'PAID'::character varying])::text[])));
 
 --
 -- Name: idx_commissions_member_earned; Type: INDEX; Schema: app; Owner: -
@@ -8629,10 +8646,10 @@ CREATE INDEX idx_commissions_payout_payment ON app.commissions USING btree (payo
 CREATE INDEX idx_commissions_promoter_status_period ON app.commissions USING btree (promoter_id, status, period_start) WHERE is_active;
 
 --
--- Name: idx_commissions_status_approval; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_commissions_status_period; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_commissions_status_approval ON app.commissions USING btree (status) WHERE ((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying])::text[]));
+CREATE INDEX idx_commissions_status_period ON app.commissions USING btree (status, period_start, period_end) WHERE is_active;
 
 --
 -- Name: idx_commissions_tier; Type: INDEX; Schema: app; Owner: -
@@ -8839,6 +8856,12 @@ CREATE INDEX idx_member_documents_member_type ON app.member_documents USING btre
 CREATE INDEX idx_member_promoter_assignments_member ON app.member_promoter_assignments USING btree (member_id, created_at DESC);
 
 --
+-- Name: idx_members_active_created; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_members_active_created ON app.members USING btree (created_at DESC) WHERE is_active;
+
+--
 -- Name: idx_members_corporate_contract; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8863,10 +8886,10 @@ CREATE INDEX idx_members_occupation ON app.members USING btree (occupation_id) W
 CREATE INDEX idx_members_promoter_id ON app.members USING btree (promoter_id) WHERE (promoter_id IS NOT NULL);
 
 --
--- Name: idx_membership_charges_status_due_date; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_membership_charges_covered_by_payment; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_membership_charges_status_due_date ON app.membership_charges USING btree (status, due_date);
+CREATE INDEX idx_membership_charges_covered_by_payment ON app.membership_charges USING btree (covered_by_payment_id) WHERE (covered_by_payment_id IS NOT NULL);
 
 --
 -- Name: idx_membership_promotions_promotion; Type: INDEX; Schema: app; Owner: -
@@ -8891,6 +8914,12 @@ CREATE INDEX idx_memberships_currency ON app.memberships USING btree (currency_i
 --
 
 CREATE INDEX idx_memberships_member ON app.memberships USING btree (member_id);
+
+--
+-- Name: idx_memberships_next_due; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_memberships_next_due ON app.memberships USING btree (next_due_date);
 
 --
 -- Name: idx_memberships_status_next_due; Type: INDEX; Schema: app; Owner: -
@@ -8983,6 +9012,30 @@ CREATE INDEX idx_payment_lines_payment ON app.payment_lines USING btree (payment
 CREATE INDEX idx_payment_lines_status ON app.payment_lines USING btree (status) WHERE is_active;
 
 --
+-- Name: idx_payments_active_created; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_payments_active_created ON app.payments USING btree (created_at DESC) WHERE is_active;
+
+--
+-- Name: idx_payments_approved_in_payment_date; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_payments_approved_in_payment_date ON app.payments USING btree (payment_date) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text));
+
+--
+-- Name: idx_payments_approved_in_received_at; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_payments_approved_in_received_at ON app.payments USING btree (received_at) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text));
+
+--
+-- Name: idx_payments_approved_in_reviewed_at; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_payments_approved_in_reviewed_at ON app.payments USING btree (reviewed_at) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text));
+
+--
 -- Name: idx_payments_approved_period; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -9019,6 +9072,12 @@ CREATE INDEX idx_payments_currency ON app.payments USING btree (currency_id);
 CREATE INDEX idx_payments_direction_status ON app.payments USING btree (direction, status);
 
 --
+-- Name: idx_payments_in_event_at; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_payments_in_event_at ON app.payments USING btree (COALESCE(reviewed_at, received_at) DESC) WHERE (is_active AND ((direction)::text = 'IN'::text));
+
+--
 -- Name: idx_payments_membership_date; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -9037,10 +9096,10 @@ CREATE INDEX idx_payments_payment_type ON app.payments USING btree (payment_type
 CREATE INDEX idx_payments_person ON app.payments USING btree (person_id);
 
 --
--- Name: idx_payments_promoter; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_payments_promoter_payment_date; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_payments_promoter ON app.payments USING btree (promoter_id);
+CREATE INDEX idx_payments_promoter_payment_date ON app.payments USING btree (promoter_id, payment_date DESC);
 
 --
 -- Name: idx_payments_status_received; Type: INDEX; Schema: app; Owner: -
@@ -9109,10 +9168,22 @@ CREATE INDEX idx_person_professional_licenses_person ON app.person_professional_
 CREATE INDEX idx_persons_city_id ON app.persons USING btree (city_id) WHERE (city_id IS NOT NULL);
 
 --
+-- Name: idx_persons_document_number_trgm; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_persons_document_number_trgm ON app.persons USING gin (app.immutable_unaccent(lower((document_number)::text)) app.gin_trgm_ops);
+
+--
 -- Name: idx_persons_email; Type: INDEX; Schema: app; Owner: -
 --
 
 CREATE INDEX idx_persons_email ON app.persons USING btree (email) WHERE (email IS NOT NULL);
+
+--
+-- Name: idx_persons_email_trgm; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_persons_email_trgm ON app.persons USING gin (app.immutable_unaccent(lower((email)::text)) app.gin_trgm_ops);
 
 --
 -- Name: idx_persons_full_name_unaccent; Type: INDEX; Schema: app; Owner: -
@@ -9125,6 +9196,12 @@ CREATE INDEX idx_persons_full_name_unaccent ON app.persons USING gin (app.immuta
 --
 
 CREATE INDEX idx_persons_last_name ON app.persons USING btree (last_name);
+
+--
+-- Name: idx_persons_phone_trgm; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_persons_phone_trgm ON app.persons USING gin (app.immutable_unaccent(lower((phone)::text)) app.gin_trgm_ops);
 
 --
 -- Name: idx_plans_currency; Type: INDEX; Schema: app; Owner: -
@@ -9257,6 +9334,12 @@ CREATE INDEX idx_promoter_supervisor_assignments_promoter ON app.promoter_superv
 --
 
 CREATE INDEX idx_promoter_types_is_active ON app.promoter_types USING btree (is_active) WHERE is_active;
+
+--
+-- Name: idx_promoters_active_created; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promoters_active_created ON app.promoters USING btree (created_at DESC) WHERE is_active;
 
 --
 -- Name: idx_promoters_promoter_type_id; Type: INDEX; Schema: app; Owner: -
@@ -9481,12 +9564,6 @@ CREATE INDEX idx_user_sessions_log_user_id ON app.user_sessions_log USING btree 
 CREATE INDEX idx_users_default_role ON app.users USING btree (default_role_id);
 
 --
--- Name: idx_users_is_active; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_users_is_active ON app.users USING btree (is_active) WHERE is_active;
-
---
 -- Name: idx_users_locked_until; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -9499,10 +9576,10 @@ CREATE INDEX idx_users_locked_until ON app.users USING btree (locked_until) WHER
 CREATE INDEX idx_users_login_token_hash ON app.users USING btree (login_token_hash) WHERE (login_token_hash IS NOT NULL);
 
 --
--- Name: idx_users_status; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_users_password_reset_token; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_users_status ON app.users USING btree (status);
+CREATE INDEX idx_users_password_reset_token ON app.users USING btree (password_reset_token) WHERE (password_reset_token IS NOT NULL);
 
 --
 -- Name: uniq_allies_tax_document; Type: INDEX; Schema: app; Owner: -

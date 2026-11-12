@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V242. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V243. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 117 tables.
 
@@ -400,6 +400,7 @@
 - `idx_affiliation_requests_plan` btree (plan_id)
 - `idx_affiliation_requests_promoter` btree (promoter_id) WHERE (promoter_id IS NOT NULL)
 - `idx_affiliation_requests_status_created` btree (status, created_at DESC)
+- `idx_affiliation_requests_status_updated` btree (status, updated_at)
 - `uq_affiliation_requests_open_user` UNIQUE btree (user_id) WHERE ((user_id IS NOT NULL) AND ((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PENDING'::character varying])::text[])))
 - `uq_affiliation_requests_pending_document` UNIQUE btree (document_type, document_number) WHERE ((status)::text = 'PENDING'::text)
 - `uq_affiliation_requests_pending_email` UNIQUE btree (lower((email)::text)) WHERE ((status)::text = 'PENDING'::text)
@@ -502,7 +503,6 @@
 - `idx_allies_host_ally_id` btree (host_ally_id) WHERE (host_ally_id IS NOT NULL)
 - `idx_allies_name_unaccent` gin (immutable_unaccent(lower((name)::text)) gin_trgm_ops)
 - `idx_allies_person_id` btree (person_id) WHERE (person_id IS NOT NULL)
-- `idx_allies_published` btree (is_published) WHERE is_published
 - `idx_allies_registration_pending` btree (created_at DESC) WHERE ((registration_status)::text = 'PENDING'::text)
 - `idx_allies_segment` btree (segment)
 - `uniq_allies_tax_document` UNIQUE btree (tax_document_type, tax_document_number) WHERE ((tax_document_type IS NOT NULL) AND (tax_document_number IS NOT NULL))
@@ -1578,13 +1578,15 @@
 - CHECK `commissions_status_check` CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PAID'::character varying, 'VOIDED'::character varying, 'DISPUTED'::character varying])::text[])))
 
 **Indexes**
+- `idx_commissions_active_created` btree (created_at DESC) WHERE is_active
 - `idx_commissions_collection_tier` btree (collection_tier_id) WHERE (collection_tier_id IS NOT NULL)
 - `idx_commissions_currency` btree (currency_id)
+- `idx_commissions_earned_window` btree (earned_at) WHERE (is_active AND ((status)::text = ANY ((ARRAY['APPROVED'::character varying, 'PAID'::character varying])::text[])))
 - `idx_commissions_member_earned` btree (member_id, earned_at DESC) WHERE is_active
 - `idx_commissions_payment_id` btree (payment_id)
 - `idx_commissions_payout_payment` btree (payout_payment_id)
 - `idx_commissions_promoter_status_period` btree (promoter_id, status, period_start) WHERE is_active
-- `idx_commissions_status_approval` btree (status) WHERE ((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying])::text[]))
+- `idx_commissions_status_period` btree (status, period_start, period_end) WHERE is_active
 - `idx_commissions_tier` btree (commission_tier_id) WHERE (commission_tier_id IS NOT NULL)
 - `uniq_commissions_payment_promoter_active` UNIQUE btree (payment_id, promoter_id) WHERE ((status)::text <> 'VOIDED'::text)
 
@@ -2737,6 +2739,7 @@
 - UNIQUE `members_uuid_key` UNIQUE (uuid)
 
 **Indexes**
+- `idx_members_active_created` btree (created_at DESC) WHERE is_active
 - `idx_members_corporate_contract` btree (corporate_contract_id) WHERE (corporate_contract_id IS NOT NULL)
 - `idx_members_enrolled_at` btree (enrolled_at)
 - `idx_members_occupation` btree (occupation_id) WHERE (occupation_id IS NOT NULL)
@@ -2785,7 +2788,7 @@
 - CHECK `membership_charges_status_check` CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'COVERED'::character varying, 'OVERDUE'::character varying, 'WAIVED'::character varying])::text[])))
 
 **Indexes**
-- `idx_membership_charges_status_due_date` btree (status, due_date)
+- `idx_membership_charges_covered_by_payment` btree (covered_by_payment_id) WHERE (covered_by_payment_id IS NOT NULL)
 - `uniq_membership_charges_membership_period` UNIQUE btree (membership_id, period_start)
 
 **Triggers**
@@ -2903,6 +2906,7 @@
 - `idx_memberships_campaign` btree (campaign_id) WHERE (campaign_id IS NOT NULL)
 - `idx_memberships_currency` btree (currency_id)
 - `idx_memberships_member` btree (member_id)
+- `idx_memberships_next_due` btree (next_due_date)
 - `idx_memberships_status_next_due` btree (status, next_due_date) WHERE (is_active = true)
 - `idx_memberships_term_expiry` btree (expires_at) WHERE ((is_active = true) AND (reinscription_required = true))
 - `uniq_memberships_one_active_per_member` UNIQUE btree (member_id) WHERE (is_active = true)
@@ -3357,16 +3361,21 @@
 - CHECK `payments_status_check` CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))
 
 **Indexes**
+- `idx_payments_active_created` btree (created_at DESC) WHERE is_active
+- `idx_payments_approved_in_payment_date` btree (payment_date) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text))
+- `idx_payments_approved_in_received_at` btree (received_at) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text))
+- `idx_payments_approved_in_reviewed_at` btree (reviewed_at) WHERE (((status)::text = 'APPROVED'::text) AND ((direction)::text = 'IN'::text))
 - `idx_payments_approved_period` btree (applied_period) WHERE (is_active AND ((status)::text = 'APPROVED'::text))
 - `idx_payments_beneficiary_person` btree (beneficiary_person_id) WHERE (beneficiary_person_id IS NOT NULL)
 - `idx_payments_campaign` btree (campaign_id) WHERE (campaign_id IS NOT NULL)
 - `idx_payments_corporate_contract` btree (corporate_contract_id) WHERE (corporate_contract_id IS NOT NULL)
 - `idx_payments_currency` btree (currency_id)
 - `idx_payments_direction_status` btree (direction, status)
+- `idx_payments_in_event_at` btree (COALESCE(reviewed_at, received_at) DESC) WHERE (is_active AND ((direction)::text = 'IN'::text))
 - `idx_payments_membership_date` btree (membership_id, payment_date DESC)
 - `idx_payments_payment_type` btree (payment_type_id)
 - `idx_payments_person` btree (person_id)
-- `idx_payments_promoter` btree (promoter_id)
+- `idx_payments_promoter_payment_date` btree (promoter_id, payment_date DESC)
 - `idx_payments_status_received` btree (status, received_at DESC) WHERE is_active
 
 **Triggers**
@@ -3563,9 +3572,12 @@
 
 **Indexes**
 - `idx_persons_city_id` btree (city_id) WHERE (city_id IS NOT NULL)
+- `idx_persons_document_number_trgm` gin (immutable_unaccent(lower((document_number)::text)) gin_trgm_ops)
 - `idx_persons_email` btree (email) WHERE (email IS NOT NULL)
+- `idx_persons_email_trgm` gin (immutable_unaccent(lower((email)::text)) gin_trgm_ops)
 - `idx_persons_full_name_unaccent` gin (immutable_unaccent(lower((full_name)::text)) gin_trgm_ops)
 - `idx_persons_last_name` btree (last_name)
+- `idx_persons_phone_trgm` gin (immutable_unaccent(lower((phone)::text)) gin_trgm_ops)
 - `uniq_persons_tax_document` UNIQUE btree (tax_document_type, tax_document_number) WHERE ((tax_document_type IS NOT NULL) AND (tax_document_number IS NOT NULL))
 
 **Triggers**
@@ -4131,6 +4143,7 @@
 - CHECK `promoters_total_referrals_check` CHECK ((total_referrals >= 0))
 
 **Indexes**
+- `idx_promoters_active_created` btree (created_at DESC) WHERE is_active
 - `idx_promoters_promoter_type_id` btree (promoter_type_id) WHERE (promoter_type_id IS NOT NULL)
 - `idx_promoters_rank` btree (rank_id)
 - `idx_promoters_real_leaderboard` btree (total_commission_paid DESC) WHERE ((is_active = true) AND (is_system = false))
@@ -4830,10 +4843,9 @@
 
 **Indexes**
 - `idx_users_default_role` btree (default_role_id)
-- `idx_users_is_active` btree (is_active) WHERE is_active
 - `idx_users_locked_until` btree (locked_until) WHERE (locked_until IS NOT NULL)
 - `idx_users_login_token_hash` btree (login_token_hash) WHERE (login_token_hash IS NOT NULL)
-- `idx_users_status` btree (status)
+- `idx_users_password_reset_token` btree (password_reset_token) WHERE (password_reset_token IS NOT NULL)
 
 **Triggers**
 - `trg_users_updated_at` BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION set_updated_at()
