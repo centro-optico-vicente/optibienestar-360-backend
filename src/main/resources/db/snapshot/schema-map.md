@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V244. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V246. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 117 tables.
 
@@ -960,7 +960,7 @@
 - `consumption_exchange_rate` numeric(18,8) — Unidades de la moneda convertida por 1 unidad de consumption_currency, vigente en la fecha del consumo (V229).
 - `copay_amount_converted` numeric(14,2)
 - `copay_exchange_rate` numeric(18,8) — Unidades de la moneda convertida por 1 unidad de copay_currency, vigente en la fecha del consumo (V229).
-- `exchange_rate_date` date — Fecha de operación (publicación) de la tasa usada en la conversión (V229).
+- `exchange_rate_date` date — Fecha valor (día de vigencia BCV) de la tasa usada en la conversión (V229, V246).
 
 **Constraints**
 - PK PRIMARY KEY (benefit_usages_id)

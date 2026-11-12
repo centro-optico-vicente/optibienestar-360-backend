@@ -1533,7 +1533,7 @@ COMMENT ON COLUMN app.benefit_usages.copay_exchange_rate IS 'Unidades de la mone
 -- Name: COLUMN benefit_usages.exchange_rate_date; Type: COMMENT; Schema: app; Owner: -
 --
 
-COMMENT ON COLUMN app.benefit_usages.exchange_rate_date IS 'Fecha de operación (publicación) de la tasa usada en la conversión (V229).';
+COMMENT ON COLUMN app.benefit_usages.exchange_rate_date IS 'Fecha valor (día de vigencia BCV) de la tasa usada en la conversión (V229, V246).';
 
 --
 -- Name: benefit_usages_benefit_usages_id_seq; Type: SEQUENCE; Schema: app; Owner: -
