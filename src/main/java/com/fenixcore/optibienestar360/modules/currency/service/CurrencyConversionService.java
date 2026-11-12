@@ -79,7 +79,7 @@ public class CurrencyConversionService {
             ExchangeRate rate = direct.get();
             BigDecimal converted = amount.multiply(rate.getRate())
                     .setScale(to.getDecimalPlaces(), RoundingMode.HALF_UP);
-            return new ConversionResult(amount, converted, rate.getRate(), rate.getOperationDate());
+            return new ConversionResult(amount, converted, rate.getRate(), valueDateOf(rate));
         }
 
         var inverse = vigente(to, from, asOf);
@@ -88,7 +88,7 @@ public class CurrencyConversionService {
             BigDecimal effectiveRate = BigDecimal.ONE.divide(rate.getRate(), RATE_SCALE, RoundingMode.HALF_UP);
             BigDecimal converted = amount.multiply(effectiveRate)
                     .setScale(to.getDecimalPlaces(), RoundingMode.HALF_UP);
-            return new ConversionResult(amount, converted, effectiveRate, rate.getOperationDate());
+            return new ConversionResult(amount, converted, effectiveRate, valueDateOf(rate));
         }
 
         throw new NoExchangeRateAvailableException(
@@ -163,6 +163,19 @@ public class CurrencyConversionService {
         return endOfDay.isAfter(now) ? now : endOfDay;
     }
 
+    /**
+     * The date a rate is known by: its BCV "Fecha Valor", i.e. the calendar
+     * day (in {@link AppTimeZone#ZONE}) on which it becomes vigente. This is
+     * the date BCV and every public source print next to the rate, so it is
+     * the one shown to users and snapshotted as {@code *_rate_date}. Never
+     * {@code operation_date} (the publish day): over a weekend that one is
+     * the previous Thursday for the rate ruling on Saturday, and it is derived
+     * from the holiday calendar rather than read from BCV.
+     */
+    static LocalDate valueDateOf(ExchangeRate rate) {
+        return rate.getValidFrom().atZone(AppTimeZone.ZONE).toLocalDate();
+    }
+
     private static boolean sameCurrency(Currency a, Currency b) {
         if (a == b) {
             return true;
@@ -179,8 +192,9 @@ public class CurrencyConversionService {
      *                        (equal to {@code amount} when {@code from == to})
      * @param rate            units of {@code to} per 1 unit of {@code from}
      *                        ({@link BigDecimal#ONE} for the same-currency case)
-     * @param rateDate        the vigency date of {@code rate} ({@code asOf}'s
-     *                        own date for the same-currency case)
+     * @param rateDate        the value date ("Fecha Valor") of {@code rate}:
+     *                        the day it became vigente, see {@link #valueDateOf}
+     *                        ({@code asOf}'s own date for the same-currency case)
      */
     public record ConversionResult(BigDecimal amount, BigDecimal convertedAmount, BigDecimal rate, LocalDate rateDate) {}
 }
