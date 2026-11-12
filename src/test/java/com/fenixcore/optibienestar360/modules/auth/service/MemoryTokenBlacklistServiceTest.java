@@ -138,4 +138,19 @@ class MemoryTokenBlacklistServiceTest {
         assertThat(svc.getUserInvalidatedEpoch(a)).isPositive();
         assertThat(svc.getUserInvalidatedEpoch(b)).isZero();
     }
+
+    @Test
+    void isVolatileAndKnowsWhenItStarted() {
+        assertThat(svc.isVolatile()).isTrue();
+        assertThat(svc.startedAt()).isBeforeOrEqualTo(java.time.Instant.now());
+    }
+
+    @Test
+    void aSessionIsRecoveredOnlyOnce() {
+        UUID sid = UUID.randomUUID();
+
+        assertThat(svc.markSessionRecovered(sid)).isTrue();
+        assertThat(svc.markSessionRecovered(sid)).isFalse();
+        assertThat(svc.markSessionRecovered(UUID.randomUUID())).isTrue();
+    }
 }

@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import java.time.Instant;
+import java.util.UUID;
+
 /**
  * Stores revoked access tokens (blacklist) and active refresh tokens with TTL.
  *
@@ -49,4 +52,31 @@ public interface TokenBlacklistService {
      *         ever recorded, or the marker has expired).
      */
     long getUserInvalidatedEpoch(String userUuid);
+
+    // ─── Restart recovery (volatile stores only) ────────────────────────────
+    // A store that loses its state on restart (memory) cannot know the refresh
+    // tokens issued before the process started. AuthService.refresh() then falls
+    // back to the persisted session (login_audit_log) for those tokens only — see
+    // AuthService#recoverAfterRestart. Durable stores (redis) never use it.
+
+    /** {@code true} when this store's state does not survive a process restart. */
+    default boolean isVolatile() {
+        return false;
+    }
+
+    /** When this store's state began — tokens issued before it cannot be in the store. */
+    default Instant startedAt() {
+        return Instant.EPOCH;
+    }
+
+    /**
+     * Records that a session was recovered after a restart.
+     *
+     * @return {@code true} the first time for this session, {@code false} if it was already
+     *         recovered — so a second pre-restart token of the same session (one already
+     *         rotated before the restart) is rejected.
+     */
+    default boolean markSessionRecovered(UUID sessionId) {
+        return false;
+    }
 }

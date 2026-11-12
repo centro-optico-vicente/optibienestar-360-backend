@@ -213,7 +213,7 @@ public class AuthService {
         }
 
         String refreshJti = jwtService.extractJti(token);
-        if (!blacklistService.isValidRefreshToken(refreshJti)) {
+        if (!blacklistService.isValidRefreshToken(refreshJti) && !recoverAfterRestart(token)) {
             throw new AuthenticationException("auth.token.refresh.invalid");
         }
 
@@ -591,6 +591,36 @@ public class AuthService {
 
         savePasswordHistory(user, newHash, policy);
         blacklistService.revokeAllUserRefreshTokens(user.getUuid().toString());
+        loginAuditService.revokeAllSessionsOfUser(user.getId(), "password_reset");
+    }
+
+    /**
+     * Honours a refresh token the volatile ({@code memory}) store lost on a restart.
+     *
+     * <p>Only tokens issued BEFORE the store started qualify — anything newer is in the store
+     * unless it was really rotated or revoked. Their session must still be valid/ACTIVE in
+     * {@code login_audit_log}, which persists logout, role switch, expiry and (since this
+     * change) password change/reset. Each session recovers once: a second pre-restart token of
+     * the same session — one already rotated before the restart — is rejected. Never applies to
+     * a durable store (redis).</p>
+     */
+    private boolean recoverAfterRestart(String token) {
+        if (!blacklistService.isVolatile()) {
+            return false;
+        }
+        if (jwtService.extractIssuedAt(token) >= blacklistService.startedAt().getEpochSecond()) {
+            return false;
+        }
+        UUID sessionId = jwtService.extractSessionId(token);
+        if (sessionId == null || !loginAuditService.isSessionActive(sessionId)) {
+            return false;
+        }
+        if (!blacklistService.markSessionRecovered(sessionId)) {
+            log.warn("Refresh token of already-recovered session {} presented again after restart — rejected", sessionId);
+            return false;
+        }
+        log.info("Refresh token recovered after restart for session {}", sessionId);
+        return true;
     }
 
     // ─── Change Password ──────────────────────────────────────────────────────
@@ -616,6 +646,7 @@ public class AuthService {
             blacklistService.blacklistAccessToken(currentJti, (long) accessExpirationMinutes * 60);
         }
         blacklistService.revokeAllUserRefreshTokens(userUuid.toString());
+        loginAuditService.revokeAllSessionsOfUser(user.getId(), "password_change");
     }
 
     // ─── Locale preference (Option C: dedicated endpoint, immediate effect) ──

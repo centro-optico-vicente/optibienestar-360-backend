@@ -136,6 +136,42 @@ public class LoginAuditService {
         }
     }
 
+    /**
+     * Revokes every live session of a user — password change/reset. Unlike the rest of this
+     * service it is NOT best-effort: with a volatile token store this row is what keeps a
+     * restart from reviving the user's old refresh tokens, so a failure must roll back.
+     */
+    @Transactional
+    public void revokeAllSessionsOfUser(Long userId, String reason) {
+        if (userId == null) {
+            return;
+        }
+        loginAuditLogRepository.revokeActiveSessionsOfUser(userId, reason, Instant.now());
+        loginSessionValidityCache.evictAll();
+    }
+
+    /**
+     * Strict, uncached check for {@code AuthService#refresh}'s restart recovery: the session
+     * exists, is still valid/ACTIVE and has not expired. Fails CLOSED (unlike
+     * {@link #isSessionValid}) — any doubt means the refresh token is not honoured.
+     */
+    @Transactional(readOnly = true)
+    public boolean isSessionActive(UUID sessionId) {
+        if (sessionId == null) {
+            return false;
+        }
+        try {
+            return loginAuditLogRepository.findByUuid(sessionId)
+                    .filter(LoginAuditLog::isValid)
+                    .filter(entry -> entry.getSessionStatus() == LoginSessionStatus.ACTIVE)
+                    .filter(entry -> entry.getSessionExpiresAt() == null || entry.getSessionExpiresAt().isAfter(Instant.now()))
+                    .isPresent();
+        } catch (Exception ex) {
+            log.warn("Failed to resolve session {} for refresh recovery — rejecting", sessionId, ex);
+            return false;
+        }
+    }
+
     /** Cached hot-path check used by {@code JwtAuthenticationFilter} — see class javadoc for the fail-open contract. */
     public boolean isSessionValid(UUID sessionId) {
         if (sessionId == null) {
