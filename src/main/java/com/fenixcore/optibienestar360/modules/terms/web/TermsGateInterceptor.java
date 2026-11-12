@@ -2,7 +2,6 @@ package com.fenixcore.optibienestar360.modules.terms.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
-import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,7 +35,7 @@ public class TermsGateInterceptor implements HandlerInterceptor {
 
     public static final String PENDING_CODE = "terms.pending";
 
-    private final TermsAcceptanceService termsAcceptanceService;
+    private final TermsGateCheck termsGateCheck;
     private final TermType termType;
     private final MessageSource messageSource;
     private final ObjectMapper objectMapper;
@@ -51,7 +50,7 @@ public class TermsGateInterceptor implements HandlerInterceptor {
             // Unauthenticated requests are Spring Security's business, not ours.
             return true;
         }
-        if (!termsAcceptanceService.hasPending(actor.getUuid(), termType)) return true;
+        if (!termsGateCheck.hasPending(actor.getUuid(), termType)) return true;
 
         var locale = LocaleContextHolder.getLocale();
         ProblemDetail problem = ProblemDetail.forStatus(403);
