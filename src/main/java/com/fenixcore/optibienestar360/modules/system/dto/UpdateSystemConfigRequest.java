@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.system.dto;
 
 import com.fenixcore.optibienestar360.core.audit.AuditMode;
 import com.fenixcore.optibienestar360.core.util.SortOrder;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -29,5 +30,11 @@ public record UpdateSystemConfigRequest(
 	Integer loginSessionExpirationDays,
 	List<SortOrder> defaultSort,
 	/** Medical allies' access to patient history (V215, hub ADR 0032). */
-	Boolean patientMedicalAccessEnabled
+	Boolean patientMedicalAccessEnabled,
+	/** Max generic PDF documents rendered at the same time (V238); 0 or -1 = no cap. */
+	@Min(value = -1, message = "system_config.pdf_max_concurrent_renders.min")
+	Integer pdfMaxConcurrentRenders,
+	/** Seconds a PDF request waits for a free render slot before 503 (V238); 0 or -1 = no time limit. */
+	@Min(value = -1, message = "system_config.pdf_render_wait_seconds.min")
+	Integer pdfRenderWaitSeconds
 ) {}
