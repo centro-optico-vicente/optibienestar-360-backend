@@ -2794,7 +2794,8 @@ CREATE TABLE app.data_change_audit_log (
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT chk_data_change_action CHECK (((action)::text = ANY ((ARRAY['CREATE'::character varying, 'UPDATE'::character varying, 'DELETE'::character varying])::text[])))
-);
+)
+WITH (autovacuum_vacuum_insert_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: data_change_audit_log_data_change_audit_log_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -3883,7 +3884,8 @@ CREATE TABLE app.notifications (
     CONSTRAINT notifications_channel_check CHECK (((channel)::text = 'EMAIL'::text)),
     CONSTRAINT notifications_max_attempts_check CHECK ((max_attempts >= 1)),
     CONSTRAINT notifications_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'SENDING'::character varying, 'SENT'::character varying, 'FAILED'::character varying, 'DEAD_LETTER'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90', autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: notifications_notifications_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5319,7 +5321,8 @@ CREATE TABLE app.report_audit_log (
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT chk_report_audit_format CHECK (((format)::text = ANY ((ARRAY['PDF'::character varying, 'XLSX'::character varying])::text[])))
-);
+)
+WITH (autovacuum_vacuum_insert_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: report_audit_log_report_audit_log_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5447,7 +5450,8 @@ CREATE TABLE app.scheduled_job_runs (
     CONSTRAINT chk_runs_terminal_has_finished_at CHECK ((((outcome)::text = 'RUNNING'::text) OR (finished_at IS NOT NULL))),
     CONSTRAINT scheduled_job_runs_outcome_check CHECK (((outcome)::text = ANY ((ARRAY['RUNNING'::character varying, 'SUCCESS'::character varying, 'FAILED'::character varying, 'TIMEOUT'::character varying, 'SKIPPED_CONCURRENT'::character varying, 'CANCELED'::character varying])::text[]))),
     CONSTRAINT scheduled_job_runs_triggered_by_check CHECK (((triggered_by)::text = ANY ((ARRAY['SCHEDULED'::character varying, 'MANUAL'::character varying, 'STARTUP'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90');
 
 --
 -- Name: scheduled_job_runs_scheduled_job_runs_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -8289,12 +8293,6 @@ CREATE INDEX idx_ally_patient_links_member ON app.ally_patient_links USING btree
 CREATE INDEX idx_ally_product_review_log_product ON app.ally_product_review_log USING btree (ally_product_id, action_at DESC);
 
 --
--- Name: idx_ally_products_ally; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_ally_products_ally ON app.ally_products USING btree (ally_id);
-
---
 -- Name: idx_ally_products_pending_queue; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8349,12 +8347,6 @@ CREATE INDEX idx_attached_files_owner ON app.attached_files USING btree (owner_t
 CREATE INDEX idx_attached_files_uploader ON app.attached_files USING btree (uploaded_by);
 
 --
--- Name: idx_audit_entity_config_key; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_audit_entity_config_key ON app.entity_config USING btree (entity_key);
-
---
 -- Name: idx_banks_is_active; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8406,7 +8398,7 @@ CREATE INDEX idx_benefit_usages_ally_product_rated ON app.benefit_usages USING b
 -- Name: idx_benefit_usages_ally_rated; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_benefit_usages_ally_rated ON app.benefit_usages USING btree (ally_id) WHERE ((rated_at IS NOT NULL) AND is_active);
+CREATE INDEX idx_benefit_usages_ally_rated ON app.benefit_usages USING btree (ally_id) WHERE ((ally_rating IS NOT NULL) AND is_active AND ((status)::text = 'REGISTERED'::text));
 
 --
 -- Name: idx_benefit_usages_beneficiary; Type: INDEX; Schema: app; Owner: -
@@ -8427,6 +8419,12 @@ CREATE INDEX idx_benefit_usages_category_date ON app.benefit_usages USING btree 
 CREATE INDEX idx_benefit_usages_membership_date ON app.benefit_usages USING btree (membership_id, usage_date DESC);
 
 --
+-- Name: idx_benefit_usages_usage_datetime; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_benefit_usages_usage_datetime ON app.benefit_usages USING btree (usage_datetime DESC);
+
+--
 -- Name: idx_bonus_awards_promoter_created; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8437,12 +8435,6 @@ CREATE INDEX idx_bonus_awards_promoter_created ON app.promoter_bonus_awards USIN
 --
 
 CREATE INDEX idx_bonus_awards_status_created ON app.promoter_bonus_awards USING btree (status, created_at DESC) WHERE is_active;
-
---
--- Name: idx_campaign_promoters_campaign; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_campaign_promoters_campaign ON app.campaign_promoters USING btree (campaign_id);
 
 --
 -- Name: idx_campaign_promoters_promoter; Type: INDEX; Schema: app; Owner: -
@@ -8535,12 +8527,6 @@ CREATE INDEX idx_ccr_campaign ON app.competitive_commission_rules USING btree (c
 CREATE INDEX idx_cities_is_active ON app.cities USING btree (is_active) WHERE is_active;
 
 --
--- Name: idx_cities_state_id; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_cities_state_id ON app.cities USING btree (state_id);
-
---
 -- Name: idx_collection_commission_tier_promoter_types_type; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8575,12 +8561,6 @@ CREATE INDEX idx_commission_bonus_rules_active ON app.commission_bonus_rules USI
 --
 
 CREATE INDEX idx_commission_bonus_rules_campaign ON app.commission_bonus_rules USING btree (campaign_id) WHERE (campaign_id IS NOT NULL);
-
---
--- Name: idx_commission_retroactive_topup_cuts_promoter_period; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_commission_retroactive_topup_cuts_promoter_period ON app.commission_retroactive_topup_cuts USING btree (promoter_id, ledger_type, accrual_period_start, accrual_period_end);
 
 --
 -- Name: idx_commission_retroactive_topups_payout_payment; Type: INDEX; Schema: app; Owner: -
@@ -8703,28 +8683,28 @@ CREATE INDEX idx_countries_is_active ON app.countries USING btree (is_active) WH
 CREATE INDEX idx_currencies_is_active ON app.currencies USING btree (is_active) WHERE is_active;
 
 --
--- Name: idx_data_change_actor; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_data_change_actor_occurred; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_data_change_actor ON app.data_change_audit_log USING btree (actor_id);
-
---
--- Name: idx_data_change_entity; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_data_change_entity ON app.data_change_audit_log USING btree (entity_key, entity_uuid);
+CREATE INDEX idx_data_change_actor_occurred ON app.data_change_audit_log USING btree (actor_id, occurred_at DESC);
 
 --
 -- Name: idx_data_change_entity_id; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_data_change_entity_id ON app.data_change_audit_log USING btree (entity_key, entity_id);
+CREATE INDEX idx_data_change_entity_id ON app.data_change_audit_log USING btree (entity_key, entity_id) WHERE (entity_id IS NOT NULL);
+
+--
+-- Name: idx_data_change_entity_occurred; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_data_change_entity_occurred ON app.data_change_audit_log USING btree (entity_key, entity_uuid, occurred_at DESC);
 
 --
 -- Name: idx_data_change_login_audit; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_data_change_login_audit ON app.data_change_audit_log USING btree (login_audit_log_id);
+CREATE INDEX idx_data_change_login_audit ON app.data_change_audit_log USING btree (login_audit_log_id) WHERE (login_audit_log_id IS NOT NULL);
 
 --
 -- Name: idx_data_change_occurred_at; Type: INDEX; Schema: app; Owner: -
@@ -8845,12 +8825,6 @@ CREATE INDEX idx_media_items_owner ON app.media_items USING btree (owner_table, 
 --
 
 CREATE INDEX idx_medical_record_access_log_member ON app.medical_record_access_log USING btree (member_id, accessed_at DESC);
-
---
--- Name: idx_member_documents_member; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_member_documents_member ON app.member_documents USING btree (member_id);
 
 --
 -- Name: idx_member_documents_member_type; Type: INDEX; Schema: app; Owner: -
@@ -9339,22 +9313,22 @@ CREATE INDEX idx_referrals_referred ON app.referrals USING btree (referred_membe
 CREATE INDEX idx_referrals_referrer_created ON app.referrals USING btree (referrer_member_id, created_at DESC) WHERE is_active;
 
 --
--- Name: idx_report_audit_actor; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_report_audit_actor_generated; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_report_audit_actor ON app.report_audit_log USING btree (actor_id);
+CREATE INDEX idx_report_audit_actor_generated ON app.report_audit_log USING btree (actor_id, generated_at DESC);
 
 --
--- Name: idx_report_audit_entity; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_report_audit_entity_generated; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_report_audit_entity ON app.report_audit_log USING btree (entity_key, entity_identifier);
+CREATE INDEX idx_report_audit_entity_generated ON app.report_audit_log USING btree (entity_key, entity_uuid, generated_at DESC);
 
 --
 -- Name: idx_report_audit_entity_id; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_report_audit_entity_id ON app.report_audit_log USING btree (entity_key, entity_id);
+CREATE INDEX idx_report_audit_entity_id ON app.report_audit_log USING btree (entity_key, entity_id) WHERE (entity_id IS NOT NULL);
 
 --
 -- Name: idx_report_audit_file; Type: INDEX; Schema: app; Owner: -
@@ -9387,28 +9361,22 @@ CREATE INDEX idx_report_share_expires ON app.report_share USING btree (expires_a
 CREATE INDEX idx_report_share_report ON app.report_share USING btree (report_audit_log_id);
 
 --
--- Name: idx_report_share_token; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_report_share_token ON app.report_share USING btree (share_token);
-
---
 -- Name: idx_role_permissions_permission_id; Type: INDEX; Schema: app; Owner: -
 --
 
 CREATE INDEX idx_role_permissions_permission_id ON app.role_permissions USING btree (permission_id);
 
 --
--- Name: idx_role_permissions_role_id; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_role_permissions_role_id ON app.role_permissions USING btree (role_id);
-
---
 -- Name: idx_roles_is_active; Type: INDEX; Schema: app; Owner: -
 --
 
 CREATE INDEX idx_roles_is_active ON app.roles USING btree (is_active) WHERE is_active;
+
+--
+-- Name: idx_scheduled_job_runs_created; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_scheduled_job_runs_created ON app.scheduled_job_runs USING btree (created_at DESC);
 
 --
 -- Name: idx_scheduled_job_runs_job_started; Type: INDEX; Schema: app; Owner: -
@@ -9427,12 +9395,6 @@ CREATE INDEX idx_scheduled_job_runs_running ON app.scheduled_job_runs USING btre
 --
 
 CREATE INDEX idx_scheduled_jobs_enabled ON app.scheduled_jobs USING btree (enabled) WHERE (is_active AND enabled);
-
---
--- Name: idx_states_country_id; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_states_country_id ON app.states USING btree (country_id);
 
 --
 -- Name: idx_states_is_active; Type: INDEX; Schema: app; Owner: -
@@ -9457,12 +9419,6 @@ CREATE INDEX idx_subsidy_audit_log_subsidy ON app.subsidy_audit_log USING btree 
 --
 
 CREATE INDEX idx_subsidy_beneficiaries_beneficiary ON app.subsidy_beneficiaries USING btree (beneficiary_id) WHERE is_active;
-
---
--- Name: idx_subsidy_beneficiaries_subsidy; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_subsidy_beneficiaries_subsidy ON app.subsidy_beneficiaries USING btree (subsidy_id);
 
 --
 -- Name: idx_terms_acceptances_ally_agreement; Type: INDEX; Schema: app; Owner: -
@@ -9507,16 +9463,10 @@ CREATE INDEX idx_user_password_history_user_id ON app.user_password_history USIN
 CREATE INDEX idx_user_roles_role_id ON app.user_roles USING btree (role_id);
 
 --
--- Name: idx_user_roles_user_id; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_user_sessions_log_open_jti; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_user_roles_user_id ON app.user_roles USING btree (user_id);
-
---
--- Name: idx_user_sessions_log_jti; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_user_sessions_log_jti ON app.user_sessions_log USING btree (jti);
+CREATE INDEX idx_user_sessions_log_open_jti ON app.user_sessions_log USING btree (jti) WHERE (logout_at IS NULL);
 
 --
 -- Name: idx_user_sessions_log_user_id; Type: INDEX; Schema: app; Owner: -
