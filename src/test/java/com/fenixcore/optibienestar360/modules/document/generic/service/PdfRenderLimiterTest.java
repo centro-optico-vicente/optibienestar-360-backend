@@ -5,6 +5,8 @@ import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
@@ -49,9 +51,9 @@ class PdfRenderLimiterTest {
     }
 
     @Test
-    void rejectsWithServiceBusyWhenAllSlotsAreTakenAndNoWait() throws Exception {
+    void rejectsWithServiceBusyWhenTheWaitRunsOut() throws Exception {
         when(systemConfigService.getPdfMaxConcurrentRenders()).thenReturn(1);
-        when(systemConfigService.getPdfRenderWaitSeconds()).thenReturn(0);
+        when(systemConfigService.getPdfRenderWaitSeconds()).thenReturn(1);
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
 
@@ -99,7 +101,7 @@ class PdfRenderLimiterTest {
     @Test
     void readsTheCapOnEveryRequest() throws Exception {
         when(systemConfigService.getPdfMaxConcurrentRenders()).thenReturn(1);
-        when(systemConfigService.getPdfRenderWaitSeconds()).thenReturn(0);
+        when(systemConfigService.getPdfRenderWaitSeconds()).thenReturn(1);
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
 
@@ -111,5 +113,39 @@ class PdfRenderLimiterTest {
         assertEquals("allowed", assertTimeoutPreemptively(Duration.ofSeconds(5), () -> limiter.run(() -> "allowed")),
                 "raising the cap in system_configs applies to the next request");
         release.countDown();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void capOfZeroOrMinusOneRendersWithoutLimit(int cap) throws Exception {
+        when(systemConfigService.getPdfMaxConcurrentRenders()).thenReturn(cap);
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        holdSlot(started, release);
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+
+        assertEquals("second", assertTimeoutPreemptively(Duration.ofSeconds(2), () -> limiter.run(() -> "second")),
+                "no cap: a second render runs while the first is still rendering");
+        release.countDown();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void waitOfZeroOrMinusOneWaitsWithoutTimeLimit(int wait) throws Exception {
+        when(systemConfigService.getPdfMaxConcurrentRenders()).thenReturn(1);
+        when(systemConfigService.getPdfRenderWaitSeconds()).thenReturn(wait);
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        holdSlot(started, release);
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+
+        Future<String> waiting = executor.submit(() -> limiter.run(() -> "second"));
+        Thread.sleep(1500);
+        assertFalse(waiting.isDone(), "still waiting, no 503 for running out of time");
+
+        release.countDown();
+        assertEquals("second", waiting.get(5, TimeUnit.SECONDS));
     }
 }

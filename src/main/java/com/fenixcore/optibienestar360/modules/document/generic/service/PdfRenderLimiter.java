@@ -15,6 +15,9 @@ import java.util.function.Supplier;
  * <p>The cap and the wait come from {@code system_configs} (V238) and are read on every call, so a
  * change applies to the next request without a restart. A request that cannot get a slot within
  * the wait gets {@link ServiceBusyException} (503 + {@code Retry-After}).
+ *
+ * <p>0 or -1 turns the respective limit off: a cap {@code <= 0} renders without counting, a wait
+ * {@code <= 0} waits for a free slot without a time limit.
  */
 @Component
 public class PdfRenderLimiter {
@@ -32,7 +35,11 @@ public class PdfRenderLimiter {
 
     /** Runs {@code render} once a slot is free, releasing the slot when it finishes or fails. */
     public <T> T run(Supplier<T> render) {
-        acquire();
+        int maxRenders = systemConfigService.getPdfMaxConcurrentRenders();
+        if (maxRenders <= 0) {
+            return render.get();
+        }
+        acquire(maxRenders, systemConfigService.getPdfRenderWaitSeconds());
         try {
             return render.get();
         } finally {
@@ -40,18 +47,21 @@ public class PdfRenderLimiter {
         }
     }
 
-    private void acquire() {
-        int maxRenders = Math.max(1, systemConfigService.getPdfMaxConcurrentRenders());
-        long waitNanos = TimeUnit.SECONDS.toNanos(Math.max(0, systemConfigService.getPdfRenderWaitSeconds()));
-        long deadline = System.nanoTime() + waitNanos;
+    private void acquire(int maxRenders, int waitSeconds) {
+        boolean timed = waitSeconds > 0;
+        long deadline = timed ? System.nanoTime() + TimeUnit.SECONDS.toNanos(waitSeconds) : 0;
 
         synchronized (lock) {
             while (activeRenders >= maxRenders) {
-                long remaining = deadline - System.nanoTime();
-                if (remaining <= 0) {
-                    throw new ServiceBusyException(BUSY_MESSAGE_CODE, RETRY_AFTER_SECONDS);
-                }
                 try {
+                    if (!timed) {
+                        lock.wait();
+                        continue;
+                    }
+                    long remaining = deadline - System.nanoTime();
+                    if (remaining <= 0) {
+                        throw new ServiceBusyException(BUSY_MESSAGE_CODE, RETRY_AFTER_SECONDS);
+                    }
                     TimeUnit.NANOSECONDS.timedWait(lock, remaining);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();

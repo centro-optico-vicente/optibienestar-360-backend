@@ -86,12 +86,12 @@ public class SystemConfig extends BaseAuditEntity {
 	/**
 	 * Max generic PDF documents rendered at the same time (V238) — each render
 	 * holds fonts and the whole document in memory. Read by {@code PdfRenderLimiter}
-	 * on every request, so a change applies without redeploy.
+	 * on every request, so a change applies without redeploy. 0 or -1 = no cap.
 	 */
 	@Column(name = "pdf_max_concurrent_renders", nullable = false)
 	private int pdfMaxConcurrentRenders = 2;
 
-	/** Seconds a PDF request waits for a free render slot before 503 (V238). */
+	/** Seconds a PDF request waits for a free render slot before 503 (V238); 0 or -1 = no time limit. */
 	@Column(name = "pdf_render_wait_seconds", nullable = false)
 	private int pdfRenderWaitSeconds = 30;
 
