@@ -51,6 +51,8 @@ public class SystemConfigController {
 			config.getLoginSessionExpirationDays(),
 			config.getDefaultSort(),
 			config.isPatientMedicalAccessEnabled(),
+			config.getPdfMaxConcurrentRenders(),
+			config.getPdfRenderWaitSeconds(),
 			config.getUpdatedAt()
         );
     }

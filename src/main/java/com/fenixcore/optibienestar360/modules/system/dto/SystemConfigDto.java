@@ -21,5 +21,7 @@ public record SystemConfigDto(
 	int loginSessionExpirationDays,
 	List<SortOrder> defaultSort,
 	@Display(Display.Kind.BOOLEAN) boolean patientMedicalAccessEnabled,
+	int pdfMaxConcurrentRenders,
+	int pdfRenderWaitSeconds,
 	@Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}
