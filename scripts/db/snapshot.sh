@@ -73,9 +73,22 @@ pgc() {
         -v "$ROOT:/repo:ro" -w /repo "$PG_IMAGE" "$@"
 }
 
-# pg_dump lines that vary per run or per client and carry no schema/data.
+# Drop pg_dump lines that vary per run or per client and carry no schema/data,
+# then canonicalize the spacing between entries, which is not stable across
+# environments (CI produced one blank line fewer than local): runs of blank
+# lines are squeezed to one, and exactly one blank line is guaranteed before
+# each "--" comment header that follows a statement. Blank lines inside
+# function bodies/comments are kept (only squeezed); COPY data blocks are
+# copied verbatim (a row can be an empty line).
 strip_noise() {
-    grep -vE '^(-- Dumped (from|by)|SET |SELECT pg_catalog\.set_config|\\(un)?restrict )' | cat -s
+    grep -vE '^(-- Dumped (from|by)|SET |SELECT pg_catalog\.set_config|\\(un)?restrict )' \
+        | awk '
+            incopy { print; if ($0 == "\\.") incopy = 0; prev = $0; next }
+            /^COPY .* FROM stdin;$/ { print; incopy = 1; prev = $0; next }
+            $0 == "" { if (prev != "") print; prev = $0; next }
+            $0 == "--" && prev != "" && prev !~ /^--/ { print "" }
+            { print; prev = $0 }
+          '
 }
 
 if [ "$(pgc psql -X -At -c "SELECT count(*) FROM pg_namespace WHERE nspname = 'app'")" != "0" ]; then
