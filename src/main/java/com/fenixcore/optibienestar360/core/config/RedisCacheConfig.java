@@ -27,21 +27,17 @@ import java.util.Map;
 @Profile("prod")
 public class RedisCacheConfig {
 
-    private static final String CACHE_PREFIX = "optibienestar360:";
+    /**
+     * Key prefix. Versioned ("v2") since values carry type ids for final classes
+     * too (see {@link #cacheValueSerializer()}): entries written by the previous
+     * format cannot be read by the new one, so a new key space makes them simply
+     * miss and expire by TTL instead of failing on read.
+     */
+    private static final String CACHE_PREFIX = "optibienestar360:v2:";
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper cacheMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .activateDefaultTyping(
-                        BasicPolymorphicTypeValidator.builder()
-                                .allowIfBaseType(Object.class)
-                                .build(),
-                        ObjectMapper.DefaultTyping.NON_FINAL,
-                        JsonTypeInfo.As.PROPERTY);
-
-        RedisSerializer<Object> jsonSerializer = new TypeAwareJsonSerializer(cacheMapper);
+        RedisSerializer<Object> jsonSerializer = cacheValueSerializer();
 
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30))
@@ -64,6 +60,30 @@ public class RedisCacheConfig {
                 .cacheDefaults(base)
                 .withInitialCacheConfigurations(cacheConfigs)
                 .build();
+    }
+
+    /**
+     * Serializer for cached values (package-private for its unit test).
+     *
+     * <p>Values are read back as {@code Object}, so every value must carry its
+     * type id. {@code EVERYTHING} rather than {@code NON_FINAL}: our DTOs are
+     * Java records, which are final, and so are the lists {@code Stream.toList()}
+     * returns. With {@code NON_FINAL} those were written without a type id and
+     * failed to deserialize on every cache hit ("Redis deserialization error"),
+     * e.g. the cached catalogs behind {@code GET /v1/public/payment-methods}.</p>
+     */
+    @SuppressWarnings("deprecation") // DefaultTyping.EVERYTHING: deprecated in 2.17 but the only option that types final classes
+    static RedisSerializer<Object> cacheValueSerializer() {
+        ObjectMapper cacheMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .activateDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder()
+                                .allowIfBaseType(Object.class)
+                                .build(),
+                        ObjectMapper.DefaultTyping.EVERYTHING,
+                        JsonTypeInfo.As.PROPERTY);
+        return new TypeAwareJsonSerializer(cacheMapper);
     }
 
     private static class TypeAwareJsonSerializer implements RedisSerializer<Object> {
