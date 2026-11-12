@@ -1827,6 +1827,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 234	240	login audit log indexes	SQL	V240__login_audit_log_indexes.sql	592221643	snapshot	2026-01-01 00:00:00	0	t
 235	242	audit log indexes	SQL	V242__audit_log_indexes.sql	-735227598	snapshot	2026-01-01 00:00:00	0	t
 236	243	growth tables indexes	SQL	V243__growth_tables_indexes.sql	-1662585640	snapshot	2026-01-01 00:00:00	0	t
+237	244	operational log retention job	SQL	V244__operational_log_retention_job.sql	661983863	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -3800,6 +3801,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 17	d7c21522-7d38-493f-0714-5134fae371e2	CREDIT_AUTO_APPLY	Aplicación automática de saldo a favor	Cubre con el saldo a favor de la persona los meses completos de las membresías ACTIVE, del más antiguo al más nuevo, sin cobros parciales.	0 30 2 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 18	1aa1309b-e6fb-702b-b2ae-ed22717fad83	MEMBERSHIP_TERM_RENEWAL	Renovación de vigencia de membresías	Renueva automáticamente la vigencia de las membresías vencidas; si el plan exige reinscripción, deja la membresía SUSPENDED hasta que se aplique un pago de inscripción aprobado.	0 30 1 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 19	380ffac9-dda0-14c8-fbcd-2c953f230316	REGISTRATION_DRAFT_CLEANUP	Limpieza de borradores de registro abandonados	Descarta los registros de afiliado y aliado que siguen en borrador (sin enviar a revisión) tras los días de retención configurados; libera su cédula y correo. Nunca toca lo ya enviado.	0 15 3 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs, el log de sesiones legado y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "sessionLogDays": 180, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4518,7 +4520,7 @@ SELECT pg_catalog.setval('app.scheduled_job_runs_scheduled_job_runs_id_seq', 1, 
 -- Name: scheduled_jobs_scheduled_jobs_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 19, true);
+SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 20, true);
 
 --
 -- Name: security_policies_security_policies_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
