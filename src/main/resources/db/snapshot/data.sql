@@ -1829,6 +1829,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 236	243	growth tables indexes	SQL	V243__growth_tables_indexes.sql	-1662585640	snapshot	2026-01-01 00:00:00	0	t
 237	244	operational log retention job	SQL	V244__operational_log_retention_job.sql	661983863	snapshot	2026-01-01 00:00:00	0	t
 238	246	rate dates use value date	SQL	V246__rate_dates_use_value_date.sql	1886350107	snapshot	2026-01-01 00:00:00	0	t
+239	247	seed demo users by segment	SQL	V247__seed_demo_users_by_segment.sql	582982516	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;

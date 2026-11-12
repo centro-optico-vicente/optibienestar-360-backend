@@ -115,6 +115,7 @@ docker run --rm --network host \
     -placeholders.app_statement_timeout=30s \
     -placeholders.app_idle_in_transaction_timeout=60s \
     -placeholders.seed_password_never_expires=false \
+    -placeholders.demo_seed_enabled=false \
     -placeholders.app_timezone=America/Caracas \
     -outputType=json migrate >/dev/null
 
