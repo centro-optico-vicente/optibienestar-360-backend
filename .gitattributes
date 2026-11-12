@@ -2,3 +2,8 @@
 *.bat text eol=crlf
 *.jar binary
 *.ttf binary
+
+# Generated final-database snapshot (scripts/db/snapshot.sh): collapsed in PR diffs.
+src/main/resources/db/snapshot/schema.sql linguist-generated=true
+src/main/resources/db/snapshot/data.sql linguist-generated=true
+src/main/resources/db/snapshot/seed-catalog.md linguist-generated=true

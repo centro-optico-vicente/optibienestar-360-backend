@@ -132,6 +132,14 @@ tasks.named('bootRun') {
 	jvmArgs = jvmJasperArgs
 }
 
+// src/main/resources/db/snapshot/ is the generated final-database snapshot
+// (scripts/db/snapshot.sh): documentation + an importable dump for local
+// setups. Not needed at runtime, so keep it out of the JAR (and off the
+// classpath, where nothing should mistake it for a migration or an init script).
+tasks.named('processResources') {
+	exclude 'db/snapshot/**'
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	jvmArgs = jvmJasperArgs

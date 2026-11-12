@@ -42,6 +42,7 @@ Detalle en [`specs/01-package-structure.md`](specs/01-package-structure.md).
 7. **Idioma**: **código en inglés** — identificadores (clases, métodos, variables, paquetes, constantes), **comentarios** (Javadoc, inline, headers SQL), logs y mensajes de excepción técnicos. Solo van en español los **datos visibles al usuario**: textos UI (en el frontend, no acá), plantillas email, y valores del dominio que terminan en la BD como datos (ej. `permission_domains.label = 'Afiliados'`, descripciones de roles). Detalle en [ADR LOC-0009 local (espejo)](decisions/loc-0009-code-conventions.md) y [ADR LOC-0007 naming Java](decisions/loc-0007-java-naming-conventions.md).
 8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en **`camelCase`** (no `snake_case` — ver [ADR 0019 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md)). Errores RFC 7807.
 9. **Mensajes user-facing van vía MessageSource code, nunca string literal.** Excepciones de negocio extienden `LocalizedBusinessException` o reusan JDK/Spring exceptions con el code en `getMessage()`. Validación Jakarta Bean usa `@Pattern(message="{validation.x.y}")`. Texto en español o inglés vive únicamente en `messages_*.properties` / `ValidationMessages_*.properties` y plantillas email `<name>_<lang>.html`. Detalle, naming y patrones en [`specs/14-i18n.md`](specs/14-i18n.md).
+10. **BD actual = [`../src/main/resources/db/snapshot/`](../src/main/resources/db/snapshot/README.md)** (`schema-map.md`, `schema.sql`, `data.sql`, `seed-catalog.md`): es el estado final tras todas las migraciones (un `RENAME` aparece ya con el nombre nuevo). Para saber qué tablas, columnas, FKs, índices o datos sembrados existen, **leer esos archivos, no reconstruir el esquema migración por migración**. **Al crear o modificar una migración, regenerar con `scripts/db/snapshot.sh --fresh` y commitear `src/main/resources/db/snapshot/` en el mismo PR**; nunca editarlos a mano (el job `db-snapshot` de CI lo commitea si se olvida).
 
 ## Convenciones de trabajo con IA
 
@@ -64,7 +65,7 @@ Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Curs
 4. [`checklist.md`](checklist.md) — qué hacer
 5. Hub: [`../../centro-optico-vicente/.ai/context/business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
 6. Hub: [`../../centro-optico-vicente/.ai/specs/05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md)
-7. [`specs/02-database.md`](specs/02-database.md) — schema completo
+7. [`../src/main/resources/db/snapshot/schema-map.md`](../src/main/resources/db/snapshot/schema-map.md) — BD actual generada (tablas, relaciones, índices); [`specs/02-database.md`](specs/02-database.md) — diseño y convenciones (manual)
 8. [`specs/04-security.md`](specs/04-security.md) — Spring Security config
 
 ## Para tareas comunes
