@@ -27,13 +27,7 @@ import java.util.Map;
 @Profile("prod")
 public class RedisCacheConfig {
 
-    /**
-     * Key prefix. Versioned ("v2") since values carry type ids for final classes
-     * too (see {@link #cacheValueSerializer()}): entries written by the previous
-     * format cannot be read by the new one, so a new key space makes them simply
-     * miss and expire by TTL instead of failing on read.
-     */
-    private static final String CACHE_PREFIX = "optibienestar360:v2:";
+    private static final String CACHE_PREFIX = "optibienestar360:";
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -70,7 +64,10 @@ public class RedisCacheConfig {
      * Java records, which are final, and so are the lists {@code Stream.toList()}
      * returns. With {@code NON_FINAL} those were written without a type id and
      * failed to deserialize on every cache hit ("Redis deserialization error"),
-     * e.g. the cached catalogs behind {@code GET /v1/public/payment-methods}.</p>
+     * e.g. the cached catalogs behind {@code GET /v1/public/payment-methods}.
+     * Changing the typing again changes the stored format: if a Redis with live
+     * entries exists by then, also version {@code CACHE_PREFIX} so old entries
+     * are not read.</p>
      */
     @SuppressWarnings("deprecation") // DefaultTyping.EVERYTHING: deprecated in 2.17 but the only option that types final classes
     static RedisSerializer<Object> cacheValueSerializer() {
