@@ -218,3 +218,88 @@ jobs:
       #     push: false
       #     cache-from: type=gha,scope=docker-debian-runtime
       #     cache-to: type=gha,mode=min,scope=docker-debian-runtime
+
+  # Keeps the final-database snapshot in src/main/resources/db/snapshot/
+  # (schema.sql, data.sql, schema-map.md, seed-catalog.md) in sync with the
+  # migrations, so nobody — human or AI — has to replay V1..VN to know (or
+  # import) the current database. Every PR with a migration is expected to
+  # include the regenerated snapshot (playbook new-migration.md); this job is the
+  # safety net that commits it when it was forgotten. Runs only when the
+  # migrations or the generator change. On a PR it regenerates the files and,
+  # if they changed, commits them to the PR branch as github-actions[bot] (the
+  # commit disappears in the squash-merge; the PR author stays the author). On
+  # main it only verifies (no direct pushes to main — ADR 0004).
+  # A push made with GITHUB_TOKEN does not trigger workflows, so there is no loop.
+  db-snapshot:
+    name: DB schema snapshot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push the regenerated snapshot to the PR branch
+      pull-requests: read    # dorny/paths-filter (see top of file)
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: optibienestar360_snapshot
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out the PR branch (or main)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+
+      - name: Check for DB changes
+        id: db-changes
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            db:
+              - 'src/main/resources/db/migration/**'
+              - 'scripts/db/**'
+
+      - name: Regenerate snapshot
+        if: steps.db-changes.outputs.db == 'true'
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: optibienestar360_snapshot
+        run: scripts/db/snapshot.sh --migrate
+
+      - name: Commit snapshot to the PR branch
+        if: >-
+          steps.db-changes.outputs.db == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet -- src/main/resources/db/snapshot && [ -z "$(git status --porcelain -- src/main/resources/db/snapshot)" ]; then
+            echo "Snapshot already up to date."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/resources/db/snapshot
+          git commit -m "chore: Update DB schema snapshot"
+          # A newer push to the branch cancels this run (concurrency) and its own
+          # run regenerates the snapshot, so a rejected push is not an error.
+          git push origin "HEAD:${{ github.head_ref }}" \
+            || echo "::warning::Could not push the snapshot (branch moved); the next run will regenerate it."
+
+      - name: Warn if main's snapshot is stale
+        if: steps.db-changes.outputs.db == 'true' && github.event_name == 'push'
+        run: |
+          if ! git diff --quiet -- src/main/resources/db/snapshot || [ -n "$(git status --porcelain -- src/main/resources/db/snapshot)" ]; then
+            echo "::warning::src/main/resources/db/snapshot is out of date on main. It is refreshed by the next PR that touches db/migration (or run scripts/db/snapshot.sh --fresh)."
+            git status --short -- src/main/resources/db/snapshot
+          fi

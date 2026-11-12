@@ -101,6 +101,58 @@ jobs:
           echo "Attached: https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/openapi.json"
 
 
+  # Attach the FINAL DATABASE of this release (not the migrations): a pg_dump of
+  # a fresh database with every migration applied — schema `app`, extensions,
+  # the data the migrations seed (catalogs, roles, permissions) and
+  # flyway_schema_history, so a database restored from it only applies the
+  # migrations newer than this tag. No real data: it never touches prod/dev.
+  # Plus the snapshot files of that tag (schema.sql, data.sql, schema-map.md,
+  # seed-catalog.md). Restore locally with scripts/db/restore.sh --release <tag>.
+  attach-db-to-release:
+    name: Attach final database to the release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: optibienestar360
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+
+      - name: Build the final database and snapshot
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: optibienestar360
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: scripts/db/snapshot.sh --migrate --out release-db --dump "release-db/optibienestar360-${RELEASE_TAG}.dump"
+
+      - name: Upload database assets to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test -s "release-db/optibienestar360-${RELEASE_TAG}.dump"
+          gh release upload "$RELEASE_TAG" \
+            "release-db/optibienestar360-${RELEASE_TAG}.dump" \
+            release-db/schema.sql release-db/data.sql release-db/schema-map.md release-db/seed-catalog.md \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+
   # Verify secrets before attempting Docker Hub push
   check-secrets-dhr:
     name: Check if Docker Hub registry information was set on secrets
