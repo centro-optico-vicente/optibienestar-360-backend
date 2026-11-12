@@ -94,6 +94,8 @@ does nothing until re-bootstrap or a manual `ALTER ROLE`.
 | `SMTP_PORT` | `587` | SMTP server port. |
 | `SMTP_USER` | — | SMTP username. |
 | `SMTP_PASSWORD` | — | SMTP password (file-secret in `prod`). |
+| `SMTP_SSL_ENABLED` | `false` | Implicit TLS from the first byte (port 465). |
+| `SMTP_STARTTLS_ENABLED` | `true` | Plain connect then mandatory STARTTLS upgrade (port 587). Set `false` together with `SMTP_SSL_ENABLED=true` for 465. |
 | `MAIL_FROM` | `noreply@centroopticovicente.com` | Sender of outgoing emails. |
 | `MAIL_FROM_NAME` | `OptiBienestar 360` | Sender display name. |
 | `MAIL_ADMIN` | `admin@centroopticovicente.com` | Administrative inbox. |

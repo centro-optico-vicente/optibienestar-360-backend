@@ -17,8 +17,9 @@ spring.mail.port=${SMTP_PORT:587}
 spring.mail.username=${SMTP_USER}
 spring.mail.password=${SMTP_PASSWORD}
 spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.properties.mail.smtp.ssl.enable=${SMTP_SSL_ENABLED:false}
+spring.mail.properties.mail.smtp.starttls.enable=${SMTP_STARTTLS_ENABLED:true}
+spring.mail.properties.mail.smtp.starttls.required=${SMTP_STARTTLS_ENABLED:true}
 spring.mail.properties.mail.smtp.connectiontimeout=5000
 spring.mail.properties.mail.smtp.timeout=5000
 spring.mail.properties.mail.smtp.writetimeout=5000
@@ -254,9 +255,20 @@ SMTP_HOST=smtp.gmail.com  o  email-smtp.us-east-1.amazonaws.com (SES) o servidor
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASSWORD=...
+SMTP_SSL_ENABLED=false        # true para TLS implícito (puerto 465)
+SMTP_STARTTLS_ENABLED=true    # false junto con SMTP_SSL_ENABLED=true en 465
 MAIL_FROM=noreply@dominio.com
 MAIL_FROM_NAME=OptiBienestar 360
 ```
+
+### Modo TLS: 587 vs 465
+
+| Puerto | Modo | Variables |
+|---|---|---|
+| 587 (default) | STARTTLS obligatorio | `SMTP_SSL_ENABLED=false`, `SMTP_STARTTLS_ENABLED=true` |
+| 465 | TLS implícito | `SMTP_SSL_ENABLED=true`, `SMTP_STARTTLS_ENABLED=false` |
+
+Usar 465 cuando el proveedor o el firewall del host rechaza la salida por 587 (`MailConnectException ... Connection refused`). Combinar 465 con STARTTLS obligatorio no funciona: el servidor espera el saludo TLS desde el primer byte.
 
 ## Decisión SMTP provider
 
