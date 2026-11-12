@@ -139,27 +139,27 @@ public class SystemConfigService {
 
 	/**
 	 * Max generic PDF documents rendered at the same time (V238). Fail-safe:
-	 * 2 if the singleton row is missing (same default as the column).
+	 * 5 if the singleton row is missing (same default as the column).
 	 */
 	@Transactional(readOnly = true)
 	public int getPdfMaxConcurrentRenders() {
 		return systemConfigRepository
 			.findFirstByActiveTrue()
 			.map(SystemConfig::getPdfMaxConcurrentRenders)
-			.orElse(2)
+			.orElse(5)
 		;
 	}
 
 	/**
 	 * Seconds a PDF request waits for a free render slot before 503 (V238).
-	 * Fail-safe: 30 if the singleton row is missing (same default as the column).
+	 * Fail-safe: 10 if the singleton row is missing (same default as the column).
 	 */
 	@Transactional(readOnly = true)
 	public int getPdfRenderWaitSeconds() {
 		return systemConfigRepository
 			.findFirstByActiveTrue()
 			.map(SystemConfig::getPdfRenderWaitSeconds)
-			.orElse(30)
+			.orElse(10)
 		;
 	}
 
