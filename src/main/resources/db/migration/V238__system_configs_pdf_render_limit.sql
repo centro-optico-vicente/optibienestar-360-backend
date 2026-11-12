@@ -11,9 +11,9 @@ SET search_path TO app, public;
 -- ────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE system_configs
-	ADD COLUMN pdf_max_concurrent_renders INT NOT NULL DEFAULT 2
+	ADD COLUMN pdf_max_concurrent_renders INT NOT NULL DEFAULT 5
 		CONSTRAINT chk_system_configs_pdf_max_concurrent_renders CHECK (pdf_max_concurrent_renders >= -1),
-	ADD COLUMN pdf_render_wait_seconds INT NOT NULL DEFAULT 30
+	ADD COLUMN pdf_render_wait_seconds INT NOT NULL DEFAULT 10
 		CONSTRAINT chk_system_configs_pdf_render_wait_seconds CHECK (pdf_render_wait_seconds >= -1);
 
 COMMENT ON COLUMN system_configs.pdf_max_concurrent_renders IS 'Max generic PDF documents rendered at the same time; 0 or -1 = no cap';
