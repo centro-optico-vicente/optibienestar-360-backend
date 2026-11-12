@@ -30,4 +30,9 @@ public class LoginSessionValidityCache {
     @CacheEvict(value = "login-session", key = "#sessionId")
     public void evict(UUID sessionId) {
     }
+
+    /** Bulk revocations (every session of a user) don't know the sids — drop the whole cache. */
+    @CacheEvict(value = "login-session", allEntries = true)
+    public void evictAll() {
+    }
 }
