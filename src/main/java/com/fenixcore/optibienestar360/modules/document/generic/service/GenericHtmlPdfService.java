@@ -2,7 +2,6 @@ package com.fenixcore.optibienestar360.modules.document.generic.service;
 
 import com.fenixcore.optibienestar360.core.branding.BrandingContext;
 import com.fenixcore.optibienestar360.core.branding.BrandingService;
-import com.fenixcore.optibienestar360.core.exception.ServiceBusyException;
 import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
@@ -16,8 +15,6 @@ import org.thymeleaf.context.Context;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class GenericHtmlPdfService {
@@ -36,15 +33,6 @@ public class GenericHtmlPdfService {
             new FontFace("LiberationSans-Italic.ttf", 400, FontStyle.ITALIC),
             new FontFace("LiberationSans-BoldItalic.ttf", 700, FontStyle.ITALIC)
     );
-
-    /**
-     * At most this many PDFs render at once: each render holds the parsed fonts and the whole
-     * document in memory, and several in parallel multiply that peak inside the container limit.
-     */
-    static final int MAX_CONCURRENT_RENDERS = 2;
-    private static final long RENDER_WAIT_SECONDS = 30;
-    private static final int RETRY_AFTER_SECONDS = 10;
-    private final Semaphore renderPermits = new Semaphore(MAX_CONCURRENT_RENDERS, true);
 
     private record FontFace(String file, int weight, FontStyle style) {}
 
@@ -96,7 +84,6 @@ public class GenericHtmlPdfService {
             String finalTemplate = (templateName != null && !templateName.isBlank()) ? templateName : "documents/generic_record_card";
             String renderedHtml = templateEngine.process(finalTemplate, context);
 
-            acquireRenderPermit();
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
                 builder.useFastMode();
@@ -106,26 +93,9 @@ public class GenericHtmlPdfService {
                 builder.run();
 
                 return out.toByteArray();
-            } finally {
-                renderPermits.release();
             }
-        } catch (ServiceBusyException e) {
-            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error rendering generic PDF document via HTML/openhtmltopdf: " + e.getMessage(), e);
-        }
-    }
-
-    private void acquireRenderPermit() {
-        boolean acquired;
-        try {
-            acquired = renderPermits.tryAcquire(RENDER_WAIT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ServiceBusyException("document.error.busy", RETRY_AFTER_SECONDS);
-        }
-        if (!acquired) {
-            throw new ServiceBusyException("document.error.busy", RETRY_AFTER_SECONDS);
         }
     }
 

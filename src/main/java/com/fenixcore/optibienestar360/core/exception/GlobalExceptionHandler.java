@@ -171,19 +171,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(status).body(problem);
     }
 
-    // 503 — a bounded resource (e.g. PDF rendering) is saturated; the client may retry shortly
-    @ExceptionHandler(ServiceBusyException.class)
-    public ResponseEntity<ProblemDetail> handleServiceBusy(ServiceBusyException ex) {
-        Locale locale = LocaleContextHolder.getLocale();
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.SERVICE_UNAVAILABLE, resolveCodeOrLiteral(ex.getMessage(), locale));
-        problem.setType(URI.create(problemsBase + "/service-unavailable"));
-        problem.setTitle(resolve("error.title.unavailable", locale));
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
-                .body(problem);
-    }
-
     // 500 — catch-all
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
