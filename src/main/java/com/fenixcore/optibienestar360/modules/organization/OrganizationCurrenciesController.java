@@ -1,8 +1,10 @@
 package com.fenixcore.optibienestar360.modules.organization;
 
+import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationCurrenciesDto;
 import com.fenixcore.optibienestar360.modules.organization.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,7 +30,8 @@ public class OrganizationCurrenciesController {
     private final OrganizationService service;
 
     @GetMapping("/currencies")
-    public OrganizationCurrenciesDto currencies() {
-        return service.getCurrencies();
+    public ResponseEntity<OrganizationCurrenciesDto> currencies() {
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.userScopedShortLived())
+                .body(service.getCurrencies());
     }
 }

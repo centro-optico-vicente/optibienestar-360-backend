@@ -46,7 +46,8 @@ public class PublicExchangeRateController {
             @RequestParam String base,
             @RequestParam String quote,
             @RequestParam(required = false) String asOf) {
-        return ResponseEntity.ok(lookupService.current(base, quote, asOf));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(lookupService.current(base, quote, asOf));
     }
 
     @GetMapping("/exchange-rates/convert")
@@ -55,7 +56,8 @@ public class PublicExchangeRateController {
             @RequestParam String from,
             @RequestParam String to,
             @RequestParam(required = false) String asOf) {
-        return ResponseEntity.ok(lookupService.convert(amount, from, to, asOf));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
+                .body(lookupService.convert(amount, from, to, asOf));
     }
 
     @GetMapping("/currencies")

@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V241. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V243. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 117 tables.
 
@@ -712,7 +712,6 @@
 - CHECK `chk_ally_products_review_reason` CHECK ((((review_status)::text <> ALL ((ARRAY['REJECTED'::character varying, 'REMOVED'::character varying])::text[])) OR ((review_reason IS NOT NULL) AND (reviewed_by IS NOT NULL))))
 
 **Indexes**
-- `idx_ally_products_ally` btree (ally_id)
 - `idx_ally_products_pending_queue` btree (created_at) WHERE ((review_status)::text = ANY ((ARRAY['PROPOSED'::character varying, 'IN_REVIEW'::character varying])::text[]))
 - `idx_ally_products_product` btree (product_id)
 - `idx_ally_products_published` btree (ally_id) WHERE (is_published AND ((review_status)::text = 'APPROVED'::text))
@@ -993,10 +992,11 @@
 - `idx_benefit_usages_ally_date` btree (ally_id, usage_date DESC)
 - `idx_benefit_usages_ally_product_date` btree (ally_product_id, usage_date DESC) WHERE (ally_product_id IS NOT NULL)
 - `idx_benefit_usages_ally_product_rated` btree (ally_product_id) WHERE ((product_rating IS NOT NULL) AND is_active)
-- `idx_benefit_usages_ally_rated` btree (ally_id) WHERE ((rated_at IS NOT NULL) AND is_active)
+- `idx_benefit_usages_ally_rated` btree (ally_id) WHERE ((ally_rating IS NOT NULL) AND is_active AND ((status)::text = 'REGISTERED'::text))
 - `idx_benefit_usages_beneficiary` btree (beneficiary_id, usage_date DESC) WHERE (beneficiary_id IS NOT NULL)
 - `idx_benefit_usages_category_date` btree (product_category_id, usage_date DESC) WHERE is_active
 - `idx_benefit_usages_membership_date` btree (membership_id, usage_date DESC)
+- `idx_benefit_usages_usage_datetime` btree (usage_datetime DESC)
 
 **Triggers**
 - `trg_benefit_usages_updated_at` BEFORE UPDATE ON app.benefit_usages FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -1023,7 +1023,6 @@
 - UNIQUE `uq_campaign_promoters_campaign_promoter` UNIQUE (campaign_id, promoter_id)
 
 **Indexes**
-- `idx_campaign_promoters_campaign` btree (campaign_id)
 - `idx_campaign_promoters_promoter` btree (promoter_id)
 
 **Triggers**
@@ -1161,7 +1160,6 @@
 
 **Indexes**
 - `idx_cities_is_active` btree (is_active) WHERE is_active
-- `idx_cities_state_id` btree (state_id)
 
 **Triggers**
 - `trg_cities_updated_at` BEFORE UPDATE ON app.cities FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -1375,9 +1373,6 @@
 - CHECK `chk_commission_retroactive_topup_cuts_ledger_type` CHECK (((ledger_type)::text = ANY ((ARRAY['DIRECT_INSCRIPTION'::character varying, 'DIRECT_COLLECTION'::character varying, 'HIERARCHY_OVERRIDE_INSCRIPTION'::character varying, 'HIERARCHY_OVERRIDE_COLLECTION'::character varying])::text[])))
 - CHECK `chk_commission_retroactive_topup_cuts_sequence` CHECK ((cut_sequence >= 1))
 - CHECK `chk_commission_retroactive_topup_cuts_status` CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'PAID'::character varying, 'VOIDED'::character varying])::text[])))
-
-**Indexes**
-- `idx_commission_retroactive_topup_cuts_promoter_period` btree (promoter_id, ledger_type, accrual_period_start, accrual_period_end)
 
 **Triggers**
 - `trg_commission_retroactive_topup_cuts_updated_at` BEFORE UPDATE ON app.commission_retroactive_topup_cuts FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -2182,10 +2177,10 @@
 - CHECK `chk_data_change_action` CHECK (((action)::text = ANY ((ARRAY['CREATE'::character varying, 'UPDATE'::character varying, 'DELETE'::character varying])::text[])))
 
 **Indexes**
-- `idx_data_change_actor` btree (actor_id)
-- `idx_data_change_entity` btree (entity_key, entity_uuid)
-- `idx_data_change_entity_id` btree (entity_key, entity_id)
-- `idx_data_change_login_audit` btree (login_audit_log_id)
+- `idx_data_change_actor_occurred` btree (actor_id, occurred_at DESC)
+- `idx_data_change_entity_id` btree (entity_key, entity_id) WHERE (entity_id IS NOT NULL)
+- `idx_data_change_entity_occurred` btree (entity_key, entity_uuid, occurred_at DESC)
+- `idx_data_change_login_audit` btree (login_audit_log_id) WHERE (login_audit_log_id IS NOT NULL)
 - `idx_data_change_occurred_at` btree (occurred_at DESC)
 
 **Referenced by** `data_change_audit_log`.(restored_from_id)
@@ -2243,9 +2238,6 @@
 - PK PRIMARY KEY (entity_config_id)
 - UNIQUE `audit_entity_config_entity_key_key` UNIQUE (entity_key)
 - UNIQUE `audit_entity_config_uuid_key` UNIQUE (uuid)
-
-**Indexes**
-- `idx_audit_entity_config_key` btree (entity_key)
 
 **Triggers**
 - `trg_audit_entity_config_updated_at` BEFORE UPDATE ON app.entity_config FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -2681,7 +2673,6 @@
 - CHECK `member_documents_file_size_bytes_check` CHECK ((file_size_bytes > 0))
 
 **Indexes**
-- `idx_member_documents_member` btree (member_id)
 - `idx_member_documents_member_type` btree (member_id, document_type)
 
 **Triggers**
@@ -4308,9 +4299,9 @@
 - CHECK `chk_report_audit_format` CHECK (((format)::text = ANY ((ARRAY['PDF'::character varying, 'XLSX'::character varying])::text[])))
 
 **Indexes**
-- `idx_report_audit_actor` btree (actor_id)
-- `idx_report_audit_entity` btree (entity_key, entity_identifier)
-- `idx_report_audit_entity_id` btree (entity_key, entity_id)
+- `idx_report_audit_actor_generated` btree (actor_id, generated_at DESC)
+- `idx_report_audit_entity_generated` btree (entity_key, entity_uuid, generated_at DESC)
+- `idx_report_audit_entity_id` btree (entity_key, entity_id) WHERE (entity_id IS NOT NULL)
 - `idx_report_audit_file` btree (attached_file_id)
 - `idx_report_audit_generated_at` btree (generated_at DESC)
 - `idx_report_audit_login_audit` btree (login_audit_log_id)
@@ -4341,7 +4332,6 @@
 **Indexes**
 - `idx_report_share_expires` btree (expires_at)
 - `idx_report_share_report` btree (report_audit_log_id)
-- `idx_report_share_token` btree (share_token)
 
 ## role_permissions
 
@@ -4362,7 +4352,6 @@
 
 **Indexes**
 - `idx_role_permissions_permission_id` btree (permission_id)
-- `idx_role_permissions_role_id` btree (role_id)
 
 **Triggers**
 - `trg_role_permissions_updated_at` BEFORE UPDATE ON app.role_permissions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -4425,6 +4414,7 @@
 - CHECK `scheduled_job_runs_triggered_by_check` CHECK (((triggered_by)::text = ANY ((ARRAY['SCHEDULED'::character varying, 'MANUAL'::character varying, 'STARTUP'::character varying])::text[])))
 
 **Indexes**
+- `idx_scheduled_job_runs_created` btree (created_at DESC)
 - `idx_scheduled_job_runs_job_started` btree (scheduled_job_id, started_at DESC)
 - `idx_scheduled_job_runs_running` btree (scheduled_job_id) WHERE ((outcome)::text = 'RUNNING'::text)
 
@@ -4525,7 +4515,6 @@
 - UNIQUE `states_uuid_key` UNIQUE (uuid)
 
 **Indexes**
-- `idx_states_country_id` btree (country_id)
 - `idx_states_is_active` btree (is_active) WHERE is_active
 
 **Triggers**
@@ -4631,7 +4620,6 @@
 
 **Indexes**
 - `idx_subsidy_beneficiaries_beneficiary` btree (beneficiary_id) WHERE is_active
-- `idx_subsidy_beneficiaries_subsidy` btree (subsidy_id)
 
 **Triggers**
 - `trg_subsidy_beneficiaries_updated_at` BEFORE UPDATE ON app.subsidy_beneficiaries FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -4793,7 +4781,6 @@
 
 **Indexes**
 - `idx_user_roles_role_id` btree (role_id)
-- `idx_user_roles_user_id` btree (user_id)
 
 **Triggers**
 - `trg_user_roles_updated_at` BEFORE UPDATE ON app.user_roles FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -4818,7 +4805,7 @@
 - CHECK `user_sessions_log_logout_reason_check` CHECK (((logout_reason)::text = ANY ((ARRAY['user_logout'::character varying, 'token_expired'::character varying, 'forced'::character varying, 'role_switch'::character varying])::text[])))
 
 **Indexes**
-- `idx_user_sessions_log_jti` btree (jti)
+- `idx_user_sessions_log_open_jti` btree (jti) WHERE (logout_at IS NULL)
 - `idx_user_sessions_log_user_id` btree (user_id)
 
 ## users

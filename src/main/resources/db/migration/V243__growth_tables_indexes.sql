@@ -1,7 +1,7 @@
 SET search_path TO app, public;
 
 -- ============================================================================
--- V241: index the fast-growing business tables for the queries they serve.
+-- V243: index the fast-growing business tables for the queries they serve.
 --
 -- Same approach as V240 (login_audit_log): no volume or metrics exist yet,
 -- so every index below is matched to a query that runs today, and indexes no
