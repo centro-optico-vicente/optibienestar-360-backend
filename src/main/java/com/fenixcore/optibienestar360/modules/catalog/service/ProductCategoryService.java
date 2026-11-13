@@ -2,8 +2,10 @@ package com.fenixcore.optibienestar360.modules.catalog.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.ListQuery;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
@@ -81,6 +83,18 @@ public class ProductCategoryService {
         return repository.findAllByActiveTrueOrderByName().stream()
                 .map(ProductCategoryService::toDto)
                 .toList();
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}.
+     * The code is a technical identifier (ADR LOC-0013, rule 5), so the label is the plain name;
+     * the code still travels in {@code OptionDto.code}.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<ProductCategory> spec = ((Specification<ProductCategory>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                ProductCategory::getUuid, ProductCategory::getCode, ProductCategory::getName, ProductCategory::isActive);
     }
 
     public ProductCategoryDto get(UUID uuid) {

@@ -55,7 +55,8 @@ Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` �
 | `roles` | N/A (sin paginar) | ✅ |
 | `countries` | ✅ | ✅ |
 | `ally-services` (cola `pending`) | ✅ (cerrado por este ADR) | — (cola de revisión, no es tabla principal) |
-| `products`, `product-categories` | ✅ | ❌ **pendiente** (Regla 4; label `<code> — <name>`, Regla 5) |
+| `products` | ✅ | ✅ (label `<code> — <name>` si tiene código) |
+| `product-categories` | ✅ | ✅ (código técnico → label solo nombre) |
 
 `service-categories`, `corporate-contracts`, `promoters`: ver Regla 4 (enmienda) — se agregan aunque el frontend aún no los use.
 
@@ -65,7 +66,7 @@ Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` �
 
 La Regla 2 aplica a las **tablas principales** (entidades con identidad propia: `products`, `plans`, `allies`, `campaigns`, `promoters`, `payment-methods`…). **No** aplica a tablas de asociación/detalle (pivots, líneas hijas, historiales: `ally-products` de un aliado, `plan-terms`, `member-beneficiaries`…), que se consultan siempre a través de su padre.
 
-Ya **no** se espera a que el frontend "necesite" el select para agregarlo: cualquier tabla principal que liste en `GET /v1/admin/{recurso}` expone `GET /v1/admin/{recurso}/options` (con `?q=`, `limit`, `currentValues`, Regla 3). Esto reemplaza la excepción de arriba ("quedan fuera — no tienen ningún `<select>` hoy"): `service-categories`, `corporate-contracts`, `promoters` y, sobre todo, **`products`** (producto/servicio) se agregan reutilizando `OptionsSupport`. Pendiente a la fecha: `products`, `product-categories`.
+Ya **no** se espera a que el frontend "necesite" el select para agregarlo: cualquier tabla principal que liste en `GET /v1/admin/{recurso}` expone `GET /v1/admin/{recurso}/options` (con `?q=`, `limit`, `currentValues`, Regla 3). Esto reemplaza la excepción de arriba ("quedan fuera — no tienen ningún `<select>` hoy"): `service-categories`, `corporate-contracts`, `promoters` y, sobre todo, **`products`** (producto/servicio) se agregan reutilizando `OptionsSupport`. `products` y `product-categories` ya lo tienen.
 
 ### Regla 5 — Label del `/options`: `<code> — <name>` solo con código legible
 
@@ -83,7 +84,8 @@ El `label` es lo que el usuario ve en el select; el frontend no lo recompone (sp
 | `payment-methods`, `payment-categories`, `licensing-bodies` | técnico | nombre | ✅ |
 | `marital-statuses` (`SOLTERO`), `professions` (`INGENIERIA_CIVIL`), `ally-types` (`CLINICA`) | técnico | `código — nombre` | ❌ pendiente: solo nombre |
 | `promoter-types` | por verificar | `código — nombre` | por verificar |
-| `products`, `product-categories` | legible (SKU) | sin `/options` | ❌ pendiente: crear `/options` con `código — nombre` |
+| `products` | legible (SKU, opcional) | `código — nombre` (solo nombre si no tiene código) | ✅ |
+| `product-categories` | técnico (`SERVICIOS_FUNERARIOS`) | nombre | ✅ |
 
 ## Por qué
 
