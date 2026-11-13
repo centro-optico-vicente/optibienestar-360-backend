@@ -747,8 +747,9 @@ public class AdminCatalogsController {
     public ResponseEntity<List<OptionDto>> allyTypeOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
-            @RequestParam(required = false) List<UUID> currentValues) {
-        return ResponseEntity.ok(allyTypeService.listOptions(q, limit, currentValues));
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) String segment) {
+        return ResponseEntity.ok(allyTypeService.listOptions(q, limit, currentValues, segment));
     }
 
     @GetMapping("/ally-types/{uuid}")

@@ -109,9 +109,15 @@ Toda lista desplegable del frontend llama al `/options` de su entidad, nunca al 
 
 Todo `/options` acepta `q` de búsqueda libre sobre los `SEARCHABLE_FIELDS` de su listado (vía `SearchSpecifications.acrossFields`): insensible a mayúsculas y a tildes con `immutable_unaccent(lower(...))` en ambos lados, así `pena` encuentra `Peña` y `merida` encuentra `Mérida`.
 
+### Filtros del servidor en `/options` y búsqueda siempre en el servidor
+
+Toda búsqueda de un select se hace en el servidor con `q` (el frontend nunca filtra localmente: una lista desplegable trae a lo sumo 50 filas y filtrar esas ocultaría el resto). Cuando el formulario necesita acotar por un hecho de la entidad, el `/options` lo recibe como parámetro en lugar de traer todo y filtrar: `ally-types/options?segment=B2B|B2P` (un aliado no mezcla tipos de ambos segmentos) y `payment-categories/options?direction=IN|OUT`. `limit` por defecto 50, tope 200.
+
+`GET /v1/me/payment-methods` (sesión válida, DTO completo con las banderas `mandatory*`) acepta `q` y `limit` y busca en el servidor con el mismo motor del listado admin; sin ninguno devuelve la lista completa en caché.
+
 ### Pendiente — atributos extra del método de pago
 
-El formulario de pago usa las banderas `mandatory*` del método para mostrar/ocultar campos; `OptionDto` no las trae. Hasta decidir entre (a) lista con atributos (más pesada, UI fluida) y (b) `/options` + detalle del seleccionado (liviana, una consulta extra), el select de método de pago sigue en `/v1/me/payment-methods`. Bancos y monedas no tienen ese problema: sus formularios solo usan `code` y el label, que `/options` ya trae.
+El formulario de pago usa las banderas `mandatory*` del método para mostrar/ocultar campos; `OptionDto` no las trae. Hasta decidir entre (a) lista con atributos (más pesada, UI fluida) y (b) `/options` + detalle del seleccionado (liviana, una consulta extra), el select de método de pago usa `GET /v1/me/payment-methods?q=` (búsqueda en el servidor, DTO completo). Bancos y monedas no tienen ese problema: sus formularios solo usan `code` y el label, que `/options` ya trae.
 
 ## Por qué
 

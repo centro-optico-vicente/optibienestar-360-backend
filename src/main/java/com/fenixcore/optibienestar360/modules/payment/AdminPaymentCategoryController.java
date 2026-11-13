@@ -67,8 +67,9 @@ public class AdminPaymentCategoryController {
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
-            @RequestParam(required = false) List<UUID> currentValues) {
-        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) String direction) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues, direction));
     }
 
     @GetMapping("/{uuid}")
