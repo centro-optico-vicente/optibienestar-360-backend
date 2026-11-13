@@ -683,6 +683,15 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(new AppliedSortPage<>(page, productCategoryService.effectiveSort(pageable)));
     }
 
+    @GetMapping({"/product-categories/options", "/service-categories/options"})
+    @PreAuthorize(PRODUCT_CATEGORY_VIEW)
+    public ResponseEntity<List<OptionDto>> productCategoryOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(productCategoryService.listOptions(q, limit, currentValues));
+    }
+
     @GetMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
     @PreAuthorize(PRODUCT_CATEGORY_VIEW)
     public ResponseEntity<ProductCategoryDto> getProductCategory(@PathVariable UUID uuid) {

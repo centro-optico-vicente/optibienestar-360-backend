@@ -2,7 +2,9 @@ package com.fenixcore.optibienestar360.modules.product.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
 import com.fenixcore.optibienestar360.core.util.SortFieldValidator;
@@ -119,6 +121,22 @@ public class ProductsService {
     /** The sort {@link #list} actually applies — reported back to the admin table. */
     public List<SortOrder> effectiveSort(Pageable pageable) {
         return defaultSortResolver.effectiveSort(ENTITY_KEY, pageable);
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}.
+     * The label is {@code <code> — <name>} when the product has a code (it tells apart items
+     * with similar names), the plain name otherwise.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Product> spec = ((Specification<Product>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                Product::getUuid, Product::getCode, ProductsService::labelOf, Product::isActive);
+    }
+
+    private static String labelOf(Product p) {
+        return p.getCode() == null || p.getCode().isBlank() ? p.getName() : p.getCode() + " — " + p.getName();
     }
 
     public ProductDto get(UUID uuid) {
