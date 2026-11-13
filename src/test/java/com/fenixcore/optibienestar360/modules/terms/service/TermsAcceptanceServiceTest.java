@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
@@ -54,12 +55,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Audience rules of {@link TermsAcceptanceService#pendingForUser}: MEMBER
- * for every user, ADVISOR for users with an active, non-system advisor record
- * (any rank, whatever their roles), ALLY from the active agreements of the
- * user's allies, once per agreement — and {@code is_public} gates none of
- * them. Each pending text is rendered with the variables of the entity that
- * made it due, and stored as accepted (V189).
+ * Audience rules of {@link TermsAcceptanceService#pendingForUser}, one contract
+ * per segment the user is in (backend#412): MEMBER (C2B) for users with a
+ * member role, ADVISOR (B2C) for users with an active, non-system advisor
+ * record (any rank, whatever their roles), ALLY (B2B / B2P) from the active
+ * agreements of the user's allies, once per agreement, or the template of the
+ * ally's own segment while it is under review without an agreement — and
+ * {@code is_public} gates none of them. Each pending text is rendered with the
+ * variables of the entity that made it due, and stored as accepted (V189).
  */
 @ExtendWith(MockitoExtension.class)
 class TermsAcceptanceServiceTest {
@@ -513,6 +516,170 @@ class TermsAcceptanceServiceTest {
         assertThat(pendingTypes()).containsExactly(TermType.MEMBER);
     }
 
+    // ─── Segments (backend#412): each user only gets the contracts of their own segments ───────────
+
+    @Test
+    void segment_pendingB2BAlly_seesOnlyTheB2BTemplate() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ALLY_PENDING);
+        Ally ally = belongToPendingAlly(50L, Segment.B2B);
+        TermsVersion b2b = segmentTemplate(30L, Segment.B2B);
+        stubAllyTemplates(generalTemplate(), b2b, segmentTemplate(31L, Segment.B2P));
+        Map<String, String> allyValues = Map.of("ally.name", "Comercio");
+        when(variableResolver.forAllyWithoutAgreement(ally)).thenReturn(TermsRenderContext.of(allyValues));
+
+        List<PendingTermDto> pending = service.pendingForUser(user.getUuid());
+
+        assertThat(pending).singleElement().satisfies(item -> {
+            assertThat(item.termsVersionUuid()).isEqualTo(b2b.getUuid());
+            assertThat(item.allyUuid()).isEqualTo(ally.getUuid());
+            assertThat(item.allyAgreementUuid()).isNull();
+        });
+        verify(renderer).render(b2b.getContentMarkdown(), TermsRenderContext.of(allyValues));
+    }
+
+    @Test
+    void segment_pendingB2PAlly_seesOnlyTheB2PTemplate() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ALLY_PENDING);
+        belongToPendingAlly(50L, Segment.B2P);
+        TermsVersion b2p = segmentTemplate(31L, Segment.B2P);
+        stubAllyTemplates(generalTemplate(), segmentTemplate(30L, Segment.B2B), b2p);
+
+        assertThat(service.pendingForUser(user.getUuid())).extracting(PendingTermDto::termsVersionUuid)
+                .containsExactly(b2p.getUuid());
+    }
+
+    @Test
+    void segment_pendingAllyWithoutASegmentTemplate_getsTheGeneralOne() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ALLY_PENDING);
+        belongToPendingAlly(50L, Segment.B2P);
+        TermsVersion general = generalTemplate();
+        stubAllyTemplates(general, segmentTemplate(30L, Segment.B2B));
+
+        assertThat(service.pendingForUser(user.getUuid())).extracting(PendingTermDto::termsVersionUuid)
+                .containsExactly(general.getUuid());
+    }
+
+    @Test
+    void segment_templateBeforeTheAgreement_doesNotLockTheAllyPortal() {
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ALLY_PENDING);
+        belongToPendingAlly(50L, Segment.B2B);
+        stubAllyTemplates(segmentTemplate(30L, Segment.B2B));
+
+        assertThat(pendingTypes()).containsExactly(TermType.ALLY);
+        assertThat(service.hasPending(user.getUuid(), TermType.ALLY)).isFalse();
+    }
+
+    @Test
+    void segment_approvedAllyWithoutAgreement_isNotAskedForTheSegmentTemplate() {
+        user.getUserRoles().clear();
+        belongToAlly(50L).setSegment(Segment.B2B);
+        stubAllyTemplates(segmentTemplate(30L, Segment.B2B));
+
+        assertThat(pendingTypes()).isEmpty();
+    }
+
+    @Test
+    void segment_pendingAllyWithAnAgreement_isAskedForTheAgreementOnly() {
+        user.getUserRoles().clear();
+        Ally ally = belongToPendingAlly(50L, Segment.B2B);
+        TermsVersion b2b = segmentTemplate(30L, Segment.B2B);
+        AllyAgreement linked = agreement(ally, b2b);
+        when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
+                .thenReturn(List.of(linked));
+
+        assertThat(service.pendingForUser(user.getUuid())).singleElement()
+                .satisfies(item -> assertThat(item.allyAgreementUuid()).isEqualTo(linked.getUuid()));
+        assertThat(service.hasPending(user.getUuid(), TermType.ALLY)).isTrue();
+    }
+
+    @Test
+    void segment_acceptanceBeforeTheAgreement_coversTheAgreementWhenTheTextIsTheSame() {
+        user.getUserRoles().clear();
+        Ally ally = belongToPendingAlly(50L, Segment.B2B);
+        TermsVersion b2b = segmentTemplate(30L, Segment.B2B);
+        when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
+                .thenReturn(List.of(agreement(ally, b2b)));
+        TermsAcceptance before = acceptance(b2b, null, b2b.getContentMarkdown());
+        before.setContentSha256(TermsAcceptanceService.sha256(b2b.getContentMarkdown()));
+        when(termsAcceptanceRepository.findFirstByUserIdAndTermsVersionIdAndAllyAgreementIsNullOrderByAcceptedAtDescIdDesc(
+                user.getId(), b2b.getId())).thenReturn(Optional.of(before));
+
+        assertThat(service.pendingForUser(user.getUuid())).isEmpty();
+        assertThat(service.hasPending(user.getUuid(), TermType.ALLY)).isFalse();
+    }
+
+    @Test
+    void segment_acceptanceBeforeTheAgreement_isAskedAgainWhenTheAgreementChangesTheText() {
+        user.getUserRoles().clear();
+        Ally ally = belongToPendingAlly(50L, Segment.B2B);
+        TermsVersion b2b = segmentTemplate(30L, Segment.B2B);
+        when(allyAgreementRepository.findInForceWithTermsVersionByAllyIds(anyCollection(), eq("ACTIVE")))
+                .thenReturn(List.of(agreement(ally, b2b)));
+        TermsAcceptance before = acceptance(b2b, null, "Texto con [Fecha de inicio del convenio pendiente]");
+        before.setContentSha256(TermsAcceptanceService.sha256(before.getRenderedContent()));
+        when(termsAcceptanceRepository.findFirstByUserIdAndTermsVersionIdAndAllyAgreementIsNullOrderByAcceptedAtDescIdDesc(
+                user.getId(), b2b.getId())).thenReturn(Optional.of(before));
+
+        assertThat(service.pendingForUser(user.getUuid())).singleElement().satisfies(item ->
+                assertThat(item.previousAcceptance().renderedContent()).isEqualTo(before.getRenderedContent()));
+    }
+
+    @Test
+    void segment_accept_storesTheTemplateBeforeTheAgreementWithoutAgreement() {
+        user.getUserRoles().clear();
+        belongToPendingAlly(50L, Segment.B2B);
+        TermsVersion b2b = segmentTemplate(30L, Segment.B2B);
+        stubAllyTemplates(b2b);
+
+        service.acceptOne(user.getUuid(), b2b.getUuid(), null, null);
+
+        ArgumentCaptor<TermsAcceptance> saved = ArgumentCaptor.forClass(TermsAcceptance.class);
+        verify(termsAcceptanceRepository).save(saved.capture());
+        assertThat(saved.getValue().getTermsVersion()).isSameAs(b2b);
+        assertThat(saved.getValue().getAllyAgreement()).isNull();
+    }
+
+    @Test
+    void segment_memberWhoRegistersAnAlly_getsBothContracts() {
+        // A consumer (C2B) with a shop of their own: still asked for the member contract, plus their segment's.
+        grantRole(RoleNames.ALLY_PENDING);
+        belongToPendingAlly(50L, Segment.B2P);
+        TermsVersion b2p = segmentTemplate(31L, Segment.B2P);
+        stubAllyTemplates(segmentTemplate(30L, Segment.B2B), b2p);
+
+        assertThat(service.pendingForUser(user.getUuid())).extracting(PendingTermDto::termsVersionUuid)
+                .containsExactly(memberTerms.getUuid(), b2p.getUuid());
+    }
+
+    @Test
+    void segment_memberWhoAlreadyAcceptedTheMemberContract_seesOnlyTheAllyOne() {
+        when(termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(),
+                memberTerms.getId())).thenReturn(true);
+        belongToPendingAlly(50L, Segment.B2P);
+        TermsVersion b2p = segmentTemplate(31L, Segment.B2P);
+        stubAllyTemplates(b2p);
+
+        assertThat(service.pendingForUser(user.getUuid())).extracting(PendingTermDto::termsVersionUuid)
+                .containsExactly(b2p.getUuid());
+    }
+
+    @Test
+    void segment_advisorWhoAffiliates_getsTheAdvisorAndTheMemberContracts() {
+        // An advisor (B2C) is asked only for the mandate until they become a consumer (C2B) too.
+        user.getUserRoles().clear();
+        grantRole(RoleNames.ADVISOR);
+        beAdvisor(AdvisorRankCodes.ADVISOR, false);
+        assertThat(pendingTypes()).containsExactly(TermType.ADVISOR);
+
+        grantRole(RoleNames.MEMBER_PENDING);
+
+        assertThat(pendingTypes()).containsExactly(TermType.MEMBER, TermType.ADVISOR);
+    }
+
     @Test
     void ally_userWithoutAllies_doesNotQueryAgreements() {
         service.pendingForUser(user.getUuid());
@@ -639,6 +806,30 @@ class TermsAcceptanceServiceTest {
         membership.setUser(user);
         memberships.add(membership);
         return ally;
+    }
+
+    /** An ally of {@code segment} whose self-registration is still under review. */
+    private Ally belongToPendingAlly(long allyId, Segment segment) {
+        Ally ally = belongToAlly(allyId);
+        ally.setSegment(segment);
+        ally.setRegistrationStatus(Ally.RegistrationStatus.PENDING);
+        return ally;
+    }
+
+    private void stubAllyTemplates(TermsVersion... versions) {
+        lenient().when(termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY))
+                .thenReturn(List.of(versions));
+    }
+
+    private static TermsVersion generalTemplate() {
+        return version(29L, TermType.ALLY, false);
+    }
+
+    private static TermsVersion segmentTemplate(long id, Segment segment) {
+        TermsVersion version = version(id, TermType.ALLY, false);
+        version.setSegment(segment);
+        version.setContentMarkdown("Convenio " + segment);
+        return version;
     }
 
     private static long nextAgreementId = 900L;

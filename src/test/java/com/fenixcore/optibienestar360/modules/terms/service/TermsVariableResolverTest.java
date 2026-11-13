@@ -300,6 +300,27 @@ class TermsVariableResolverTest {
     }
 
     @Test
+    void allyWithoutAgreement_resolvesTheAllyAndLeavesEveryAgreementValuePending() {
+        // An ally under review is shown its segment template before any agreement exists (backend#412).
+        Ally ally = new Ally();
+        ally.setName("Comercio Uno");
+        ally.setTaxDocumentType("J");
+        ally.setTaxDocumentNumber("12345678-9");
+        ally.setAllyNumber(7);
+        ally.setSegment(AllyType.Segment.B2B);
+
+        Map<String, String> values = resolver.forAllyWithoutAgreement(ally).values();
+
+        assertThat(values).containsEntry("ally.name", "Comercio Uno")
+                .containsEntry("ally.taxId", "J-12345678-9")
+                .containsEntry("ally.fileNumber", "0007")
+                .doesNotContainKeys("agreement.startDate", "agreement.noticeDays", "agreement.autoRenew",
+                        "agreement.addendum");
+        assertThat(render("{{ally.name}} · {{agreement.startDate}} · {{agreement.addendum}}", values))
+                .isEqualTo("Comercio Uno · [Fecha de inicio del convenio pendiente] · [Condiciones particulares pendiente]");
+    }
+
+    @Test
     void ally_autoRenewIsSpanishAndMissingDataRendersPending() {
         Ally ally = new Ally();
         ally.setName("Óptica Uno");
