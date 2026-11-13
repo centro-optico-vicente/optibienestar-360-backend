@@ -256,6 +256,27 @@ public class TermsVariableResolver {
     public TermsRenderContext forAlly(AllyAgreement agreement) {
         Map<String, String> values = new HashMap<>();
         Ally ally = agreement.getAlly();
+        putAlly(values, ally);
+        put(values, "agreement.startDate", date(agreement.getStartDate()));
+        put(values, "agreement.noticeDays", number(agreement.getNoticeDays()));
+        put(values, "agreement.autoRenew", displayFormatter.bool(agreement.isAutoRenew(), CONTRACT_LOCALE));
+        put(values, "agreement.addendum", agreement.getTerms());
+        return new TermsRenderContext(values, Map.of(TermsVariables.AGREEMENT_RATES.key(), rates(ally)));
+    }
+
+    /**
+     * {@link #forAlly(AllyAgreement)} for an ally that has no agreement yet
+     * (a self-registered ally still under review, shown the template of its
+     * segment): the ally's own values and rates; every {@code agreement.*}
+     * value renders its pending note.
+     */
+    public TermsRenderContext forAllyWithoutAgreement(Ally ally) {
+        Map<String, String> values = new HashMap<>();
+        putAlly(values, ally);
+        return new TermsRenderContext(values, Map.of(TermsVariables.AGREEMENT_RATES.key(), rates(ally)));
+    }
+
+    private void putAlly(Map<String, String> values, Ally ally) {
         if (ally != null) {
             put(values, "ally.name", ally.getName());
             put(values, "ally.taxId", document(ally.getTaxDocumentType(), ally.getTaxDocumentNumber()));
@@ -268,11 +289,6 @@ public class TermsVariableResolver {
             putAllyProfile(values, ally);
             putProfessional(values, ally);
         }
-        put(values, "agreement.startDate", date(agreement.getStartDate()));
-        put(values, "agreement.noticeDays", number(agreement.getNoticeDays()));
-        put(values, "agreement.autoRenew", displayFormatter.bool(agreement.isAutoRenew(), CONTRACT_LOCALE));
-        put(values, "agreement.addendum", agreement.getTerms());
-        return new TermsRenderContext(values, Map.of(TermsVariables.AGREEMENT_RATES.key(), rates(ally)));
     }
 
     /**

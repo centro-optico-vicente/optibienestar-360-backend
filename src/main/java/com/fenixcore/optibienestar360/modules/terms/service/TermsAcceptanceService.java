@@ -7,6 +7,8 @@ import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyAgreementRepository;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -32,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -46,22 +49,46 @@ import java.util.function.Supplier;
 
 /**
  * Self-service acceptance flow — resolves which contracts the caller must
- * accept, and records their acceptance. The audience of each kind is decided
- * by the entity the user is linked to, never by role name:
+ * accept, and records their acceptance. Each contract belongs to one business
+ * segment, and a user is asked only for the contracts of the segments they
+ * are in (backend#412). One account may be in several — a member who opens a
+ * business, an advisor who affiliates — and is then asked for each:
+ * <pre>
+ * C2B  consumer / member    → MEMBER  (membership agreement, "Blindaje Familiar")
+ * B2B  commercial ally      → ALLY    template of segment B2B
+ * B2P  professional ally    → ALLY    template of segment B2P
+ * B2C  sales advisor        → ADVISOR (advisor mandate)
+ * </pre>
  * <ul>
- *   <li><b>MEMBER</b> (membership agreement): every user, whatever their
- *   roles — the current version of the type.</li>
- *   <li><b>ADVISOR</b> (advisor mandate): users with an active, non-system
- *   advisor record ({@code promoters.user_id}, {@code is_active}, not
- *   {@code is_system} — so never the INSTITUCION advisor), whatever their
- *   rank (asesor, supervisor, coordinador).</li>
- *   <li><b>ALLY</b> (ally agreement): for every ally the user operates on
+ *   <li><b>MEMBER</b> (C2B): users holding an effective member role —
+ *   {@code AFILIADO} or {@code AFILIADO_PENDIENTE} (titular or beneficiary
+ *   with portal access) — the current version of the type. Allies, advisors
+ *   and staff without a member role are not asked for it. The member role is
+ *   the only marker shared by a pending self-registration and an approved
+ *   membership.</li>
+ *   <li><b>ADVISOR</b> (B2C): users with an active, non-system advisor record
+ *   ({@code promoters.user_id}, {@code is_active}, not {@code is_system} — so
+ *   never the INSTITUCION advisor), whatever their rank (asesor, supervisor,
+ *   coordinador).</li>
+ *   <li><b>ALLY</b> (B2B / B2P): for every ally the user operates on
  *   ({@code ally_users}), the template linked to that ally's active
  *   agreements ({@code is_active} and status {@code ACTIVE}); an agreement
  *   without a linked version asks for nothing. Accepted <b>once per
  *   agreement</b> (V189): one template shared by two of the user's allies is
  *   two pending items, each rendered with its own agreement's data. Allies
- *   come primary first, then by name (same order as {@code MyAlliesService}).</li>
+ *   come primary first, then by name (same order as {@code MyAlliesService}).
+ *   <br>An ally whose registration is still under review
+ *   ({@code registration_status = PENDING}) and has no such agreement yet is
+ *   shown the current template of <b>its own segment</b> (chosen when it
+ *   registered — {@link TermsVersionScopes#currentApplicableTo}, the same
+ *   choice the agreement form offers), rendered with the ally's data and the
+ *   agreement values still pending. That item is accepted without an
+ *   agreement and does <b>not</b> gate the ally portal ({@link #hasPending}):
+ *   the ally still has to finish and submit its registration there. Once an
+ *   agreement links the same version, the earlier acceptance counts for it if
+ *   the text rendered with the agreement's data is the same (SHA-256);
+ *   otherwise the agreement's text is asked for, with the earlier acceptance
+ *   as the previous one.</li>
  * </ul>
  * {@code is_public} plays no part here — it only controls the public web
  * endpoint. Each pending text is rendered with the variables of the entity
@@ -109,14 +136,19 @@ public class TermsAcceptanceService {
     /**
      * Whether the caller still has a contract of {@code type} to accept —
      * backs {@code TermsGateInterceptor}. Same resolution as
-     * {@link #pendingForUser} but without rendering any text, and {@code false}
-     * (never an error) for an unknown user.
+     * {@link #pendingForUser} but without rendering any text (unless an
+     * acceptance given before the agreement must be compared), and
+     * {@code false} (never an error) for an unknown user. The segment template
+     * of an ally under review does not count: it must not lock the portal the
+     * ally registers through.
      */
     public boolean hasPending(UUID userUuid, TermType type) {
         // A caller with no user row has nothing pending: the gate must not turn
         // that into an error of its own — the endpoint answers it as usual.
         return userRepository.findByUuid(userUuid)
-                .map(user -> pendingDues(user).stream().anyMatch(due -> due.version.getTermType() == type))
+                .map(user -> pendingDues(user).stream()
+                        .filter(due -> !due.isBeforeAgreement())
+                        .anyMatch(due -> due.version.getTermType() == type))
                 .orElse(false);
     }
 
@@ -153,18 +185,31 @@ public class TermsAcceptanceService {
 
     /**
      * A contract the user must accept: the version, the agreement that made
-     * it due (ALLY only) and the (lazily built, memoized) rendered text.
+     * it due (ALLY only), the ally it is for (ALLY only — the agreement's, or
+     * the ally under review shown its segment template before any agreement)
+     * and the (lazily built, memoized) rendered text.
      */
     private final class Due {
         private final TermsVersion version;
         private final AllyAgreement agreement;
+        private final Ally ally;
         private final Supplier<TermsRenderContext> values;
         private String rendered;
 
         private Due(TermsVersion version, AllyAgreement agreement, Supplier<TermsRenderContext> values) {
+            this(version, agreement, agreement == null ? null : agreement.getAlly(), values);
+        }
+
+        private Due(TermsVersion version, AllyAgreement agreement, Ally ally, Supplier<TermsRenderContext> values) {
             this.version = version;
             this.agreement = agreement;
+            this.ally = ally;
             this.values = values;
+        }
+
+        /** The segment template of an ally under review, due before it has an agreement. */
+        boolean isBeforeAgreement() {
+            return agreement == null && ally != null;
         }
 
         String rendered() {
@@ -184,29 +229,78 @@ public class TermsAcceptanceService {
     private List<Due> pendingDues(User user) {
         Instant now = Instant.now();
         List<Due> required = new ArrayList<>();
-        currentOf(TermType.MEMBER, now)
-                .ifPresent(v -> required.add(new Due(v, null,
-                        () -> TermsRenderContext.of(variableResolver.forMember(user)))));
+        if (isMember(user)) {
+            currentOf(TermType.MEMBER, now)
+                    .ifPresent(v -> required.add(new Due(v, null,
+                            () -> TermsRenderContext.of(variableResolver.forMember(user)))));
+        }
         activeAdvisor(user.getUuid()).ifPresent(advisor -> currentOf(TermType.ADVISOR, now)
                 .ifPresent(v -> required.add(new Due(v, null,
                         () -> TermsRenderContext.of(variableResolver.forAdvisor(advisor))))));
-        for (AllyAgreement agreement : allyAgreementsWithVigentTemplate(user.getUuid(), now)) {
+        List<Ally> allies = alliesOf(user.getUuid());
+        List<AllyAgreement> agreements = allyAgreementsWithVigentTemplate(allies, now);
+        for (AllyAgreement agreement : agreements) {
             required.add(new Due(agreement.getTermsVersion(), agreement, () -> variableResolver.forAlly(agreement)));
         }
+        required.addAll(segmentTemplatesBeforeAgreement(allies, agreements, now));
         return required.stream().filter(due -> !isAccepted(user, due)).toList();
     }
 
+    /**
+     * The current template of its own segment for each of the user's allies
+     * still under review that has no agreement with a template yet (see the
+     * class javadoc). One acceptance without agreement per version (V189
+     * partial unique index), so a version is listed once even if two such
+     * allies share it — the first one in display order.
+     */
+    private List<Due> segmentTemplatesBeforeAgreement(List<Ally> allies, List<AllyAgreement> agreements, Instant now) {
+        Set<Long> withAgreement = new HashSet<>();
+        agreements.forEach(a -> withAgreement.add(a.getAlly().getId()));
+        List<Ally> underReview = allies.stream()
+                .filter(ally -> ally.getRegistrationStatus() == Ally.RegistrationStatus.PENDING)
+                .filter(ally -> !withAgreement.contains(ally.getId()))
+                .toList();
+        if (underReview.isEmpty()) return List.of();
+        List<TermsVersion> allyVersions = termsVersionRepository.findByTermTypeOrderByValidFromDesc(TermType.ALLY);
+        List<Due> dues = new ArrayList<>();
+        Set<Long> listed = new HashSet<>();
+        for (Ally ally : underReview) {
+            TermsVersionScopes.currentApplicableTo(allyVersions, ally, now).stream().findFirst()
+                    .filter(v -> listed.add(v.getId()))
+                    .ifPresent(v -> dues.add(new Due(v, null, ally,
+                            () -> variableResolver.forAllyWithoutAgreement(ally))));
+        }
+        return dues;
+    }
+
+    /**
+     * Whether {@code due} is already accepted: the same version (and agreement,
+     * for ALLY). An agreement's item also counts as accepted when the user
+     * accepted the same version before the agreement existed and that text is
+     * exactly the one the agreement renders now (same SHA-256) — the rule the
+     * affiliation review applies to the member contract (V190).
+     */
     private boolean isAccepted(User user, Due due) {
         Long versionId = due.version.getId();
-        return due.agreement == null
-                ? termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(), versionId)
-                : termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementId(user.getId(), versionId,
-                        due.agreement.getId());
+        if (due.agreement == null) {
+            return termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementIsNull(user.getId(),
+                    versionId);
+        }
+        if (termsAcceptanceRepository.existsByUserIdAndTermsVersionIdAndAllyAgreementId(user.getId(), versionId,
+                due.agreement.getId())) {
+            return true;
+        }
+        return termsAcceptanceRepository
+                .findFirstByUserIdAndTermsVersionIdAndAllyAgreementIsNullOrderByAcceptedAtDescIdDesc(user.getId(),
+                        versionId)
+                .map(TermsAcceptance::getContentSha256)
+                .filter(hash -> hash.equals(sha256(due.rendered())))
+                .isPresent();
     }
 
     private PendingTermDto toPendingDto(User user, Due due, VersionNumbers numbers) {
         TermsVersion v = due.version;
-        Ally ally = due.agreement == null ? null : due.agreement.getAlly();
+        Ally ally = due.ally;
         PreviousAcceptance previous = previousAcceptance(user, due)
                 .map(a -> new PreviousAcceptance(a.getTermsVersion().getUuid(), numbers.of(a.getTermsVersion()),
                         a.getAcceptedAt(), acceptedText(user, a)))
@@ -277,19 +371,27 @@ public class TermsAcceptanceService {
     }
 
     /**
-     * Active agreements of the allies the user operates on that link an
-     * already-vigente template — primary ally first, then by ally name, then
-     * by agreement start date. A linked version not yet vigente is skipped
-     * until it is.
+     * The allies the user operates on, primary ally first, then by name
+     * (same order as {@code MyAlliesService}), each once.
      */
-    private List<AllyAgreement> allyAgreementsWithVigentTemplate(UUID userUuid, Instant now) {
-        Map<Long, Integer> allyOrder = new LinkedHashMap<>();
+    private List<Ally> alliesOf(UUID userUuid) {
+        Map<Long, Ally> ordered = new LinkedHashMap<>();
         allyUserRepository.findActiveByUserUuid(userUuid).stream()
                 .sorted(Comparator.comparing(AllyUser::isPrimary).reversed()
                         .thenComparing(au -> nameOf(au.getAlly()), String.CASE_INSENSITIVE_ORDER))
                 .map(AllyUser::getAlly)
-                .map(Ally::getId)
-                .forEach(id -> allyOrder.putIfAbsent(id, allyOrder.size()));
+                .forEach(ally -> ordered.putIfAbsent(ally.getId(), ally));
+        return List.copyOf(ordered.values());
+    }
+
+    /**
+     * Active agreements of {@code allies} that link an already-vigente
+     * template — in the allies' order, then by agreement start date. A linked
+     * version not yet vigente is skipped until it is.
+     */
+    private List<AllyAgreement> allyAgreementsWithVigentTemplate(List<Ally> allies, Instant now) {
+        Map<Long, Integer> allyOrder = new LinkedHashMap<>();
+        allies.forEach(ally -> allyOrder.putIfAbsent(ally.getId(), allyOrder.size()));
         if (allyOrder.isEmpty()) return List.of();
         return allyAgreementRepository.findInForceWithTermsVersionByAllyIds(List.copyOf(allyOrder.keySet()),
                         ACTIVE_AGREEMENT_STATUS).stream()
@@ -447,6 +549,16 @@ public class TermsAcceptanceService {
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 not available", impossible);
         }
+    }
+
+    /** Roles of the MEMBER contract's audience: a member, pending (self-registration) or approved. */
+    static final Set<String> MEMBER_ROLE_NAMES = Set.of(RoleNames.MEMBER, RoleNames.MEMBER_PENDING);
+
+    /** Whether the user holds an effective member role (see the class javadoc, backend#412). */
+    static boolean isMember(User user) {
+        return user.getUserRoles() != null && user.getUserRoles().stream()
+                .filter(UserRole::isEffective)
+                .anyMatch(assignment -> MEMBER_ROLE_NAMES.contains(assignment.getRole().getName()));
     }
 
     private User requireUser(UUID userUuid) {
