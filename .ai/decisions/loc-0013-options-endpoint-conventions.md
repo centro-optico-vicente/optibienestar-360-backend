@@ -54,9 +54,36 @@ Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` �
 | `genders`, `marital-statuses`, `occupations`, `medical-specialties`, `ally-types`, `document-types` | ✅ | ✅ |
 | `roles` | N/A (sin paginar) | ✅ |
 | `countries` | ✅ | ✅ |
-| `ally-services` (cola `pending`) | ✅ (cerrado por este ADR) | — (no tiene select en frontend hoy) |
+| `ally-services` (cola `pending`) | ✅ (cerrado por este ADR) | — (cola de revisión, no es tabla principal) |
+| `products`, `product-categories` | ✅ | ❌ **pendiente** (Regla 4; label `<code> — <name>`, Regla 5) |
 
-`service-categories`, `corporate-contracts`, `promoters` como select quedan fuera — no tienen ningún `<select>` en el frontend hoy; se agregan después reutilizando `OptionsSupport` si el frontend los necesita.
+`service-categories`, `corporate-contracts`, `promoters`: ver Regla 4 (enmienda) — se agregan aunque el frontend aún no los use.
+
+## Enmienda 2026-11-13 — alcance (tablas principales) y label
+
+### Regla 4 — Toda tabla **principal** con listado tiene `/options`, aunque hoy no haya select
+
+La Regla 2 aplica a las **tablas principales** (entidades con identidad propia: `products`, `plans`, `allies`, `campaigns`, `promoters`, `payment-methods`…). **No** aplica a tablas de asociación/detalle (pivots, líneas hijas, historiales: `ally-products` de un aliado, `plan-terms`, `member-beneficiaries`…), que se consultan siempre a través de su padre.
+
+Ya **no** se espera a que el frontend "necesite" el select para agregarlo: cualquier tabla principal que liste en `GET /v1/admin/{recurso}` expone `GET /v1/admin/{recurso}/options` (con `?q=`, `limit`, `currentValues`, Regla 3). Esto reemplaza la excepción de arriba ("quedan fuera — no tienen ningún `<select>` hoy"): `service-categories`, `corporate-contracts`, `promoters` y, sobre todo, **`products`** (producto/servicio) se agregan reutilizando `OptionsSupport`. Pendiente a la fecha: `products`, `product-categories`.
+
+### Regla 5 — Label del `/options`: `<code> — <name>` solo con código legible
+
+El `label` es lo que el usuario ve en el select; el frontend no lo recompone (spec frontend `07-forms.md`, "Código en selects").
+
+- Código **legible/identificador de negocio** (`V`, `0156`, `J`, SKU de producto, código de plan/rango): `label = code + " — " + name` (`DocumentTypeService`, `BankService`, `PlansService`…). **Producto/servicio incluido**: el código ayuda a distinguir ítems de nombre parecido.
+- Código **identificador técnico** en `SNAKE_CASE` (`BANK_TRANSFER`, `PAGO_MOVIL`, `MEMBERSHIP_FEE`, `MPPS`): `label = name` solamente — el código ensucia el select sin aportar. Se sigue devolviendo en el campo `code` del `OptionDto`. Hoy: `payment-methods`, `payment-categories`, `licensing-bodies`.
+- Sin código (`User`, `Member`, `Role`, `Campaign`, `Ally`, `City`, `Occupation`): `label = name`, `code = null`.
+
+**Cumplimiento actual de la Regla 5 (2026-11-13):**
+
+| Servicio (`labelOf`) | Código | Hoy | Debe ser |
+|---|---|---|---|
+| `document-types`, `banks`, `genders`, `states`, `plans`, `promoter-ranks` | legible | `código — nombre` | ✅ |
+| `payment-methods`, `payment-categories`, `licensing-bodies` | técnico | nombre | ✅ |
+| `marital-statuses` (`SOLTERO`), `professions` (`INGENIERIA_CIVIL`), `ally-types` (`CLINICA`) | técnico | `código — nombre` | ❌ pendiente: solo nombre |
+| `promoter-types` | por verificar | `código — nombre` | por verificar |
+| `products`, `product-categories` | legible (SKU) | sin `/options` | ❌ pendiente: crear `/options` con `código — nombre` |
 
 ## Por qué
 
