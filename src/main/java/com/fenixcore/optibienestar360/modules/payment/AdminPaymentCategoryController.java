@@ -41,6 +41,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminPaymentCategoryController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private static final String VIEW   = "hasAuthority('PAYMENT_CATEGORY_VIEW_ALL')";
     private static final String CREATE = "hasAuthority('PAYMENT_CATEGORY_CREATE')";
     private static final String UPDATE = "hasAuthority('PAYMENT_CATEGORY_UPDATE')";
@@ -60,7 +63,7 @@ public class AdminPaymentCategoryController {
     }
 
     @GetMapping("/options")
-    @PreAuthorize(VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,

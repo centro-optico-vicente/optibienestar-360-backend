@@ -42,6 +42,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminPromoterRankController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private static final String VIEW = "hasAuthority('PROMOTER_RANK_VIEW_ALL')";
     private static final String CREATE = "hasAuthority('PROMOTER_RANK_CREATE')";
     private static final String UPDATE = "hasAuthority('PROMOTER_RANK_UPDATE')";
@@ -68,7 +71,7 @@ public class AdminPromoterRankController {
      *                     same rank isn't a change).
      */
     @GetMapping("/options")
-    @PreAuthorize(VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,

@@ -24,6 +24,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 
 /**
  * Admin CRUD over the company's own bank accounts (V201), plus the payer-facing read-only list at
@@ -50,6 +51,15 @@ public class AdminCompanyBankAccountController {
             @RequestParam(required = false) String currencyCode,
             @RequestParam(required = false) String accountType) {
         return ResponseEntity.ok(service.list(pageable, q, includeInactive, bankUuid, currencyCode, accountType));
+    }
+
+    @GetMapping("/v1/admin/company-bank-accounts/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/v1/admin/company-bank-accounts/{uuid}")

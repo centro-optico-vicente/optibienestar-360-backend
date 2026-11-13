@@ -35,6 +35,8 @@ import java.util.NoSuchElementException;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD for {@link CollectionCommissionTier} (ADR 0013 §3, V44, V126) —
@@ -320,5 +322,20 @@ public class CollectionCommissionTiersService {
                 tier.getRetroactiveSettlementPeriodAnchor());
         tier.setRetroactiveSettlementPeriodStrategy(PeriodStrategy.valueOf(resolution.retroactiveStrategy()));
         tier.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<CollectionCommissionTier> spec = ((Specification<CollectionCommissionTier>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                CollectionCommissionTier::getUuid, e -> null, CollectionCommissionTiersService::optionLabelOf, CollectionCommissionTier::isActive);
+    }
+
+    private static String optionLabelOf(CollectionCommissionTier e) {
+        return e.getName();
     }
 }

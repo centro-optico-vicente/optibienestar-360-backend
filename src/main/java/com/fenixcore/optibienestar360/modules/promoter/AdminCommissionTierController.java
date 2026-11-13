@@ -26,6 +26,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import java.util.List;
 
 /**
  * Admin CRUD for commission tiers (v2 PDF #5, V42). Granular per V79:
@@ -50,6 +52,15 @@ public class AdminCommissionTierController {
             @RequestParam(defaultValue = "false") boolean includeInactive) {
         Page<CommissionTierDto> page = service.list(pageable, filter, q, promoterTypeUuid, campaignUuid, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

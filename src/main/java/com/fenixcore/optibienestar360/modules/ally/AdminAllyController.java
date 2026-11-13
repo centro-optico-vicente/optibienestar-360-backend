@@ -29,6 +29,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import java.util.List;
 
 /**
  * Admin CRUD for the ally directory. Sub-resources (professions / services /
@@ -70,6 +72,15 @@ public class AdminAllyController {
 		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive,
 				new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid));
 		return ResponseEntity.ok(new AppliedSortPage<>(page, alliesService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(alliesService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

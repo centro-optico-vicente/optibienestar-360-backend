@@ -87,6 +87,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminCatalogsController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private static final String COUNTRY_VIEW   = "hasAuthority('COUNTRY_VIEW_ALL')";
     private static final String COUNTRY_CREATE = "hasAuthority('COUNTRY_CREATE')";
     private static final String COUNTRY_UPDATE = "hasAuthority('COUNTRY_UPDATE')";
@@ -173,7 +176,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/countries/options")
-    @PreAuthorize(COUNTRY_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> countryOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -231,7 +234,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/states/options")
-    @PreAuthorize(STATE_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> stateOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -290,7 +293,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/cities/options")
-    @PreAuthorize(CITY_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> cityOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -347,7 +350,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/genders/options")
-    @PreAuthorize(GENDER_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> genderOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -403,7 +406,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/document-types/options")
-    @PreAuthorize(DOCUMENT_TYPE_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> documentTypeOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -459,7 +462,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/marital-statuses/options")
-    @PreAuthorize(MARITAL_STATUS_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> maritalStatusOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -515,7 +518,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/occupations/options")
-    @PreAuthorize(OCCUPATION_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> occupationOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -571,7 +574,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/professions/options")
-    @PreAuthorize(PROFESSION_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> professionOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -627,7 +630,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/licensing-bodies/options")
-    @PreAuthorize(LICENSING_BODY_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> licensingBodyOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -684,7 +687,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping({"/product-categories/options", "/service-categories/options"})
-    @PreAuthorize(PRODUCT_CATEGORY_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> productCategoryOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -740,7 +743,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/ally-types/options")
-    @PreAuthorize(ALLY_TYPE_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> allyTypeOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
@@ -796,7 +799,7 @@ public class AdminCatalogsController {
     }
 
     @GetMapping("/advisor-types/options")
-    @PreAuthorize(PROMOTER_TYPE_VIEW)
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> promoterTypeOptions(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,

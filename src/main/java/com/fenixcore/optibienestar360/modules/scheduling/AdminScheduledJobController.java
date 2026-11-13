@@ -38,6 +38,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import java.util.List;
 
 /**
  * Admin surface for the scheduled-jobs framework. Mirrors the shape of
@@ -71,6 +73,15 @@ public class AdminScheduledJobController {
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
         Page<ScheduledJobDto> page = jobsService.list(pageable, filter, q, includeInactive, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, jobsService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(jobsService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

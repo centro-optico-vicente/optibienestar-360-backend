@@ -31,6 +31,8 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD over {@code company_bank_accounts} (V201) plus the read-only list payers see when
@@ -225,5 +227,21 @@ public class CompanyBankAccountService {
                 DisplayRefs.ref(a.getCurrency()),
                 a.getCurrency().getCode(), a.getAccountType(), a.getAccountNumber(), a.getHolderName(),
                 a.getHolderDocument(), a.getNotes(), a.getPhone(), a.getEmail(), a.getSortOrder(), a.isPublicVisible(), a.isActive());
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). {@code <bank> — <account number>}, the way an operator tells accounts apart.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<CompanyBankAccount> spec = ((Specification<CompanyBankAccount>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                CompanyBankAccount::getUuid, e -> null, CompanyBankAccountService::optionLabelOf, CompanyBankAccount::isActive);
+    }
+
+    private static String optionLabelOf(CompanyBankAccount e) {
+        String bank = e.getBank() == null ? "" : (e.getBank().getShortName() != null && !e.getBank().getShortName().isBlank() ? e.getBank().getShortName() : e.getBank().getName());
+        return bank.isEmpty() ? e.getAccountNumber() : bank + " — " + e.getAccountNumber();
     }
 }
