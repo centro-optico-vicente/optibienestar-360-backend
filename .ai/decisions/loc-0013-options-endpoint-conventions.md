@@ -119,6 +119,12 @@ Toda búsqueda de un select se hace en el servidor con `q` (el frontend nunca fi
 
 El formulario de pago usa las banderas `mandatory*` del método para mostrar/ocultar campos; `OptionDto` no las trae. Hasta decidir entre (a) lista con atributos (más pesada, UI fluida) y (b) `/options` + detalle del seleccionado (liviana, una consulta extra), el select de método de pago usa `GET /v1/me/payment-methods?q=` (búsqueda en el servidor, DTO completo). Bancos y monedas no tienen ese problema: sus formularios solo usan `code` y el label, que `/options` ya trae.
 
+Alcance del pendiente: afecta a **los dos** endpoints de métodos de pago, no solo al de sesión.
+
+- `GET /v1/me/payment-methods` (sesión): ya acepta `q`/`limit`; lo usan los formularios de pago del portal y las pantallas de cuentas bancarias.
+- `GET /v1/admin/payment-methods` (listado completo): lo consumen `PaymentFormModal`, `PaymentMasterFilters`, `PromoterPayoutAccountsTab`, `CommissionPayoutBySelectionModal` y `affiliation-requests`. Los consumidores que solo filtran (no leen `mandatory*`) pueden migrar ya a `/v1/admin/payment-methods/options`; los formularios dependen de la decisión (a)/(b).
+- `/v1/public/payment-methods` queda fuera (regla 5: `/v1/public/*` no se toca).
+
 ## Por qué
 
 - Consistencia: cualquier entidad nueva sabe qué exponer sin negociarlo caso por caso.
