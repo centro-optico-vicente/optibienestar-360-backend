@@ -2,13 +2,18 @@ package com.fenixcore.optibienestar360.modules.affiliation;
 
 import com.fenixcore.optibienestar360.core.web.ClientRequestMetadata;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationDraftStepRequest;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestCreatedDto;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.MyAffiliationStartRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRegistrationDto;
 import com.fenixcore.optibienestar360.modules.affiliation.service.AffiliationRequestService;
+import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
+import com.fenixcore.optibienestar360.modules.auth.service.AuthService;
 import com.fenixcore.optibienestar360.modules.onboarding.service.RegistrationDraftService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
  * public step 1 (hub ADR 0037 §2). Everything is scoped to the JWT subject:
  * there is no way to reach another person's registration.
  * <ul>
+ *   <li>{@code POST} — step 1 for an existing account (see {@link #start}).</li>
  *   <li>{@code GET} — what is saved so far ({@code AFFILIATION_REGISTRATION_VIEW_OWN}).</li>
  *   <li>{@code PATCH /{step}} — {@code personal | plan | payment | family}
  *   ({@code AFFILIATION_REGISTRATION_UPDATE_OWN}); the payment step also accepts
@@ -47,6 +54,28 @@ public class MyAffiliationRequestController {
 
     private final AffiliationRequestService service;
     private final RegistrationDraftService draftService;
+    private final AuthService authService;
+
+    /**
+     * Step 1 for an existing account (an advisor or ally who wants to affiliate): opens the DRAFT on the
+     * caller's own login, which gains {@code AFILIADO_PENDIENTE}, and answers with a new session already
+     * switched to that role (the previous one is closed, as on any role switch), so the steps above apply.
+     * Any authenticated caller, whatever their active role.
+     */
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
+    public AffiliationRequestCreatedDto start(@Valid @RequestBody(required = false) MyAffiliationStartRequest body,
+                                              @AuthenticationPrincipal CustomUserDetails actor,
+                                              HttpServletRequest httpRequest) {
+        MyAffiliationStartRequest req = body != null ? body : new MyAffiliationStartRequest(null, null);
+        AffiliationRequestCreatedDto created = service.startForAccount(actor.getUuid(), req.referralCode(),
+                ClientRequestMetadata.from(httpRequest));
+        LoginResponse session = authService.switchActiveRole(actor.getUuid(), service.memberPendingRole().getUuid(),
+                actor.getJti(), actor.getSessionId(), req.refreshToken(), httpRequest);
+        return new AffiliationRequestCreatedDto(created.uuid(), created.status(), created.email(),
+                created.advisorName(), session);
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('AFFILIATION_REGISTRATION_VIEW_OWN')")

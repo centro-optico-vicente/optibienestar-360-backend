@@ -194,6 +194,80 @@ class RegistrationDraftServiceTest {
         verify(tokenBlacklist, never()).revokeAllUserRefreshTokens(any());
     }
 
+    /** The login holds {@code other} (its default) and {@code pending}; returns the pending assignment. */
+    private UserRole holdsAlongside(String other, String pending) {
+        Role otherRole = new Role();
+        otherRole.setName(other);
+        UserRole otherAssignment = new UserRole();
+        otherAssignment.setRole(otherRole);
+        otherAssignment.setActive(true);
+        Role pendingRole = new Role();
+        pendingRole.setName(pending);
+        UserRole pendingAssignment = new UserRole();
+        pendingAssignment.setRole(pendingRole);
+        pendingAssignment.setActive(true);
+        user.setDefaultRole(otherRole);
+        when(userRoleRepository.findByUserIdAndActiveTrue(user.getId()))
+                .thenReturn(List.of(otherAssignment, pendingAssignment));
+        return pendingAssignment;
+    }
+
+    @Test
+    void discardOwnMemberDraft_ofAnAdvisorWhoAffiliated_removesOnlyThePendingRole() {
+        AffiliationRequest request = draft(user, false);
+        when(affiliationRequests.findFirstByUser_UuidOrderByCreatedAtDesc(user.getUuid())).thenReturn(Optional.of(request));
+        when(affiliationRequests.findForUpdateByUuid(request.getUuid())).thenReturn(Optional.of(request));
+        UserRole pending = holdsAlongside(RoleNames.ADVISOR, RoleNames.MEMBER_PENDING);
+
+        service.discardOwnMemberDraft(user.getUuid());
+
+        verify(affiliationRequests).delete(request);
+        assertThat(pending.isActive()).isFalse();
+        verify(userRoleRepository).save(pending);
+        assertThat(user.getDefaultRole().getName()).isEqualTo(RoleNames.ADVISOR);
+        assertThat(user.getEmail()).isEqualTo("maria@example.com");
+        assertThat(person.getDocumentNumber()).isEqualTo("12345678");
+        verify(tokenBlacklist, never()).revokeAllUserRefreshTokens(any());
+    }
+
+    @Test
+    void discardOwnAllyRegistration_ofAMemberWhoRegisteredAnAlly_removesOnlyThePendingRole() {
+        Ally ally = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        AllyUser membership = new AllyUser();
+        membership.setAllyRole(AllyUser.AllyRole.OWNER);
+        membership.setUser(user);
+        when(allyUserRepository.findActiveByAllyUuidAndUserUuid(ally.getUuid(), user.getUuid())).thenReturn(Optional.of(membership));
+        when(allyRepository.findForUpdateByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(allyUserRepository.findByAllyIdAndActiveTrue(eq(ally.getId()), any(Sort.class))).thenReturn(List.of(membership));
+        when(allyUserRepository.findActiveByUserUuid(user.getUuid())).thenReturn(List.of());
+        UserRole pending = holdsAlongside(RoleNames.MEMBER, RoleNames.ALLY_PENDING);
+
+        service.discardOwnAllyRegistration(ally.getUuid(), user.getUuid());
+
+        verify(allyRepository).delete(ally);
+        assertThat(pending.isActive()).isFalse();
+        assertThat(user.getStatus()).isNotEqualTo("SUSPENDED");
+        assertThat(person.getDocumentNumber()).isEqualTo("12345678");
+    }
+
+    @Test
+    void discardOwnAllyRegistration_keepsThePendingRoleWhileAnotherAllyIsInProgress() {
+        Ally ally = allyDraft(Ally.RegistrationChannel.SELF_SERVICE);
+        AllyUser membership = new AllyUser();
+        membership.setAllyRole(AllyUser.AllyRole.OWNER);
+        membership.setUser(user);
+        when(allyUserRepository.findActiveByAllyUuidAndUserUuid(ally.getUuid(), user.getUuid())).thenReturn(Optional.of(membership));
+        when(allyRepository.findForUpdateByUuid(ally.getUuid())).thenReturn(Optional.of(ally));
+        when(allyUserRepository.findByAllyIdAndActiveTrue(eq(ally.getId()), any(Sort.class))).thenReturn(List.of(membership));
+        when(allyUserRepository.findActiveByUserUuid(user.getUuid())).thenReturn(List.of(new AllyUser()));
+        UserRole pending = holdsAlongside(RoleNames.MEMBER, RoleNames.ALLY_PENDING);
+
+        service.discardOwnAllyRegistration(ally.getUuid(), user.getUuid());
+
+        assertThat(pending.isActive()).isTrue();
+        verify(userRoleRepository, never()).save(any(UserRole.class));
+    }
+
     @Test
     void discardAssistedAffiliationDraft_ofTheAdvisor_deletesWithoutTouchingAnyLogin() {
         AffiliationRequest request = draft(null, true);

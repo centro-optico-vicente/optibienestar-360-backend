@@ -439,11 +439,37 @@ public class RegistrationDraftService {
      * @param releasePerson also rewrites the person's cédula and contact data, so the real cédula can register
      *                      again ({@code users.person_id} is unique); false for a person that existed before
      */
+    /**
+     * Deactivates {@code pendingRole} on a login that holds other roles too. {@code ALIADO_PENDIENTE} stays
+     * while the login still operates another ally (a second registration in progress).
+     */
+    private void releasePendingRole(User user, List<UserRole> activeRoles, String pendingRole) {
+        if (RoleNames.ALLY_PENDING.equals(pendingRole) && !allyUserRepository.findActiveByUserUuid(user.getUuid()).isEmpty()) {
+            log.info("Login {} keeps {}: it still operates another ally", user.getUuid(), pendingRole);
+            return;
+        }
+        for (UserRole assignment : activeRoles) {
+            if (pendingRole.equals(assignment.getRole().getName())) {
+                assignment.setActive(false);
+                userRoleRepository.save(assignment);
+            }
+        }
+        if (user.getDefaultRole() != null && pendingRole.equals(user.getDefaultRole().getName())) {
+            activeRoles.stream()
+                    .filter(ur -> !pendingRole.equals(ur.getRole().getName()))
+                    .findFirst()
+                    .ifPresent(ur -> user.setDefaultRole(ur.getRole()));
+        }
+        log.info("Login {} holds other roles: only {} was removed by the discard", user.getUuid(), pendingRole);
+    }
+
     void tombstoneLogin(User user, boolean releasePerson, String pendingRole) {
         List<UserRole> roles = userRoleRepository.findByUserIdAndActiveTrue(user.getId());
         boolean onlyPending = !roles.isEmpty() && roles.stream().allMatch(ur -> pendingRole.equals(ur.getRole().getName()));
         if (!onlyPending) {
-            log.warn("Login {} holds more than the pending role: left untouched by the discard", user.getUuid());
+            // An existing account that joined another segment (an advisor who started an affiliation, a member
+            // who started an ally): the account stays, only the role this registration gave it goes.
+            releasePendingRole(user, roles, pendingRole);
             return;
         }
         String token = user.getUuid().toString().replace("-", "");

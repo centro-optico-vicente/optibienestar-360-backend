@@ -773,6 +773,93 @@ public class AffiliationRequestService {
                 promoter != null ? promoter.getDisplayName() : null, session);
     }
 
+    /**
+     * Step 1 for someone who already has an account — an advisor or an ally who
+     * wants to affiliate ({@code POST /v1/me/affiliation-request}): the same DRAFT
+     * as {@link #startRegistration}, but on the caller's own person and login,
+     * which gains {@code AFILIADO_PENDIENTE} next to the roles it has (never a
+     * second account). Name, cédula, email, phone and birth date come from the
+     * account; the remaining steps are the usual ones, and approval turns the
+     * pending role into AFILIADO on this same login. 422
+     * {@code affiliation_request.already_member} for someone who already is a
+     * member (titular or beneficiary with access), and
+     * {@code affiliation_request.already_open} when the caller has a DRAFT or
+     * PENDING request. The controller then switches the session to the pending role.
+     */
+    @Transactional
+    public AffiliationRequestCreatedDto startForAccount(UUID userUuid, String referralCode,
+                                                        ClientRequestMetadata client) {
+        onboardingPolicyService.requireMemberSelfRegistration();
+        User user = userRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Person person = user.getPerson();
+        if (person == null || person.getDocumentType() == null || person.getDocumentNumber() == null) {
+            throw new IllegalArgumentException("affiliation_request.account.document_required");
+        }
+        boolean memberRole = user.getUserRoles().stream()
+                .filter(UserRole::isEffective)
+                .anyMatch(ur -> RoleNames.MEMBER.equals(ur.getRole().getName()));
+        if (memberRole || memberRepository.existsByPersonId(person.getId())) {
+            throw new IllegalArgumentException("affiliation_request.already_member");
+        }
+        repository.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid)
+                .filter(r -> r.isDraft() || Status.PENDING.name().equals(r.getStatus()))
+                .ifPresent(r -> {
+                    throw new IllegalArgumentException("affiliation_request.already_open");
+                });
+        String email = normalizeEmail(user.getEmail());
+        requireNoOpenRequest(person.getDocumentType(), person.getDocumentNumber(), email, null,
+                Status.PENDING, Status.DRAFT);
+        String code = referralCode == null || referralCode.isBlank()
+                ? null : referralCode.trim().toUpperCase(Locale.ROOT);
+        Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("affiliation.referral.not_found"));
+
+        Role pendingRole = memberPendingRole();
+        UserRole assignment = userRoleRepository.findByUserIdAndRoleId(user.getId(), pendingRole.getId()).orElse(null);
+        if (assignment == null) {
+            assignment = new UserRole();
+            assignment.setUser(user);
+            assignment.setRole(pendingRole);
+            user.getUserRoles().add(assignment);
+        } else {
+            assignment.setActive(true);
+            assignment.setExpiresAt(null);
+        }
+        userRoleRepository.save(assignment);
+
+        ClientRequestMetadata evidence = client != null ? client : ClientRequestMetadata.EMPTY;
+        AffiliationRequest request = new AffiliationRequest();
+        request.setChannel(Channel.SELF_SERVICE.name());
+        request.setFirstName(person.getFirstName());
+        request.setLastName(person.getLastName());
+        request.setDocumentType(person.getDocumentType());
+        request.setDocumentNumber(person.getDocumentNumber());
+        request.setEmail(email);
+        request.setPhone(blankToNull(person.getPhone()));
+        request.setBirthDate(person.getBirthDate());
+        request.setLocale(person.getLocale() != null ? person.getLocale()
+                : LocaleContextHolder.getLocale().getLanguage().equals("en") ? "en" : "es");
+        request.setPromoter(promoter);
+        request.setReferralCode(code);
+        request.setUser(user);
+        request.setIpAddress(evidence.ipAddress());
+        request.setUserAgent(evidence.userAgent());
+        request.setStatus(Status.DRAFT.name());
+        repository.save(request);
+        writeLog(request, Action.CREATED, null, Status.DRAFT, null, null, user);
+        log.info("Affiliation registration {} started by existing account {} (DRAFT, referral {})",
+                request.getUuid(), userUuid, code);
+        return new AffiliationRequestCreatedDto(request.getUuid(), request.getStatus(), email,
+                promoter != null ? promoter.getDisplayName() : null, null);
+    }
+
+    /** The {@code AFILIADO_PENDIENTE} role, for the session the caller opens on it after {@link #startForAccount}. */
+    public Role memberPendingRole() {
+        return roleRepository.findByName(RoleNames.MEMBER_PENDING)
+                .orElseThrow(() -> new IllegalStateException("role " + RoleNames.MEMBER_PENDING + " missing"));
+    }
+
     /** The caller's latest registration; 404 {@code affiliation_request.not_found} when they have none. */
     public AffiliationRegistrationDto getMine(UUID userUuid) {
         return toRegistration(repository.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid)
@@ -1162,14 +1249,19 @@ public class AffiliationRequestService {
         return user;
     }
 
-    /** Pending role off, member role on (and default), as {@code AllyRequestService.swapRole} does for allies. */
+    /**
+     * Pending role off, member role on — and default, unless the login already had another default
+     * (an advisor or ally who affiliated keeps theirs) — as {@code AllyRequestService.swapRole} does for allies.
+     */
     private void swapPendingRole(User user, Role memberRole, UUID actorUuid) {
-        roleRepository.findByName(RoleNames.MEMBER_PENDING)
-                .flatMap(pending -> userRoleRepository.findByUserIdAndRoleId(user.getId(), pending.getId()))
-                .ifPresent(current -> {
-                    current.setActive(false);
-                    userRoleRepository.save(current);
-                });
+        Role pendingRole = roleRepository.findByName(RoleNames.MEMBER_PENDING).orElse(null);
+        if (pendingRole != null) {
+            userRoleRepository.findByUserIdAndRoleId(user.getId(), pendingRole.getId())
+                    .ifPresent(current -> {
+                        current.setActive(false);
+                        userRoleRepository.save(current);
+                    });
+        }
         UserRole target = userRoleRepository.findByUserIdAndRoleId(user.getId(), memberRole.getId()).orElse(null);
         if (target == null) {
             target = new UserRole();
@@ -1181,7 +1273,10 @@ public class AffiliationRequestService {
         }
         target.setAssignedBy(actorUuid);
         userRoleRepository.save(target);
-        user.setDefaultRole(memberRole);
+        if (user.getDefaultRole() == null
+                || (pendingRole != null && user.getDefaultRole().getId().equals(pendingRole.getId()))) {
+            user.setDefaultRole(memberRole);
+        }
     }
 
     /** Turns the relatives typed in the family step into beneficiaries of the new member. */

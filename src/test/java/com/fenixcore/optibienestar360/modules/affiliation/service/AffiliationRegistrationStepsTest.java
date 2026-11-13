@@ -30,6 +30,7 @@ import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion;
 import com.fenixcore.optibienestar360.modules.terms.service.MemberContractService;
 import com.fenixcore.optibienestar360.modules.terms.service.MemberTermsApplicant;
 import com.fenixcore.optibienestar360.security.RoleNames;
+import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,7 @@ class AffiliationRegistrationStepsTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuthService authService;
     @Mock private OnboardingPolicyService onboardingPolicyService;
+    @Mock private MemberRepository memberRepository;
     @Mock private HttpServletRequest httpRequest;
 
     @InjectMocks
@@ -290,5 +292,83 @@ class AffiliationRegistrationStepsTest {
         assertThatThrownBy(() -> service.submit(user.getUuid()))
                 .isInstanceOfSatisfying(UnprocessableDetailsException.class,
                         ex -> assertThat(ex.getProperties().get("missing")).isEqualTo(java.util.List.of("contract")));
+    }
+
+    // ─── Step 1 for an existing account (an advisor or ally who affiliates) ─────
+
+    private Role pendingMemberRole() {
+        Role pending = new Role();
+        pending.setId(7L);
+        pending.setUuid(UUID.randomUUID());
+        pending.setName(RoleNames.MEMBER_PENDING);
+        return pending;
+    }
+
+    /** The fixture user as an advisor with a cédula and no membership. */
+    private Role beAdvisorAccount() {
+        Person person = user.getPerson();
+        person.setId(40L);
+        person.setDocumentType("V");
+        person.setDocumentNumber("12345678");
+        person.setPhone("0414-1234567");
+        person.setBirthDate(LocalDate.of(1985, 3, 15));
+        Role advisor = new Role();
+        advisor.setId(3L);
+        advisor.setName(RoleNames.ADVISOR);
+        UserRole assignment = new UserRole();
+        assignment.setRole(advisor);
+        assignment.setActive(true);
+        user.getUserRoles().add(assignment);
+        user.setDefaultRole(advisor);
+        when(userRepository.findByUuid(user.getUuid())).thenReturn(Optional.of(user));
+        return advisor;
+    }
+
+    @Test
+    void existingAccount_opensADraftOnTheSameLoginAndAddsThePendingRole() {
+        Role advisor = beAdvisorAccount();
+        Role pending = pendingMemberRole();
+        when(roleRepository.findByName(RoleNames.MEMBER_PENDING)).thenReturn(Optional.of(pending));
+        when(repository.findFirstByUser_UuidOrderByCreatedAtDesc(user.getUuid())).thenReturn(Optional.empty());
+
+        AffiliationRequestCreatedDto created = service.startForAccount(user.getUuid(), null,
+                new ClientRequestMetadata("200.1.2.3", "Mozilla/5.0"));
+
+        ArgumentCaptor<AffiliationRequest> saved = ArgumentCaptor.forClass(AffiliationRequest.class);
+        verify(repository).save(saved.capture());
+        AffiliationRequest r = saved.getValue();
+        assertThat(r.getStatus()).isEqualTo("DRAFT");
+        assertThat(r.getUser()).isSameAs(user);
+        assertThat(r.getDocumentNumber()).isEqualTo("12345678");
+        assertThat(r.getEmail()).isEqualTo("maria@example.com");
+        assertThat(r.getBirthDate()).isEqualTo(LocalDate.of(1985, 3, 15));
+        assertThat(created.email()).isEqualTo("maria@example.com");
+        // No second account: the same login gains the pending role and keeps the advisor role as default.
+        verify(userService, never()).createUserWithPasswordHash(any(), any(), any());
+        assertThat(user.getUserRoles()).extracting(ur -> ur.getRole().getName())
+                .containsExactlyInAnyOrder(RoleNames.ADVISOR, RoleNames.MEMBER_PENDING);
+        assertThat(user.getDefaultRole()).isSameAs(advisor);
+    }
+
+    @Test
+    void existingAccount_thatIsAlreadyAMember_is422() {
+        beAdvisorAccount();
+        when(memberRepository.existsByPersonId(40L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.startForAccount(user.getUuid(), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("affiliation_request.already_member");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void existingAccount_withAnOpenRequest_is422() {
+        beAdvisorAccount();
+        when(repository.findFirstByUser_UuidOrderByCreatedAtDesc(user.getUuid())).thenReturn(Optional.of(draft()));
+
+        assertThatThrownBy(() -> service.startForAccount(user.getUuid(), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("affiliation_request.already_open");
+        verify(userRoleRepository, never()).save(any());
     }
 }

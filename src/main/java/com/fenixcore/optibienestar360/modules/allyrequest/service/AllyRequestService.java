@@ -28,6 +28,7 @@ import com.fenixcore.optibienestar360.modules.allyrequest.dto.AgreementSupportUr
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestApproveRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestCreatedDto;
+import com.fenixcore.optibienestar360.modules.allyrequest.dto.MyAllyRequestCreateRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestInviteRequest;
 import com.fenixcore.optibienestar360.modules.allyrequest.dto.AllyRequestListItemDto;
@@ -185,22 +186,8 @@ public class AllyRequestService {
             throw new IllegalArgumentException("ally_request.terms.not_accepted");
         }
         Segment segment = req.segment();
-        AllyType type = null;
-        if (req.allyTypeUuid() != null) {
-            type = allyTypeRepository.findByUuid(req.allyTypeUuid())
-                    .filter(AllyType::isActive)
-                    .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
-            if (type.getSegment() != segment) {
-                throw new IllegalArgumentException("ally_request.type.segment_mismatch");
-            }
-        }
-        Profession profession = null;
-        if (segment == Segment.B2B) {
-            if (isBlank(req.name())) throw new IllegalArgumentException("ally_request.name.required");
-        } else if (req.professionUuid() != null) {
-            profession = professionRepository.findByUuid(req.professionUuid())
-                    .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
-        }
+        AllyType type = resolveStartType(segment, req.allyTypeUuid());
+        Profession profession = resolveStartProfession(segment, req.name(), req.professionUuid());
 
         String email = normalizeEmail(req.email());
         String documentNumber = req.documentNumber().trim();
@@ -215,9 +202,8 @@ public class AllyRequestService {
             requireNoDuplicateProfessional(existing, req.cityUuid(), profession);
         }
 
-        String code = isBlank(req.referralCode()) ? null : req.referralCode().trim().toUpperCase(Locale.ROOT);
-        Promoter promoter = code == null ? null : promoterRepository.findByReferralCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("ally_request.referral.not_found"));
+        String code = referralCodeOf(req.referralCode());
+        Promoter promoter = referrer(code);
 
         String firstName = req.firstName().trim();
         String lastName = req.lastName().trim();
@@ -253,6 +239,126 @@ public class AllyRequestService {
                 : authService.openSession(withPendingRole(user), httpRequest);
         return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), email,
                 promoter != null ? promoter.getDisplayName() : null, session);
+    }
+
+    /**
+     * Step 1 for someone who already has an account — a member who opens a
+     * business, an advisor with a practice ({@code POST /v1/me/ally-requests}):
+     * the same PENDING ally as {@link #create}, but held by the caller's own
+     * person and owned by the caller's login, which gains {@code ALIADO_PENDIENTE}
+     * next to the roles it has (never a second account). Identity, email and,
+     * unless {@code mobile} is given, the phone come from the account. The
+     * caller switches to the pending role to complete it (the controller opens
+     * that session).
+     */
+    @Transactional
+    public AllyRequestCreatedDto createForAccount(UUID userUuid, MyAllyRequestCreateRequest req) {
+        onboardingPolicyService.requireAllySelfRegistration();
+        if (!Boolean.TRUE.equals(req.acceptedPortalTerms())) {
+            throw new IllegalArgumentException("ally_request.terms.not_accepted");
+        }
+        User user = userRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Person person = user.getPerson();
+        if (person == null || isBlank(person.getDocumentType()) || isBlank(person.getDocumentNumber())) {
+            throw new IllegalArgumentException("ally_request.account.document_required");
+        }
+        Segment segment = req.segment();
+        AllyType type = resolveStartType(segment, req.allyTypeUuid());
+        Profession profession = resolveStartProfession(segment, req.name(), req.professionUuid());
+        if (segment == Segment.B2P && profession != null && req.cityUuid() != null) {
+            requireNoDuplicateProfessional(person, req.cityUuid(), profession);
+        }
+        String code = referralCodeOf(req.referralCode());
+        Promoter promoter = referrer(code);
+
+        String email = user.getEmail();
+        String mobile = !isBlank(req.mobile()) ? req.mobile().trim() : person.getPhone();
+        if (isBlank(mobile)) {
+            throw new IllegalArgumentException("ally_request.mobile.required");
+        }
+        String firstName = person.getFirstName();
+        String lastName = person.getLastName();
+        String allyName = segment == Segment.B2B ? req.name().trim() : (firstName + " " + lastName);
+        boolean hasTaxDocument = !isBlank(req.taxDocumentType()) && !isBlank(req.taxDocumentNumber());
+        AllyCreateRequest allyReq = allyCreateRequest(allyName, type != null ? type.getUuid() : null, segment,
+                segment == Segment.B2B && hasTaxDocument ? req.taxDocumentType() : null,
+                segment == Segment.B2B && hasTaxDocument ? req.taxDocumentNumber().trim() : null,
+                email, mobile, mobile, null, null, null, req.cityUuid(), null, null,
+                new AllyHolderPersonRequest(person.getDocumentType(), person.getDocumentNumber(), firstName, lastName,
+                        null, mobile, email),
+                promoter != null ? promoter.getUuid() : null,
+                profession != null ? List.of(profession.getUuid()) : null);
+        AllyDetailDto created = alliesService.createRequest(allyReq, Ally.RegistrationChannel.SELF_SERVICE,
+                req.benefitNote());
+        Ally ally = allyRepository.findByUuid(created.uuid())
+                .orElseThrow(() -> new IllegalStateException("ally just created not found"));
+        grantPendingRole(user);
+        linkOwner(ally, user);
+
+        log.info("Ally request {} started by existing account {} ({}, referral {})", ally.getUuid(), userUuid,
+                segment, code);
+        if (missingEssentials(ally).isEmpty()) {
+            sendToReview(ally);
+        }
+        return new AllyRequestCreatedDto(ally.getUuid(), ally.getRegistrationStatus(), email,
+                promoter != null ? promoter.getDisplayName() : null, null);
+    }
+
+    /** The {@code ALIADO_PENDIENTE} role, for the session the caller opens on it after {@link #createForAccount}. */
+    public Role pendingRole() {
+        return roleRepository.findByName(RoleNames.ALLY_PENDING)
+                .orElseThrow(() -> new IllegalStateException("role " + RoleNames.ALLY_PENDING + " missing"));
+    }
+
+    /**
+     * Adds {@code ALIADO_PENDIENTE} to an existing login (reactivating an old
+     * assignment), leaving its other roles and its default role as they are.
+     */
+    private void grantPendingRole(User user) {
+        Role role = pendingRole();
+        UserRole assignment = userRoleRepository.findByUserIdAndRoleId(user.getId(), role.getId()).orElse(null);
+        if (assignment == null) {
+            assignment = new UserRole();
+            assignment.setUser(user);
+            assignment.setRole(role);
+            user.getUserRoles().add(assignment);
+        } else {
+            assignment.setActive(true);
+            assignment.setExpiresAt(null);
+        }
+        userRoleRepository.save(assignment);
+    }
+
+    /** The ally type picked in step 1, if any: active and of the chosen segment. */
+    private AllyType resolveStartType(Segment segment, UUID allyTypeUuid) {
+        if (allyTypeUuid == null) return null;
+        AllyType type = allyTypeRepository.findByUuid(allyTypeUuid)
+                .filter(AllyType::isActive)
+                .orElseThrow(() -> new NoSuchElementException("ally_type.not_found"));
+        if (type.getSegment() != segment) {
+            throw new IllegalArgumentException("ally_request.type.segment_mismatch");
+        }
+        return type;
+    }
+
+    /** B2B needs its name; B2P may bring its profession already. */
+    private Profession resolveStartProfession(Segment segment, String name, UUID professionUuid) {
+        if (segment == Segment.B2B) {
+            if (isBlank(name)) throw new IllegalArgumentException("ally_request.name.required");
+            return null;
+        }
+        return professionUuid == null ? null : professionRepository.findByUuid(professionUuid)
+                .orElseThrow(() -> new NoSuchElementException("profession.not_found"));
+    }
+
+    private static String referralCodeOf(String referralCode) {
+        return isBlank(referralCode) ? null : referralCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private Promoter referrer(String code) {
+        return code == null ? null : promoterRepository.findByReferralCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("ally_request.referral.not_found"));
     }
 
     /**
@@ -764,7 +870,10 @@ public class AllyRequestService {
         allyUserRepository.save(link);
     }
 
-    /** Deactivates {@code from} (if held) and makes {@code to} an effective, default role. */
+    /**
+     * Deactivates {@code from} (if held) and makes {@code to} an effective role — the default one too,
+     * unless the login already had another default (an existing account that joined this segment).
+     */
     private void swapRole(User user, String from, String to, UUID actorUuid) {
         Role fromRole = roleRepository.findByName(from).orElse(null);
         Role toRole = roleRepository.findByName(to)
@@ -793,7 +902,10 @@ public class AllyRequestService {
             target.setAssignedBy(actorUuid);
         }
         userRoleRepository.save(target);
-        user.setDefaultRole(toRole);
+        // An account that joined from another segment (a member, an advisor) keeps its own default role.
+        if (user.getDefaultRole() == null || user.getDefaultRole().getId().equals(fromRole.getId())) {
+            user.setDefaultRole(toRole);
+        }
         if (USER_SUSPENDED.equals(user.getStatus())) {
             user.setStatus(USER_ACTIVE);
         }
