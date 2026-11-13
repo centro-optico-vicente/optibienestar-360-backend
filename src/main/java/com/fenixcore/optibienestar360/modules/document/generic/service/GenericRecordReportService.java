@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecord
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperFormat;
 import com.fenixcore.optibienestar360.modules.document.service.RenderedDocument;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,17 +20,38 @@ public class GenericRecordReportService {
     private final GenericHtmlPdfService htmlPdfService;
     private final GenericXlsxExporterService xlsxExporterService;
     private final MessageSource messageSource;
+    private final PdfRenderLimiter pdfRenderLimiter;
 
+    @Autowired
+    public GenericRecordReportService(
+            GenericEntityExtractorService extractorService,
+            GenericHtmlPdfService htmlPdfService,
+            GenericXlsxExporterService xlsxExporterService,
+            MessageSource messageSource,
+            PdfRenderLimiter pdfRenderLimiter
+    ) {
+        this.extractorService = extractorService;
+        this.htmlPdfService = htmlPdfService;
+        this.xlsxExporterService = xlsxExporterService;
+        this.messageSource = messageSource;
+        this.pdfRenderLimiter = pdfRenderLimiter;
+    }
+
+    /** Without a limiter (unit tests): PDFs render without a concurrency cap. */
     public GenericRecordReportService(
             GenericEntityExtractorService extractorService,
             GenericHtmlPdfService htmlPdfService,
             GenericXlsxExporterService xlsxExporterService,
             MessageSource messageSource
     ) {
-        this.extractorService = extractorService;
-        this.htmlPdfService = htmlPdfService;
-        this.xlsxExporterService = xlsxExporterService;
-        this.messageSource = messageSource;
+        this(extractorService, htmlPdfService, xlsxExporterService, messageSource, null);
+    }
+
+    private byte[] renderPdf(Object model, String templateName) {
+        if (pdfRenderLimiter == null) {
+            return htmlPdfService.generatePdf(model, templateName);
+        }
+        return pdfRenderLimiter.run(() -> htmlPdfService.generatePdf(model, templateName));
     }
 
     /**
@@ -54,7 +76,7 @@ public class GenericRecordReportService {
             contentType = JasperFormat.XLSX.getContentType();
             extension = JasperFormat.XLSX.getFileExtension();
         } else {
-            bytes = htmlPdfService.generatePdf(model, "documents/generic_record_card");
+            bytes = renderPdf(model, "documents/generic_record_card");
             contentType = JasperFormat.PDF.getContentType();
             extension = JasperFormat.PDF.getFileExtension();
         }
@@ -91,7 +113,7 @@ public class GenericRecordReportService {
             contentType = JasperFormat.XLSX.getContentType();
             extension = JasperFormat.XLSX.getFileExtension();
         } else {
-            bytes = htmlPdfService.generatePdf(model, "documents/generic_table_list");
+            bytes = renderPdf(model, "documents/generic_table_list");
             contentType = JasperFormat.PDF.getContentType();
             extension = JasperFormat.PDF.getFileExtension();
         }

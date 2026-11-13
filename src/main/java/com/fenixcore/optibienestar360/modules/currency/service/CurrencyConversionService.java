@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.currency.service;
 
 import com.fenixcore.optibienestar360.core.util.AppTimeZone;
+import com.fenixcore.optibienestar360.core.util.TransactionScopedMemo;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.exchangerate.entity.ExchangeRate;
@@ -20,7 +21,7 @@ import java.time.LocalDate;
  * {@link #convert}, never a bespoke rate lookup.
  *
  * <p>Delegates to {@link ExchangeRateRepository}'s current-rate query — no
- * second conversion path. Same-currency is a trivial passthrough that never
+ * second conversion path — memoized per transaction (see {@code vigente}). Same-currency is a trivial passthrough that never
  * touches {@code exchange_rates}. Missing rate throws
  * {@link NoExchangeRateAvailableException}; per the ADR, callers decide
  * whether that's fatal or a degrade-to-null in a DTO — this service never
@@ -73,23 +74,21 @@ public class CurrencyConversionService {
             return new ConversionResult(amount, amount, BigDecimal.ONE, asOfDate);
         }
 
-        var direct = exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(from, to, asOf);
+        var direct = vigente(from, to, asOf);
         if (direct.isPresent()) {
             ExchangeRate rate = direct.get();
             BigDecimal converted = amount.multiply(rate.getRate())
                     .setScale(to.getDecimalPlaces(), RoundingMode.HALF_UP);
-            return new ConversionResult(amount, converted, rate.getRate(), rate.getOperationDate());
+            return new ConversionResult(amount, converted, rate.getRate(), valueDateOf(rate));
         }
 
-        var inverse = exchangeRateRepository
-                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(to, from, asOf);
+        var inverse = vigente(to, from, asOf);
         if (inverse.isPresent()) {
             ExchangeRate rate = inverse.get();
             BigDecimal effectiveRate = BigDecimal.ONE.divide(rate.getRate(), RATE_SCALE, RoundingMode.HALF_UP);
             BigDecimal converted = amount.multiply(effectiveRate)
                     .setScale(to.getDecimalPlaces(), RoundingMode.HALF_UP);
-            return new ConversionResult(amount, converted, effectiveRate, rate.getOperationDate());
+            return new ConversionResult(amount, converted, effectiveRate, valueDateOf(rate));
         }
 
         throw new NoExchangeRateAvailableException(
@@ -105,6 +104,56 @@ public class CurrencyConversionService {
      * the end of the day answers the rate that actually ruled that business day.
      * {@code null} means today, i.e. now.
      */
+    /**
+     * The rate of {@code base -> quote} vigente at {@code asOf}, memoized per
+     * transaction ({@link TransactionScopedMemo}).
+     *
+     * <p>The first lookup of a pair in a transaction is the plain single-row
+     * query, as before. From the second lookup of the same pair on (a listing
+     * enriching every row, a job converting per promoter), the pair's whole
+     * vigency history up to "now" is loaded once and every further lookup with
+     * {@code asOf <= now} resolves in memory with a floor search, including an
+     * empty history (pair never ingested), which keeps the inverse fallback
+     * cheap too. Lookups after the loaded instant still hit the database. The
+     * memo dies with the transaction, so it never serves another request a
+     * stale rate. A rate written by the job/admin runs in its own transaction
+     * (ExchangeRateWriter is REQUIRES_NEW).</p>
+     */
+    private java.util.Optional<ExchangeRate> vigente(Currency base, Currency quote, Instant asOf) {
+        PairHistory pair = TransactionScopedMemo.get(
+                new PairKey(base.getId(), quote.getId()), PairHistory::new);
+        pair.lookups++;
+        if (pair.byValidFrom != null && !asOf.isAfter(pair.loadedUpTo)) {
+            var entry = pair.byValidFrom.floorEntry(asOf);
+            return java.util.Optional.ofNullable(entry == null ? null : entry.getValue());
+        }
+        if (pair.lookups >= 2 && pair.byValidFrom == null) {
+            Instant now = Instant.now();
+            var history = new java.util.TreeMap<Instant, ExchangeRate>();
+            for (ExchangeRate rate : exchangeRateRepository
+                    .findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(base, quote, now)) {
+                history.put(rate.getValidFrom(), rate);
+            }
+            pair.byValidFrom = history;
+            pair.loadedUpTo = now;
+            if (!asOf.isAfter(now)) {
+                var entry = history.floorEntry(asOf);
+                return java.util.Optional.ofNullable(entry == null ? null : entry.getValue());
+            }
+        }
+        return exchangeRateRepository
+                .findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(base, quote, asOf);
+    }
+
+    private record PairKey(Long baseId, Long quoteId) {}
+
+    /** Per-transaction state of one direction of a pair (mutable, single-threaded: one transaction). */
+    private static final class PairHistory {
+        int lookups;
+        java.util.NavigableMap<Instant, ExchangeRate> byValidFrom;
+        Instant loadedUpTo;
+    }
+
     public static Instant vigencyInstantOf(LocalDate date) {
         Instant now = Instant.now();
         if (date == null) {
@@ -112,6 +161,19 @@ public class CurrencyConversionService {
         }
         Instant endOfDay = date.plusDays(1).atStartOfDay(AppTimeZone.ZONE).toInstant().minusNanos(1);
         return endOfDay.isAfter(now) ? now : endOfDay;
+    }
+
+    /**
+     * The date a rate is known by: its BCV "Fecha Valor", i.e. the calendar
+     * day (in {@link AppTimeZone#ZONE}) on which it becomes vigente. This is
+     * the date BCV and every public source print next to the rate, so it is
+     * the one shown to users and snapshotted as {@code *_rate_date}. Never
+     * {@code operation_date} (the publish day): over a weekend that one is
+     * the previous Thursday for the rate ruling on Saturday, and it is derived
+     * from the holiday calendar rather than read from BCV.
+     */
+    static LocalDate valueDateOf(ExchangeRate rate) {
+        return rate.getValidFrom().atZone(AppTimeZone.ZONE).toLocalDate();
     }
 
     private static boolean sameCurrency(Currency a, Currency b) {
@@ -130,8 +192,9 @@ public class CurrencyConversionService {
      *                        (equal to {@code amount} when {@code from == to})
      * @param rate            units of {@code to} per 1 unit of {@code from}
      *                        ({@link BigDecimal#ONE} for the same-currency case)
-     * @param rateDate        the vigency date of {@code rate} ({@code asOf}'s
-     *                        own date for the same-currency case)
+     * @param rateDate        the value date ("Fecha Valor") of {@code rate}:
+     *                        the day it became vigente, see {@link #valueDateOf}
+     *                        ({@code asOf}'s own date for the same-currency case)
      */
     public record ConversionResult(BigDecimal amount, BigDecimal convertedAmount, BigDecimal rate, LocalDate rateDate) {}
 }

@@ -4,12 +4,15 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,8 +33,19 @@ public class MemoryTokenBlacklistService implements TokenBlacklistService {
     private final Cache<String, TtlValue> blacklist;
     private final Cache<String, TtlValue> refreshTokens;
     private final Cache<String, TtlValue> userInvalidations;
+    /** Sessions already recovered after this process started (see {@link #markSessionRecovered}). */
+    private final Cache<UUID, Boolean> recoveredSessions;
+    /** Everything this store knows was written after this instant. */
+    private final Instant startedAt = Instant.now();
 
+    /** Default refresh lifetime (30 days) — used by tests. */
     public MemoryTokenBlacklistService() {
+        this(30);
+    }
+
+    @Autowired
+    public MemoryTokenBlacklistService(
+            @Value("${jwt.refresh-expiration-days:30}") int refreshExpirationDays) {
         Expiry<String, TtlValue> perEntryExpiry = new Expiry<>() {
             @Override
             public long expireAfterCreate(String key, TtlValue value, long currentTime) {
@@ -50,6 +64,7 @@ public class MemoryTokenBlacklistService implements TokenBlacklistService {
         this.blacklist         = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
         this.refreshTokens     = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
         this.userInvalidations = Caffeine.newBuilder().expireAfter(perEntryExpiry).build();
+        this.recoveredSessions = Caffeine.newBuilder().expireAfterWrite(Duration.ofDays(refreshExpirationDays)).build();
         log.info("Token blacklist provider: memory (Caffeine). Multi-replica logout/revoke will NOT propagate.");
     }
 
@@ -94,6 +109,21 @@ public class MemoryTokenBlacklistService implements TokenBlacklistService {
                 refreshTokens.invalidate(entry.getKey());
             }
         }
+    }
+
+    @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
+    @Override
+    public Instant startedAt() {
+        return startedAt;
+    }
+
+    @Override
+    public boolean markSessionRecovered(UUID sessionId) {
+        return recoveredSessions.asMap().putIfAbsent(sessionId, Boolean.TRUE) == null;
     }
 
     @Override

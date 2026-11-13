@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD for {@link HierarchyOverrideTier} (V102, hub plan
@@ -281,5 +283,20 @@ public class HierarchyOverrideTiersService {
                 tier.getRetroactiveSettlementPeriodAnchor());
         tier.setRetroactiveSettlementPeriodStrategy(PeriodStrategy.valueOf(resolution.retroactiveStrategy()));
         tier.setRetroactiveSettlementPeriodAnchor(resolution.retroactiveAnchor());
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<HierarchyOverrideTier> spec = ((Specification<HierarchyOverrideTier>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                HierarchyOverrideTier::getUuid, e -> null, HierarchyOverrideTiersService::optionLabelOf, HierarchyOverrideTier::isActive);
+    }
+
+    private static String optionLabelOf(HierarchyOverrideTier e) {
+        return e.getName();
     }
 }

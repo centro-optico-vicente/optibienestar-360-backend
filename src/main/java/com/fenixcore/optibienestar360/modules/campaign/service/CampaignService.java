@@ -60,6 +60,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD + lifecycle operations over {@link Campaign} (V120/V124, hub
@@ -631,5 +633,20 @@ public class CampaignService {
 
     private static Specification<Campaign> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name (campaigns have no own code).
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Campaign> spec = ((Specification<Campaign>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                Campaign::getUuid, e -> null, CampaignService::optionLabelOf, Campaign::isActive);
+    }
+
+    private static String optionLabelOf(Campaign e) {
+        return e.getName();
     }
 }

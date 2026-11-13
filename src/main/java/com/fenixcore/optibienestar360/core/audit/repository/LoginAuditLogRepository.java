@@ -32,5 +32,16 @@ public interface LoginAuditLogRepository
             + "AND l.sessionExpiresAt < :now")
     int expireStaleSessions(@Param("now") Instant now);
 
+    /**
+     * Revokes every live session of a user (password change/reset). Persists what
+     * {@code TokenBlacklistService#revokeAllUserRefreshTokens} does in a volatile store,
+     * so a restart can't bring those sessions back (see {@code AuthService#refresh}).
+     */
+    @Modifying
+    @Query("UPDATE LoginAuditLog l SET l.valid = false, l.sessionStatus = com.fenixcore.optibienestar360.core.audit.LoginSessionStatus.REVOKED, "
+            + "l.loggedOutAt = :now, l.logoutReason = :reason "
+            + "WHERE l.userId = :userId AND l.valid = true AND l.sessionStatus = com.fenixcore.optibienestar360.core.audit.LoginSessionStatus.ACTIVE")
+    int revokeActiveSessionsOfUser(@Param("userId") Long userId, @Param("reason") String reason, @Param("now") Instant now);
+
     long countBySessionStatus(LoginSessionStatus sessionStatus);
 }

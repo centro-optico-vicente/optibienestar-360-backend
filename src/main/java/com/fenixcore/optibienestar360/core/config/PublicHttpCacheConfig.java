@@ -38,6 +38,18 @@ public class PublicHttpCacheConfig {
                 .staleWhileRevalidate(STALE_WHILE_REVALIDATE);
     }
 
+    /**
+     * {@code Cache-Control} for small per-user lookups that change a few times a
+     * day at most: the vigente exchange rate (new rows a few times per business
+     * day) and the organization's currencies. {@code private}, so shared caches
+     * never keep them; the browser reuses the response for 60 s instead of
+     * asking again on every form or page that shows an amount (they used to be
+     * {@code no-store}). New instance per call.
+     */
+    public static CacheControl userScopedShortLived() {
+        return CacheControl.maxAge(MAX_AGE).cachePrivate();
+    }
+
     @Bean
     public FilterRegistrationBean<ShallowEtagHeaderFilter> publicCatalogEtagFilter() {
         FilterRegistrationBean<ShallowEtagHeaderFilter> registration =

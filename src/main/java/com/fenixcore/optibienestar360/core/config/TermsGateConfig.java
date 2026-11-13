@@ -2,7 +2,7 @@ package com.fenixcore.optibienestar360.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
-import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
+import com.fenixcore.optibienestar360.modules.terms.web.TermsGateCheck;
 import com.fenixcore.optibienestar360.modules.terms.web.TermsGateInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +28,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class TermsGateConfig implements WebMvcConfigurer {
 
-    private final TermsAcceptanceService termsAcceptanceService;
+    private final TermsGateCheck termsGateCheck;
     private final MessageSource messageSource;
     private final ObjectMapper objectMapper;
 
@@ -48,6 +48,6 @@ public class TermsGateConfig implements WebMvcConfigurer {
     }
 
     private TermsGateInterceptor gate(TermType type) {
-        return new TermsGateInterceptor(termsAcceptanceService, type, messageSource, objectMapper, problemsBase);
+        return new TermsGateInterceptor(termsGateCheck, type, messageSource, objectMapper, problemsBase);
     }
 }

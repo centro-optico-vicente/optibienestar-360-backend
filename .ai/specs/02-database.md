@@ -2,7 +2,9 @@
 
 > Schema detallado de todas las tablas. Convenciones en [ADR 0006 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md).
 >
-> **Estado:** este archivo se irá completando conforme se ejecuten las migraciones de la Tarea 5.1.
+> **⚠️ Para la BD ACTUAL usar [`src/main/resources/db/snapshot/`](../../src/main/resources/db/snapshot/README.md)** (`schema-map.md`, `schema.sql`, `data.sql`). Se genera desde las migraciones y siempre refleja la última. Este documento es manual. El catálogo de migraciones y la sección "Índices clave" quedaron **históricos**: se cortan en las primeras versiones y describen índices planeados que no coinciden con los reales.
+>
+> **Regla — snapshot de la BD:** toda migración nueva o modificada va acompañada, **en el mismo PR**, del snapshot regenerado (`scripts/db/snapshot.sh --fresh` → commitear `src/main/resources/db/snapshot/`). El snapshot es la BD final, no el historial: un `ALTER TABLE … RENAME` aparece solo con el nombre nuevo. Sirve para conocer el esquema sin leer cada migración y para importar la BD sin ejecutar cada SQL (`scripts/db/restore.sh`). Si se olvida, el job `db-snapshot` de CI lo commitea en el PR. Detalle en el [README del snapshot](../../src/main/resources/db/snapshot/README.md).
 
 ## Diagrama conceptual
 
@@ -220,6 +222,8 @@ FAILED   →  SENDING        (ciclo de retry la levanta otra vez)
 (pendiente)
 
 ## Índices clave
+
+> **Histórico / planeado**: no refleja los índices reales. Ver la sección **Indexes** de cada tabla en [`schema-map.md`](../../src/main/resources/db/snapshot/schema-map.md).
 
 | Tabla | Índice | Justificación |
 |---|---|---|

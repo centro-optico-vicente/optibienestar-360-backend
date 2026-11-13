@@ -2,7 +2,6 @@ package com.fenixcore.optibienestar360.modules.terms.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenixcore.optibienestar360.modules.terms.entity.TermsVersion.TermType;
-import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +32,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TermsGateInterceptorTest {
 
-    @Mock private TermsAcceptanceService termsAcceptanceService;
+    @Mock private TermsGateCheck termsGateCheck;
 
     private TermsGateInterceptor interceptor;
     private final UUID userUuid = UUID.randomUUID();
@@ -43,7 +42,7 @@ class TermsGateInterceptorTest {
         ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
-        interceptor = new TermsGateInterceptor(termsAcceptanceService, TermType.ADVISOR, messageSource,
+        interceptor = new TermsGateInterceptor(termsGateCheck, TermType.ADVISOR, messageSource,
                 new ObjectMapper(), "https://problems.test");
     }
 
@@ -55,7 +54,7 @@ class TermsGateInterceptorTest {
     @Test
     void pendingContract_isRefusedWithItsType() throws Exception {
         authenticate();
-        when(termsAcceptanceService.hasPending(userUuid, TermType.ADVISOR)).thenReturn(true);
+        when(termsGateCheck.hasPending(userUuid, TermType.ADVISOR)).thenReturn(true);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         boolean proceed = interceptor.preHandle(get(), response, new Object());
@@ -71,7 +70,7 @@ class TermsGateInterceptorTest {
     @Test
     void acceptedContract_passes() throws Exception {
         authenticate();
-        when(termsAcceptanceService.hasPending(userUuid, TermType.ADVISOR)).thenReturn(false);
+        when(termsGateCheck.hasPending(userUuid, TermType.ADVISOR)).thenReturn(false);
 
         assertThat(interceptor.preHandle(get(), new MockHttpServletResponse(), new Object())).isTrue();
     }
@@ -79,7 +78,7 @@ class TermsGateInterceptorTest {
     @Test
     void anonymousRequest_isLeftToSpringSecurity() throws Exception {
         assertThat(interceptor.preHandle(get(), new MockHttpServletResponse(), new Object())).isTrue();
-        verify(termsAcceptanceService, never()).hasPending(any(), any());
+        verify(termsGateCheck, never()).hasPending(any(), any());
     }
 
     private MockHttpServletRequest get() {

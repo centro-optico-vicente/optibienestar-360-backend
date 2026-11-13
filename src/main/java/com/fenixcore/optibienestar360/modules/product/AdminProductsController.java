@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.product;
 
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AllyProductsAdminService;
@@ -29,6 +30,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.UUID;
+import java.util.List;
 
 /**
  * Admin CRUD for the product master (hub ADR 0026) — general products any
@@ -44,6 +46,9 @@ import java.util.UUID;
 @RequestMapping("/v1/admin/products")
 @RequiredArgsConstructor
 public class AdminProductsController {
+
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
 
     private final ProductsService productsService;
     private final AllyProductsAdminService offersService;
@@ -62,6 +67,16 @@ public class AdminProductsController {
         Page<ProductListItemDto> page = productsService.list(pageable, filter, q, type, exclusive, includeInactive,
                 categoryUuid, ownerAllyUuid);
         return ResponseEntity.ok(new AppliedSortPage<>(page, productsService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize(LOOKUP)
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) Boolean exclusive) {
+        return ResponseEntity.ok(productsService.listOptions(q, limit, currentValues, exclusive));
     }
 
     @GetMapping("/{uuid}")

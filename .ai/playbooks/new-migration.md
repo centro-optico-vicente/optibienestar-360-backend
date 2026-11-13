@@ -153,7 +153,27 @@ psql -d optibienestar360 -c "SELECT version, description, success FROM flyway_sc
 - [ ] Si agrega tabla: tiene PK `BIGINT` (nombre de tabla en plural + `_id`) + columna `uuid` separada, audit columns, is_active, status, trigger updated_at
 - [ ] Si agrega FK: tiene índice asociado
 - [ ] Naming sigue convención (`V{N}__snake_case.sql`)
+- [ ] Snapshot regenerado y commiteado (`scripts/db/snapshot.sh --fresh`, paso 6b)
 - [ ] Comentarios opcionales en columnas/tablas no triviales
+
+### 6b. Regenerar y commitear el snapshot de la BD (obligatorio)
+
+**Toda migración nueva o modificada se sube junto con el snapshot regenerado, en el mismo PR:**
+
+```bash
+scripts/db/snapshot.sh --fresh          # ~15 s; Postgres efímero en Docker, no toca tu BD de dev
+git add src/main/resources/db/snapshot
+```
+
+[`src/main/resources/db/snapshot/`](../../src/main/resources/db/snapshot/README.md) es la **BD final** tras todas las migraciones:
+- `schema-map.md`: tablas, relaciones e índices legibles.
+- `schema.sql`: DDL.
+- `data.sql`: datos sembrados más `flyway_schema_history`.
+- `seed-catalog.md`: conteos y códigos de catálogos.
+
+No es el historial: un `ALTER TABLE … RENAME` aparece solo con el nombre nuevo. Sirve para conocer el esquema sin leer cada migración y para **importar la BD sin ejecutar cada SQL** (`scripts/db/restore.sh`). El diff del snapshot en el PR muestra exactamente qué cambió la migración, porque la salida es determinista.
+
+Si se olvida, el job `db-snapshot` de CI lo regenera y lo commitea en la rama del PR como `github-actions[bot]`. **Nunca editar esos archivos a mano.**
 
 ### 7. Reglas críticas
 

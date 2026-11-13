@@ -84,8 +84,17 @@ public class PaymentCategoryService {
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        return listOptions(q, limit, currentValues, null);
+    }
+
+    /** Same as {@link #listOptions(String, int, List)} narrowed to {@code direction} ({@code IN} collections / {@code OUT} payouts). */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, String direction) {
         Specification<PaymentCategory> spec = ((Specification<PaymentCategory>) (root, query, cb) -> cb.isTrue(root.get("active")))
                 .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (direction != null && !direction.isBlank()) {
+            String wanted = direction.trim().toUpperCase();
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("direction"), wanted));
+        }
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
                 PaymentCategory::getUuid, PaymentCategory::getCode, PaymentCategoryService::labelOf, PaymentCategory::isActive);
     }

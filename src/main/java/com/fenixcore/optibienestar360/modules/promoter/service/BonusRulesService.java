@@ -36,6 +36,8 @@ import java.util.NoSuchElementException;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD over {@link CommissionBonusRule} (v2 PDF #5). Plural-name
@@ -311,5 +313,20 @@ public class BonusRulesService {
 
     private static Specification<CommissionBonusRule> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<CommissionBonusRule> spec = ((Specification<CommissionBonusRule>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                CommissionBonusRule::getUuid, e -> null, BonusRulesService::optionLabelOf, CommissionBonusRule::isActive);
+    }
+
+    private static String optionLabelOf(CommissionBonusRule e) {
+        return e.getName();
     }
 }

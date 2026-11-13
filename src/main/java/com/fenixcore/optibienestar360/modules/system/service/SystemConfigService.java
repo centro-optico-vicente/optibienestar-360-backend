@@ -138,6 +138,32 @@ public class SystemConfigService {
 	}
 
 	/**
+	 * Max generic PDF documents rendered at the same time (V238). Fail-safe:
+	 * 5 if the singleton row is missing (same default as the column).
+	 */
+	@Transactional(readOnly = true)
+	public int getPdfMaxConcurrentRenders() {
+		return systemConfigRepository
+			.findFirstByActiveTrue()
+			.map(SystemConfig::getPdfMaxConcurrentRenders)
+			.orElse(5)
+		;
+	}
+
+	/**
+	 * Seconds a PDF request waits for a free render slot before 503 (V238).
+	 * Fail-safe: 10 if the singleton row is missing (same default as the column).
+	 */
+	@Transactional(readOnly = true)
+	public int getPdfRenderWaitSeconds() {
+		return systemConfigRepository
+			.findFirstByActiveTrue()
+			.map(SystemConfig::getPdfRenderWaitSeconds)
+			.orElse(10)
+		;
+	}
+
+	/**
 	 * The global fallback default sort (V82), empty (never {@code null})
 	 * when unconfigured — the caller (e.g. {@code AlliesService}) decides
 	 * its own final hard fallback ({@code createdAt DESC}).
@@ -201,6 +227,12 @@ public class SystemConfigService {
 		}
 		if (request.patientMedicalAccessEnabled() != null) {
 			config.setPatientMedicalAccessEnabled(request.patientMedicalAccessEnabled());
+		}
+		if (request.pdfMaxConcurrentRenders() != null) {
+			config.setPdfMaxConcurrentRenders(request.pdfMaxConcurrentRenders());
+		}
+		if (request.pdfRenderWaitSeconds() != null) {
+			config.setPdfRenderWaitSeconds(request.pdfRenderWaitSeconds());
 		}
 
         return systemConfigRepository.save(config);

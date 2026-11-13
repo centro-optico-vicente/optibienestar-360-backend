@@ -64,9 +64,10 @@ class AdminMemberControllerOptionsIT {
     }
 
     @Test
-    void options_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/members/options").with(principal("USER_VIEW_ALL")))
-                .andExpect(status().isForbidden());
+    void options_authenticatedWithoutScreenPermission_is200() throws Exception {
+        // /options only needs a session (ADR LOC-0013, rule 3): no *_VIEW_ALL required.
+        mockMvc.perform(get("/v1/admin/members/options").with(principal()))
+                .andExpect(status().isOk());
     }
 
     @Test

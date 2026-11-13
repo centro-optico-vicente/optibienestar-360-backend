@@ -31,6 +31,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import java.util.List;
 
 /**
  * Admin CRUD + lifecycle over commission/incentive {@code Campaign}s (V120/
@@ -58,6 +60,15 @@ public class AdminCampaignController {
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
         Page<CampaignDto> page = campaignService.list(pageable, filter, q, includeInactive, dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, campaignService.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(campaignService.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

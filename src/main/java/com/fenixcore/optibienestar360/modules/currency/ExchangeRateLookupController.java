@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.currency;
 
+import com.fenixcore.optibienestar360.core.config.PublicHttpCacheConfig;
 import com.fenixcore.optibienestar360.modules.currency.dto.ConvertedAmountDto;
 import com.fenixcore.optibienestar360.modules.currency.dto.CurrentExchangeRateDto;
 import com.fenixcore.optibienestar360.modules.currency.service.ExchangeRateLookupService;
@@ -45,7 +46,8 @@ public class ExchangeRateLookupController {
             @RequestParam String base,
             @RequestParam String quote,
             @RequestParam(required = false) String asOf) {
-        return ResponseEntity.ok(service.current(base, quote, asOf));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.userScopedShortLived())
+                .body(service.current(base, quote, asOf));
     }
 
     /**
@@ -62,6 +64,7 @@ public class ExchangeRateLookupController {
             @RequestParam String from,
             @RequestParam String to,
             @RequestParam(required = false) String asOf) {
-        return ResponseEntity.ok(service.convert(amount, from, to, asOf));
+        return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.userScopedShortLived())
+                .body(service.convert(amount, from, to, asOf));
     }
 }

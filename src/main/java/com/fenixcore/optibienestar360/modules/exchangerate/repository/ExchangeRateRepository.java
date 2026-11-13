@@ -29,6 +29,15 @@ public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long
     Optional<ExchangeRate> findFirstByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromDesc(
             Currency baseCurrency, Currency quoteCurrency, Instant at);
 
+    /**
+     * Whole vigency history of a pair up to {@code at}, oldest first: what
+     * {@code CurrencyConversionService} memoizes per transaction once the same
+     * pair is looked up a second time (a listing converting row by row), so the
+     * remaining lookups resolve in memory. Same filter as the single lookup above.
+     */
+    java.util.List<ExchangeRate> findByBaseCurrencyAndQuoteCurrencyAndActiveTrueAndValidFromLessThanEqualOrderByValidFromAsc(
+            Currency baseCurrency, Currency quoteCurrency, Instant at);
+
     Page<ExchangeRate> findByBaseCurrencyAndQuoteCurrency(Currency baseCurrency, Currency quoteCurrency, Pageable pageable);
 
     /**

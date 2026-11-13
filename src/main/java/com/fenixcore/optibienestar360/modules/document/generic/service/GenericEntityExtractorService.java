@@ -1,7 +1,16 @@
 package com.fenixcore.optibienestar360.modules.document.generic.service;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonStreamContext;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationConfig;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
+import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.entity.CodedEnum;
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecordModel;
@@ -282,8 +291,60 @@ public class GenericEntityExtractorService {
         this.objectMapper = objectMapper.copy()
                 .findAndRegisterModules()
                 .setVisibility(com.fasterxml.jackson.annotation.PropertyAccessor.FIELD, com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY)
-                .setVisibility(com.fasterxml.jackson.annotation.PropertyAccessor.GETTER, com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY);
+                .setVisibility(com.fasterxml.jackson.annotation.PropertyAccessor.GETTER, com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY)
+                .registerModule(new SimpleModule("GenericRecordCycleGuard").setSerializerModifier(new CycleGuardModifier()));
         this.messageSource = messageSource;
+    }
+
+    /**
+     * Stops the Jackson attempt in {@link #toMap(Object)} as soon as a value is one of its own ancestors.
+     *
+     * <p>With field visibility ANY and no {@code @JsonIgnore} on the JPA entities, a bidirectional relation
+     * ({@code Ally.users -> AllyUser.ally -> Ally}) or a Hibernate proxy ({@code hibernateLazyInitializer ->
+     * session -> ...}) sends Jackson into a long walk that lazy-loads rows until the nesting limit fails it,
+     * and {@code toMap} then falls back to reflection. A cyclic graph can never serialize, so failing at the
+     * first repeated ancestor gives the same result (the reflection fallback) without that walk.
+     *
+     * <p>Only plain {@link BeanPropertyWriter}s are wrapped; custom writers (e.g. the {@code _Display} ones)
+     * are left untouched.
+     */
+    private static final class CycleGuardModifier extends BeanSerializerModifier {
+        @Override
+        public List<BeanPropertyWriter> changeProperties(SerializationConfig config, BeanDescription beanDesc,
+                                                         List<BeanPropertyWriter> beanProperties) {
+            List<BeanPropertyWriter> result = new ArrayList<>(beanProperties.size());
+            for (BeanPropertyWriter writer : beanProperties) {
+                result.add(writer.getClass() == BeanPropertyWriter.class ? new CycleGuardWriter(writer) : writer);
+            }
+            return result;
+        }
+    }
+
+    private static final class CycleGuardWriter extends BeanPropertyWriter {
+        CycleGuardWriter(BeanPropertyWriter base) {
+            super(base);
+        }
+
+        @Override
+        public void serializeAsField(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception {
+            failIfAncestor(get(bean), gen);
+            super.serializeAsField(bean, gen, prov);
+        }
+
+        @Override
+        public void serializeAsElement(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception {
+            failIfAncestor(get(bean), gen);
+            super.serializeAsElement(bean, gen, prov);
+        }
+
+        private void failIfAncestor(Object value, JsonGenerator gen) throws JsonMappingException {
+            if (value == null) return;
+            for (JsonStreamContext ctx = gen.getOutputContext(); ctx != null; ctx = ctx.getParent()) {
+                if (ctx.getCurrentValue() == value) {
+                    throw JsonMappingException.from(gen, "Cyclic reference at property '" + getName() + "'");
+                }
+            }
+        }
     }
 
     /**

@@ -84,6 +84,18 @@ public class SystemConfig extends BaseAuditEntity {
 	private boolean patientMedicalAccessEnabled = false;
 
 	/**
+	 * Max generic PDF documents rendered at the same time (V238) — each render
+	 * holds fonts and the whole document in memory. Read by {@code PdfRenderLimiter}
+	 * on every request, so a change applies without redeploy. 0 or -1 = no cap.
+	 */
+	@Column(name = "pdf_max_concurrent_renders", nullable = false)
+	private int pdfMaxConcurrentRenders = 5;
+
+	/** Seconds a PDF request waits for a free render slot before 503 (V238); 0 or -1 = no time limit. */
+	@Column(name = "pdf_render_wait_seconds", nullable = false)
+	private int pdfRenderWaitSeconds = 10;
+
+	/**
 	 * Global fallback default sort (V82) — applied by a list endpoint when
 	 * the entity has no {@code entity_config} row (or none with its own
 	 * {@code default_sort}) at all. Restricted at the service layer to
