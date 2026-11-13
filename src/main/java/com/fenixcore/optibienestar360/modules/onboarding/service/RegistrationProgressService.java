@@ -6,9 +6,12 @@ import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyUser;
 import com.fenixcore.optibienestar360.modules.ally.repository.AllyUserRepository;
 import com.fenixcore.optibienestar360.modules.ally.service.MyAllyProfileService;
+import com.fenixcore.optibienestar360.modules.auth.entity.Role;
+import com.fenixcore.optibienestar360.modules.auth.repository.RoleRepository;
 import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.onboarding.dto.RegistrationProgressDto;
 import com.fenixcore.optibienestar360.modules.onboarding.dto.RegistrationProgressDto.Step;
+import com.fenixcore.optibienestar360.security.RoleNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,19 +40,48 @@ public class RegistrationProgressService {
     private final AffiliationRequestRepository affiliationRequests;
     private final AllyUserRepository allyUsers;
     private final MyAllyProfileService allyProfiles;
+    private final RoleRepository roleRepository;
 
-    public RegistrationProgressDto get(UUID userUuid) {
-        Optional<AffiliationRequest> request = affiliationRequests.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid);
-        if (request.isPresent()) {
-            return memberProgress(request.get());
+    /**
+     * The registration of the caller's <b>active role</b>. One account may have
+     * a registration in each segment (a member who registers an ally, an
+     * advisor who affiliates — backend#438), and each one is reviewed and
+     * approved on its own; this only decides which one the wizard shows:
+     * <ul>
+     *   <li>active role {@code ALIADO_PENDIENTE} → the ally registration;</li>
+     *   <li>active role {@code AFILIADO_PENDIENTE} → the affiliation;</li>
+     *   <li>any other role (or none) → the affiliation if there is one, else
+     *   the ally registration (the login notice of a single-segment account).</li>
+     * </ul>
+     * With both in progress, the person switches role to see the other one.
+     */
+    public RegistrationProgressDto get(UUID userUuid, UUID activeRoleUuid) {
+        String activeRole = activeRoleUuid == null ? null
+                : roleRepository.findByUuid(activeRoleUuid).map(Role::getName).orElse(null);
+        if (RoleNames.ALLY_PENDING.equals(activeRole)) {
+            return allyProgress(userUuid).orElseGet(RegistrationProgressDto::none);
         }
+        Optional<RegistrationProgressDto> member = affiliationRequests.findFirstByUser_UuidOrderByCreatedAtDesc(userUuid)
+                .map(RegistrationProgressService::memberProgress);
+        if (RoleNames.MEMBER_PENDING.equals(activeRole) || member.isPresent()) {
+            return member.orElseGet(RegistrationProgressDto::none);
+        }
+        return allyProgress(userUuid).orElseGet(RegistrationProgressDto::none);
+    }
+
+    /** {@link #get(UUID, UUID)} without an active role. */
+    public RegistrationProgressDto get(UUID userUuid) {
+        return get(userUuid, null);
+    }
+
+    /** The latest self-registered ally the user owns, if any. */
+    private Optional<RegistrationProgressDto> allyProgress(UUID userUuid) {
         return allyUsers.findActiveByUserUuid(userUuid).stream()
                 .filter(au -> au.getAllyRole() == AllyUser.AllyRole.OWNER)
                 .map(AllyUser::getAlly)
                 .filter(a -> a.getRegistrationChannel() == Ally.RegistrationChannel.SELF_SERVICE)
                 .max(Comparator.comparing(Ally::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
-                .map(a -> allyProgress(a, allyProfiles.completenessOf(a).missing().isEmpty()))
-                .orElseGet(RegistrationProgressDto::none);
+                .map(a -> allyProgress(a, allyProfiles.completenessOf(a).missing().isEmpty()));
     }
 
     /** Affiliate: personal data and plan + contract are essential; the payment report and the family are not. */
