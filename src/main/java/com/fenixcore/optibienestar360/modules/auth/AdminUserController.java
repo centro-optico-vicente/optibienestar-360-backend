@@ -39,6 +39,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminUserController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private final UserService userService;
     private final AllyUsersService allyUsersService;
     private final UserInvitationService invitationService;
@@ -60,7 +63,7 @@ public class AdminUserController {
     }
 
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('USER_VIEW_ALL')")
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,

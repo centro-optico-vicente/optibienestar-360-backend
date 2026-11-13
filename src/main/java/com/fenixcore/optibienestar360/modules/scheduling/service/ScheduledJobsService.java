@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD over {@link ScheduledJob} plus the read surface for
@@ -391,5 +393,20 @@ public class ScheduledJobsService {
 
     private enum Action {
         REGISTER, RESCHEDULE, UNREGISTER
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Display name only: the code is a technical identifier (ADR LOC-0013, rule 5); it still travels in {@code code}.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<ScheduledJob> spec = ((Specification<ScheduledJob>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(jobRepository, jobRepository::findByUuid, spec, currentValues, limit,
+                ScheduledJob::getUuid, ScheduledJob::getCode, ScheduledJobsService::optionLabelOf, ScheduledJob::isActive);
+    }
+
+    private static String optionLabelOf(ScheduledJob e) {
+        return e.getDisplayName() == null || e.getDisplayName().isBlank() ? e.getCode() : e.getDisplayName();
     }
 }

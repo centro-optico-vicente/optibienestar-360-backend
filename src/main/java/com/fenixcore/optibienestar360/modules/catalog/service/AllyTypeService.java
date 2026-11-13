@@ -80,8 +80,20 @@ public class AllyTypeService {
 
     /** Lightweight options for select/dropdown population — see {@link OptionsSupport}. */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        return listOptions(q, limit, currentValues, null);
+    }
+
+    /**
+     * Same as {@link #listOptions(String, int, List)} narrowed to one segment ({@code B2B} / {@code B2P}): an ally never
+     * mixes types of both (hub ADR 0031), so the ally form asks for its own segment instead of filtering client-side.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, String segment) {
         Specification<AllyType> spec = ((Specification<AllyType>) (root, query, cb) -> cb.isTrue(root.get("active")))
                 .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (segment != null && !segment.isBlank()) {
+            AllyType.Segment wanted = AllyType.Segment.valueOf(segment.trim().toUpperCase());
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("segment"), wanted));
+        }
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
                 AllyType::getUuid, AllyType::getCode, AllyTypeService::labelOf, AllyType::isActive);
     }

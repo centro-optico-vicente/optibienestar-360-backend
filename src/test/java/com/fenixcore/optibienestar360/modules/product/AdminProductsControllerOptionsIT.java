@@ -63,15 +63,16 @@ class AdminProductsControllerOptionsIT {
     }
 
     @Test
-    void options_withoutPermission_is403() throws Exception {
-        mockMvc.perform(get("/v1/admin/products/options").with(principal("USER_VIEW_ALL")))
-                .andExpect(status().isForbidden());
+    void options_authenticatedWithoutScreenPermission_is200() throws Exception {
+        // /options only needs a session (ADR LOC-0013, rule 3): no *_VIEW_ALL required.
+        mockMvc.perform(get("/v1/admin/products/options").with(principal()))
+                .andExpect(status().isOk());
     }
 
     @Test
     void options_returnsFlatListWithoutPageWrapper() throws Exception {
         UUID activeUuid = UUID.randomUUID();
-        when(productsService.listOptions(isNull(), eq(50), isNull()))
+        when(productsService.listOptions(isNull(), eq(50), isNull(), isNull()))
                 .thenReturn(List.of(new OptionDto(activeUuid, "SKU-001", "SKU-001 — Consulta general", true)));
 
         mockMvc.perform(get("/v1/admin/products/options").with(principal("PRODUCT_VIEW_ALL")))
@@ -84,7 +85,7 @@ class AdminProductsControllerOptionsIT {
     @Test
     void options_currentValues_inactiveItemStillAppears() throws Exception {
         UUID inactiveUuid = UUID.randomUUID();
-        when(productsService.listOptions(any(), eq(50), eq(List.of(inactiveUuid))))
+        when(productsService.listOptions(any(), eq(50), eq(List.of(inactiveUuid)), isNull()))
                 .thenReturn(List.of(new OptionDto(inactiveUuid, "OLD", "Discontinued", false)));
 
         mockMvc.perform(get("/v1/admin/products/options")

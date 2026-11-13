@@ -47,6 +47,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminPromoterController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private final PromotersService promotersService;
     private final PromoterDashboardService promoterDashboardService;
     private final CommissionsService commissionsService;
@@ -64,7 +67,7 @@ public class AdminPromoterController {
     }
 
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('PROMOTER_VIEW_ALL')")
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,

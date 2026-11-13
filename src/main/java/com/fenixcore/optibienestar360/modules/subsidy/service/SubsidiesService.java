@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Application service for {@link Subsidy} (v2 PDF item #1, V41) — admin CRUD
@@ -327,5 +329,21 @@ public class SubsidiesService {
 
     private static Specification<Subsidy> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). {@code <member> — <reason>} (a subsidy has no name of its own).
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Subsidy> spec = ((Specification<Subsidy>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                Subsidy::getUuid, e -> null, SubsidiesService::optionLabelOf, Subsidy::isActive);
+    }
+
+    private static String optionLabelOf(Subsidy e) {
+        String member = e.getMember() == null ? "" : e.getMember().getPerson().getFullName();
+        return e.getReason() == null || e.getReason().isBlank() ? member : member + " — " + e.getReason();
     }
 }

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.ally;
 
 import com.fenixcore.optibienestar360.modules.ally.dto.MyAllyDto;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
 import com.fenixcore.optibienestar360.modules.ally.service.MyAlliesService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,14 @@ public class MyAlliesController {
                                                            @PageableDefault(size = 20) Pageable pageable,
                                                            @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(productsService.listOwn(actor.getUuid(), allyUuid, q, type, pageable));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(@RequestParam(required = false) String q,
+                                                   @RequestParam(required = false, defaultValue = "50") int limit,
+                                                   @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(myAlliesService.listMyAllyOptions(actor.getUuid(), q, limit));
     }
 
     @GetMapping

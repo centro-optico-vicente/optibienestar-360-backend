@@ -47,6 +47,8 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Admin CRUD for {@link CompetitiveCommissionRule} (hub plan
@@ -485,5 +487,20 @@ public class CompetitiveCommissionRulesService {
 
     private static Specification<CompetitiveCommissionRule> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name.
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<CompetitiveCommissionRule> spec = ((Specification<CompetitiveCommissionRule>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                CompetitiveCommissionRule::getUuid, e -> null, CompetitiveCommissionRulesService::optionLabelOf, CompetitiveCommissionRule::isActive);
+    }
+
+    private static String optionLabelOf(CompetitiveCommissionRule e) {
+        return e.getName();
     }
 }

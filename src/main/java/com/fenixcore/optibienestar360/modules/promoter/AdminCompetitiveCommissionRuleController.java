@@ -31,6 +31,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import java.util.List;
 
 /**
  * Admin CRUD for competitive commission rules (hub plan
@@ -63,6 +65,15 @@ public class AdminCompetitiveCommissionRuleController {
         Page<CompetitiveRuleListItemDto> page = service.list(
                 pageable, filter, q, campaignUuid, campaignLinked, metric, competitionType, includeInactive);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OptionDto>> options(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "50") int limit,
+            @RequestParam(required = false) List<UUID> currentValues) {
+        return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
     }
 
     @GetMapping("/{uuid}")

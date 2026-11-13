@@ -70,6 +70,8 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Application service for the {@link Ally} entity (the organizational
@@ -964,4 +966,18 @@ public class AlliesService {
         );
     }
 
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). Plain name (allies have no own code).
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<Ally> spec = ((Specification<Ally>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                Ally::getUuid, e -> null, AlliesService::optionLabelOf, Ally::isActive);
+    }
+
+    private static String optionLabelOf(Ally e) {
+        return e.getName();
+    }
 }

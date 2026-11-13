@@ -40,6 +40,8 @@ Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` �
 
 ### Regla 3 — `/options` no tiene permiso propio; reutiliza el del listado paginado hermano
 
+> **Reemplazada por la enmienda 2026-11-13 (b)** — `/options` pide solo sesión válida. Se conserva el texto original como historia.
+
 `/options` **no** introduce un permiso nuevo (ej. no existe `PLAN_OPTIONS_READ`). Se protege con el mismo `@PreAuthorize` que ya protege el `GET` de listado paginado de su recurso padre (`PLAN_VIEW_ALL`, `MEMBER_VIEW_ALL`, `USER_VIEW_ALL`, `ROLE_VIEW`, `CATALOG_VIEW_ALL`, etc.). Esto es consistente con la filosofía ya congelada en `V34__catalog_view_permission.sql`: los permisos de lectura se agrupan por **dominio de recurso**, no se fragmentan por tipo de endpoint (paginado vs. options vs. detalle). Fragmentar aquí no ganaría ningún control real — `/options` expone *menos* datos que el listado completo (solo `uuid`/`code`/`label`/`active`), nunca más — y obligaría a duplicar asignaciones de rol en las 14 entidades. Si en el futuro aparece un caso donde el listado completo expone un dato sensible que `/options` deba ocultar de cierto rol (o viceversa), ahí sí se justificaría separar el permiso — hoy no existe ese caso de uso.
 
 ## Tabla resumen — estado tras esta implementación
@@ -57,6 +59,8 @@ Implementación vía el helper reusable `core/util/OptionsSupport.build(...)` �
 | `ally-services` (cola `pending`) | ✅ (cerrado por este ADR) | — (cola de revisión, no es tabla principal) |
 | `products` | ✅ | ✅ (label `<code> — <name>` si tiene código) |
 | `product-categories` | ✅ | ✅ (código técnico → label solo nombre) |
+| `campaigns`, `allies`, `corporate-contracts`, `company-bank-accounts`, `scheduled-jobs`, `subsidies`, `bonus-rules`, `commission-tiers`, `collection-commission-tiers`, `hierarchy-override-tiers`, `competitive-commission-rules` | ✅ | ✅ (enmienda 2026-11-13 b) |
+| `me/allies` (aliados propios del usuario) | N/A (sin paginar) | ✅ filtro en memoria, mismo criterio insensible a tildes/`ñ` |
 
 `service-categories`, `corporate-contracts`, `promoters`: ver Regla 4 (enmienda) — se agregan aunque el frontend aún no los use.
 
@@ -86,6 +90,34 @@ El `label` es lo que el usuario ve en el select; el frontend no lo recompone (sp
 | `promoter-types` | por verificar | `código — nombre` | por verificar |
 | `products` | legible (SKU, opcional) | `código — nombre` (solo nombre si no tiene código) | ✅ |
 | `product-categories` | técnico (`SERVICIOS_FUNERARIOS`) | nombre | ✅ |
+
+## Enmienda 2026-11-13 (b) — `/options` con sesión válida, desacoplado de la pantalla
+
+### Regla 3 (reemplazo) — `/options` pide solo `isAuthenticated()`
+
+`<X>_VIEW_ALL` hace dos cosas: abre la pantalla en el menú del frontend (`nav.ts` → `requires`) y autoriza el listado admin. Si además autoriza `/options`, no hay forma de dejar que alguien **liste en un select sin ver la pantalla**: el afiliado que registra un pago necesita bancos y monedas, el encargado de aliados necesita productos, el asesor que registra un afiliado en una campaña necesita campañas — y ninguno debe ver esas pantallas de gestión.
+
+Por eso todo `/options` admin usa `@PreAuthorize("isAuthenticated()")` (constante `LOOKUP` en cada controller). `<X>_VIEW_ALL` sigue gobernando solo la pantalla, el listado paginado y el detalle. Un endpoint que se llame `.../options` pero **no** sea un lookup de entidad (p. ej. `/memberships/{uuid}/promotion/options`, promociones elegibles para una acción) conserva su permiso de acción.
+
+**Riesgo aceptado (MVP):** `/options` expone solo `uuid`, `code`, `label` y `active`, nunca el DTO; pero en usuarios, miembros, asesores y subsidios el `label` es el nombre de una persona.
+
+**Fase 2 (pendiente):** para entidades con datos sensibles (pagos, asesores, usuarios, aliados, afiliados, consumos) se agrega un permiso `<X>_LOOKUP` por entidad — `hasAnyAuthority('<X>_VIEW_ALL', '<X>_LOOKUP')` —, otorgable por rol desde el editor de roles y fuera de cualquier `requires` del menú.
+
+### Regla 4 (refuerzo) — toda entidad maestra con listado tiene `/options` **y** `GET /{uuid}`
+
+Toda lista desplegable del frontend llama al `/options` de su entidad, nunca al listado completo. Quedan fuera: transacciones/documentos (pagos, comisiones, premios, reclamos, tasas), auditorías, historiales `/v1/me/*` (salvo los que alimentan un select, como `/v1/me/allies/options`) y `/v1/public/*`.
+
+Todo `/options` acepta `q` de búsqueda libre sobre los `SEARCHABLE_FIELDS` de su listado (vía `SearchSpecifications.acrossFields`): insensible a mayúsculas y a tildes con `immutable_unaccent(lower(...))` en ambos lados, así `pena` encuentra `Peña` y `merida` encuentra `Mérida`.
+
+### Filtros del servidor en `/options` y búsqueda siempre en el servidor
+
+Toda búsqueda de un select se hace en el servidor con `q` (el frontend nunca filtra localmente: una lista desplegable trae a lo sumo 50 filas y filtrar esas ocultaría el resto). Cuando el formulario necesita acotar por un hecho de la entidad, el `/options` lo recibe como parámetro en lugar de traer todo y filtrar: `ally-types/options?segment=B2B|B2P` (un aliado no mezcla tipos de ambos segmentos) y `payment-categories/options?direction=IN|OUT`. `limit` por defecto 50, tope 200.
+
+`GET /v1/me/payment-methods` (sesión válida, DTO completo con las banderas `mandatory*`) acepta `q` y `limit` y busca en el servidor con el mismo motor del listado admin; sin ninguno devuelve la lista completa en caché.
+
+### Pendiente — atributos extra del método de pago
+
+El formulario de pago usa las banderas `mandatory*` del método para mostrar/ocultar campos; `OptionDto` no las trae. Hasta decidir entre (a) lista con atributos (más pesada, UI fluida) y (b) `/options` + detalle del seleccionado (liviana, una consulta extra), el select de método de pago usa `GET /v1/me/payment-methods?q=` (búsqueda en el servidor, DTO completo). Bancos y monedas no tienen ese problema: sus formularios solo usan `code` y el label, que `/options` ya trae.
 
 ## Por qué
 

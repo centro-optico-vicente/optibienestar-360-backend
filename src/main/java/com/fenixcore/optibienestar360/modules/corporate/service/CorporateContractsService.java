@@ -40,6 +40,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import com.fenixcore.optibienestar360.core.dto.OptionDto;
+import com.fenixcore.optibienestar360.core.util.OptionsSupport;
 
 /**
  * Application service for {@link CorporateContract} (v2 PDF — "Contratos
@@ -287,5 +289,21 @@ public class CorporateContractsService {
 
     private static Specification<CorporateContract> activeOnly() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
+    /**
+     * Lightweight options for select/dropdown population — see {@link OptionsSupport}. Free-text {@code q} over
+     * {@code SEARCHABLE_FIELDS}, case- and accent-insensitive ({@code ñ} ≈ {@code n}). {@code <RIF> — <institution>}: the RIF is a readable code (ADR LOC-0013, rule 5).
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        Specification<CorporateContract> spec = ((Specification<CorporateContract>) (root, query, cb) -> cb.isTrue(root.get("active")))
+                .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
+                CorporateContract::getUuid, CorporateContract::getInstitutionTaxId, CorporateContractsService::optionLabelOf, CorporateContract::isActive);
+    }
+
+    private static String optionLabelOf(CorporateContract e) {
+        String taxId = e.getInstitutionTaxId();
+        return taxId == null || taxId.isBlank() ? e.getInstitutionName() : taxId + " — " + e.getInstitutionName();
     }
 }

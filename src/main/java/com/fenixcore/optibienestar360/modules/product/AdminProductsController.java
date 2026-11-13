@@ -47,6 +47,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminProductsController {
 
+    /** `/options` only needs a session: listing for a select must not require the screen permission (ADR LOC-0013, rule 3). */
+    private static final String LOOKUP = "isAuthenticated()";
+
     private final ProductsService productsService;
     private final AllyProductsAdminService offersService;
 
@@ -67,12 +70,13 @@ public class AdminProductsController {
     }
 
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('PRODUCT_VIEW_ALL')")
+    @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> options(
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
-            @RequestParam(required = false) List<UUID> currentValues) {
-        return ResponseEntity.ok(productsService.listOptions(q, limit, currentValues));
+            @RequestParam(required = false) List<UUID> currentValues,
+            @RequestParam(required = false) Boolean exclusive) {
+        return ResponseEntity.ok(productsService.listOptions(q, limit, currentValues, exclusive));
     }
 
     @GetMapping("/{uuid}")

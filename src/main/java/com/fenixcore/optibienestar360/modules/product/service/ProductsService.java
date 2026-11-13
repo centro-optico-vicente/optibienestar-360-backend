@@ -129,8 +129,18 @@ public class ProductsService {
      * with similar names), the plain name otherwise.
      */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+        return listOptions(q, limit, currentValues, null);
+    }
+
+    /** Same as {@link #listOptions(String, int, List)}, narrowed to general ({@code false}) or exclusive ({@code true}) products. */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, Boolean exclusive) {
         Specification<Product> spec = ((Specification<Product>) (root, query, cb) -> cb.isTrue(root.get("active")))
                 .and(SearchSpecifications.acrossFields(q, SEARCHABLE_FIELDS));
+        if (exclusive != null) {
+            spec = spec.and((root, query, cb) -> exclusive
+                    ? cb.isNotNull(root.get("ownerAlly"))
+                    : cb.isNull(root.get("ownerAlly")));
+        }
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
                 Product::getUuid, Product::getCode, ProductsService::labelOf, Product::isActive);
     }

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Read-only self-service exposure of the {@code payment_methods}/{@code banks}
@@ -36,10 +38,21 @@ public class MyPaymentCatalogsController {
     private final BankService bankService;
     private final CurrencyService currencyService;
 
+    /**
+     * Active payment methods with their {@code mandatory*} flags. With {@code q} and/or {@code limit} the search runs on
+     * the server (case/accent-insensitive, same engine as the admin list) and at most {@code limit} (default 50, cap 200)
+     * rows come back; with neither, the cached full list.
+     */
     @GetMapping("/payment-methods")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<PaymentMethodDto>> paymentMethods() {
-        return ResponseEntity.ok(paymentMethodService.loadAllForDropdown());
+    public ResponseEntity<List<PaymentMethodDto>> paymentMethods(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Integer limit) {
+        if ((q == null || q.isBlank()) && limit == null) {
+            return ResponseEntity.ok(paymentMethodService.loadAllForDropdown());
+        }
+        int size = limit == null ? 50 : Math.max(1, Math.min(limit, 200));
+        return ResponseEntity.ok(paymentMethodService.list(PageRequest.of(0, size), null, q, false).getContent());
     }
 
     @GetMapping("/banks")
