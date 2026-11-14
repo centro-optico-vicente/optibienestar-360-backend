@@ -180,6 +180,37 @@ class LoginAuditIT {
 		}
 	}
 
+	@Test
+	void freeTextSearchWithoutFromStaysInsideTheDefaultWindow() {
+		String marker = "test-marker-" + System.nanoTime();
+		String recent = marker + "-recent@example.test";
+		String old = marker + "-old@example.test";
+		try {
+			loginAuditService.recordFailure(recent, null, LoginAuditResult.FAILED_CREDENTIALS, "bad_password",
+					"127.0.0.1", "JUnit", "localhost");
+			loginAuditService.recordFailure(old, null, LoginAuditResult.FAILED_CREDENTIALS, "bad_password",
+					"127.0.0.1", "JUnit", "localhost");
+			LoginAuditLog oldEntry = loginAuditLogRepository.findAll().stream()
+					.filter(l -> old.equals(l.getAttemptedEmail())).findFirst().orElseThrow();
+			oldEntry.setAttemptedAt(Instant.now().minus(LoginAuditQueryService.DEFAULT_SEARCH_WINDOW).minusSeconds(3600));
+			loginAuditLogRepository.save(oldEntry);
+
+			List<String> windowed = loginAuditQueryService.list(PageRequest.of(0, 20), null, null, null, null,
+					null, null, null, marker).getContent().stream().map(LoginAuditLogDto::attemptedEmail).toList();
+			assertTrue(windowed.contains(recent));
+			assertFalse(windowed.contains(old));
+
+			// An explicit from widens the search to any range.
+			List<String> ranged = loginAuditQueryService.list(PageRequest.of(0, 20), null, null, null, null,
+					Instant.now().minus(LoginAuditQueryService.DEFAULT_SEARCH_WINDOW.multipliedBy(2)), null, null, marker)
+					.getContent().stream().map(LoginAuditLogDto::attemptedEmail).toList();
+			assertTrue(ranged.contains(old));
+		} finally {
+			cleanUp(recent);
+			cleanUp(old);
+		}
+	}
+
 	private void cleanUp(String email) {
 		loginAuditLogRepository.findAll().stream()
 				.filter(l -> email.equals(l.getAttemptedEmail()))

@@ -44,16 +44,15 @@ class OperationalLogRetentionJobRunnerTest {
 
     @Test
     void usesTheRetentionDaysConfiguredOnTheJob() {
-        jobWith(Map.of("notificationsDays", 30, "jobRunsDays", "60", "sessionLogDays", 365, "downloadLinksDays", 14));
+        jobWith(Map.of("notificationsDays", 30, "jobRunsDays", "60", "downloadLinksDays", 14));
         when(retentionService.purgeNotifications(daysAgo(30))).thenReturn(120);
         when(retentionService.purgeJobRuns(daysAgo(60))).thenReturn(800);
-        when(retentionService.purgeSessionLog(daysAgo(365))).thenReturn(5);
         when(retentionService.purgeDownloadLinks(daysAgo(14))).thenReturn(0);
 
         var result = runner().run();
 
         assertThat(result.summary()).containsEntry("notifications", 120).containsEntry("jobRuns", 800)
-                .containsEntry("sessionLog", 5).containsEntry("downloadLinks", 0)
+                .containsEntry("downloadLinks", 0)
                 .containsEntry("jobRunsDays", 60);
     }
 
@@ -65,21 +64,19 @@ class OperationalLogRetentionJobRunnerTest {
 
         verify(retentionService).purgeNotifications(daysAgo(90));
         verify(retentionService).purgeJobRuns(daysAgo(90));
-        verify(retentionService).purgeSessionLog(daysAgo(180));
         verify(retentionService).purgeDownloadLinks(daysAgo(30));
     }
 
     @Test
     void neverPurgesAnythingYoungerThanTheMinimum() {
         // A typo (0 or a negative number) must not wipe recent data.
-        jobWith(Map.of("notificationsDays", 0, "jobRunsDays", -5, "sessionLogDays", 1, "downloadLinksDays", 3));
+        jobWith(Map.of("notificationsDays", 0, "jobRunsDays", -5, "downloadLinksDays", 3));
 
         runner().run();
 
         Instant minimum = daysAgo(OperationalLogRetentionJobRunner.MIN_DAYS);
         verify(retentionService).purgeNotifications(minimum);
         verify(retentionService).purgeJobRuns(minimum);
-        verify(retentionService).purgeSessionLog(minimum);
         verify(retentionService).purgeDownloadLinks(minimum);
     }
 }

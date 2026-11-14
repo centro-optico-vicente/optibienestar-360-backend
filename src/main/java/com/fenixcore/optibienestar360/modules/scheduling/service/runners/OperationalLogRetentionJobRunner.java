@@ -20,7 +20,7 @@ import java.util.Map;
  * table, in days, comes from the job's {@code parameters} on every run, so it can
  * be tuned from the scheduled jobs admin without a deploy:
  * {@code notificationsDays} (90), {@code jobRunsDays} (90),
- * {@code sessionLogDays} (180), {@code downloadLinksDays} (30). Any value below
+ * {@code downloadLinksDays} (30). Any value below
  * 7 days is raised to 7, so a typo can never wipe recent data.
  */
 @Component
@@ -45,18 +45,15 @@ public class OperationalLogRetentionJobRunner implements ScheduledJobRunner {
         Map<String, Object> params = jobRepository.findByCode(CODE).map(job -> job.getParameters()).orElse(Map.of());
         int notificationsDays = days(params, "notificationsDays", 90);
         int jobRunsDays = days(params, "jobRunsDays", 90);
-        int sessionLogDays = days(params, "sessionLogDays", 180);
         int downloadLinksDays = days(params, "downloadLinksDays", 30);
         Instant now = Instant.now(clock);
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("notifications", retentionService.purgeNotifications(now.minus(Duration.ofDays(notificationsDays))));
         summary.put("jobRuns", retentionService.purgeJobRuns(now.minus(Duration.ofDays(jobRunsDays))));
-        summary.put("sessionLog", retentionService.purgeSessionLog(now.minus(Duration.ofDays(sessionLogDays))));
         summary.put("downloadLinks", retentionService.purgeDownloadLinks(now.minus(Duration.ofDays(downloadLinksDays))));
         summary.put("notificationsDays", notificationsDays);
         summary.put("jobRunsDays", jobRunsDays);
-        summary.put("sessionLogDays", sessionLogDays);
         summary.put("downloadLinksDays", downloadLinksDays);
         return JobRunResult.success(summary);
     }

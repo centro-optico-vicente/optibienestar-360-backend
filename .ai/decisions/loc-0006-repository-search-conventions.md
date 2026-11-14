@@ -55,7 +55,7 @@ Las tablas que no tienen `uuid` propio (`user_roles`, `user_password_history`, `
 |---|---|
 | `user_roles` | por **cada FK** (`findByUserId` / `findByRoleId`, con variante `...AndActiveTrue`) y por la **clave compuesta** (`findByUserIdAndRoleId`) |
 | `user_password_history` | `findRecentByUserId(Long userId, Pageable page)` (ORDER BY created_at DESC, acotado con `PageRequest.of(0, passwordHistoryCount)`) |
-| `user_sessions_log` | por `jti` (`findByJtiAndLogoutAtIsNull`) y por FK `user_id` (`findByUserId`, `findByUserIdAndLogoutAtIsNull`) |
+| `user_sessions_log` _(retirada en V248)_ | por `jti` (`findByJtiAndLogoutAtIsNull`) y por FK `user_id` (`findByUserId`, `findByUserIdAndLogoutAtIsNull`) |
 | `role_permissions` | modelado como `@ManyToMany` en `Role` — sin repositorio propio |
 
 > Para una pivot de dos FK (`user_roles`), exponer búsqueda por **ambos** lados de la
@@ -93,7 +93,7 @@ List<T> findAllByCategory(String cat);    // futuros catálogos
 | `ContactMessageRepository` | ✅ | — | — | — |
 | `UserRoleRepository` | sin uuid | — | `findByUserId(AndActiveTrue)`, `findByRoleId(AndActiveTrue)`, `findByUserIdAndRoleId` | — |
 | `UserPasswordHistoryRepository` | sin uuid | — | `findRecentByUserId` | — |
-| `UserSessionLogRepository` | sin uuid | `findByJtiAndLogoutAtIsNull` | `findByUserId`, `findByUserIdAndLogoutAtIsNull` | — |
+| `UserSessionLogRepository` _(retirado en V248)_ | sin uuid | `findByJtiAndLogoutAtIsNull` | `findByUserId`, `findByUserIdAndLogoutAtIsNull` | — |
 
 ---
 

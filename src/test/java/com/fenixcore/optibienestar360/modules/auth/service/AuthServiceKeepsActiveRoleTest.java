@@ -13,7 +13,6 @@ import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.SecurityPolicyRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserPasswordHistoryRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
-import com.fenixcore.optibienestar360.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optibienestar360.modules.person.entity.Person;
 import com.fenixcore.optibienestar360.security.PermissionResolver;
 import com.fenixcore.optibienestar360.security.RoleNames;
@@ -52,7 +51,6 @@ class AuthServiceKeepsActiveRoleTest {
     @Mock private UserRepository userRepository;
     @Mock private SecurityPolicyRepository securityPolicyRepository;
     @Mock private UserPasswordHistoryRepository passwordHistoryRepository;
-    @Mock private UserSessionLogRepository sessionLogRepository;
     @Mock private JwtService jwtService;
     @Mock private PermissionResolver permissionResolver;
     @Mock private TokenBlacklistService blacklistService;
@@ -72,7 +70,7 @@ class AuthServiceKeepsActiveRoleTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userRepository, securityPolicyRepository, passwordHistoryRepository,
-                sessionLogRepository, jwtService, permissionResolver, blacklistService, passwordEncoder, userMapper,
+                jwtService, permissionResolver, blacklistService, passwordEncoder, userMapper,
                 emailService, messageSource, loginAuditService);
         ReflectionTestUtils.setField(authService, "accessExpirationMinutes", 15);
         ReflectionTestUtils.setField(authService, "refreshExpirationDays", 30);

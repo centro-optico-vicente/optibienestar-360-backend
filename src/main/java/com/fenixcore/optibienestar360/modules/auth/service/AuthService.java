@@ -20,12 +20,10 @@ import com.fenixcore.optibienestar360.modules.auth.entity.SecurityPolicy;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserPasswordHistory;
-import com.fenixcore.optibienestar360.modules.auth.entity.UserSessionLog;
 import com.fenixcore.optibienestar360.modules.auth.mapper.UserMapper;
 import com.fenixcore.optibienestar360.modules.auth.repository.SecurityPolicyRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserPasswordHistoryRepository;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
-import com.fenixcore.optibienestar360.modules.auth.repository.UserSessionLogRepository;
 import com.fenixcore.optibienestar360.security.PermissionResolver;
 import com.fenixcore.optibienestar360.security.jwt.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -74,7 +72,6 @@ public class AuthService {
     private final UserRepository userRepository;
     private final SecurityPolicyRepository securityPolicyRepository;
     private final UserPasswordHistoryRepository passwordHistoryRepository;
-    private final UserSessionLogRepository sessionLogRepository;
     private final JwtService jwtService;
     private final PermissionResolver permissionResolver;
     private final TokenBlacklistService blacklistService;
@@ -192,8 +189,6 @@ public class AuthService {
 
         sessionId.ifPresent(sid -> loginAuditService.attachJti(sid, accessJti));
 
-        logSession(user, accessJti, httpRequest, effectiveLocale);
-
         return LoginResponse.of(
                 accessToken,
                 refreshToken,
@@ -295,19 +290,13 @@ public class AuthService {
                 log.debug("Could not revoke refresh token during logout: {}", e.getMessage());
             }
         }
-
-        sessionLogRepository.findByJtiAndLogoutAtIsNull(jti).ifPresent(session -> {
-            session.setLogoutAt(Instant.now());
-            session.setLogoutReason("user_logout");
-            sessionLogRepository.save(session);
-        });
     }
 
     // ─── Active-role switch ───────────────────────────────────────────────────
 
     /**
      * Switches the caller's active role for the current session: closes the
-     * current {@code login_audit_log}/{@code user_sessions_log} session
+     * current {@code login_audit_log} session
      * (reason {@code "role_switch"}, same shape as {@code logout()}) and opens
      * a brand-new one scoped to {@code targetRoleUuid}, rotating both access
      * and refresh tokens — equivalent to a fresh login, minus the password,
@@ -349,13 +338,6 @@ public class AuthService {
                 log.debug("Could not revoke refresh token during role switch: {}", e.getMessage());
             }
         }
-        if (currentJti != null) {
-            sessionLogRepository.findByJtiAndLogoutAtIsNull(currentJti).ifPresent(session -> {
-                session.setLogoutAt(Instant.now());
-                session.setLogoutReason("role_switch");
-                sessionLogRepository.save(session);
-            });
-        }
 
         // 2) Open a brand-new session for the target role — same shape as login().
         Optional<UUID> newSessionId = loginAuditService.startSession(user.getId(), user.getEmail(), allRoleNames,
@@ -372,7 +354,6 @@ public class AuthService {
         long refreshTtlSeconds = (long) refreshExpirationDays * 24 * 60 * 60;
         blacklistService.storeRefreshToken(jwtService.extractJti(newRefreshToken), subject, refreshTtlSeconds);
 
-        logSession(user, newAccessJti, httpRequest, userLocale);
 
         return LoginResponse.of(
                 newAccessToken,
@@ -750,16 +731,10 @@ public class AuthService {
         return permissionResolver.resolveDefaultActiveRole(user).getRole();
     }
 
-    private void logSession(User user, String jti, HttpServletRequest req, String loginLocale) {
-        String ip        = resolveClientIp(req);
-        String userAgent = req.getHeader("User-Agent");
-        sessionLogRepository.save(new UserSessionLog(user, jti, ip, userAgent, loginLocale));
-    }
-
     /**
      * Effective locale at login time = preference if persisted, otherwise the
      * locale Spring resolved for this request (Accept-Language → app default).
-     * Snapshot value persisted to user_sessions_log.login_locale.
+     * Snapshot value persisted to login_audit_log.locale.
      */
     private String resolveEffectiveLocale(String userLocale) {
         if (userLocale != null && !userLocale.isBlank()) {
@@ -778,7 +753,7 @@ public class AuthService {
         // Some Servlet containers return IPv6 addresses wrapped in brackets
         // (e.g. "[0:0:0:0:0:0:0:1]" for ::1 loopback). Postgres `inet` rejects
         // that form, so strip the brackets before passing the value to
-        // UserSessionLog.ip_address — otherwise the login session insert
+        // login_audit_log.ip_address — otherwise the login session insert
         // throws 22P02 "invalid input syntax for type inet".
         if (ip.length() > 1 && ip.charAt(0) == '[' && ip.charAt(ip.length() - 1) == ']') {
             ip = ip.substring(1, ip.length() - 1);
