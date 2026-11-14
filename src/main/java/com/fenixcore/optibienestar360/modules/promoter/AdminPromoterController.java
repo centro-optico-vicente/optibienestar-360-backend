@@ -72,8 +72,9 @@ public class AdminPromoterController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "50") int limit,
             @RequestParam(required = false) List<UUID> currentValues,
-            @RequestParam(required = false, defaultValue = "false") boolean includeSystem) {
-        return ResponseEntity.ok(promotersService.listOptions(q, limit, currentValues, includeSystem));
+            @RequestParam(required = false, defaultValue = "false") boolean includeSystem,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(promotersService.listOptions(q, limit, currentValues, includeSystem, includeInactive));
     }
 
     @GetMapping("/{uuid}")

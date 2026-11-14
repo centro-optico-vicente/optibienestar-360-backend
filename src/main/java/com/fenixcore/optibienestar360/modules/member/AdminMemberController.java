@@ -64,9 +64,10 @@ public class AdminMemberController {
             @RequestParam(required = false) UUID corporateContractUuid,
             @RequestParam(required = false) Boolean confirmed,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
+            @RequestParam(required = false) Boolean unassigned) {
         MemberListFilter filters = new MemberListFilter(promoterUuid, genderUuid, cityUuid, occupationUuid,
-                corporateContractUuid, confirmed, dateFrom, dateTo);
+                corporateContractUuid, confirmed, dateFrom, dateTo, unassigned);
         Page<MemberListItemDto> page = membersService.list(pageable, filter, q, includeInactive, filters);
         return ResponseEntity.ok(new AppliedSortPage<>(page, membersService.effectiveSort(pageable)));
     }

@@ -6,6 +6,9 @@ import com.fenixcore.optibienestar360.modules.ally.dto.AllyDetailDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.ally.dto.AllyListFilter;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyBulkAssignAdvisorRequest;
+import com.fenixcore.optibienestar360.modules.ally.dto.AllyBulkAssignResultDto;
+import com.fenixcore.optibienestar360.modules.ally.service.AllyAdvisorBulkService;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.catalog.dto.UsageDto;
@@ -53,6 +56,7 @@ import java.util.List;
 public class AdminAllyController {
 
     private final AlliesService alliesService;
+    private final AllyAdvisorBulkService allyAdvisorBulkService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_VIEW_ALL')")
@@ -65,12 +69,13 @@ public class AdminAllyController {
             @RequestParam(required = false) UUID allyTypeUuid,
             @RequestParam(required = false) UUID professionUuid,
             @RequestParam(required = false) UUID stateUuid,
-            @RequestParam(required = false) UUID cityUuid) {
+            @RequestParam(required = false) UUID cityUuid,
+            @RequestParam(required = false) Boolean unassigned) {
 		// Reports back which columns/directions an unsorted request actually landed
 		// on (entity_config → system_configs → createdAt DESC) — the table has no
 		// other way to reflect that default in its header arrows.
 		Page<AllyListItemDto> page = alliesService.list(pageable, filter, q, includeInactive,
-				new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid));
+				new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid, unassigned));
 		return ResponseEntity.ok(new AppliedSortPage<>(page, alliesService.effectiveSort(pageable)));
     }
 
@@ -113,6 +118,18 @@ public class AdminAllyController {
     public ResponseEntity<AllyDetailDto> assignAdvisor(@PathVariable UUID uuid,
                                                        @RequestBody AllyAdvisorAssignRequest request) {
         return ResponseEntity.ok(alliesService.assignAdvisor(uuid, request.promoterUuid()));
+    }
+
+    /**
+     * Assigns one advisor to many allies at once (ADR LOC-0016), all or nothing. The target must be
+     * an active, non-system advisor; allies already on it are skipped. Each change is audited like
+     * {@code PUT /{uuid}/advisor}.
+     */
+    @PostMapping("/advisor/bulk-assign")
+    @PreAuthorize("hasAuthority('ALLY_ASSIGN_PROMOTER')")
+    public ResponseEntity<AllyBulkAssignResultDto> bulkAssignAdvisor(
+            @Valid @RequestBody AllyBulkAssignAdvisorRequest request) {
+        return ResponseEntity.ok(allyAdvisorBulkService.bulkAssign(request.allyUuids(), request.promoterUuid()));
     }
 
     @GetMapping("/{uuid}/usage")

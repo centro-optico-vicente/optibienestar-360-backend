@@ -259,6 +259,11 @@ public class AlliesService {
             if (f.stateUuid() != null) {
                 ps.add(cb.equal(root.get("city").get("state").get("uuid"), f.stateUuid()));
             }
+            if (Boolean.TRUE.equals(f.unassigned())) {
+                // ADR LOC-0016: no advisor, or only the INSTITUCION system advisor.
+                Join<Ally, ?> advisor = root.join("capturedByPromoter", jakarta.persistence.criteria.JoinType.LEFT);
+                ps.add(cb.or(cb.isNull(advisor.get("id")), cb.isTrue(advisor.get("system"))));
+            }
             return cb.and(ps.toArray(new Predicate[0]));
         };
     }
