@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.campaign.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -49,6 +50,14 @@ import java.time.OffsetDateTime;
  * <p>{@link #exclusivityGroup} + {@link #priority} let overlapping campaigns
  * declare that only one of them should apply to the same transaction (higher
  * {@link #priority} wins) — resolution lives in {@code CampaignService}.</p>
+ *
+ * <p>Lifecycle and quota (V256, hub ADR 0038): {@link #lifecycleStatus}
+ * moves {@code DRAFT → ACTIVE ⇄ PAUSED}, {@code ACTIVE → SOLD_OUT → CLOSED};
+ * only an ACTIVE campaign inside its window offers promotions. The optional
+ * {@link #maxRedemptions} is shared by every promotion of the campaign;
+ * {@link #redemptionsCount} counts occupied slots and {@link #confirmedCount}
+ * the confirmed ones. {@link #endsAt} is optional: an open-ended campaign
+ * ends when it is closed ({@link #effectiveEndsAt()}).</p>
  */
 @Getter
 @Setter
@@ -67,7 +76,8 @@ public class Campaign extends BaseEntity {
     @Column(name = "starts_at", nullable = false)
     private OffsetDateTime startsAt;
 
-    @Column(name = "ends_at", nullable = false)
+    /** {@code null} = open-ended (closes by quota or by hand); see {@link #effectiveEndsAt()}. */
+    @Column(name = "ends_at")
     private OffsetDateTime endsAt;
 
     /** Enable/disable switch independent of {@link BaseEntity#isActive()} (soft-delete). */
@@ -113,6 +123,141 @@ public class Campaign extends BaseEntity {
     /** Higher wins when resolving {@link #exclusivityGroup} conflicts. Null = no declared priority. */
     @Column(name = "priority")
     private Integer priority;
+
+    // ─── Lifecycle and quota (V256, hub ADR 0038) ───────────────────────────
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_status", length = 20, nullable = false)
+    private LifecycleStatus lifecycleStatus = LifecycleStatus.ACTIVE;
+
+    /** Close condition END_DATE: the daily job closes the campaign once {@link #endsAt} passes. */
+    @Column(name = "close_on_end_date", nullable = false)
+    private boolean closeOnEndDate = true;
+
+    /** Close condition QUOTA_FILLED: closes when {@link #confirmedCount} reaches {@link #maxRedemptions}. */
+    @Column(name = "close_on_quota_filled", nullable = false)
+    private boolean closeOnQuotaFilled = false;
+
+    /** Quota shared by every promotion of the campaign; {@code null} = no cap. */
+    @Column(name = "max_redemptions")
+    private Integer maxRedemptions;
+
+    /** Occupied slots (pending + confirmed). */
+    @Column(name = "redemptions_count", nullable = false)
+    private int redemptionsCount;
+
+    @Column(name = "confirmed_count", nullable = false)
+    private int confirmedCount;
+
+    @Column(name = "closed_at")
+    private OffsetDateTime closedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "closed_reason", length = 20)
+    private CloseReason closedReason;
+
+    /** Who closed it by hand; {@code null} for an automatic close. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "closed_by_user_id")
+    private User closedBy;
+
+    @Column(name = "closed_note", columnDefinition = "text")
+    private String closedNote;
+
+    /** Pending slots may still be confirmed until this instant after the close (exclusive with {@link #confirmGraceDays}). */
+    @Column(name = "confirm_grace_until")
+    private OffsetDateTime confirmGraceUntil;
+
+    /** Pending slots may still be confirmed for N days after the close (exclusive with {@link #confirmGraceUntil}). */
+    @Column(name = "confirm_grace_days")
+    private Integer confirmGraceDays;
+
+    /** {@link #endsAt}, or {@link #closedAt} for an open-ended campaign; {@code null} while an open-ended one runs. */
+    public OffsetDateTime effectiveEndsAt() {
+        return endsAt != null ? endsAt : closedAt;
+    }
+
+    /** ACTIVE, enabled, not deleted and inside its window: the only state that offers and accepts promotions. */
+    public boolean isOffering(OffsetDateTime now) {
+        return isActive() && enabled
+                && lifecycleStatus == LifecycleStatus.ACTIVE
+                && !now.isBefore(startsAt)
+                && (endsAt == null || now.isBefore(endsAt));
+    }
+
+    /** Free slots of the campaign quota; {@code null} when it has no cap. */
+    public Integer freeSlots() {
+        return maxRedemptions == null ? null : Math.max(0, maxRedemptions - redemptionsCount);
+    }
+
+    public boolean hasFreeSlot() {
+        return maxRedemptions == null || redemptionsCount < maxRedemptions;
+    }
+
+    /** The configured close conditions, in a stable order. */
+    public java.util.List<CloseCondition> closeConditions() {
+        java.util.List<CloseCondition> conditions = new java.util.ArrayList<>(2);
+        if (closeOnEndDate) conditions.add(CloseCondition.END_DATE);
+        if (closeOnQuotaFilled) conditions.add(CloseCondition.QUOTA_FILLED);
+        return conditions;
+    }
+
+    /** Moves the campaign to CLOSED; {@code by} is {@code null} for an automatic close. */
+    public void close(CloseReason reason, User by, String note, OffsetDateTime at) {
+        lifecycleStatus = LifecycleStatus.CLOSED;
+        closedReason = reason;
+        closedBy = by;
+        closedNote = note;
+        closedAt = at;
+    }
+
+    /** Leaves CLOSED: clears every {@code closed_*} column. */
+    public void clearClose() {
+        closedReason = null;
+        closedBy = null;
+        closedNote = null;
+        closedAt = null;
+    }
+
+    /**
+     * Re-derives the quota-driven state after a counter change (hub ADR 0038
+     * §3): confirmed slots reaching the cap close the campaign when
+     * QUOTA_FILLED is a close condition; occupied slots reaching it make an
+     * ACTIVE campaign SOLD_OUT; a SOLD_OUT campaign with room again goes back
+     * to ACTIVE. DRAFT and CLOSED never move here; a PAUSED campaign only
+     * closes.
+     */
+    public void recomputeQuotaStatus(OffsetDateTime now) {
+        if (lifecycleStatus == LifecycleStatus.CLOSED || lifecycleStatus == LifecycleStatus.DRAFT) {
+            return;
+        }
+        if (maxRedemptions != null && closeOnQuotaFilled && confirmedCount >= maxRedemptions) {
+            close(CloseReason.QUOTA_FILLED, null, null, now);
+            return;
+        }
+        if (lifecycleStatus == LifecycleStatus.PAUSED) {
+            return;
+        }
+        if (maxRedemptions != null && redemptionsCount >= maxRedemptions) {
+            lifecycleStatus = LifecycleStatus.SOLD_OUT;
+        } else if (lifecycleStatus == LifecycleStatus.SOLD_OUT) {
+            lifecycleStatus = LifecycleStatus.ACTIVE;
+        }
+    }
+
+    /** DRAFT → ACTIVE ⇄ PAUSED, ACTIVE → SOLD_OUT → CLOSED (hub ADR 0038 §3). */
+    public enum LifecycleStatus {
+        DRAFT, ACTIVE, PAUSED, SOLD_OUT, CLOSED
+    }
+
+    /** The conditions an admin can pick to close a campaign automatically; a manual close is always possible. */
+    public enum CloseCondition {
+        END_DATE, QUOTA_FILLED
+    }
+
+    public enum CloseReason {
+        END_DATE, QUOTA_FILLED, MANUAL
+    }
 
     /** Which promoters a campaign applies to. {@code ALL} ignores {@link CampaignPromoter}. */
     public enum CampaignScope {

@@ -78,12 +78,24 @@ public class Promotion extends BaseEntity {
     @Column(name = "covers_extra_beneficiaries", nullable = false)
     private boolean coversExtraBeneficiaries;
 
-    /** Global cap on how many memberships can take it; {@code null} = no cap. */
+    /**
+     * The promotion counts its own {@link #maxRedemptions} on top of the
+     * campaign quota (V256); without it the promotion has no own limit and
+     * only consumes from the campaign.
+     */
+    @Column(name = "own_quota", nullable = false)
+    private boolean ownQuota;
+
+    /** Own cap on how many memberships can take it (only with {@link #ownQuota}); {@code null} = no own cap. */
     @Column(name = "max_redemptions")
     private Integer maxRedemptions;
 
+    /** Occupied slots (pending + confirmed). */
     @Column(name = "redemptions_count", nullable = false)
     private int redemptionsCount;
+
+    @Column(name = "confirmed_count", nullable = false)
+    private int confirmedCount;
 
     @Column(name = "requires_code", nullable = false)
     private boolean requiresCode;
@@ -118,6 +130,11 @@ public class Promotion extends BaseEntity {
 
     public boolean discountsMonthly() {
         return appliesTo == AppliesTo.MONTHLY || appliesTo == AppliesTo.BOTH;
+    }
+
+    /** Room left under the promotion's own cap (ignores the campaign quota); always true without {@link #ownQuota}. */
+    public boolean hasOwnFreeSlot() {
+        return !ownQuota || maxRedemptions == null || redemptionsCount < maxRedemptions;
     }
 
     public boolean isFlat() {

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promotion.service;
 
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
@@ -27,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,10 +50,14 @@ class PromotionAssignmentServiceTest {
     @Mock private com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
     @Mock private ReferrerRewardService referrerRewardService;
     @Mock private com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
+    @Mock private CampaignRepository campaignRepository;
+
+    private final AtomicLong ids = new AtomicLong(100);
 
     private PromotionAssignmentService service() {
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
-                membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService, memberRepository);
+                membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
+                memberRepository, campaignRepository);
     }
 
     private Plan plan(long id) {
@@ -72,6 +78,7 @@ class PromotionAssignmentServiceTest {
 
     private Promotion promotion(Kind kind, boolean running) {
         Campaign campaign = new Campaign();
+        campaign.setId(ids.incrementAndGet());
         campaign.setEnabled(true);
         OffsetDateTime now = OffsetDateTime.now();
         campaign.setStartsAt(running ? now.minusDays(1) : now.plusDays(1));
@@ -84,6 +91,9 @@ class PromotionAssignmentServiceTest {
         p.setAppliesTo(AppliesTo.MONTHLY);
         p.setCycles(3);
         lenient().when(promotionRepository.findByUuid(p.getUuid())).thenReturn(Optional.of(p));
+        lenient().when(promotionRepository.findCampaignIdByUuid(p.getUuid())).thenReturn(Optional.of(campaign.getId()));
+        lenient().when(promotionRepository.findForUpdateByUuid(p.getUuid())).thenReturn(Optional.of(p));
+        lenient().when(campaignRepository.findForUpdateById(campaign.getId())).thenReturn(Optional.of(campaign));
         return p;
     }
 
@@ -109,6 +119,8 @@ class PromotionAssignmentServiceTest {
         assertThat(mp.getCodeOwnerPromoter()).isSameAs(promoter);
         assertThat(mp.getStatus()).isEqualTo("ACTIVE");
         assertThat(promotion.getRedemptionsCount()).isEqualTo(1);
+        assertThat(promotion.getConfirmedCount()).isEqualTo(1);
+        assertThat(promotion.getCampaign().getRedemptionsCount()).isEqualTo(1);
     }
 
     @Test
@@ -151,6 +163,7 @@ class PromotionAssignmentServiceTest {
     @Test
     void assign_rejectsWhenTheCapIsReached() {
         Promotion promotion = promotion(Kind.ACQUISITION, true);
+        promotion.setOwnQuota(true);
         promotion.setMaxRedemptions(5);
         promotion.setRedemptionsCount(5);
 
@@ -189,5 +202,106 @@ class PromotionAssignmentServiceTest {
         assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
                 promotion.getUuid(), "NOPE", Origin.ADMIN, null))
                 .hasMessage("promotion.code.not_found");
+    }
+
+    // ─── Campaign quota (hub ADR 0038 §4) ───────────────────────────────────
+
+    @Test
+    void assign_locksTheCampaignThenThePromotionRow_beforeCheckingRoom() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        stubSave();
+
+        service().assign(membership(plan(1L), LifecycleStatus.ACTIVE), promotion.getUuid(), null, Origin.ADMIN, null);
+
+        var order = org.mockito.Mockito.inOrder(campaignRepository, promotionRepository);
+        order.verify(campaignRepository).findForUpdateById(promotion.getCampaign().getId());
+        order.verify(promotionRepository).findForUpdateByUuid(promotion.getUuid());
+    }
+
+    @Test
+    void sharedCampaignQuota_isConsumedByEveryPromotion_andSoldOutWithoutTheQuotaCondition() {
+        Promotion first = promotion(Kind.ACQUISITION, true);
+        Campaign campaign = first.getCampaign();
+        campaign.setMaxRedemptions(2);
+        Promotion second = promotion(Kind.ACQUISITION, true);
+        second.setCampaign(campaign);
+        lenient().when(promotionRepository.findCampaignIdByUuid(second.getUuid())).thenReturn(Optional.of(campaign.getId()));
+        stubSave();
+
+        service().assign(membership(plan(1L), LifecycleStatus.ACTIVE), first.getUuid(), null, Origin.ADMIN, null);
+        service().assign(membership(plan(1L), LifecycleStatus.ACTIVE), second.getUuid(), null, Origin.ADMIN, null);
+
+        assertThat(campaign.getRedemptionsCount()).isEqualTo(2);
+        assertThat(first.getRedemptionsCount()).isEqualTo(1);
+        assertThat(second.getRedemptionsCount()).isEqualTo(1);
+        assertThat(campaign.getLifecycleStatus()).isEqualTo(Campaign.LifecycleStatus.SOLD_OUT);
+
+        assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                first.getUuid(), null, Origin.ADMIN, null))
+                .hasMessage("promotion.campaign.quota_full");
+    }
+
+    @Test
+    void campaignQuota_withTheQuotaCondition_closesWhenFilled() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        Campaign campaign = promotion.getCampaign();
+        campaign.setMaxRedemptions(1);
+        campaign.setCloseOnQuotaFilled(true);
+        stubSave();
+
+        service().assign(membership(plan(1L), LifecycleStatus.ACTIVE), promotion.getUuid(), null, Origin.ADMIN, null);
+
+        assertThat(campaign.getLifecycleStatus()).isEqualTo(Campaign.LifecycleStatus.CLOSED);
+        assertThat(campaign.getClosedReason()).isEqualTo(Campaign.CloseReason.QUOTA_FILLED);
+        assertThat(campaign.getClosedAt()).isNotNull();
+        assertThat(campaign.getClosedBy()).isNull();
+    }
+
+    @Test
+    void ownQuota_isCheckedOnTopOfTheCampaignQuota() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        promotion.getCampaign().setMaxRedemptions(10);
+        promotion.setOwnQuota(true);
+        promotion.setMaxRedemptions(1);
+        stubSave();
+
+        service().assign(membership(plan(1L), LifecycleStatus.ACTIVE), promotion.getUuid(), null, Origin.ADMIN, null);
+
+        assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                promotion.getUuid(), null, Origin.ADMIN, null))
+                .hasMessage("promotion.max_redemptions_reached");
+        assertThat(promotion.getCampaign().getLifecycleStatus()).isEqualTo(Campaign.LifecycleStatus.ACTIVE);
+    }
+
+    @Test
+    void withoutOwnQuota_thePromotionMaxIsIgnored() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        promotion.setMaxRedemptions(1);
+        promotion.setRedemptionsCount(1);
+        stubSave();
+
+        assertThat(service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                promotion.getUuid(), null, Origin.ADMIN, null)).isNotNull();
+    }
+
+    @Test
+    void openEndedCampaign_acceptsAssignments() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        promotion.getCampaign().setEndsAt(null);
+        promotion.getCampaign().setCloseOnEndDate(false);
+        stubSave();
+
+        assertThat(service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                promotion.getUuid(), null, Origin.ADMIN, null)).isNotNull();
+    }
+
+    @Test
+    void pausedOrClosedCampaign_rejectsAssignments() {
+        Promotion promotion = promotion(Kind.ACQUISITION, true);
+        promotion.getCampaign().setLifecycleStatus(Campaign.LifecycleStatus.PAUSED);
+
+        assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                promotion.getUuid(), null, Origin.ADMIN, null))
+                .hasMessage("promotion.campaign.not_running");
     }
 }

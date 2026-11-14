@@ -10,11 +10,13 @@ import com.fenixcore.optibienestar360.core.util.SortOrder;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignCloseRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignEffectivenessDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignReopenRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignTransactionLinkDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
@@ -79,7 +81,7 @@ public class CampaignService {
 
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "name", "scope", "mode", "enabled", "evaluateOnlyAtEnd", "payOnlyAtEnd",
-            "startsAt", "endsAt", "exclusivityGroup", "priority",
+            "startsAt", "endsAt", "exclusivityGroup", "priority", "lifecycleStatus", "closedReason",
             "createdAt", "updatedAt", "active", "status"
     );
 
@@ -102,6 +104,7 @@ public class CampaignService {
     private final CurrencyConversionService currencyConversionService;
     private final DefaultSortResolver defaultSortResolver;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionService promotionService;
+    private final CampaignLifecycleService lifecycleService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -143,6 +146,8 @@ public class CampaignService {
         validate(req);
         Campaign campaign = new Campaign();
         apply(campaign, req);
+        campaign.setLifecycleStatus(Boolean.TRUE.equals(req.draft())
+                ? Campaign.LifecycleStatus.DRAFT : Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(campaign);
         syncPromoters(saved, req.promoterUuids());
         return toDto(saved);
@@ -156,6 +161,8 @@ public class CampaignService {
         validate(req);
         Campaign campaign = findManaged(uuid);
         apply(campaign, req);
+        // A quota edited below the occupied slots turns the campaign SOLD_OUT (or closes it).
+        campaign.recomputeQuotaStatus(OffsetDateTime.now());
         syncPromoters(campaign, req.promoterUuids());
         return toDto(campaign);   // managed → dirty-check on commit
     }
@@ -166,6 +173,38 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
         findManaged(uuid).setActive(false);
+    }
+
+    // ─── Lifecycle (V256, hub ADR 0038 §3) ──────────────────────────────────
+
+    @Transactional
+    @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public CampaignDto activate(UUID uuid) {
+        return toDto(lifecycleService.activate(uuid));
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public CampaignDto pause(UUID uuid) {
+        return toDto(lifecycleService.pause(uuid));
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public CampaignDto resume(UUID uuid) {
+        return toDto(lifecycleService.resume(uuid));
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public CampaignDto close(UUID uuid, CampaignCloseRequest req, UUID actorUuid) {
+        return toDto(lifecycleService.close(uuid, req, actorUuid));
+    }
+
+    @Transactional
+    @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public CampaignDto reopen(UUID uuid, CampaignReopenRequest req) {
+        return toDto(lifecycleService.reopen(uuid, req));
     }
 
     // ─── Relaunch / clone ───────────────────────────────────────────────────
@@ -208,6 +247,13 @@ public class CampaignService {
         clone.setTargetCount(source.getTargetCount());
         clone.setExclusivityGroup(source.getExclusivityGroup());
         clone.setPriority(source.getPriority());
+        // Lifecycle/quota config is copied; counters start at zero and the new edition is ACTIVE, not closed.
+        clone.setCloseOnEndDate(source.isCloseOnEndDate());
+        clone.setCloseOnQuotaFilled(source.isCloseOnQuotaFilled());
+        clone.setMaxRedemptions(source.getMaxRedemptions());
+        clone.setConfirmGraceUntil(null);
+        clone.setConfirmGraceDays(source.getConfirmGraceDays());
+        clone.setLifecycleStatus(Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(clone);
 
         for (CommissionTier t : commissionTierRepository.findByCampaign(source)) {
@@ -549,8 +595,22 @@ public class CampaignService {
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private static void validate(CampaignRequest req) {
-        if (!req.endsAt().isAfter(req.startsAt())) {
+        if (req.endsAt() != null && !req.endsAt().isAfter(req.startsAt())) {
             throw new IllegalArgumentException("campaign.dates.order");
+        }
+        List<Campaign.CloseCondition> conditions = closeConditionsOf(req);
+        if (conditions.contains(Campaign.CloseCondition.END_DATE) && req.endsAt() == null) {
+            throw new IllegalArgumentException("campaign.close_on_end_date.requires_ends_at");
+        }
+        if (conditions.contains(Campaign.CloseCondition.QUOTA_FILLED) && req.maxRedemptions() == null) {
+            throw new IllegalArgumentException("campaign.close_on_quota_filled.requires_max_redemptions");
+        }
+        if (req.confirmGraceUntil() != null && req.confirmGraceDays() != null) {
+            throw new IllegalArgumentException("campaign.confirm_grace.only_one");
+        }
+        // Rules scored or paid only at the end need an end (hub ADR 0038, consequences).
+        if ((req.evaluateOnlyAtEnd() || req.payOnlyAtEnd()) && req.endsAt() == null) {
+            throw new IllegalArgumentException("campaign.at_end_rules.require_ends_at");
         }
         if (req.evaluateOnlyAtEnd() && !req.payOnlyAtEnd()) {
             throw new IllegalArgumentException("campaign.evaluate_only_at_end.requires_pay_only_at_end");
@@ -564,6 +624,14 @@ public class CampaignService {
         if (req.targetAmount() != null && req.targetAmountCurrencyUuid() == null) {
             throw new IllegalArgumentException("campaign.target_amount.currency_required");
         }
+    }
+
+    /** {@code null} = END_DATE when the campaign has an end date, else none (closes only by hand). */
+    private static List<Campaign.CloseCondition> closeConditionsOf(CampaignRequest req) {
+        if (req.closeConditions() != null) {
+            return req.closeConditions();
+        }
+        return req.endsAt() != null ? List.of(Campaign.CloseCondition.END_DATE) : List.of();
     }
 
     private void apply(Campaign campaign, CampaignRequest req) {
@@ -584,6 +652,12 @@ public class CampaignService {
         campaign.setTargetCount(req.targetCount());
         campaign.setExclusivityGroup(req.exclusivityGroup());
         campaign.setPriority(req.priority());
+        List<Campaign.CloseCondition> conditions = closeConditionsOf(req);
+        campaign.setCloseOnEndDate(conditions.contains(Campaign.CloseCondition.END_DATE));
+        campaign.setCloseOnQuotaFilled(conditions.contains(Campaign.CloseCondition.QUOTA_FILLED));
+        campaign.setMaxRedemptions(req.maxRedemptions());
+        campaign.setConfirmGraceUntil(req.confirmGraceUntil());
+        campaign.setConfirmGraceDays(req.confirmGraceDays());
     }
 
     private void syncPromoters(Campaign campaign, List<UUID> promoterUuids) {
@@ -613,7 +687,12 @@ public class CampaignService {
                 DisplayRefs.ref(campaign.getTargetAmountCurrency()),
                 campaign.getTargetAmountCurrency() != null ? campaign.getTargetAmountCurrency().getCode() : null,
                 campaign.getTargetCount(), campaign.getExclusivityGroup(),
-                campaign.getPriority(), campaign.isActive(), promoterUuids);
+                campaign.getPriority(), campaign.isActive(), promoterUuids,
+                campaign.getLifecycleStatus(), campaign.closeConditions(),
+                campaign.getMaxRedemptions(), campaign.getRedemptionsCount(), campaign.getConfirmedCount(),
+                campaign.freeSlots(),
+                campaign.getClosedAt(), campaign.getClosedReason(), DisplayRefs.ref(campaign.getClosedBy()),
+                campaign.getClosedNote(), campaign.getConfirmGraceUntil(), campaign.getConfirmGraceDays());
     }
 
     private Campaign findManaged(UUID uuid) {
