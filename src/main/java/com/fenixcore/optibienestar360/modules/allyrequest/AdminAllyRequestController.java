@@ -60,7 +60,7 @@ public class AdminAllyRequestController {
     private final AllyImportService importService;
     private final RegistrationDraftService draftService;
 
-    /** {@code ?status=PENDING|APPROVED|REJECTED}, {@code ?channel=SELF_SERVICE|IMPORT}, {@code ?q=}, {@code ?promoterUuid=} (the advisor who brought the ally in); newest first by default. */
+    /** {@code ?status=PENDING|APPROVED|REJECTED}, {@code ?channel=SELF_SERVICE|IMPORT}, {@code ?q=}, {@code ?promoterUuid=} (the advisor who brought the ally in), {@code ?unassigned=true} (no advisor or INSTITUCION); newest first by default. */
     @GetMapping
     @PreAuthorize("hasAuthority('ALLY_REGISTRATION_VIEW_ALL')")
     public ResponseEntity<AppliedSortPage<AllyRequestListItemDto>> list(
@@ -74,9 +74,11 @@ public class AdminAllyRequestController {
             @RequestParam(required = false) UUID stateUuid,
             @RequestParam(required = false) UUID cityUuid,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
+            @RequestParam(required = false) Boolean unassigned) {
         Page<AllyRequestListItemDto> page = service.list(pageable, status, channel, q,
-                new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid), dateFrom, dateTo);
+                new AllyListFilter(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid, unassigned),
+                dateFrom, dateTo);
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 

@@ -1832,6 +1832,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 239	247	seed demo users by segment	SQL	V247__seed_demo_users_by_segment.sql	582982516	snapshot	2026-01-01 00:00:00	0	t
 240	248	retire user sessions log	SQL	V248__retire_user_sessions_log.sql	677190198	snapshot	2026-01-01 00:00:00	0	t
 241	249	link status	SQL	V249__link_status.sql	1512890983	snapshot	2026-01-01 00:00:00	0	t
+242	250	affiliation request assign promoter permission	SQL	V250__affiliation_request_assign_promoter_permission.sql	-1350594115	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2538,6 +2539,7 @@ COPY app.permissions (permissions_id, uuid, name, domain_id, description, is_act
 441	39b75757-f36f-a6e1-960d-4339354bfb13	ALLY_DRAFT_RETAIN_ADVISOR	3	Encontrar y mantener (o dejar de mantener) un registro de aliado en progreso propio o sin asesor, para que la limpieza no lo borre (portal del asesor)	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 442	2ad14df4-1806-0d5b-b4e7-93a7acb2d5ec	AFFILIATION_REQUEST_DRAFT_RETAIN	33	Mantener (o dejar de mantener) cualquier borrador de afiliación en progreso para que la limpieza no lo borre	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 443	14178ba5-abd3-fff5-48fa-6ed83155cf9e	AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR	33	Encontrar y mantener (o dejar de mantener) un borrador de afiliación en progreso propio o sin asesor, para que la limpieza no lo borre (portal del asesor)	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+444	ef6b5709-5aea-7785-2ebd-b5a94ba135da	AFFILIATION_REQUEST_ASSIGN_PROMOTER	33	Cambiar el asesor de una solicitud de afiliación en borrador o pendiente	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.permissions ENABLE TRIGGER ALL;
@@ -3775,6 +3777,8 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1510	2	443	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1511	7	441	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1512	7	443	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1513	1	444	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1515	2	444	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -4376,7 +4380,7 @@ SELECT pg_catalog.setval('app.permission_domains_permission_domains_id_seq', 39,
 -- Name: permissions_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 443, true);
+SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 444, true);
 
 --
 -- Name: person_credit_entries_person_credit_entries_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4496,7 +4500,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1512, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1515, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

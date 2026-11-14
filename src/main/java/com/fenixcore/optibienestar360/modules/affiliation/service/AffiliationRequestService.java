@@ -357,6 +357,11 @@ public class AffiliationRequestService {
             if (f.promoterUuid() != null) {
                 ps.add(cb.equal(root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.promoterUuid()));
             }
+            if (Boolean.TRUE.equals(f.unassigned())) {
+                // ADR LOC-0016: no advisor, or only the INSTITUCION system advisor.
+                var advisor = root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT);
+                ps.add(cb.or(cb.isNull(advisor.get("id")), cb.isTrue(advisor.get("system"))));
+            }
             if (f.paymentMethodUuid() != null) {
                 ps.add(cb.equal(root.join("paymentMethod", jakarta.persistence.criteria.JoinType.LEFT).get("uuid"), f.paymentMethodUuid()));
             }
@@ -571,6 +576,42 @@ public class AffiliationRequestService {
         eventPublisher.publishEvent(event(AffiliationRequestEvent.Kind.APPROVED, request, null, activationUrl));
         log.info("Affiliation request {} approved → member {} (terms acceptance {})", request.getUuid(),
                 member.getUuid(), termsUnchanged ? "recorded" : "pending at first login");
+        return toDetail(request);
+    }
+
+    /**
+     * Changes the advisor of a request that is still open — DRAFT or PENDING; an APPROVED or REJECTED
+     * one answers 422 {@code affiliation_request.advisor.invalid_state} (ADR LOC-0016). The target must
+     * be active ({@code promoter.inactive}) and not the INSTITUCION system advisor
+     * ({@code promoter.system_not_assignable}). The referral code follows the advisor, because approval
+     * enrolls the member through it; an assisted draft therefore moves to the new advisor's portal too.
+     * The change is logged (UPDATED, field {@code advisor}) with the reason as comment; assigning the
+     * same advisor again is a no-op.
+     */
+    @Transactional
+    public AffiliationRequestDetailDto assignAdvisor(UUID uuid, UUID promoterUuid, String reason, UUID actorUuid) {
+        AffiliationRequest request = repository.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("affiliation_request.not_found"));
+        if (!request.isPending() && !request.isDraft()) {
+            throw new IllegalArgumentException("affiliation_request.advisor.invalid_state");
+        }
+        Promoter target = promoterRepository.findByUuid(promoterUuid)
+                .orElseThrow(() -> new NoSuchElementException("promoter.not_found"));
+        if (!target.isActive()) {
+            throw new IllegalArgumentException("promoter.inactive");
+        }
+        if (target.isSystem()) {
+            throw new IllegalArgumentException("promoter.system_not_assignable");
+        }
+        Promoter current = request.getPromoter();
+        if (current != null && current.getId().equals(target.getId())) {
+            return toDetail(request);
+        }
+        List<Map<String, String>> changes = new ArrayList<>();
+        track(changes, "advisor", current != null ? current.getDisplayName() : null, target.getDisplayName());
+        request.setPromoter(target);
+        request.setReferralCode(target.getReferralCode());
+        writeLog(request, Action.UPDATED, null, null, changes, blankToNull(reason), actor(actorUuid));
         return toDetail(request);
     }
 

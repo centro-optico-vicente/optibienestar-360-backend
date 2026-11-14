@@ -877,6 +877,100 @@ class AffiliationRequestServiceTest {
         verify(userService, never()).createUserWithPasswordHash(any(), any(), any());
     }
 
+    // ─── Advisor reassignment (ADR LOC-0016) ────────────────────────────────
+
+    private static Promoter advisor(String code, boolean active, boolean system) {
+        Promoter p = new Promoter();
+        p.setId(java.util.concurrent.ThreadLocalRandom.current().nextLong(100, 1_000_000));
+        p.setUuid(UUID.randomUUID());
+        p.setReferralCode(code);
+        p.setDisplayName("Asesor " + code);
+        p.setActive(active);
+        p.setSystem(system);
+        return p;
+    }
+
+    @Test
+    void assignAdvisor_onPending_movesAdvisorAndReferralCode_andLogsTheChange() {
+        AffiliationRequest r = pending();
+        Promoter old = advisor("OLD01", true, false);
+        r.setPromoter(old);
+        r.setReferralCode("OLD01");
+        Promoter target = advisor("NEW01", true, false);
+        User reviewer = new User();
+        reviewer.setUuid(UUID.randomUUID());
+        when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
+        when(promoterRepository.findByUuid(target.getUuid())).thenReturn(Optional.of(target));
+        when(userRepository.findByUuid(reviewer.getUuid())).thenReturn(Optional.of(reviewer));
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+
+        service.assignAdvisor(r.getUuid(), target.getUuid(), " Rotación de cartera ", reviewer.getUuid());
+
+        assertThat(r.getPromoter()).isSameAs(target);
+        // Approval enrolls the member through the referral code, so it follows the advisor.
+        assertThat(r.getReferralCode()).isEqualTo("NEW01");
+        ArgumentCaptor<AffiliationRequestLog> entry = ArgumentCaptor.forClass(AffiliationRequestLog.class);
+        verify(logRepository).save(entry.capture());
+        assertThat(entry.getValue().getAction()).isEqualTo(AffiliationRequestLog.Action.UPDATED);
+        assertThat(entry.getValue().getComment()).isEqualTo("Rotación de cartera");
+        assertThat(entry.getValue().getChanges()).containsExactly(
+                Map.of("field", "advisor", "from", "Asesor OLD01", "to", "Asesor NEW01"));
+    }
+
+    @Test
+    void assignAdvisor_onDraft_isAllowed() {
+        AffiliationRequest r = pending();
+        r.setStatus(AffiliationRequest.Status.DRAFT.name());
+        Promoter target = advisor("NEW02", true, false);
+        when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
+        when(promoterRepository.findByUuid(target.getUuid())).thenReturn(Optional.of(target));
+        when(memberContractService.render(eq(terms), any(MemberTermsApplicant.class))).thenReturn(CONTRACT);
+
+        service.assignAdvisor(r.getUuid(), target.getUuid(), null, null);
+
+        assertThat(r.getPromoter()).isSameAs(target);
+    }
+
+    @Test
+    void assignAdvisor_onFinalStatus_is422_andChangesNothing() {
+        for (String status : List.of("APPROVED", "REJECTED")) {
+            AffiliationRequest r = pending();
+            r.setStatus(status);
+            when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
+
+            assertThatThrownBy(() -> service.assignAdvisor(r.getUuid(), UUID.randomUUID(), "x", UUID.randomUUID()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("affiliation_request.advisor.invalid_state");
+            assertThat(r.getPromoter()).isNull();
+        }
+        verify(logRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdvisor_toTheSystemAdvisor_is422() {
+        AffiliationRequest r = pending();
+        Promoter institucion = advisor("INSTITUCION", true, true);
+        when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
+        when(promoterRepository.findByUuid(institucion.getUuid())).thenReturn(Optional.of(institucion));
+
+        assertThatThrownBy(() -> service.assignAdvisor(r.getUuid(), institucion.getUuid(), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.system_not_assignable");
+        verify(logRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdvisor_toAnInactiveAdvisor_is422() {
+        AffiliationRequest r = pending();
+        Promoter gone = advisor("GONE1", false, false);
+        when(repository.findForUpdateByUuid(r.getUuid())).thenReturn(Optional.of(r));
+        when(promoterRepository.findByUuid(gone.getUuid())).thenReturn(Optional.of(gone));
+
+        assertThatThrownBy(() -> service.assignAdvisor(r.getUuid(), gone.getUuid(), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.inactive");
+    }
+
     @Test
     void listForAdvisor_withoutAdvisorRecord_is404() {
         UUID userUuid = UUID.randomUUID();

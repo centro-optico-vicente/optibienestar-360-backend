@@ -13,15 +13,22 @@ import java.util.UUID;
  * @param stateUuid     the ally's city belongs to this state
  * @param cityUuid      the ally's city
  * @param promoterUuid  only the allies this advisor brought in (404 when it does not exist)
+ * @param unassigned    {@code true} = only the allies nobody brought in: no advisor or the
+ *                      INSTITUCION system advisor (ADR LOC-0016)
  */
 public record AllyListFilter(UUID allyTypeUuid, UUID professionUuid, UUID stateUuid, UUID cityUuid,
-                             UUID promoterUuid) {
+                             UUID promoterUuid, Boolean unassigned) {
+
+    public AllyListFilter(UUID allyTypeUuid, UUID professionUuid, UUID stateUuid, UUID cityUuid,
+                          UUID promoterUuid) {
+        this(allyTypeUuid, professionUuid, stateUuid, cityUuid, promoterUuid, null);
+    }
 
     public AllyListFilter(UUID allyTypeUuid, UUID professionUuid, UUID stateUuid, UUID cityUuid) {
         this(allyTypeUuid, professionUuid, stateUuid, cityUuid, null);
     }
 
     public static AllyListFilter none() {
-        return new AllyListFilter(null, null, null, null, null);
+        return new AllyListFilter(null, null, null, null, null, null);
     }
 }

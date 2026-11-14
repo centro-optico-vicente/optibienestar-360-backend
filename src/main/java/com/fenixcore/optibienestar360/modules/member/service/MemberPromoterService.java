@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -102,6 +103,20 @@ public class MemberPromoterService {
             result.add(toDto(reassign(member, target, reason, actor)));
         }
         return result;
+    }
+
+    /**
+     * Applies precomputed moves (member → target promoter) in the caller's transaction, each one
+     * with its {@link MemberPromoterAssignment} audit row and its notification — the write path of
+     * the portfolio distribution ({@code MemberPortfolioDistributionService}, ADR LOC-0016). The
+     * caller has already validated the targets and dropped the members already on theirs.
+     */
+    @Transactional
+    public void reassignAll(List<Map.Entry<Member, Promoter>> moves, String reason, UUID actorUserUuid) {
+        User actor = resolveActor(actorUserUuid);
+        for (Map.Entry<Member, Promoter> move : moves) {
+            reassign(move.getKey(), move.getValue(), reason, actor);
+        }
     }
 
     /**
