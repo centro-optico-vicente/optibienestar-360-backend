@@ -205,8 +205,8 @@ class MemberPortfolioDistributionServiceTest {
 
     @Test
     void duplicateTargets_are422() {
-        UUID same = UUID.randomUUID();
-        when(promoterRepository.findByUuid(same)).thenReturn(Optional.of(advisor("A")));
+        // advisor() stubs its own uuid lookup; never call it inside another when(...) (UnfinishedStubbing).
+        UUID same = advisor("A").getUuid();
 
         assertThatThrownBy(() -> service.preview(new MemberDistributionRequest(List.of(UUID.randomUUID()), null, null,
                 List.of(new Target(same, null), new Target(same, null)), MemberDistributionMode.EQUAL, "x")))
