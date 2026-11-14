@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericRecord
 import com.fenixcore.optibienestar360.modules.document.generic.dto.GenericTableModel;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperFormat;
 import com.fenixcore.optibienestar360.modules.document.service.RenderedDocument;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -14,6 +15,7 @@ import java.util.Collection;
 import java.util.Locale;
 
 @Service
+@Slf4j
 public class GenericRecordReportService {
 
     private final GenericEntityExtractorService extractorService;
@@ -65,7 +67,9 @@ public class GenericRecordReportService {
             String generatedBy,
             JasperFormat format
     ) {
+        long started = System.nanoTime();
         GenericRecordModel model = extractorService.extractModel(targetObject, title, subtitle, identifier, generatedBy);
+        long extracted = System.nanoTime();
 
         byte[] bytes;
         String contentType;
@@ -80,6 +84,12 @@ public class GenericRecordReportService {
             contentType = JasperFormat.PDF.getContentType();
             extension = JasperFormat.PDF.getFileExtension();
         }
+        // Split of a record card's time (ally card measured at ~7 s): the model
+        // extraction walks the entity's relations, the render includes waiting
+        // for a PdfRenderLimiter slot.
+        log.info("Record document '{}' {}: extract {} ms, render {} ms, {} bytes",
+                title, format, (extracted - started) / 1_000_000, (System.nanoTime() - extracted) / 1_000_000,
+                bytes.length);
 
         Locale locale = LocaleContextHolder.getLocale();
         String defaultRecord = resolveMessage("document.filename.record", "record", locale);
