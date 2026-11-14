@@ -260,4 +260,30 @@ class MembershipBenefitGrantServiceTest {
         assertThat(open.getGrantStatus()).isEqualTo(GrantStatus.AVAILABLE);
         verify(validatorCacheService).evictForMembership(membership);
     }
+
+    @Test
+    void validator_withAllyUuid_listsOnlyThatAllysVouchers_andNoneForAnAllyNotOperated() {
+        Ally first = ally(1L);
+        Ally second = ally(2L);
+        AllyUser asFirst = new AllyUser();
+        asFirst.setAlly(first);
+        AllyUser asSecond = new AllyUser();
+        asSecond.setAlly(second);
+        UUID actor = UUID.randomUUID();
+        Membership membership = membership(5L);
+        when(allyUserRepository.findActiveByUserUuid(actor)).thenReturn(List.of(asFirst, asSecond));
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        when(repository.findForMembershipAndAllies(eq(5L), eq(GrantStatus.AVAILABLE), eq(Set.of(2L))))
+                .thenReturn(List.of());
+        ValidationResultDto answer = new ValidationResultDto(ValidationStatus.ACTIVE, "V", "123",
+                null, null, null, null, null, membership.getUuid(), null, null, null, null,
+                null, null, null, null, false, null);
+
+        assertThat(service().withGrants(answer, actor, second.getUuid()).benefitGrants()).isEmpty();
+        verify(repository).findForMembershipAndAllies(5L, GrantStatus.AVAILABLE, Set.of(2L));
+
+        // An ally the caller does not operate: no vouchers, and no lookup at all.
+        assertThat(service().withGrants(answer, actor, UUID.randomUUID()).benefitGrants()).isEmpty();
+        verify(repository, org.mockito.Mockito.times(1)).findForMembershipAndAllies(any(), any(), any());
+    }
 }

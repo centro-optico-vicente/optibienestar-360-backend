@@ -244,11 +244,22 @@ public class MembershipBenefitGrantService {
      * itself still records nothing.
      */
     public ValidationResultDto withGrants(ValidationResultDto result, UUID actorUserUuid) {
+        return withGrants(result, actorUserUuid, null);
+    }
+
+    /**
+     * Same as {@link #withGrants(ValidationResultDto, UUID)}, narrowed to one
+     * ally when {@code allyUuid} is sent (the ally the portal is operating
+     * as): only that ally's vouchers, and none when the caller does not
+     * operate it. {@code null} = every ally of the caller.
+     */
+    public ValidationResultDto withGrants(ValidationResultDto result, UUID actorUserUuid, UUID allyUuid) {
         if (result == null || result.membershipUuid() == null || actorUserUuid == null) {
             return result;
         }
         Set<Long> allyIds = allyUserRepository.findActiveByUserUuid(actorUserUuid).stream()
                 .map(AllyUser::getAlly)
+                .filter(ally -> allyUuid == null || allyUuid.equals(ally.getUuid()))
                 .map(Ally::getId)
                 .collect(Collectors.toSet());
         if (allyIds.isEmpty()) {

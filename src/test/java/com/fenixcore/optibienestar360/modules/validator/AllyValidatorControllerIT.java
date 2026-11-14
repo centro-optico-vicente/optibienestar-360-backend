@@ -89,6 +89,21 @@ class AllyValidatorControllerIT {
                 .andExpect(jsonPath("$.status").value("NOT_FOUND"));
     }
 
+    @Test
+    void validate_acceptsAnOptionalAllyUuid() throws Exception {
+        when(validatorService.validate(anyString())).thenReturn(notFound());
+
+        mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678")
+                        .param("allyUuid", UUID.randomUUID().toString())
+                        .with(principal("ALLY_VALIDATE_MEMBER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NOT_FOUND"));
+        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678")
+                        .param("allyUuid", UUID.randomUUID().toString())
+                        .with(principal("ALLY_VALIDATE_MEMBER")))
+                .andExpect(status().isOk());
+    }
+
     // ─── Secondary path /v1/allies/me/validations (kept, not deprecated) ─────
 
     @Test
