@@ -1835,6 +1835,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 242	250	affiliation request assign promoter permission	SQL	V250__affiliation_request_assign_promoter_permission.sql	-1350594115	snapshot	2026-01-01 00:00:00	0	t
 243	251	clear default role not held	SQL	V251__clear_default_role_not_held.sql	106180069	snapshot	2026-01-01 00:00:00	0	t
 244	252	generated report purge	SQL	V252__generated_report_purge.sql	468917937	snapshot	2026-01-01 00:00:00	0	t
+245	253	operator reviews affiliation requests	SQL	V253__operator_reviews_affiliation_requests.sql	1580565186	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -3781,6 +3782,10 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1512	7	443	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1513	1	444	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1515	2	444	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1516	3	349	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1517	3	351	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1518	3	352	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1519	3	353	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -4503,7 +4508,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1515, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1519, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
