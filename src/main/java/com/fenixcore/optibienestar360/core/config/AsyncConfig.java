@@ -33,4 +33,24 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Uploads generated reports to R2 after the response is sent
+     * ({@code ReportAuditService}). Small on purpose: each queued task holds the
+     * document bytes. When it is full the request thread uploads by itself
+     * (slower response, nothing lost), as with {@link #emailExecutor()}.
+     */
+    @Bean(name = "reportArchiveExecutor")
+    public Executor reportArchiveExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("report-archive-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }

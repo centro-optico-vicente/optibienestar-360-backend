@@ -8,16 +8,22 @@ import com.fenixcore.optibienestar360.common.storage.StorageKeyBuilder;
 import com.fenixcore.optibienestar360.core.audit.entity.ReportAuditLog;
 import com.fenixcore.optibienestar360.core.audit.repository.ReportAuditLogRepository;
 import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 /**
  * Records one report-generation event (V63, spec 16-audit.md §Reportes),
@@ -32,10 +38,14 @@ import java.util.UUID;
  * still returns the rendered bytes — the log row is written with
  * {@code attachedFileId=null} (spec §Reportes). If persisting the log row
  * itself fails, that's logged and swallowed too.</p>
+ *
+ * <p>The row is written on the caller's thread; the R2 upload is not. It runs
+ * on {@code reportArchiveExecutor} once the row is committed and then links
+ * the file to the row, so the user gets the document without waiting for the
+ * upload (it was the largest share of a ~7 s ally card download).</p>
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReportAuditService {
 
     private static final String OWNER_TABLE = "report_audit_log";
@@ -46,6 +56,27 @@ public class ReportAuditService {
 	private final EntityConfigService entityConfigService;
     private final SystemConfigService systemConfigService;
     private final AuditContextResolver auditContextResolver;
+    private final Executor archiveExecutor;
+    private final TransactionTemplate archiveTransaction;
+
+    public ReportAuditService(ReportAuditLogRepository reportAuditLogRepository,
+                              AttachedFileRepository attachedFileRepository,
+                              ObjectProvider<StorageService> storageProvider,
+                              EntityConfigService entityConfigService,
+                              SystemConfigService systemConfigService,
+                              AuditContextResolver auditContextResolver,
+                              @Qualifier("reportArchiveExecutor") Executor archiveExecutor,
+                              PlatformTransactionManager transactionManager) {
+        this.reportAuditLogRepository = reportAuditLogRepository;
+        this.attachedFileRepository = attachedFileRepository;
+        this.storageProvider = storageProvider;
+        this.entityConfigService = entityConfigService;
+        this.systemConfigService = systemConfigService;
+        this.auditContextResolver = auditContextResolver;
+        this.archiveExecutor = archiveExecutor;
+        this.archiveTransaction = new TransactionTemplate(transactionManager);
+        this.archiveTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
 
     /**
      * @param entityKey lower_snake_case entity key (e.g. {@code "ally"}), or
@@ -76,12 +107,8 @@ public class ReportAuditService {
             entry.setFileName(fileName);
             entry.setSizeBytes(content != null ? (long) content.length : null);
 
-            AttachedFile attachedFile = tryUpload(entry.getUuid(), content, fileName, contentType);
-            if (attachedFile != null) {
-                entry.setAttachedFileId(attachedFile.getId());
-            }
-
-            reportAuditLogRepository.save(entry);
+            ReportAuditLog saved = reportAuditLogRepository.save(entry);
+            scheduleArchive(saved.getId(), saved.getUuid(), content, fileName, contentType);
         } catch (Exception ex) {
             log.warn("Failed to record report audit for reportType='{}' entityKey='{}' — response still returns the file",
                     reportType, entityKey, ex);
@@ -105,33 +132,69 @@ public class ReportAuditService {
         return config == null || config.isAuditReport();
     }
 
-    private AttachedFile tryUpload(UUID reportUuid, byte[] content, String fileName, String contentType) {
+    /**
+     * Uploads the document after the row is committed (so the background task
+     * can see it). Without a surrounding transaction the task is queued at once.
+     */
+    private void scheduleArchive(Long reportId, UUID reportUuid, byte[] content, String fileName, String contentType) {
         if (content == null || content.length == 0) {
-            return null;
+            return;
         }
         StorageService storage = storageProvider.getIfAvailable();
         if (storage == null) {
             log.warn("R2 storage disabled — report_audit_log row for {} will have attachedFileId=null", reportUuid);
-            return null;
+            return;
         }
+        Runnable task = () -> archive(storage, reportId, reportUuid, content, fileName, contentType);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    submit(task, reportUuid);
+                }
+            });
+        } else {
+            submit(task, reportUuid);
+        }
+    }
+
+    private void submit(Runnable task, UUID reportUuid) {
+        try {
+            archiveExecutor.execute(task);
+        } catch (Exception ex) {
+            log.warn("Could not queue the R2 upload for generated report {} — attachedFileId stays null", reportUuid, ex);
+        }
+    }
+
+    private void archive(StorageService storage, Long reportId, UUID reportUuid, byte[] content,
+                         String fileName, String contentType) {
+        long started = System.nanoTime();
         try {
             String key = StorageKeyBuilder.build(FileVisibility.TEMPORARY, OWNER_TABLE, reportUuid, fileName);
             storage.upload(storage.getBucket(), key, new ByteArrayInputStream(content), content.length, contentType);
 
-            AttachedFile file = new AttachedFile();
-            file.setOwnerTable(OWNER_TABLE);
-            file.setOwnerUuid(reportUuid);
-            file.setVisibility(FileVisibility.TEMPORARY);
-            file.setCategory("GENERATED_REPORT");
-            file.setFileKey(key);
-            file.setFileName(StorageKeyBuilder.safeName(fileName));
-            file.setMimeType(contentType);
-            file.setSizeBytes((long) content.length);
-            file.setUploadedAt(java.time.Instant.now());
-            return attachedFileRepository.save(file);
+            archiveTransaction.executeWithoutResult(status -> {
+                AttachedFile file = new AttachedFile();
+                file.setOwnerTable(OWNER_TABLE);
+                file.setOwnerUuid(reportUuid);
+                file.setVisibility(FileVisibility.TEMPORARY);
+                file.setCategory("GENERATED_REPORT");
+                file.setFileKey(key);
+                file.setFileName(StorageKeyBuilder.safeName(fileName));
+                file.setMimeType(contentType);
+                file.setSizeBytes((long) content.length);
+                file.setUploadedAt(java.time.Instant.now());
+                AttachedFile savedFile = attachedFileRepository.save(file);
+
+                reportAuditLogRepository.findById(reportId).ifPresent(row -> {
+                    row.setAttachedFileId(savedFile.getId());
+                    reportAuditLogRepository.save(row);
+                });
+            });
+            log.debug("Generated report {} archived to R2 in {} ms ({} bytes)",
+                    reportUuid, (System.nanoTime() - started) / 1_000_000, content.length);
         } catch (Exception ex) {
-            log.warn("R2 upload failed for generated report {} — response still returns the file", reportUuid, ex);
-            return null;
+            log.warn("R2 upload failed for generated report {} — the user already got the file", reportUuid, ex);
         }
     }
 
