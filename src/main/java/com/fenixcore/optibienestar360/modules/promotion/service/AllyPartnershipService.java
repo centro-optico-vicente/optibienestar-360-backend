@@ -117,15 +117,19 @@ public class AllyPartnershipService {
     }
 
     /**
-     * One of the ally's own proposals (else 404) that never took a slot (else
-     * 422), with the campaign row and then the promotion row locked like any
-     * other writer of them (hub ADR 0038 §4).
+     * One of the ally's own proposals (else 404), in a campaign still open to
+     * this ally — the same rule as creating it (else 422) — that never took a
+     * slot (else 422), with the campaign row and then the promotion row
+     * locked like any other writer of them (hub ADR 0038 §4).
      */
     private Promotion ownUntouched(Ally ally, UUID promotionUuid) {
         Promotion promotion = java.util.Optional.of(promotionService.lockForEdit(promotionUuid))
                 .filter(Promotion::isCreatedByAlly)
                 .filter(p -> p.getAlly() != null && p.getAlly().getId().equals(ally.getId()))
                 .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
+        if (promotion.getCampaign() == null || !openTo(promotion.getCampaign(), ally)) {
+            throw new IllegalArgumentException("ally_campaign.not_open");
+        }
         if (promotion.getRedemptionsCount() > 0 || redemptionRepository.existsByPromotion_Id(promotion.getId())) {
             throw new IllegalArgumentException("ally_campaign.promotion.has_redemptions");
         }

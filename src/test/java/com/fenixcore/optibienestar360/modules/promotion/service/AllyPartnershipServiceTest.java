@@ -145,6 +145,52 @@ class AllyPartnershipServiceTest {
         verify(promotionService).lockForEdit(own.getUuid());
     }
 
+    private Promotion ownProposal(Ally ally, Campaign campaign) {
+        Promotion own = new Promotion();
+        own.setId(4L);
+        own.setUuid(UUID.randomUUID());
+        own.setAlly(ally);
+        own.setCreatedByAlly(true);
+        own.setCampaign(campaign);
+        when(promotionService.lockForEdit(own.getUuid())).thenReturn(own);
+        return own;
+    }
+
+    @Test
+    void updateAndDelete_areRejected_onceTheCampaignNoLongerAcceptsTheAlly() {
+        Ally ally = callerAlly(AllyRole.OWNER);
+        Campaign paused = campaign(true, null);
+        paused.setLifecycleStatus(Campaign.LifecycleStatus.PAUSED);
+        Promotion inPaused = ownProposal(ally, paused);
+        assertThatThrownBy(() -> service().update(actor, null, inPaused.getUuid(), request()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ally_campaign.not_open");
+
+        Campaign closedToPartnership = campaign(false, null);
+        Promotion inClosed = ownProposal(ally, closedToPartnership);
+        assertThatThrownBy(() -> service().delete(actor, null, inClosed.getUuid()))
+                .hasMessage("ally_campaign.not_open");
+        assertThat(inClosed.isActive()).isTrue();
+
+        Ally other = new Ally();
+        other.setId(2L);
+        Campaign exclusiveToOther = campaign(true, other);
+        Promotion inExclusive = ownProposal(ally, exclusiveToOther);
+        assertThatThrownBy(() -> service().delete(actor, null, inExclusive.getUuid()))
+                .hasMessage("ally_campaign.not_open");
+        verify(promotionService, never()).apply(any(), any(), any());
+    }
+
+    @Test
+    void delete_ofAnUntouchedProposal_inAnOpenCampaign_softDeletesIt() {
+        Ally ally = callerAlly(AllyRole.OWNER);
+        Promotion own = ownProposal(ally, campaign(true, ally));
+
+        service().delete(actor, null, own.getUuid());
+
+        assertThat(own.isActive()).isFalse();
+    }
+
     @Test
     void listCampaigns_flagsTheOnesExclusiveToTheCaller() {
         Ally ally = callerAlly(AllyRole.STAFF);
