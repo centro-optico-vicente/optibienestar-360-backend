@@ -44,7 +44,10 @@ class GeneratedReportPurgeServiceTest {
         return new GeneratedReportPurgeService(jdbc, storageProvider);
     }
 
-    /** Builds rows through the service's own RowMapper, so the mapping is exercised too. */
+    /**
+     * First query returns {@code rows}, built through the service's own RowMapper so the
+     * mapping is exercised too; any later query returns nothing, as the real cursor would.
+     */
     @SuppressWarnings("unchecked")
     private void batchReturns(Object[]... rows) throws SQLException {
         when(jdbc.query(contains("FROM attached_files"), any(MapSqlParameterSource.class), any(RowMapper.class)))
@@ -60,7 +63,8 @@ class GeneratedReportPurgeServiceTest {
                         mapped.add(mapper.mapRow(rs, i));
                     }
                     return mapped;
-                });
+                })
+                .thenReturn(List.of());
     }
 
     @Test

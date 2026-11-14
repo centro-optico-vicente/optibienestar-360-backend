@@ -55,8 +55,9 @@ public class GeneratedReportPurgeService {
         int failed = 0;
         Instant afterUploadedAt = Instant.EPOCH;
         long afterId = 0;
-        while (true) {
-            List<StoredReport> batch = nextBatch(cutoff, afterUploadedAt, afterId);
+        List<StoredReport> batch;
+        do {
+            batch = nextBatch(cutoff, afterUploadedAt, afterId);
             if (batch.isEmpty()) {
                 break;
             }
@@ -68,19 +69,18 @@ public class GeneratedReportPurgeService {
             try {
                 notDeleted = storage.deleteAll(storage.getBucket(), batch.stream().map(StoredReport::fileKey).toList());
             } catch (RuntimeException ex) {
-                log.warn("Generated report purge: R2 delete request failed for {} file(s); they stay for the next run",
-                        batch.size(), ex);
+                // The whole request failed (R2 unreachable, credentials…): later batches
+                // would fail the same way, so stop here; everything left is retried next run.
+                log.warn("Generated report purge: R2 delete request failed for {} file(s); stopping, the rest is "
+                        + "retried on the next run", batch.size(), ex);
                 failed += batch.size();
-                continue;
+                break;
             }
             List<StoredReport> deleted = batch.stream().filter(r -> !notDeleted.contains(r.fileKey())).toList();
             markPurged(deleted);
             purged += deleted.size();
             failed += batch.size() - deleted.size();
-            if (batch.size() < BATCH_SIZE) {
-                break;
-            }
-        }
+        } while (batch.size() == BATCH_SIZE);
         if (purged > 0 || failed > 0) {
             log.info("Generated report purge: {} file(s) deleted from R2 and marked PURGED, {} failed (uploaded before {})",
                     purged, failed, cutoff);
