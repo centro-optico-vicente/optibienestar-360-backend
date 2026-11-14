@@ -84,8 +84,13 @@ public class PromoterTypeService {
                 PromoterType::getUuid, PromoterType::getCode, PromoterTypeService::labelOf, PromoterType::isActive);
     }
 
-    private static String labelOf(PromoterType t) {
-        return t.getCode() + " — " + t.getName();
+    /**
+     * The code is a technical {@code SNAKE_CASE} identifier (e.g. {@code INDEPENDIENTE}),
+     * so the select shows only the name; the code still travels in {@code OptionDto.code}
+     * (ADR LOC-0013, rule 5).
+     */
+    static String labelOf(PromoterType t) {
+        return t.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'promoter_type:all'")

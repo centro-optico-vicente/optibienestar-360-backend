@@ -87,8 +87,13 @@ public class ProfessionService {
                 Profession::getUuid, Profession::getCode, ProfessionService::labelOf, Profession::isActive);
     }
 
-    private static String labelOf(Profession m) {
-        return m.getCode() + " — " + m.getName();
+    /**
+     * The code is a technical {@code SNAKE_CASE} identifier (e.g. {@code INGENIERIA_CIVIL}),
+     * so the select shows only the name; the code still travels in {@code OptionDto.code}
+     * (ADR LOC-0013, rule 5).
+     */
+    static String labelOf(Profession m) {
+        return m.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'profession:all'")

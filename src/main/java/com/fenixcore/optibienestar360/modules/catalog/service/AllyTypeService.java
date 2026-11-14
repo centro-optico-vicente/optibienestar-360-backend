@@ -98,8 +98,13 @@ public class AllyTypeService {
                 AllyType::getUuid, AllyType::getCode, AllyTypeService::labelOf, AllyType::isActive);
     }
 
-    private static String labelOf(AllyType a) {
-        return a.getCode() + " — " + a.getName();
+    /**
+     * The code is a technical {@code SNAKE_CASE} identifier (e.g. {@code CLINICA}),
+     * so the select shows only the name; the code still travels in {@code OptionDto.code}
+     * (ADR LOC-0013, rule 5).
+     */
+    static String labelOf(AllyType a) {
+        return a.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'ally_type:all'")

@@ -77,7 +77,7 @@ Ya **no** se espera a que el frontend "necesite" el select para agregarlo: cualq
 El `label` es lo que el usuario ve en el select; el frontend no lo recompone (spec frontend `07-forms.md`, "Código en selects").
 
 - Código **legible/identificador de negocio** (`V`, `0156`, `J`, SKU de producto, código de plan/rango): `label = code + " — " + name` (`DocumentTypeService`, `BankService`, `PlansService`…). **Producto/servicio incluido**: el código ayuda a distinguir ítems de nombre parecido.
-- Código **identificador técnico** en `SNAKE_CASE` (`BANK_TRANSFER`, `PAGO_MOVIL`, `MEMBERSHIP_FEE`, `MPPS`): `label = name` solamente — el código ensucia el select sin aportar. Se sigue devolviendo en el campo `code` del `OptionDto`. Hoy: `payment-methods`, `payment-categories`, `licensing-bodies`.
+- Código **identificador técnico** en `SNAKE_CASE` (`BANK_TRANSFER`, `PAGO_MOVIL`, `MEMBERSHIP_FEE`, `MPPS`): `label = name` solamente — el código ensucia el select sin aportar. Se sigue devolviendo en el campo `code` del `OptionDto`. Hoy: `payment-methods`, `payment-categories`, `licensing-bodies`, `product-categories`, `marital-statuses`, `professions`, `ally-types`, `advisor-types`.
 - Sin código (`User`, `Member`, `Role`, `Campaign`, `Ally`, `City`, `Occupation`): `label = name`, `code = null`.
 
 **Cumplimiento actual de la Regla 5 (2026-11-13):**
@@ -86,8 +86,8 @@ El `label` es lo que el usuario ve en el select; el frontend no lo recompone (sp
 |---|---|---|---|
 | `document-types`, `banks`, `genders`, `states`, `plans`, `promoter-ranks` | legible | `código — nombre` | ✅ |
 | `payment-methods`, `payment-categories`, `licensing-bodies` | técnico | nombre | ✅ |
-| `marital-statuses` (`SOLTERO`), `professions` (`INGENIERIA_CIVIL`), `ally-types` (`CLINICA`) | técnico | `código — nombre` | ❌ pendiente: solo nombre |
-| `promoter-types` | por verificar | `código — nombre` | por verificar |
+| `marital-statuses` (`SOLTERO`), `professions` (`INGENIERIA_CIVIL`), `ally-types` (`CLINICA`) | técnico | nombre | ✅ (enmienda c) |
+| `promoter-types` / `advisor-types` (`INDEPENDIENTE`, `EMPLEADO`; validación `^[A-Z_]{1,40}$`, sin seed) | técnico | nombre | ✅ (enmienda c) |
 | `products` | legible (SKU, opcional) | `código — nombre` (solo nombre si no tiene código) | ✅ |
 | `product-categories` | técnico (`SERVICIOS_FUNERARIOS`) | nombre | ✅ |
 
@@ -124,6 +124,19 @@ Alcance del pendiente: afecta a **los dos** endpoints de métodos de pago, no so
 - `GET /v1/me/payment-methods` (sesión): ya acepta `q`/`limit`; lo usan los formularios de pago del portal y las pantallas de cuentas bancarias.
 - `GET /v1/admin/payment-methods` (listado completo): lo consumen `PaymentFormModal`, `PaymentMasterFilters`, `PromoterPayoutAccountsTab`, `CommissionPayoutBySelectionModal` y `affiliation-requests`. Los consumidores que solo filtran (no leen `mandatory*`) pueden migrar ya a `/v1/admin/payment-methods/options`; los formularios dependen de la decisión (a)/(b).
 - `/v1/public/payment-methods` queda fuera (regla 5: `/v1/public/*` no se toca).
+
+## Enmienda 2026-11-13 (c) — pendientes de backend cerrados
+
+**Labels de catálogos con código técnico.** El pendiente decía que `marital-statuses`, `professions` y `ally-types` mostraban "solo el nombre"; en el código era al revés: su `labelOf` devolvía `código — nombre`. Los códigos sembrados son identificadores técnicos (`SOLTERO`/`CASADO`… en V9; `CLINICA`, `CENTRO_OPTICO`, `PROFESIONAL_MEDICO`… en V10/V179/V208; `DERECHO`, `INGENIERIA_CIVIL`, `PSICOLOGIA_CLINICA`… en V213/V227) y sus `CreateRequest` los validan con `^[A-Z_]+$`. Por la Regla 5 el label pasa a ser solo el nombre. `advisor-types` (`PromoterTypeService`, antes "por verificar") sigue el mismo criterio: sin filas sembradas, pero la validación `^[A-Z_]{1,40}$` y los ejemplos de V43 (`INDEPENDIENTE`, `EMPLEADO`) lo hacen técnico. `genders` (`M`, `F`, `O`) se queda con `código — nombre`: es una letra legible.
+
+**`GET /v1/me/allies/options`.** Consumidores en el frontend que eligen un aliado propio: `allies/index` (mi aliado), `allies/validator` y `allies/patients`. Los dos primeros leen atributos del `MyAllyDto` (`allyRole`, `registrationStatus`, `rejectionReason`, `hasApprovedOffers`) además del nombre, así que siguen en `GET /v1/me/allies` (mismo caso que métodos de pago: el select necesita atributos). `allies/patients` solo usa `uuid` y nombre: pasa a `/v1/me/allies/options` (mismo alcance y orden: principal primero, luego alfabético; sin las consultas `hasApprovedOffers` por aliado). El endpoint se mantiene.
+
+**Asesor de sistema (INSTITUCION) en los selects.** El backend nunca lo excluyó de `/v1/admin/advisors/options` (#409 lo creó sin filtro). La exclusión vivía en el frontend (`.filter(p => !p.system)` sobre el listado completo en `AllyFormModal` y `useAdvisorOptions`) y se perdió al pasar esos selects a `/options` (frontend #352). Ahora:
+
+- `GET /v1/admin/advisors/options` excluye la fila de sistema por defecto: no es una persona, no tiene sentido asignarla como asesor de un aliado ni como destino de una reasignación de afiliados. Un uuid de sistema en `currentValues` sigue apareciendo.
+- `?includeSystem=true` la incluye: lo usan los **filtros** de listados y reportes (pagos, comisiones, afiliados, membresías, solicitudes de afiliación), donde filtrar por INSTITUCION muestra lo que nadie trajo. Esos filtros ya la mostraban y la siguen mostrando.
+- `GET /v1/admin/advisors/eligible-supervisors` la excluye en la consulta (`p.system = false`). Antes quedaba fuera solo porque tiene el rango base (V101); ahora no depende de eso.
+- Los listados de gestión (`GET /v1/admin/advisors`, árbol de jerarquía) quedan como estaban: el listado la muestra con su insignia de sistema y bloquea la edición; el árbol ya la excluía.
 
 ## Por qué
 
