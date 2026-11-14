@@ -89,10 +89,13 @@ CREATE INDEX idx_promotion_redemptions_promotion ON promotion_redemptions (promo
 COMMENT ON TABLE promotion_redemptions IS 'Cupo de campaña ocupado por una promoción aplicada a una membresía (pendiente, confirmado, vencido o liberado)';
 
 -- ─── 3. backfill: one CONFIRMED slot per existing membership promotion ─────
+-- Legacy rule kept: a promotion with cycles keeps discounting after the
+-- campaign ends, so only promotions without cycles end with the campaign.
 INSERT INTO promotion_redemptions (uuid, membership_promotion_id, promotion_id, campaign_id,
                                    redemption_status, reserved_at, confirmed_at, usage_ends_at)
 SELECT gen_random_uuid(), mp.membership_promotions_id, mp.promotion_id, p.campaign_id,
-       'CONFIRMED', mp.assigned_at, mp.assigned_at, c.ends_at
+       'CONFIRMED', mp.assigned_at, mp.assigned_at,
+       CASE WHEN p.cycles IS NULL THEN c.ends_at END
   FROM membership_promotions mp
   JOIN promotions p ON p.promotions_id = mp.promotion_id
   JOIN campaigns c ON c.campaigns_id = p.campaign_id;
