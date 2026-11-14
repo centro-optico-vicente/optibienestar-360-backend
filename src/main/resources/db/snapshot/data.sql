@@ -1563,7 +1563,7 @@ ALTER TABLE app.exchange_rates ENABLE TRIGGER ALL;
 
 ALTER TABLE app.file_download_links DISABLE TRIGGER ALL;
 
-COPY app.file_download_links (file_download_links_id, token, visibility, resource_table, resource_uuid, file_key, expires_at, revoked_at, max_downloads, download_count, created_by, created_at) FROM stdin;
+COPY app.file_download_links (file_download_links_id, token, visibility, resource_table, resource_uuid, file_key, expires_at, revoked_at, max_downloads, download_count, created_by, created_at, status) FROM stdin;
 \.
 
 ALTER TABLE app.file_download_links ENABLE TRIGGER ALL;
@@ -1831,6 +1831,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 238	246	rate dates use value date	SQL	V246__rate_dates_use_value_date.sql	1886350107	snapshot	2026-01-01 00:00:00	0	t
 239	247	seed demo users by segment	SQL	V247__seed_demo_users_by_segment.sql	582982516	snapshot	2026-01-01 00:00:00	0	t
 240	248	retire user sessions log	SQL	V248__retire_user_sessions_log.sql	677190198	snapshot	2026-01-01 00:00:00	0	t
+241	249	link status	SQL	V249__link_status.sql	1512890983	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2668,7 +2669,7 @@ ALTER TABLE app.report_audit_log ENABLE TRIGGER ALL;
 
 ALTER TABLE app.report_share DISABLE TRIGGER ALL;
 
-COPY app.report_share (report_share_id, uuid, report_audit_log_id, share_token, share_link, recipients, expires_at, revoked_at, created_by, created_at) FROM stdin;
+COPY app.report_share (report_share_id, uuid, report_audit_log_id, share_token, share_link, recipients, expires_at, revoked_at, created_by, created_at, status) FROM stdin;
 \.
 
 ALTER TABLE app.report_share ENABLE TRIGGER ALL;
@@ -3805,6 +3806,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 18	1aa1309b-e6fb-702b-b2ae-ed22717fad83	MEMBERSHIP_TERM_RENEWAL	Renovación de vigencia de membresías	Renueva automáticamente la vigencia de las membresías vencidas; si el plan exige reinscripción, deja la membresía SUSPENDED hasta que se aplique un pago de inscripción aprobado.	0 30 1 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 19	380ffac9-dda0-14c8-fbcd-2c953f230316	REGISTRATION_DRAFT_CLEANUP	Limpieza de borradores de registro abandonados	Descarta los registros de afiliado y aliado que siguen en borrador (sin enviar a revisión) tras los días de retención configurados; libera su cédula y correo. Nunca toca lo ya enviado.	0 15 3 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
+21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4512,7 +4514,7 @@ SELECT pg_catalog.setval('app.scheduled_job_runs_scheduled_job_runs_id_seq', 1, 
 -- Name: scheduled_jobs_scheduled_jobs_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 20, true);
+SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 21, true);
 
 --
 -- Name: security_policies_security_policies_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

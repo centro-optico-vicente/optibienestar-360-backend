@@ -18,7 +18,9 @@ import java.time.Instant;
  *       Rows still pending or retrying are never touched.</li>
  *   <li>{@code scheduled_job_runs}: finished job runs. A {@code RUNNING} row is the
  *       concurrency guard, so it is never touched.</li>
- *   <li>{@code file_download_links}: links already expired or revoked before the cutoff.</li>
+ *   <li>{@code file_download_links}: dead links (status EXPIRED, REVOKED or EXHAUSTED, V249)
+ *       whose validity ended before the cutoff — found through
+ *       {@code idx_file_download_links_status_expiry}.</li>
  * </ul>
  *
  * <p>Out of scope on purpose: the audit trail ({@code data_change_audit_log},
@@ -62,7 +64,7 @@ public class OperationalLogRetentionService {
         return purge("file_download_links", """
                 DELETE FROM file_download_links WHERE file_download_links_id IN (
                     SELECT file_download_links_id FROM file_download_links
-                    WHERE COALESCE(revoked_at, expires_at) < :cutoff
+                    WHERE status IN ('EXPIRED', 'REVOKED', 'EXHAUSTED') AND expires_at < :cutoff
                     LIMIT :batch)
                 """, cutoff);
     }
