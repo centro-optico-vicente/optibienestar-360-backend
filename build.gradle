@@ -278,3 +278,83 @@ tasks.register('checkFlywayState') {
 	description = 'CI entry point — fails the build when Flyway detects drift.'
 	dependsOn 'flywayValidate'
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Database snapshot tasks — thin wrappers over scripts/db/snapshot.sh and
+// scripts/db/restore.sh, which stay the single source of truth (CI calls
+// the scripts directly). Nothing here compiles Java.
+//
+//   ./gradlew dbSnapshot          schema.sql + data.sql + schema-map.md + seed-catalog.md
+//   ./gradlew dbSnapshotSchema    schema.sql + schema-map.md
+//   ./gradlew dbSnapshotData      data.sql + seed-catalog.md
+//   ./gradlew dbRestore [-PdbSeeds=scripts/a.sql,scripts/b.sql] [-PdbRelease=<tag> | -PdbFile=<dump>]
+//
+// Connection (optional, every task): -PdbHost -PdbPort -PdbName -PdbUser -PdbPassword
+//   dbSnapshot*: without them → ephemeral Postgres in Docker (--fresh); with any
+//                of them → --migrate on that database, which must be EMPTY.
+//   dbRestore:   override DATABASE_HOST/PORT/NAME, PGSUPERUSER and PGPASSWORD
+//                (otherwise the repo's .env / script defaults apply).
+// Prefer an exported PGPASSWORD over -PdbPassword to keep it out of shell history.
+// ─────────────────────────────────────────────────────────────────
+def dbConnProps = ['dbHost', 'dbPort', 'dbName', 'dbUser', 'dbPassword']
+def dbProp      = { String name -> providers.gradleProperty(name).getOrNull() }
+
+def registerSnapshotTask = { String taskName, String desc, String only ->
+	tasks.register(taskName, Exec) {
+		group       = 'database'
+		description = desc
+		workingDir  = projectDir
+
+		def remote = dbConnProps.any { dbProp(it) != null }
+		def args   = ['bash', 'scripts/db/snapshot.sh', remote ? '--migrate' : '--fresh']
+		if (only) args += ['--only', only]
+		commandLine args
+
+		if (remote) {
+			def conn = [
+				PGHOST    : dbProp('dbHost'),
+				PGPORT    : dbProp('dbPort'),
+				PGDATABASE: dbProp('dbName'),
+				PGUSER    : dbProp('dbUser'),
+				PGPASSWORD: dbProp('dbPassword'),
+			].findAll { k, v -> v != null }
+			environment conn
+
+			def missing = [PGHOST: '-PdbHost', PGDATABASE: '-PdbName', PGUSER: '-PdbUser']
+				.findAll { envKey, flag -> conn[envKey] == null && System.getenv(envKey) == null }
+				.values() as List
+			doFirst {
+				if (missing) {
+					throw new GradleException("Missing ${missing.join(', ')} for a snapshot on an existing (empty) database.")
+				}
+			}
+		}
+	}
+}
+
+registerSnapshotTask('dbSnapshot',
+	'Regenerates src/main/resources/db/snapshot/ (schema, data, schema map, seed catalog).', null)
+registerSnapshotTask('dbSnapshotSchema',
+	'Regenerates only schema.sql and schema-map.md of the DB snapshot.', 'schema,map')
+registerSnapshotTask('dbSnapshotData',
+	'Regenerates only data.sql and seed-catalog.md of the DB snapshot.', 'data,catalog')
+
+tasks.register('dbRestore', Exec) {
+	group       = 'database'
+	description = 'DROPS and rebuilds the target database from the snapshot (or a release dump) + optional dev seeds.'
+	workingDir  = projectDir
+
+	def args = ['bash', 'scripts/db/restore.sh', '--yes']
+	if (dbProp('dbRelease')) args += ['--release', dbProp('dbRelease')]
+	if (dbProp('dbFile'))    args += ['--file', dbProp('dbFile')]
+	(dbProp('dbSeeds') ?: '').split(',')*.trim().findAll { it }.each { args += ['--seed', it] }
+	commandLine args
+
+	environment([
+		DATABASE_HOST: dbProp('dbHost'),
+		DATABASE_PORT: dbProp('dbPort'),
+		DATABASE_NAME: dbProp('dbName'),
+		PGSUPERUSER  : dbProp('dbUser'),
+		PGPASSWORD   : dbProp('dbPassword'),
+	].findAll { k, v -> v != null })
+}

@@ -162,6 +162,7 @@ psql -d optibienestar360 -c "SELECT version, description, success FROM flyway_sc
 
 ```bash
 scripts/db/snapshot.sh --fresh          # ~15 s; Postgres efímero en Docker, no toca tu BD de dev
+# equivalente: ./gradlew dbSnapshot  (o dbSnapshotSchema / dbSnapshotData; -PdbHost=… para una BD vacía existente)
 git add src/main/resources/db/snapshot
 ```
 

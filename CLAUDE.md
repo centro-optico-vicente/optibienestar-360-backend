@@ -14,7 +14,7 @@ Para decisiones cross-stack (modelo de dominio, infraestructura, integración co
 |---|---|
 | Brief de entrada al backend | [`.ai/CLAUDE.md`](.ai/CLAUDE.md) |
 | Checklist operacional (tareas backend) | [`.ai/checklist.md`](.ai/checklist.md) |
-| **BD actual** (tablas, FKs, índices, relaciones, datos sembrados; generado, no editar; importable con `scripts/db/restore.sh`) | [`src/main/resources/db/snapshot/schema-map.md`](src/main/resources/db/snapshot/schema-map.md) · [`schema.sql`](src/main/resources/db/snapshot/schema.sql) · [`data.sql`](src/main/resources/db/snapshot/data.sql) · [README](src/main/resources/db/snapshot/README.md) |
+| **BD actual** (tablas, FKs, índices, relaciones, datos sembrados; generado, no editar; importable con `scripts/db/restore.sh` o `./gradlew dbRestore`; regenerar con `./gradlew dbSnapshot`) | [`src/main/resources/db/snapshot/schema-map.md`](src/main/resources/db/snapshot/schema-map.md) · [`schema.sql`](src/main/resources/db/snapshot/schema.sql) · [`data.sql`](src/main/resources/db/snapshot/data.sql) · [README](src/main/resources/db/snapshot/README.md) |
 | Diseño/convenciones de la BD (manual, histórico) | [`.ai/specs/02-database.md`](.ai/specs/02-database.md) |
 | Convenciones de paquetes y arquitectura | [`.ai/specs/01-package-structure.md`](.ai/specs/01-package-structure.md) |
 | Playbooks (nueva entidad, migración, endpoint) | [`.ai/playbooks/`](.ai/playbooks/) |
