@@ -244,4 +244,20 @@ class MembershipBenefitGrantServiceTest {
         assertThat(service().copayAfter(flat, new BigDecimal("100.00"), "VES", null).amount()).isEqualByComparingTo("20.00");
         assertThat(service().copayAfter(flat, new BigDecimal("50.00"), "VES", null).amount()).isEqualByComparingTo("0");
     }
+
+    @Test
+    void campaignClose_givesTheCloseAsExpiry_toVouchersWithoutOne() {
+        Campaign campaign = new Campaign();
+        campaign.setUuid(UUID.randomUUID());
+        Membership membership = membership(5L);
+        MembershipBenefitGrant open = grant(membership, ally(1L), offer(10L, ally(1L)), 1);
+        Instant closedAt = Instant.now();
+        when(repository.findWithoutExpiry(campaign, GrantStatus.AVAILABLE)).thenReturn(List.of(open));
+
+        assertThat(service().expireAtClose(campaign, closedAt)).isEqualTo(1);
+
+        assertThat(open.getExpiresAt()).isEqualTo(closedAt);
+        assertThat(open.getGrantStatus()).isEqualTo(GrantStatus.AVAILABLE);
+        verify(validatorCacheService).evictForMembership(membership);
+    }
 }

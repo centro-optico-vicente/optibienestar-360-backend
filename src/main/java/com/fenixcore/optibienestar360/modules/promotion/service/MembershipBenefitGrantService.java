@@ -124,6 +124,24 @@ public class MembershipBenefitGrantService {
                 .orElse(false);
     }
 
+    /**
+     * The campaign just closed: its AVAILABLE vouchers without an expiry (an
+     * open-ended campaign whose benefit lasts the campaign dates) now expire
+     * at the close. The job turns them EXPIRED once that instant passes.
+     *
+     * @return how many vouchers got the expiry
+     */
+    @Transactional
+    public int expireAtClose(Campaign campaign, Instant closedAt) {
+        int capped = 0;
+        for (MembershipBenefitGrant g : repository.findWithoutExpiry(campaign, GrantStatus.AVAILABLE)) {
+            g.setExpiresAt(closedAt);
+            validatorCacheService.evictForMembership(g.getMembership());
+            capped++;
+        }
+        return capped;
+    }
+
     /** Job: AVAILABLE vouchers past their expiry become EXPIRED. */
     @Transactional
     public int expireAvailable(Instant now) {

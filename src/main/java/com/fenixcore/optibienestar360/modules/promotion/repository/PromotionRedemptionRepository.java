@@ -35,7 +35,8 @@ public interface PromotionRedemptionRepository extends JpaRepository<PromotionRe
     /**
      * PENDING slots that may be past their deadline at {@code now}: their own
      * {@code expires_at} passed, or their campaign is CLOSED with a
-     * confirmation grace (the caller applies {@code Campaign#pendingDeadline}).
+     * confirmation grace or the slot has no deadline of its own (it then ends
+     * with the close). The caller applies {@code Campaign#pendingDeadline}.
      */
     @Query("""
             select r from PromotionRedemption r
@@ -44,7 +45,8 @@ public interface PromotionRedemptionRepository extends JpaRepository<PromotionRe
             where r.redemptionStatus = :pending
               and ((r.expiresAt is not null and r.expiresAt <= :now)
                    or (c.lifecycleStatus = :closed
-                       and (c.confirmGraceUntil is not null or c.confirmGraceDays is not null)))
+                       and (c.confirmGraceUntil is not null or c.confirmGraceDays is not null
+                            or r.expiresAt is null)))
             """)
     List<PromotionRedemption> findPendingExpiryCandidates(@Param("now") Instant now,
                                                           @Param("pending") RedemptionStatus pending,

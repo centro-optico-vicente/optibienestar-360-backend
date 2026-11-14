@@ -114,6 +114,8 @@ class CampaignLifecycleServiceTest {
         assertThat(closed.getClosedNote()).isEqualTo("Fin anticipado");
         assertThat(closed.getClosedAt()).isNotNull();
         verify(redemptionService, org.mockito.Mockito.never()).cancelPending(any());
+        // Open-ended usage windows and vouchers end with the close.
+        verify(redemptionService).onCampaignClosed(c);
     }
 
     @Test
@@ -211,6 +213,19 @@ class CampaignLifecycleServiceTest {
         assertThat(c.getClosedAt()).isEqualTo(end);
         assertThat(c.getClosedBy()).isNull();
         verify(entityManager).refresh(c);
+        verify(redemptionService).onCampaignClosed(c);
+    }
+
+    @Test
+    void activate_thatFillsTheQuota_followsUpTheQuotaFilledClose() {
+        Campaign c = campaign(LifecycleStatus.DRAFT);
+        c.setMaxRedemptions(1);
+        c.setCloseOnQuotaFilled(true);
+        c.setRedemptionsCount(1);
+        c.setConfirmedCount(1);
+
+        assertThat(service().activate(c.getUuid()).getClosedReason()).isEqualTo(CloseReason.QUOTA_FILLED);
+        verify(redemptionService).onCampaignClosed(c);
     }
 
     // ─── Quota-driven state (Campaign.recomputeQuotaStatus) ─────────────────

@@ -51,4 +51,12 @@ public interface MembershipBenefitGrantRepository extends JpaRepository<Membersh
             group by g.promotion.id, g.grantStatus
             """)
     List<Object[]> countByPromotionAndStatus(@Param("campaign") Campaign campaign);
+
+    /** The campaign's grants in {@code status} without an expiry (open-ended campaign, CAMPAIGN_DATES window). */
+    @Query("""
+            select g from MembershipBenefitGrant g
+            where g.promotion.campaign = :campaign and g.grantStatus = :status and g.expiresAt is null
+            """)
+    List<MembershipBenefitGrant> findWithoutExpiry(@Param("campaign") Campaign campaign,
+                                                   @Param("status") GrantStatus status);
 }

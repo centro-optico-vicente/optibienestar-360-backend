@@ -45,7 +45,7 @@ public class CampaignLifecycleService {
         Campaign campaign = lock(uuid);
         require(campaign, LifecycleStatus.DRAFT);
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        recomputeQuotaStatus(campaign, OffsetDateTime.now());
         return campaign;
     }
 
@@ -64,7 +64,7 @@ public class CampaignLifecycleService {
         Campaign campaign = lock(uuid);
         require(campaign, LifecycleStatus.PAUSED);
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        recomputeQuotaStatus(campaign, OffsetDateTime.now());
         return campaign;
     }
 
@@ -87,6 +87,7 @@ public class CampaignLifecycleService {
         if (request != null && request.cancelPending()) {
             redemptionService.cancelPending(campaign);
         }
+        redemptionService.onCampaignClosed(campaign);
         return campaign;
     }
 
@@ -126,7 +127,7 @@ public class CampaignLifecycleService {
         }
         campaign.clearClose();
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(now);
+        recomputeQuotaStatus(campaign, now);
         return campaign;
     }
 
@@ -151,6 +152,7 @@ public class CampaignLifecycleService {
                 continue;
             }
             campaign.close(CloseReason.END_DATE, null, null, campaign.getEndsAt());
+            redemptionService.onCampaignClosed(campaign);
             closed++;
             log.info("Campaign {} closed by END_DATE (ended {})", campaign.getUuid(), campaign.getEndsAt());
         }
@@ -168,6 +170,14 @@ public class CampaignLifecycleService {
                 .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
         entityManager.refresh(campaign);
         return campaign;
+    }
+
+    /** Re-derives the quota-driven state; a close it causes (QUOTA_FILLED) is followed up like any close. */
+    private void recomputeQuotaStatus(Campaign campaign, OffsetDateTime now) {
+        campaign.recomputeQuotaStatus(now);
+        if (campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
+            redemptionService.onCampaignClosed(campaign);
+        }
     }
 
     private static void require(Campaign campaign, LifecycleStatus... allowed) {

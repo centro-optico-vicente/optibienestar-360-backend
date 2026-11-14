@@ -103,8 +103,10 @@ public class PromotionRedemptionService {
                 markConfirmed(r, campaign, promotion, now, alreadyPaid);
             }
         }
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
-        return repository.save(r);
+        // Saved before the state is re-derived: a close by QUOTA_FILLED must find this slot too.
+        PromotionRedemption saved = repository.save(r);
+        recomputeQuotaStatus(campaign);
+        return saved;
     }
 
     /** ON_PAYMENT_REGISTERED: a (non-draft) collection was registered. Runs after the registration commits. */
@@ -150,7 +152,7 @@ public class PromotionRedemptionService {
                 continue;
             }
             markConfirmed(pending, campaign, promotion, now, payment);
-            campaign.recomputeQuotaStatus(OffsetDateTime.now());
+            recomputeQuotaStatus(campaign);
             confirmed++;
         }
         return confirmed;
@@ -307,8 +309,43 @@ public class PromotionRedemptionService {
             promotion.setConfirmedCount(Math.max(0, promotion.getConfirmedCount() - 1));
             campaign.setConfirmedCount(Math.max(0, campaign.getConfirmedCount() - 1));
         }
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        recomputeQuotaStatus(campaign);
         grantService.cancelFor(r.getMembershipPromotion());
+    }
+
+    /** Re-derives the quota-driven state; a close it causes (QUOTA_FILLED) runs {@link #onCampaignClosed}. */
+    private void recomputeQuotaStatus(Campaign campaign) {
+        boolean wasClosed = campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED;
+        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        if (!wasClosed && campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED) {
+            onCampaignClosed(campaign);
+        }
+    }
+
+    /**
+     * The campaign was just closed (by hand, QUOTA_FILLED or END_DATE). With
+     * the CAMPAIGN_DATES usage window, a CONFIRMED slot with no usage end (an
+     * open-ended campaign) now ends at the close, and so do the AVAILABLE ally
+     * vouchers without an expiry; the job then ends the promotions and expires
+     * the vouchers once that instant passes.
+     *
+     * @return how many slots got the usage end
+     */
+    @Transactional
+    public int onCampaignClosed(Campaign campaign) {
+        if (campaign.getClosedAt() == null || campaign.getUsageWindow() != Campaign.UsageWindow.CAMPAIGN_DATES) {
+            return 0;
+        }
+        Instant closedAt = campaign.getClosedAt().toInstant();
+        int capped = 0;
+        for (PromotionRedemption r : repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.CONFIRMED)) {
+            if (r.getUsageEndsAt() == null) {
+                r.setUsageEndsAt(closedAt);
+                capped++;
+            }
+        }
+        grantService.expireAtClose(campaign, closedAt);
+        return capped;
     }
 
     /**

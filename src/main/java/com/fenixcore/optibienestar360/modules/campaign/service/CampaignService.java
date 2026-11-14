@@ -172,7 +172,11 @@ public class CampaignService {
         apply(campaign, req);
         applyAlly(campaign, req.allyUuid());
         // A quota edited below the occupied slots turns the campaign SOLD_OUT (or closes it).
+        boolean wasClosed = campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED;
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        if (!wasClosed && campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED) {
+            redemptionService.onCampaignClosed(campaign);
+        }
         syncPromoters(campaign, req.promoterUuids());
         return toDto(campaign);   // managed → dirty-check on commit
     }

@@ -61,6 +61,7 @@ class PromotionRedemptionServiceTest {
     private Campaign campaign;
     private Promotion promotion;
     private long nextId = 500;
+    private PromotionRedemption lastSaved;
 
     private PromotionRedemptionService service() {
         return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository,
@@ -444,6 +445,94 @@ class PromotionRedemptionServiceTest {
 
         assertThat(service().expirePending(Instant.now())).isEqualTo(1);
         assertThat(late.getRedemptionStatus()).isEqualTo(RedemptionStatus.EXPIRED);
+    }
+
+    @Test
+    void closedWithoutGrace_aPendingSlotWithoutOwnDeadline_endsWithTheClose() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        MembershipPromotion mp = membershipPromotion();
+        PromotionRedemption r = reserve(mp);
+        assertThat(r.getExpiresAt()).isNull();
+        OffsetDateTime closedAt = OffsetDateTime.now().minusMinutes(5);
+        campaign.close(Campaign.CloseReason.MANUAL, null, null, closedAt);
+        assertThat(campaign.pendingDeadline(null)).isEqualTo(closedAt.toInstant());
+
+        // A payment after the close no longer confirms it; the job expires it.
+        payment(907L, true);
+        pendingOfMembership(r);
+        assertThat(service().onPaymentRegistered(907L)).isZero();
+        when(repository.findPendingExpiryCandidates(any(Instant.class))).thenReturn(List.of(r));
+        assertThat(service().expirePending(Instant.now())).isEqualTo(1);
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.EXPIRED);
+        assertThat(mp.getEndedReason()).isEqualTo(PromotionRedemptionService.REASON_QUOTA_EXPIRED);
+    }
+
+    @Test
+    void closedWithoutGrace_aSlotWithItsOwnDeadline_keepsIt() {
+        Instant own = Instant.now().plus(Duration.ofDays(2));
+        campaign.close(Campaign.CloseReason.MANUAL, null, null, OffsetDateTime.now().minusDays(1));
+
+        assertThat(campaign.pendingDeadline(own)).isEqualTo(own);
+    }
+
+    @Test
+    void campaignClose_endsOpenEndedUsageWindows_andVouchersWithoutExpiry() {
+        campaign.setEndsAt(null);
+        PromotionRedemption openEnded = reserve(membershipPromotion());
+        assertThat(openEnded.getUsageEndsAt()).isNull();
+        PromotionRedemption bounded = reserve(membershipPromotion());
+        Instant boundedEnd = Instant.now().plus(Duration.ofDays(3));
+        bounded.setUsageEndsAt(boundedEnd);
+        OffsetDateTime closedAt = OffsetDateTime.now();
+        campaign.close(Campaign.CloseReason.MANUAL, null, null, closedAt);
+        when(repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.CONFIRMED))
+                .thenReturn(List.of(openEnded, bounded));
+
+        assertThat(service().onCampaignClosed(campaign)).isEqualTo(1);
+
+        assertThat(openEnded.getUsageEndsAt()).isEqualTo(closedAt.toInstant());
+        assertThat(bounded.getUsageEndsAt()).isEqualTo(boundedEnd);
+        verify(grantService).expireAtClose(campaign, closedAt.toInstant());
+    }
+
+    @Test
+    void campaignClose_leavesDaysAfterConfirmationWindowsAlone() {
+        campaign.setUsageWindow(UsageWindow.DAYS_AFTER_CONFIRMATION);
+        campaign.setUsageWindowDays(30);
+        campaign.close(Campaign.CloseReason.MANUAL, null, null, OffsetDateTime.now());
+
+        assertThat(service().onCampaignClosed(campaign)).isZero();
+        verify(grantService, never()).expireAtClose(any(), any());
+    }
+
+    @Test
+    void quotaFilledClose_endsTheUsageOfAnOpenEndedCampaign_includingTheSlotThatFilledIt() {
+        campaign.setEndsAt(null);
+        campaign.setMaxRedemptions(1);
+        campaign.setCloseOnQuotaFilled(true);
+        // The slot is saved before the state is re-derived, so the close finds it.
+        when(repository.findByCampaignAndRedemptionStatus(eq(campaign), eq(RedemptionStatus.CONFIRMED)))
+                .thenAnswer(inv -> List.of(lastSaved));
+        when(repository.save(any(PromotionRedemption.class))).thenAnswer(inv -> lastSaved = inv.getArgument(0));
+
+        PromotionRedemption r = reserve(membershipPromotion());
+
+        assertThat(campaign.getClosedReason()).isEqualTo(Campaign.CloseReason.QUOTA_FILLED);
+        assertThat(r.getUsageEndsAt()).isEqualTo(campaign.getClosedAt().toInstant());
+    }
+
+    @Test
+    void confirmingDuringTheGrace_ofAClosedOpenEndedCampaign_usesTheCloseAsUsageEnd() {
+        campaign.setEndsAt(null);
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        campaign.setConfirmGraceDays(3);
+        PromotionRedemption r = reserve(membershipPromotion());
+        campaign.close(Campaign.CloseReason.MANUAL, null, null, OffsetDateTime.now().minusDays(1));
+        payment(908L, true);
+        pendingOfMembership(r);
+
+        assertThat(service().onPaymentRegistered(908L)).isEqualTo(1);
+        assertThat(r.getUsageEndsAt()).isEqualTo(campaign.getClosedAt().toInstant());
     }
 
     @Test
