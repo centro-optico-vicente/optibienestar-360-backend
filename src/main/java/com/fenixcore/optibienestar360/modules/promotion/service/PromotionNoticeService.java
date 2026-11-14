@@ -59,7 +59,9 @@ public class PromotionNoticeService {
         Map<String, Object> vars = new HashMap<>();
         vars.put("fullName", person.getFullName() != null ? person.getFullName() : "");
         vars.put("promotionName", promotion.getName());
-        vars.put("discountPct", promotion.getDiscountPct().stripTrailingZeros().toPlainString());
+        vars.put("discountPct", promotion.getDiscountPct() != null
+                ? promotion.getDiscountPct().stripTrailingZeros().toPlainString() : null);
+        vars.put("discountLabel", PromotionPricing.discountLabel(promotion));
         vars.put("nextDueDate", membership.getNextDueDate());
         vars.put("keepDiscount", keepDiscount);
         vars.put("lastCycle", lastCycle);

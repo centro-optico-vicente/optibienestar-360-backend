@@ -1,6 +1,9 @@
 package com.fenixcore.optibienestar360.modules.promotion.service;
 
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
+import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.MembershipCharge.DiscountSource;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -10,6 +13,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.repository.MembershipPromotionRepository;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidyResolver;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -20,17 +24,26 @@ import java.time.OffsetDateTime;
 
 /**
  * Prices what a member owes under their promotion or subsidy (hub ADR 0018).
- * The two never stack: per charge, the higher % wins. A promotion cycle is
- * consumed only when the promotion is the one applied.
+ * The two never stack: per charge, the larger discount AMOUNT wins (a tie
+ * goes to the promotion, hub ADR 0038). A promotion cycle is consumed only
+ * when the promotion is the one applied.
+ *
+ * <p>A FLAT promotion (V255) discounts a fixed amount from each charge it
+ * covers, converted from the promotion currency to the charge/payment
+ * currency with {@link CurrencyConversionService} at the charge/payment date
+ * and capped at the gross amount. A missing rate degrades (ADR 0015 §7): the
+ * promotion gives no discount on that charge instead of blocking it.</p>
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class PromotionPricing {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
     private final MembershipPromotionRepository membershipPromotionRepository;
     private final SubsidyResolver subsidyResolver;
+    private final CurrencyConversionService currencyConversionService;
 
     public record MonthlyPrice(BigDecimal gross, BigDecimal discount, DiscountSource source, MembershipPromotion promotion) {
         public BigDecimal net() {
@@ -42,17 +55,20 @@ public class PromotionPricing {
     public MonthlyPrice priceMonthly(Membership membership, LocalDate periodStart) {
         BigDecimal gross = membership.getMonthlyFee();
         MembershipPromotion promotion = usableMonthlyPromotion(membership);
-        BigDecimal promotionPct = promotion != null ? promotion.getPromotion().getDiscountPct() : null;
+        BigDecimal promotionDiscount = promotion != null
+                ? discountFor(promotion.getPromotion(), gross, membership.getCurrency(), Instant.now())
+                : null;
         BigDecimal subsidyPct = membership.getMember() != null && membership.getMember().getId() != null
                 ? subsidyResolver.monthlyPercentage(membership.getMember().getId(), periodStart).orElse(null)
                 : null;
+        BigDecimal subsidyDiscount = subsidyPct != null && subsidyPct.signum() > 0 ? discount(gross, subsidyPct) : null;
 
-        if (promotionPct != null && (subsidyPct == null || promotionPct.compareTo(subsidyPct) > 0)) {
+        if (promotionDiscount != null && (subsidyDiscount == null || promotionDiscount.compareTo(subsidyDiscount) >= 0)) {
             consumeCycle(promotion);
-            return new MonthlyPrice(gross, discount(gross, promotionPct), DiscountSource.PROMOTION, promotion);
+            return new MonthlyPrice(gross, promotionDiscount, DiscountSource.PROMOTION, promotion);
         }
-        if (subsidyPct != null && subsidyPct.signum() > 0) {
-            return new MonthlyPrice(gross, discount(gross, subsidyPct), DiscountSource.SUBSIDY, null);
+        if (subsidyDiscount != null) {
+            return new MonthlyPrice(gross, subsidyDiscount, DiscountSource.SUBSIDY, null);
         }
         return new MonthlyPrice(gross, BigDecimal.ZERO, null, null);
     }
@@ -66,8 +82,9 @@ public class PromotionPricing {
         membershipPromotionRepository.findOngoing(payment.getMembership().getId())
                 .filter(mp -> mp.getPromotion().discountsInscription() && !mp.isInscriptionApplied())
                 .ifPresent(mp -> {
-                    setDiscount(payment, mp.getPromotion(), actor);
-                    mp.setInscriptionApplied(true);
+                    if (setDiscount(payment, mp.getPromotion(), actor)) {
+                        mp.setInscriptionApplied(true);
+                    }
                 });
     }
 
@@ -88,11 +105,54 @@ public class PromotionPricing {
                 && payment.getMembership().getId() != null;
     }
 
-    private static void setDiscount(Payment payment, Promotion promotion, User actor) {
-        payment.setDiscountAmount(discount(payment.getAmount(), promotion.getDiscountPct()));
-        payment.setDiscountReason("Promoción: " + promotion.getName());
+    /** Sets the promotion discount on {@code payment}; {@code false} when a FLAT amount could not be converted. */
+    private boolean setDiscount(Payment payment, Promotion promotion, User actor) {
+        Instant asOf = payment.getPaymentDate() != null ? payment.getPaymentDate() : Instant.now();
+        BigDecimal amount = discountFor(promotion, payment.getAmount(), payment.getCurrency(), asOf);
+        if (amount == null) return false;
+        payment.setDiscountAmount(amount);
+        payment.setDiscountReason("Promoción: " + promotion.getName() + " (" + discountLabel(promotion) + ")");
         payment.setDiscountedBy(actor);
         payment.setDiscountedAt(Instant.now());
+        return true;
+    }
+
+    /**
+     * The discount {@code promotion} gives on a charge of {@code gross} in
+     * {@code currency}: a percentage of it, or the FLAT amount converted to
+     * {@code currency} at {@code asOf}, capped at {@code gross}. {@code null}
+     * when the FLAT amount has no exchange rate (the promotion is skipped).
+     */
+    BigDecimal discountFor(Promotion promotion, BigDecimal gross, Currency currency, Instant asOf) {
+        if (!promotion.isFlat()) {
+            return discount(gross, promotion.getDiscountPct());
+        }
+        try {
+            BigDecimal amount = flatAmountIn(promotion, currency, asOf).setScale(2, RoundingMode.HALF_UP);
+            return amount.min(gross);
+        } catch (NoExchangeRateAvailableException ex) {
+            log.warn("Promotion {}: no exchange rate {} -> {} at {}; no discount applied",
+                    promotion.getUuid(), promotion.getDiscountCurrency().getCode(),
+                    currency != null ? currency.getCode() : null, asOf);
+            return null;
+        }
+    }
+
+    private BigDecimal flatAmountIn(Promotion promotion, Currency target, Instant asOf) {
+        Currency from = promotion.getDiscountCurrency();
+        if (from == null || target == null) {
+            return promotion.getDiscountAmount();
+        }
+        return currencyConversionService.convert(promotion.getDiscountAmount(), from, target, asOf).convertedAmount();
+    }
+
+    /** "20%" or "5 USD" — the discount as a member reads it (payment reason, notices). */
+    public static String discountLabel(Promotion promotion) {
+        if (promotion.isFlat()) {
+            String code = promotion.getDiscountCurrency() != null ? promotion.getDiscountCurrency().getCode() : "";
+            return (promotion.getDiscountAmount().stripTrailingZeros().toPlainString() + " " + code).trim();
+        }
+        return promotion.getDiscountPct().stripTrailingZeros().toPlainString() + "%";
     }
 
     /** The ongoing promotion when it still discounts monthly fees; closes it when it has run out. */

@@ -17,7 +17,7 @@
     <div class="info-box" th:if="${keepDiscount}">
         <p>
             Your next payment is due on <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
-            Pay on time to keep your <strong th:text="${discountPct} + '%'"></strong> discount:
+            Pay on time to keep your <strong th:text="${discountLabel}"></strong> discount:
             a late payment cancels the promotion.
         </p>
     </div>

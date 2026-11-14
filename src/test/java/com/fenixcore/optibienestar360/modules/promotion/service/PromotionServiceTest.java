@@ -2,12 +2,15 @@ package com.fenixcore.optibienestar360.modules.promotion.service;
 
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
+import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.promotion.dto.PromotionDto;
 import com.fenixcore.optibienestar360.modules.promotion.dto.PromotionRequest;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
 import org.junit.jupiter.api.Test;
@@ -35,9 +38,10 @@ class PromotionServiceTest {
     @Mock private PromotionRepository repository;
     @Mock private CampaignRepository campaignRepository;
     @Mock private PlanRepository planRepository;
+    @Mock private CurrencyRepository currencyRepository;
 
     private PromotionService service() {
-        return new PromotionService(repository, campaignRepository, planRepository);
+        return new PromotionService(repository, campaignRepository, planRepository, currencyRepository);
     }
 
     private static Campaign campaign() {
@@ -50,8 +54,73 @@ class PromotionServiceTest {
     private static PromotionRequest request(Kind kind, AppliesTo appliesTo, boolean requiresCode,
                                             boolean acceptsMemberCode, BigDecimal rewardPct, Integer rewardCycles,
                                             List<UUID> planUuids) {
-        return new PromotionRequest("Inscripción 50%", null, kind, new BigDecimal("50.00"), appliesTo,
+        return new PromotionRequest("Inscripción 50%", null, kind, null, new BigDecimal("50.00"), null, null, appliesTo,
                 3, false, 100, requiresCode, false, acceptsMemberCode, false, rewardPct, rewardCycles, planUuids);
+    }
+
+    private static PromotionRequest discountRequest(DiscountType type, BigDecimal pct, BigDecimal amount, UUID currencyUuid) {
+        return new PromotionRequest("Inscripción $5", null, Kind.ACQUISITION, type, pct, amount, currencyUuid,
+                AppliesTo.BOTH, null, false, null, false, false, false, false, null, null, null);
+    }
+
+    private static Currency currency(String code) {
+        Currency c = new Currency();
+        c.setUuid(UUID.randomUUID());
+        c.setCode(code);
+        return c;
+    }
+
+    @Test
+    void create_flatDiscount_storesAmountAndCurrency_withoutPercentage() {
+        Campaign campaign = campaign();
+        Currency usd = currency("USD");
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+        when(currencyRepository.findByUuid(usd.getUuid())).thenReturn(Optional.of(usd));
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PromotionDto dto = service().create(campaign.getUuid(),
+                discountRequest(DiscountType.FLAT, null, new BigDecimal("5.00"), usd.getUuid()));
+
+        assertThat(dto.discountType()).isEqualTo(DiscountType.FLAT);
+        assertThat(dto.discountPct()).isNull();
+        assertThat(dto.discountAmount()).isEqualByComparingTo("5.00");
+        assertThat(dto.discountCurrency_Code()).isEqualTo("USD");
+    }
+
+    @Test
+    void create_nullDiscountType_meansPercentage() {
+        Campaign campaign = campaign();
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PromotionDto dto = service().create(campaign.getUuid(),
+                discountRequest(null, new BigDecimal("10.00"), null, null));
+
+        assertThat(dto.discountType()).isEqualTo(DiscountType.PERCENTAGE);
+        assertThat(dto.discountPct()).isEqualByComparingTo("10.00");
+        assertThat(dto.discountAmount()).isNull();
+    }
+
+    @Test
+    void create_rejectsAnIncoherentDiscount() {
+        Campaign campaign = campaign();
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+        UUID usd = UUID.randomUUID();
+
+        assertThatThrownBy(() -> service().create(campaign.getUuid(),
+                discountRequest(DiscountType.FLAT, null, new BigDecimal("5.00"), null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promotion.discount.flat_incomplete");
+        assertThatThrownBy(() -> service().create(campaign.getUuid(),
+                discountRequest(DiscountType.FLAT, new BigDecimal("10.00"), new BigDecimal("5.00"), usd)))
+                .hasMessage("promotion.discount.flat_incomplete");
+        assertThatThrownBy(() -> service().create(campaign.getUuid(),
+                discountRequest(DiscountType.PERCENTAGE, null, null, null)))
+                .hasMessage("promotion.discount.pct_required");
+        assertThatThrownBy(() -> service().create(campaign.getUuid(),
+                discountRequest(DiscountType.PERCENTAGE, new BigDecimal("10.00"), new BigDecimal("5.00"), usd)))
+                .hasMessage("promotion.discount.pct_with_amount");
+        verify(repository, never()).save(any());
     }
 
     @Test
