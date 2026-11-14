@@ -109,6 +109,7 @@ public class CampaignService {
     private final com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService grantService;
     private final com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository allyRepository;
     private final com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository promotionRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -164,7 +165,10 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CampaignDto update(UUID uuid, CampaignRequest req) {
         validate(req);
-        Campaign campaign = findManaged(uuid);
+        // Row lock first: the slot lifecycle and the job write the counters and the lifecycle of this
+        // same row, and an unlocked full-row update would put their old values back (lost update).
+        Campaign campaign = lockManaged(uuid);
+        // Configuration only: lifecycle_status, the counters and closed_* never come from the request.
         apply(campaign, req);
         applyAlly(campaign, req.allyUuid());
         // A quota edited below the occupied slots turns the campaign SOLD_OUT (or closes it).
@@ -178,7 +182,7 @@ public class CampaignService {
     @Transactional
     @Auditable(entity = "campaign", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
-        findManaged(uuid).setActive(false);
+        lockManaged(uuid).setActive(false);
     }
 
     // ─── Lifecycle (V256, hub ADR 0038 §3) ──────────────────────────────────
@@ -754,6 +758,19 @@ public class CampaignService {
     private Campaign findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+    }
+
+    /**
+     * The campaign row-locked ({@code SELECT ... FOR UPDATE}, same lock the
+     * slot lifecycle takes) and re-read under the lock: a copy loaded earlier
+     * in this request (the audit snapshot, open-in-view) would carry stale
+     * counters into the update.
+     */
+    private Campaign lockManaged(UUID uuid) {
+        Campaign campaign = repository.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        entityManager.refresh(campaign);
+        return campaign;
     }
 
     private Payment resolvePayment(UUID uuid) {

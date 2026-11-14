@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReas
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,9 +35,10 @@ class CampaignLifecycleServiceTest {
     @Mock private CampaignRepository repository;
     @Mock private UserRepository userRepository;
     @Mock private PromotionRedemptionService redemptionService;
+    @Mock private EntityManager entityManager;
 
     private CampaignLifecycleService service() {
-        return new CampaignLifecycleService(repository, userRepository, redemptionService);
+        return new CampaignLifecycleService(repository, userRepository, redemptionService, entityManager);
     }
 
     private Campaign campaign(LifecycleStatus status) {
@@ -62,6 +64,8 @@ class CampaignLifecycleServiceTest {
 
         assertThat(service().activate(c.getUuid()).getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
         verify(repository).findForUpdateByUuid(c.getUuid());
+        // Re-read under the lock: a copy loaded earlier in the request must not write stale counters back.
+        verify(entityManager).refresh(c);
     }
 
     @Test
@@ -206,6 +210,7 @@ class CampaignLifecycleServiceTest {
         assertThat(c.getClosedReason()).isEqualTo(CloseReason.END_DATE);
         assertThat(c.getClosedAt()).isEqualTo(end);
         assertThat(c.getClosedBy()).isNull();
+        verify(entityManager).refresh(c);
     }
 
     // ─── Quota-driven state (Campaign.recomputeQuotaStatus) ─────────────────

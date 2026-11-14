@@ -19,6 +19,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Benefit
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,10 +48,11 @@ class PromotionServiceTest {
     @Mock private CurrencyRepository currencyRepository;
     @Mock private AllyRepository allyRepository;
     @Mock private AllyProductRepository allyProductRepository;
+    @Mock private EntityManager entityManager;
 
     private PromotionService service() {
         return new PromotionService(repository, campaignRepository, planRepository, currencyRepository,
-                allyRepository, allyProductRepository);
+                allyRepository, allyProductRepository, entityManager);
     }
 
     private static Campaign campaign() {
@@ -315,5 +317,54 @@ class PromotionServiceTest {
                 allyBenefit(UUID.randomUUID(), UUID.randomUUID(), BenefitType.PERCENTAGE, null)))
                 .hasMessage("promotion.ally_benefit.type_incoherent");
         verify(repository, never()).save(any());
+    }
+
+    // ─── Edit locks (hub ADR 0038 §4) ───────────────────────────────────────
+
+    /** A live promotion of {@code campaign} reachable through the edit locks (campaign row first, then promotion). */
+    private Promotion lockable(Campaign campaign) {
+        campaign.setId(40L);
+        Promotion p = new Promotion();
+        p.setId(41L);
+        p.setUuid(UUID.randomUUID());
+        p.setName("Navidad");
+        p.setKind(Kind.ACQUISITION);
+        p.setCampaign(campaign);
+        when(repository.findCampaignIdByUuid(p.getUuid())).thenReturn(Optional.of(40L));
+        when(campaignRepository.findForUpdateById(40L)).thenReturn(Optional.of(campaign));
+        when(repository.findForUpdateByUuid(p.getUuid())).thenReturn(Optional.of(p));
+        return p;
+    }
+
+    @Test
+    void update_locksTheCampaignThenThePromotion_andKeepsTheCounters() {
+        Campaign campaign = campaign();
+        Promotion p = lockable(campaign);
+        p.setRedemptionsCount(4);
+        p.setConfirmedCount(3);
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PromotionDto dto = service().update(p.getUuid(), discountRequest(null, new BigDecimal("15.00"), null, null));
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(campaignRepository, repository, entityManager);
+        order.verify(campaignRepository).findForUpdateById(40L);
+        order.verify(entityManager).refresh(campaign);
+        order.verify(repository).findForUpdateByUuid(p.getUuid());
+        order.verify(entityManager).refresh(p);
+        assertThat(dto.discountPct()).isEqualByComparingTo("15.00");
+        assertThat(dto.redemptionsCount()).isEqualTo(4);
+        assertThat(dto.confirmedCount()).isEqualTo(3);
+    }
+
+    @Test
+    void delete_takesTheSameLocks() {
+        Campaign campaign = campaign();
+        Promotion p = lockable(campaign);
+
+        service().delete(p.getUuid());
+
+        assertThat(p.isActive()).isFalse();
+        verify(campaignRepository).findForUpdateById(40L);
+        verify(repository).findForUpdateByUuid(p.getUuid());
     }
 }

@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +71,7 @@ class AllyPartnershipServiceTest {
         c.setStartsAt(OffsetDateTime.now().minusDays(1));
         c.setAllowsAllyPartnership(partnership);
         c.setAlly(headerAlly);
-        when(campaignRepository.findByUuid(c.getUuid())).thenReturn(Optional.of(c));
+        lenient().when(campaignRepository.findByUuid(c.getUuid())).thenReturn(Optional.of(c));
         return c;
     }
 
@@ -134,11 +135,14 @@ class AllyPartnershipServiceTest {
         own.setUuid(UUID.randomUUID());
         own.setAlly(ally);
         own.setCreatedByAlly(true);
-        when(promotionRepository.findByUuid(own.getUuid())).thenReturn(Optional.of(own));
+        own.setCampaign(campaign(true, null));
+        when(promotionService.lockForEdit(own.getUuid())).thenReturn(own);
         when(redemptionRepository.existsByPromotion_Id(3L)).thenReturn(true);
 
         assertThatThrownBy(() -> service().update(actor, null, own.getUuid(), request()))
                 .hasMessage("ally_campaign.promotion.has_redemptions");
+        // Same row locks as every other writer of the campaign/promotion (campaign first, then promotion).
+        verify(promotionService).lockForEdit(own.getUuid());
     }
 
     @Test

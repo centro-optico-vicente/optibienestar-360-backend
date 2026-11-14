@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReas
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class CampaignLifecycleService {
     private final CampaignRepository repository;
     private final UserRepository userRepository;
     private final PromotionRedemptionService redemptionService;
+    private final EntityManager entityManager;
 
     /** DRAFT → ACTIVE (or SOLD_OUT when the quota is already full). */
     @Transactional
@@ -140,7 +142,12 @@ public class CampaignLifecycleService {
         for (Campaign due : repository.findDueForEndDateClose(
                 EnumSet.of(LifecycleStatus.ACTIVE, LifecycleStatus.SOLD_OUT, LifecycleStatus.PAUSED), now)) {
             Campaign campaign = repository.findForUpdateById(due.getId()).orElse(null);
-            if (campaign == null || campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
+            if (campaign == null) {
+                continue;
+            }
+            // The due list loaded this row without the lock: re-read it before closing (fresh counters).
+            entityManager.refresh(campaign);
+            if (campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
                 continue;
             }
             campaign.close(CloseReason.END_DATE, null, null, campaign.getEndsAt());
@@ -150,10 +157,17 @@ public class CampaignLifecycleService {
         return closed;
     }
 
+    /**
+     * Row lock, then a re-read under it: a copy of the row loaded earlier in
+     * the request (audit snapshot, open-in-view) would otherwise write stale
+     * counters back with the transition.
+     */
     private Campaign lock(UUID uuid) {
-        return repository.findForUpdateByUuid(uuid)
+        Campaign campaign = repository.findForUpdateByUuid(uuid)
                 .filter(Campaign::isActive)
                 .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        entityManager.refresh(campaign);
+        return campaign;
     }
 
     private static void require(Campaign campaign, LifecycleStatus... allowed) {

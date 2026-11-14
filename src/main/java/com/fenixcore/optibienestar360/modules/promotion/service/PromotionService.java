@@ -23,6 +23,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Benefit
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,7 @@ public class PromotionService {
     private final CurrencyRepository currencyRepository;
     private final AllyRepository allyRepository;
     private final AllyProductRepository allyProductRepository;
+    private final EntityManager entityManager;
 
     public List<PromotionDto> listForCampaign(UUID campaignUuid) {
         return repository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(findCampaign(campaignUuid)).stream()
@@ -78,7 +80,7 @@ public class PromotionService {
     @Transactional
     @Auditable(entity = "promotion", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PromotionDto update(UUID uuid, PromotionRequest req) {
-        Promotion promotion = findManaged(uuid);
+        Promotion promotion = lockForEdit(uuid);
         apply(promotion, req, null);
         return toDto(repository.save(promotion));
     }
@@ -87,7 +89,28 @@ public class PromotionService {
     @Transactional
     @Auditable(entity = "promotion", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
-        findManaged(uuid).setActive(false);
+        lockForEdit(uuid).setActive(false);
+    }
+
+    /**
+     * A live promotion about to be edited or removed, with the campaign row
+     * and then the promotion row locked ({@code SELECT ... FOR UPDATE}, same
+     * order as the slot lifecycle) and both re-read under the lock. Without it
+     * the full-row update would write back the counters a concurrent
+     * assignment, confirmation or job had just changed (lost update).
+     */
+    @Transactional
+    public Promotion lockForEdit(UUID uuid) {
+        Long campaignId = repository.findCampaignIdByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
+        Campaign campaign = campaignRepository.findForUpdateById(campaignId)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        entityManager.refresh(campaign);
+        Promotion promotion = repository.findForUpdateByUuid(uuid)
+                .filter(Promotion::isActive)
+                .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
+        entityManager.refresh(promotion);
+        return promotion;
     }
 
     /** Copies a campaign's promotions onto its relaunched clone (counters reset). */

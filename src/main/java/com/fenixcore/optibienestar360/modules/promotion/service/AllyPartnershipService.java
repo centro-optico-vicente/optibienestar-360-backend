@@ -116,10 +116,13 @@ public class AllyPartnershipService {
                 && (campaign.getAlly() == null || campaign.getAlly().getId().equals(ally.getId()));
     }
 
-    /** One of the ally's own proposals (else 404) that never took a slot (else 422). */
+    /**
+     * One of the ally's own proposals (else 404) that never took a slot (else
+     * 422), with the campaign row and then the promotion row locked like any
+     * other writer of them (hub ADR 0038 §4).
+     */
     private Promotion ownUntouched(Ally ally, UUID promotionUuid) {
-        Promotion promotion = promotionRepository.findByUuid(promotionUuid)
-                .filter(Promotion::isActive)
+        Promotion promotion = java.util.Optional.of(promotionService.lockForEdit(promotionUuid))
                 .filter(Promotion::isCreatedByAlly)
                 .filter(p -> p.getAlly() != null && p.getAlly().getId().equals(ally.getId()))
                 .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
