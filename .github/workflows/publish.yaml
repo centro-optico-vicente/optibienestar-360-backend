@@ -45,6 +45,15 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'          # Caches ~/.gradle/caches + ~/.gradle/wrapper automatically
 
+      # Same as ci.yaml: native SQL and app.immutable_unaccent() rely on the
+      # app roles' search_path (`app, public`, pinned by V3). The build connects
+      # as `postgres`, so give that role the same search_path or the ITs that
+      # exercise them fail with "relation/function does not exist".
+      - name: Give the CI role the app roles' search_path
+        run: psql -h localhost -U postgres -d optibienestar360_test -c "ALTER ROLE postgres SET search_path = app, public"
+        env:
+          PGPASSWORD: postgres
+
       - name: Build and Test
         run: ./gradlew build --no-daemon --console=plain --warning-mode all --stacktrace
         env:
