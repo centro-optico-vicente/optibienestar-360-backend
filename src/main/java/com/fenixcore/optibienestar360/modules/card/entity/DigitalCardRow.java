@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -61,4 +62,12 @@ public class DigitalCardRow {
 
     @Column(name = "inscription_due_since")
     private LocalDate inscriptionDueSince;
+
+    /** Monthly fee of the active membership (V258); null without one. */
+    @Column(name = "monthly_fee")
+    private BigDecimal monthlyFee;
+
+    /** ISO code of the membership's currency (V258); null without one. */
+    @Column(name = "currency_code")
+    private String currencyCode;
 }

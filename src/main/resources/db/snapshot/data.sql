@@ -1873,6 +1873,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 247	255	campaign lifecycle and quota	SQL	V255__campaign_lifecycle_and_quota.sql	-1255733395	snapshot	2026-01-01 00:00:00	0	t
 248	256	promotion redemptions	SQL	V256__promotion_redemptions.sql	-828639989	snapshot	2026-01-01 00:00:00	0	t
 249	257	campaign ally benefits	SQL	V257__campaign_ally_benefits.sql	1805520810	snapshot	2026-01-01 00:00:00	0	t
+250	258	digital card view monthly fee	SQL	V258__digital_card_view_monthly_fee.sql	-1905277104	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;

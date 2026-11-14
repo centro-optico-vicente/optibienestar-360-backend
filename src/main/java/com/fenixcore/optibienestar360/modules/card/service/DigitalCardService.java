@@ -50,7 +50,9 @@ public class DigitalCardService {
                     row.getInscriptionDueSince() != null,
                     qrFor(row.getMemberUuid()),
                     null,
-                    null);
+                    null,
+                    row.getMonthlyFee(),
+                    row.getCurrencyCode());
         }
         return beneficiaryRepository.findByUser_UuidAndActiveTrue(userUuid)
                 .map(this::beneficiaryCard)
@@ -81,7 +83,10 @@ public class DigitalCardService {
                 // Their own UUID: the validator resolves it to them on the holder's coverage.
                 qrFor(beneficiary.getUuid()),
                 holder.getFullName(),
-                beneficiary.getRelationship() != null ? beneficiary.getRelationship().name() : null);
+                beneficiary.getRelationship() != null ? beneficiary.getRelationship().name() : null,
+                // The holder pays the fee; a beneficiary's own payment becomes their credit.
+                null,
+                null);
     }
 
     /**

@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -60,7 +61,8 @@ class MyDigitalCardControllerIT {
     private DigitalCardDto card() {
         return new DigitalCardDto(UUID.randomUUID(), "Ana Pérez", "V", "12345678",
                 "Familiar", "ACTIVE", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 1, 15),
-                LocalDate.of(2027, 1, 15), false, "data:image/png;base64,QR", null, null);
+                LocalDate.of(2027, 1, 15), false, "data:image/png;base64,QR", null, null,
+                new BigDecimal("25.00"), "USD");
     }
 
     @Test
@@ -82,7 +84,9 @@ class MyDigitalCardControllerIT {
         mockMvc.perform(get("/v1/me/digital-card").with(principal("MEMBER_VIEW_OWN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fullName").value("Ana Pérez"))
-                .andExpect(jsonPath("$.qrCodeDataUri").value("data:image/png;base64,QR"));
+                .andExpect(jsonPath("$.qrCodeDataUri").value("data:image/png;base64,QR"))
+                .andExpect(jsonPath("$.monthlyFee").value(25.00))
+                .andExpect(jsonPath("$.currency_Code").value("USD"));
     }
 
     @Test
