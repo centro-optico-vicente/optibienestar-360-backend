@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V248. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V249. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 116 tables.
 
@@ -2291,16 +2291,20 @@
 - `download_count` integer NOT NULL DEFAULT 0
 - `created_by` bigint
 - `created_at` timestamp with time zone NOT NULL DEFAULT now()
+- `status` character varying(20) NOT NULL DEFAULT 'ACTIVE'::character varying
 
 **Constraints**
 - PK PRIMARY KEY (file_download_links_id)
 - FK `file_download_links_created_by_fkey` FOREIGN KEY (created_by) REFERENCES users(users_id)
 - UNIQUE `file_download_links_token_key` UNIQUE (token)
+- CHECK `chk_file_download_links_revoked` CHECK ((((status)::text = 'REVOKED'::text) = (revoked_at IS NOT NULL)))
+- CHECK `chk_file_download_links_status` CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'EXPIRED'::character varying, 'REVOKED'::character varying, 'EXHAUSTED'::character varying])::text[])))
 - CHECK `file_download_links_max_downloads_check` CHECK (((max_downloads IS NULL) OR (max_downloads > 0)))
 - CHECK `file_download_links_visibility_check` CHECK (((visibility)::text = ANY ((ARRAY['PUBLIC'::character varying, 'TEMPORARY'::character varying, 'INTERNAL'::character varying, 'CONFIDENTIAL'::character varying])::text[])))
 
 **Indexes**
-- `idx_file_download_links_resource` btree (resource_table, resource_uuid)
+- `idx_file_download_links_active_file` btree (resource_table, resource_uuid, file_key) WHERE ((status)::text = 'ACTIVE'::text)
+- `idx_file_download_links_status_expiry` btree (status, expires_at)
 
 ## file_type_policies
 
@@ -4321,6 +4325,7 @@
 - `revoked_at` timestamp with time zone
 - `created_by` bigint
 - `created_at` timestamp with time zone NOT NULL DEFAULT now()
+- `status` character varying(20) NOT NULL DEFAULT 'ACTIVE'::character varying
 
 **Constraints**
 - PK PRIMARY KEY (report_share_id)
@@ -4328,10 +4333,12 @@
 - FK `report_share_report_audit_log_id_fkey` FOREIGN KEY (report_audit_log_id) REFERENCES report_audit_log(report_audit_log_id)
 - UNIQUE `report_share_share_token_key` UNIQUE (share_token)
 - UNIQUE `report_share_uuid_key` UNIQUE (uuid)
+- CHECK `chk_report_share_revoked` CHECK ((((status)::text = 'REVOKED'::text) = (revoked_at IS NOT NULL)))
+- CHECK `chk_report_share_status` CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'EXPIRED'::character varying, 'REVOKED'::character varying])::text[])))
 
 **Indexes**
-- `idx_report_share_expires` btree (expires_at)
 - `idx_report_share_report` btree (report_audit_log_id)
+- `idx_report_share_status_expiry` btree (status, expires_at)
 
 ## role_permissions
 

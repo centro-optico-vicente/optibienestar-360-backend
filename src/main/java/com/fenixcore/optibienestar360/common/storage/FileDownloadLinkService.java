@@ -11,6 +11,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.fenixcore.optibienestar360.common.service.StorageService;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -34,6 +35,7 @@ public class FileDownloadLinkService {
     private final UserRepository userRepository;
     private final ObjectProvider<StorageService> storageProvider;
     private final PresignedUrlPolicy presignedUrlPolicy;
+    private final Clock clock;
 
     @Transactional
     public DownloadLinkDto create(FileVisibility visibility, String resourceTable, UUID resourceUuid,
@@ -46,7 +48,7 @@ public class FileDownloadLinkService {
         link.setFileKey(fileKey);
         link.setExpiresAt(expiresAt);
         link.setMaxDownloads(maxDownloads);
-        link.setCreatedAt(Instant.now());
+        link.setCreatedAt(Instant.now(clock));
         if (createdByUuid != null) {
             User creator = userRepository.findByUuid(createdByUuid).orElse(null);
             link.setCreatedBy(creator);
@@ -63,29 +65,49 @@ public class FileDownloadLinkService {
     /** Revokes every still-active link pointing at this exact file — used by {@code unpublish}. */
     @Transactional
     public void revokeAllFor(String resourceTable, UUID resourceUuid, String fileKey) {
-        repository.findByResourceTableAndResourceUuidAndFileKeyAndRevokedAtIsNull(resourceTable, resourceUuid, fileKey)
-                .forEach(link -> link.setRevokedAt(Instant.now()));
+        Instant now = Instant.now(clock);
+        repository.findByResourceTableAndResourceUuidAndFileKeyAndStatus(resourceTable, resourceUuid, fileKey,
+                        DownloadLinkStatus.ACTIVE)
+                .forEach(link -> link.revoke(now));
     }
 
     /**
      * Resolves a token to a fresh presigned URL. Throws
      * {@code file.download_link.not_found} (404) or
      * {@code file.download_link.expired} (410) — callers map these to HTTP.
+     *
+     * <p>Validity is checked against the current time on every hit, whatever the
+     * status says: a link past {@code expires_at} is rejected even before
+     * {@code LINK_EXPIRY_SWEEP} marks it, and is marked EXPIRED right here. The
+     * download itself is counted by one atomic UPDATE ({@link
+     * FileDownloadLinkRepository#claimDownload}), which also marks the link
+     * EXHAUSTED when it takes the last allowed download.</p>
+     *
+     * <p>{@code noRollbackFor}: the EXPIRED mark must survive the 410 it leads to.</p>
      */
-    @Transactional
+    @Transactional(noRollbackFor = IllegalStateException.class)
     public String resolvePresignedUrl(UUID token) {
         FileDownloadLink link = repository.findByToken(token)
                 .orElseThrow(() -> new NoSuchElementException("file.download_link.not_found"));
-        if (!link.isValid()) {
+        Instant now = Instant.now(clock);
+        if (!link.isValid(now)) {
+            if (link.getStatus() == DownloadLinkStatus.ACTIVE && link.isExpiredAt(now)) {
+                repository.markExpired(link.getId(), now);
+            }
             throw new IllegalStateException("file.download_link.expired");
         }
 
+        // Before counting the download: an outage must not use up a capped link.
         StorageService storage = storageProvider.getIfAvailable();
         if (storage == null) {
             throw new IllegalStateException("file.download_link.storage_unavailable");
         }
 
-        link.setDownloadCount(link.getDownloadCount() + 1);
+        // A concurrent hit may have taken the last download (or the link expired) in between.
+        if (repository.claimDownload(link.getId(), now) == 0) {
+            throw new IllegalStateException("file.download_link.expired");
+        }
+
         String bucket = link.getVisibility() == FileVisibility.PUBLIC
                 ? storage.getPublicBucket()
                 : storage.getBucket();

@@ -3195,9 +3195,13 @@ CREATE TABLE app.file_download_links (
     download_count integer DEFAULT 0 NOT NULL,
     created_by bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    status character varying(20) DEFAULT 'ACTIVE'::character varying NOT NULL,
+    CONSTRAINT chk_file_download_links_revoked CHECK ((((status)::text = 'REVOKED'::text) = (revoked_at IS NOT NULL))),
+    CONSTRAINT chk_file_download_links_status CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'EXPIRED'::character varying, 'REVOKED'::character varying, 'EXHAUSTED'::character varying])::text[]))),
     CONSTRAINT file_download_links_max_downloads_check CHECK (((max_downloads IS NULL) OR (max_downloads > 0))),
     CONSTRAINT file_download_links_visibility_check CHECK (((visibility)::text = ANY ((ARRAY['PUBLIC'::character varying, 'TEMPORARY'::character varying, 'INTERNAL'::character varying, 'CONFIDENTIAL'::character varying])::text[])))
-);
+)
+WITH (fillfactor='90', autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
 
 --
 -- Name: file_download_links_file_download_links_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5357,7 +5361,10 @@ CREATE TABLE app.report_share (
     expires_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
     created_by bigint,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    status character varying(20) DEFAULT 'ACTIVE'::character varying NOT NULL,
+    CONSTRAINT chk_report_share_revoked CHECK ((((status)::text = 'REVOKED'::text) = (revoked_at IS NOT NULL))),
+    CONSTRAINT chk_report_share_status CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'EXPIRED'::character varying, 'REVOKED'::character varying])::text[])))
 );
 
 --
@@ -8705,10 +8712,16 @@ CREATE INDEX idx_document_types_is_active ON app.document_types USING btree (is_
 CREATE INDEX idx_exchange_rates_pair_valid_from ON app.exchange_rates USING btree (base_currency_id, quote_currency_id, valid_from DESC);
 
 --
--- Name: idx_file_download_links_resource; Type: INDEX; Schema: app; Owner: -
+-- Name: idx_file_download_links_active_file; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE INDEX idx_file_download_links_resource ON app.file_download_links USING btree (resource_table, resource_uuid);
+CREATE INDEX idx_file_download_links_active_file ON app.file_download_links USING btree (resource_table, resource_uuid, file_key) WHERE ((status)::text = 'ACTIVE'::text);
+
+--
+-- Name: idx_file_download_links_status_expiry; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_file_download_links_status_expiry ON app.file_download_links USING btree (status, expires_at);
 
 --
 -- Name: idx_genders_is_active; Type: INDEX; Schema: app; Owner: -
@@ -9395,16 +9408,16 @@ CREATE INDEX idx_report_audit_generated_at ON app.report_audit_log USING btree (
 CREATE INDEX idx_report_audit_login_audit ON app.report_audit_log USING btree (login_audit_log_id);
 
 --
--- Name: idx_report_share_expires; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_report_share_expires ON app.report_share USING btree (expires_at);
-
---
 -- Name: idx_report_share_report; Type: INDEX; Schema: app; Owner: -
 --
 
 CREATE INDEX idx_report_share_report ON app.report_share USING btree (report_audit_log_id);
+
+--
+-- Name: idx_report_share_status_expiry; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_report_share_status_expiry ON app.report_share USING btree (status, expires_at);
 
 --
 -- Name: idx_role_permissions_permission_id; Type: INDEX; Schema: app; Owner: -

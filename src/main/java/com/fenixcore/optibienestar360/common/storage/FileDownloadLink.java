@@ -65,6 +65,10 @@ public class FileDownloadLink {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private DownloadLinkStatus status = DownloadLinkStatus.ACTIVE;
+
     @Column(name = "max_downloads")
     private Integer maxDownloads;
 
@@ -78,9 +82,25 @@ public class FileDownloadLink {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public boolean isValid() {
-        if (revokedAt != null) return false;
-        if (Instant.now().isAfter(expiresAt)) return false;
+    /**
+     * Usable right now: {@code ACTIVE} <i>and</i> inside its validity window and
+     * download cap. The time check never trusts the status alone — a link past
+     * {@code expires_at} is rejected even before {@code LINK_EXPIRY_SWEEP} marks it.
+     */
+    public boolean isValid(Instant now) {
+        if (status != DownloadLinkStatus.ACTIVE || revokedAt != null) return false;
+        if (isExpiredAt(now)) return false;
         return maxDownloads == null || downloadCount < maxDownloads;
+    }
+
+    /** Past its business validity ({@code expires_at}), whatever its status says. */
+    public boolean isExpiredAt(Instant now) {
+        return now.isAfter(expiresAt);
+    }
+
+    /** Revokes the link: {@code status} and {@code revoked_at} always move together (V249 CHECK). */
+    public void revoke(Instant at) {
+        this.revokedAt = at;
+        this.status = DownloadLinkStatus.REVOKED;
     }
 }

@@ -330,6 +330,14 @@ Se agrega un mecanismo separado, desacoplado de `PresignedUrlPolicy`:
   1. Busca el link; si no existe, está revocado, o `expires_at` ya pasó → `410 Gone`.
   2. Si sigue vigente, remintea una presigned URL fresca de corta duración (vía `PresignedUrlPolicy`, ej. 5 min) contra el `file_key` real y responde `302 Found` al presigned URL (no JSON — este flujo se abre desde un cliente de correo, no desde el SPA, así que no hay Authorization header que enviar).
   3. Si `max_downloads` está seteado, incrementa un contador y lo bloquea al llegar al tope.
+- **Estado del enlace (V249).** `status` con CHECK: `ACTIVE`, `EXPIRED`, `REVOKED` (siempre junto a `revoked_at`), `EXHAUSTED`. Se marca, nunca se borra:
+  - **Al usarlo:** la validez se compara siempre con la hora actual (`FileDownloadLink.isValid(now)`), así que un enlace vencido se rechaza aunque el barrido no lo haya marcado todavía. En ese mismo hit se marca `EXPIRED`; el `noRollbackFor` conserva la marca pese al 410.
+  - **Descargas:** se cuentan con un único UPDATE atómico (`FileDownloadLinkRepository.claimDownload`), que solo procede si el enlace sigue `ACTIVE`, vigente y bajo el tope, y marca `EXHAUSTED` en la misma sentencia cuando toma la última descarga. Dos descargas simultáneas nunca pasan el tope; un leer-y-escribir de `download_count` sí podía.
+  - **Barrido:** el job `LINK_EXPIRY_SWEEP` (cada hora, habilitado porque solo marca) pasa a `EXPIRED` los `ACTIVE` vencidos, en lotes de 5.000 por `(status, expires_at)`. `report_share` lleva el mismo estado y barrido.
+  - **Índices y volumen:**
+    - `(status, expires_at)` sirve al barrido y a una purga futura.
+    - El parcial `(resource_table, resource_uuid, file_key) WHERE status='ACTIVE'` sirve a `revokeAllFor` sin crecer con los enlaces muertos.
+    - `fillfactor=90` deja HOT el `download_count + 1` de cada descarga: con 1M filas y descargas sueltas, ~63 % HOT, frente a casi 0 con el valor por defecto.
 - Esto es lo que reutilizará el motor de reportes (ADR 0012, fuera de alcance) para "descarga por enlace" y "adjunto por correo con expiración de X días" — aquí solo se deja el mecanismo genérico listo, sin acoplarlo a `GeneratedDocument` todavía.
 
 ### 7. `INTERNAL`/`TEMPORARY` — solo andamiaje, sin consumidor todavía
