@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -13,6 +15,13 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     Optional<User> findByUuid(UUID uuid);
+
+    /**
+     * Readable name of a user for document metadata ("Generado por"): the person's full name, or
+     * the login email when the name is blank. One column, no entity load.
+     */
+    @Query("SELECT COALESCE(NULLIF(TRIM(p.fullName), ''), u.email) FROM User u JOIN u.person p WHERE u.uuid = :uuid")
+    Optional<String> findDisplayNameByUuid(@Param("uuid") UUID uuid);
 
     boolean existsByEmail(String email);
 
