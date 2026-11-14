@@ -5342,7 +5342,13 @@ CREATE TABLE app.promotion_redemptions (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
     updated_by uuid,
+    manual_note text,
+    manual_by_user_id bigint,
+    expiry_notice_sent_at timestamp with time zone,
+    last_reminded_at timestamp with time zone,
+    last_reminded_by_user_id bigint,
     CONSTRAINT chk_promotion_redemptions_confirmed CHECK ((((redemption_status)::text <> 'CONFIRMED'::text) OR (confirmed_at IS NOT NULL))),
+    CONSTRAINT chk_promotion_redemptions_manual CHECK (((manual_by_user_id IS NULL) OR ((manual_note IS NOT NULL) AND (btrim(manual_note) <> ''::text)))),
     CONSTRAINT chk_promotion_redemptions_released CHECK ((((redemption_status)::text <> ALL ((ARRAY['EXPIRED'::character varying, 'RELEASED'::character varying])::text[])) OR (released_at IS NOT NULL))),
     CONSTRAINT chk_promotion_redemptions_status CHECK (((redemption_status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'EXPIRED'::character varying, 'RELEASED'::character varying])::text[])))
 );
@@ -5352,6 +5358,36 @@ CREATE TABLE app.promotion_redemptions (
 --
 
 COMMENT ON TABLE app.promotion_redemptions IS 'Cupo de campaña ocupado por una promoción aplicada a una membresía (pendiente, confirmado, vencido o liberado)';
+
+--
+-- Name: COLUMN promotion_redemptions.manual_note; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotion_redemptions.manual_note IS 'Nota obligatoria de una confirmación o liberación manual del cupo';
+
+--
+-- Name: COLUMN promotion_redemptions.manual_by_user_id; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotion_redemptions.manual_by_user_id IS 'Usuario que confirmó o liberó el cupo a mano';
+
+--
+-- Name: COLUMN promotion_redemptions.expiry_notice_sent_at; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotion_redemptions.expiry_notice_sent_at IS 'Cuándo se avisó al afiliado y a su asesor que el cupo pendiente vence en 48 horas';
+
+--
+-- Name: COLUMN promotion_redemptions.last_reminded_at; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotion_redemptions.last_reminded_at IS 'Último recordatorio interno sobre el pago que confirma el cupo (máximo uno por hora)';
+
+--
+-- Name: COLUMN promotion_redemptions.last_reminded_by_user_id; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotion_redemptions.last_reminded_by_user_id IS 'Usuario que envió el último recordatorio interno';
 
 --
 -- Name: promotion_redemptions_promotion_redemptions_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -9738,6 +9774,18 @@ CREATE INDEX idx_promoters_supervisor ON app.promoters USING btree (supervisor_i
 CREATE INDEX idx_promotion_redemptions_campaign_status ON app.promotion_redemptions USING btree (campaign_id, redemption_status);
 
 --
+-- Name: idx_promotion_redemptions_confirmed_by_payment; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotion_redemptions_confirmed_by_payment ON app.promotion_redemptions USING btree (confirmed_by_payment_id) WHERE (confirmed_by_payment_id IS NOT NULL);
+
+--
+-- Name: idx_promotion_redemptions_pending_notice; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotion_redemptions_pending_notice ON app.promotion_redemptions USING btree (redemption_status, expiry_notice_sent_at) WHERE ((redemption_status)::text = 'PENDING'::text);
+
+--
 -- Name: idx_promotion_redemptions_promotion; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -12513,6 +12561,20 @@ ALTER TABLE ONLY app.promotion_redemptions
 
 ALTER TABLE ONLY app.promotion_redemptions
     ADD CONSTRAINT promotion_redemptions_confirmed_by_payment_id_fkey FOREIGN KEY (confirmed_by_payment_id) REFERENCES app.payments(payments_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_last_reminded_by_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_last_reminded_by_user_id_fkey FOREIGN KEY (last_reminded_by_user_id) REFERENCES app.users(users_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_manual_by_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_manual_by_user_id_fkey FOREIGN KEY (manual_by_user_id) REFERENCES app.users(users_id);
 
 --
 -- Name: promotion_redemptions promotion_redemptions_membership_promotion_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -

@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V259. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V260. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 119 tables.
 
@@ -259,6 +259,8 @@
 - `promotion_plans`.promotion_id → `promotions`.promotions_id (ON DELETE CASCADE)
 - `promotion_redemptions`.campaign_id → `campaigns`.campaigns_id
 - `promotion_redemptions`.confirmed_by_payment_id → `payments`.payments_id
+- `promotion_redemptions`.last_reminded_by_user_id → `users`.users_id
+- `promotion_redemptions`.manual_by_user_id → `users`.users_id
 - `promotion_redemptions`.membership_promotion_id → `membership_promotions`.membership_promotions_id
 - `promotion_redemptions`.promotion_id → `promotions`.promotions_id
 - `promotions`.ally_id → `allies`.allies_id
@@ -4308,21 +4310,31 @@
 - `updated_at` timestamp with time zone NOT NULL DEFAULT now()
 - `created_by` uuid
 - `updated_by` uuid
+- `manual_note` text — Nota obligatoria de una confirmación o liberación manual del cupo
+- `manual_by_user_id` bigint — Usuario que confirmó o liberó el cupo a mano
+- `expiry_notice_sent_at` timestamp with time zone — Cuándo se avisó al afiliado y a su asesor que el cupo pendiente vence en 48 horas
+- `last_reminded_at` timestamp with time zone — Último recordatorio interno sobre el pago que confirma el cupo (máximo uno por hora)
+- `last_reminded_by_user_id` bigint — Usuario que envió el último recordatorio interno
 
 **Constraints**
 - PK PRIMARY KEY (promotion_redemptions_id)
 - FK `promotion_redemptions_campaign_id_fkey` FOREIGN KEY (campaign_id) REFERENCES campaigns(campaigns_id)
 - FK `promotion_redemptions_confirmed_by_payment_id_fkey` FOREIGN KEY (confirmed_by_payment_id) REFERENCES payments(payments_id)
+- FK `promotion_redemptions_last_reminded_by_user_id_fkey` FOREIGN KEY (last_reminded_by_user_id) REFERENCES users(users_id)
+- FK `promotion_redemptions_manual_by_user_id_fkey` FOREIGN KEY (manual_by_user_id) REFERENCES users(users_id)
 - FK `promotion_redemptions_membership_promotion_id_fkey` FOREIGN KEY (membership_promotion_id) REFERENCES membership_promotions(membership_promotions_id)
 - FK `promotion_redemptions_promotion_id_fkey` FOREIGN KEY (promotion_id) REFERENCES promotions(promotions_id)
 - UNIQUE `promotion_redemptions_membership_promotion_id_key` UNIQUE (membership_promotion_id)
 - UNIQUE `promotion_redemptions_uuid_key` UNIQUE (uuid)
 - CHECK `chk_promotion_redemptions_confirmed` CHECK ((((redemption_status)::text <> 'CONFIRMED'::text) OR (confirmed_at IS NOT NULL)))
+- CHECK `chk_promotion_redemptions_manual` CHECK (((manual_by_user_id IS NULL) OR ((manual_note IS NOT NULL) AND (btrim(manual_note) <> ''::text))))
 - CHECK `chk_promotion_redemptions_released` CHECK ((((redemption_status)::text <> ALL ((ARRAY['EXPIRED'::character varying, 'RELEASED'::character varying])::text[])) OR (released_at IS NOT NULL)))
 - CHECK `chk_promotion_redemptions_status` CHECK (((redemption_status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'EXPIRED'::character varying, 'RELEASED'::character varying])::text[])))
 
 **Indexes**
 - `idx_promotion_redemptions_campaign_status` btree (campaign_id, redemption_status)
+- `idx_promotion_redemptions_confirmed_by_payment` btree (confirmed_by_payment_id) WHERE (confirmed_by_payment_id IS NOT NULL)
+- `idx_promotion_redemptions_pending_notice` btree (redemption_status, expiry_notice_sent_at) WHERE ((redemption_status)::text = 'PENDING'::text)
 - `idx_promotion_redemptions_promotion` btree (promotion_id)
 - `idx_promotion_redemptions_status_expires` btree (redemption_status, expires_at)
 
@@ -5060,7 +5072,7 @@
 **Triggers**
 - `trg_users_updated_at` BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `campaigns`.(closed_by_user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_notifications`.(recipient_user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
+**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `campaigns`.(closed_by_user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `promotion_redemptions`.(last_reminded_by_user_id), `promotion_redemptions`.(manual_by_user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_notifications`.(recipient_user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
 
 # Views
 
