@@ -57,6 +57,7 @@ class PromotionAssignmentServiceTest {
     @Mock private PromotionRedemptionRepository redemptionRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private MembershipBenefitGrantService grantService;
+    @Mock private jakarta.persistence.EntityManager entityManager;
 
     private final AtomicLong ids = new AtomicLong(100);
 
@@ -67,7 +68,8 @@ class PromotionAssignmentServiceTest {
 
     private PromotionAssignmentService service() {
         PromotionRedemptionService redemptions = new PromotionRedemptionService(
-                redemptionRepository, campaignRepository, promotionRepository, paymentRepository, grantService);
+                redemptionRepository, campaignRepository, promotionRepository, paymentRepository, grantService,
+                entityManager);
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
                 membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
                 memberRepository, campaignRepository, redemptions);

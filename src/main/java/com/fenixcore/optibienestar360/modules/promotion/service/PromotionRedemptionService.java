@@ -17,6 +17,8 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedempti
 import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption.RedemptionStatus;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -62,6 +64,7 @@ public class PromotionRedemptionService {
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
     private final MembershipBenefitGrantService grantService;
+    private final EntityManager entityManager;
 
     // ─── Reserve / confirm ──────────────────────────────────────────────────
 
@@ -128,6 +131,7 @@ public class PromotionRedemptionService {
         for (PromotionRedemption pending : repository.findByMembershipAndStatus(
                 payment.getMembership().getId(), RedemptionStatus.PENDING)) {
             Campaign campaign = lockCampaign(pending.getCampaign().getId());
+            lockFresh(pending);
             if (campaign.getQuotaTrigger() != trigger || !pending.isPending()) {
                 continue;
             }
@@ -242,6 +246,7 @@ public class PromotionRedemptionService {
         int expired = 0;
         for (PromotionRedemption r : repository.findPendingExpiryCandidates(now)) {
             Campaign campaign = lockCampaign(r.getCampaign().getId());
+            lockFresh(r);
             if (!r.isPending()) {
                 continue;
             }
@@ -358,6 +363,16 @@ public class PromotionRedemptionService {
     }
 
     // ─── Locks ──────────────────────────────────────────────────────────────
+
+    /**
+     * Row-locks the slot and re-reads it, after its campaign lock: the row was
+     * loaded before that lock, and a payment confirmation and the expiry job
+     * racing on the same PENDING slot must see each other's outcome (else it
+     * could be confirmed and expired at once, counted twice).
+     */
+    private void lockFresh(PromotionRedemption r) {
+        entityManager.refresh(r, LockModeType.PESSIMISTIC_WRITE);
+    }
 
     private Campaign lockCampaign(Long id) {
         return campaignRepository.findForUpdateById(id)

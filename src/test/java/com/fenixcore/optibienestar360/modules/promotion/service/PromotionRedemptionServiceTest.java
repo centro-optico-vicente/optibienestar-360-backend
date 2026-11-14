@@ -16,6 +16,8 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedempti
 import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption.RedemptionStatus;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +35,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,6 +50,7 @@ class PromotionRedemptionServiceTest {
     @Mock private PromotionRepository promotionRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private MembershipBenefitGrantService grantService;
+    @Mock private EntityManager entityManager;
 
     private static final long MEMBERSHIP_ID = 10L;
 
@@ -56,7 +60,7 @@ class PromotionRedemptionServiceTest {
 
     private PromotionRedemptionService service() {
         return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository,
-                grantService);
+                grantService, entityManager);
     }
 
     @BeforeEach
@@ -253,6 +257,43 @@ class PromotionRedemptionServiceTest {
 
         assertThat(campaign.getLifecycleStatus()).isEqualTo(LifecycleStatus.CLOSED);
         assertThat(campaign.getClosedReason()).isEqualTo(Campaign.CloseReason.QUOTA_FILLED);
+    }
+
+    @Test
+    void confirmation_reReadsTheSlotUnderLock_andSkipsOneTheJobJustExpired() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        PromotionRedemption r = reserve(membershipPromotion());
+        payment(906L, true);
+        pendingOfMembership(r);
+        // The expiry job committed first: the locked re-read sees the slot EXPIRED.
+        doAnswer(inv -> {
+            r.setRedemptionStatus(RedemptionStatus.EXPIRED);
+            return null;
+        }).when(entityManager).refresh(r, LockModeType.PESSIMISTIC_WRITE);
+
+        assertThat(service().onPaymentRegistered(906L)).isZero();
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.EXPIRED);
+        assertThat(campaign.getConfirmedCount()).isZero();
+        assertThat(r.getConfirmedByPayment()).isNull();
+    }
+
+    @Test
+    void expiry_reReadsTheSlotUnderLock_andSkipsOneJustConfirmed() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        campaign.setPendingTtlDays(1);
+        PromotionRedemption r = reserve(membershipPromotion());
+        r.setExpiresAt(Instant.now().minusSeconds(60));
+        when(repository.findPendingExpiryCandidates(any(Instant.class))).thenReturn(List.of(r));
+        doAnswer(inv -> {
+            r.setRedemptionStatus(RedemptionStatus.CONFIRMED);
+            return null;
+        }).when(entityManager).refresh(r, LockModeType.PESSIMISTIC_WRITE);
+
+        assertThat(service().expirePending(Instant.now())).isZero();
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(campaign.getRedemptionsCount()).isEqualTo(1);
     }
 
     // ─── Expiry / release ───────────────────────────────────────────────────
