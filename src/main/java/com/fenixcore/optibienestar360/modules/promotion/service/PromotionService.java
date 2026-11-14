@@ -22,6 +22,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Benefit
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
+import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,7 @@ public class PromotionService {
     private final AllyRepository allyRepository;
     private final AllyProductRepository allyProductRepository;
     private final EntityManager entityManager;
+    private final PromotionRedemptionRepository redemptionRepository;
 
     public List<PromotionDto> listForCampaign(UUID campaignUuid) {
         return repository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(findCampaign(campaignUuid)).stream()
@@ -81,6 +83,11 @@ public class PromotionService {
     @Auditable(entity = "promotion", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PromotionDto update(UUID uuid, PromotionRequest req) {
         Promotion promotion = lockForEdit(uuid);
+        // A discount and an ally voucher take and use their slots differently: once a member took
+        // the promotion, its kind is fixed.
+        if (benefitKindOf(req) != promotion.getBenefitKind() && hasRedemptions(promotion)) {
+            throw new IllegalArgumentException("promotion.benefit_kind.has_redemptions");
+        }
         apply(promotion, req, null);
         return toDto(repository.save(promotion));
     }
@@ -158,6 +165,7 @@ public class PromotionService {
      */
     public void apply(Promotion promotion, PromotionRequest req, Ally fixedAlly) {
         validate(req);
+        validateQuotaWithinCampaign(req, promotion.getCampaign());
         promotion.setName(req.name().trim());
         promotion.setDescription(req.description());
         promotion.setKind(req.kind());
@@ -323,6 +331,19 @@ public class PromotionService {
         }
         if (hasRewardPct && !req.acceptsMemberCode()) {
             throw new IllegalArgumentException("promotion.referrer_reward.member_code_required");
+        }
+    }
+
+    /** Whether the promotion ever took a slot (counter, or any slot row, freed ones included). */
+    private boolean hasRedemptions(Promotion promotion) {
+        return promotion.getRedemptionsCount() > 0 || redemptionRepository.existsByPromotion_Id(promotion.getId());
+    }
+
+    /** An own quota never goes above the campaign quota it also consumes from (hub ADR 0038 §4). */
+    private static void validateQuotaWithinCampaign(PromotionRequest req, Campaign campaign) {
+        if (req.ownQuota() && req.maxRedemptions() != null && campaign != null && campaign.getMaxRedemptions() != null
+                && req.maxRedemptions() > campaign.getMaxRedemptions()) {
+            throw new IllegalArgumentException("promotion.max_redemptions.exceeds_campaign");
         }
     }
 

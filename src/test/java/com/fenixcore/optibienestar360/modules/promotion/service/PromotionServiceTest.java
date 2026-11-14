@@ -18,6 +18,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Benefit
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
+import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -49,10 +50,11 @@ class PromotionServiceTest {
     @Mock private AllyRepository allyRepository;
     @Mock private AllyProductRepository allyProductRepository;
     @Mock private EntityManager entityManager;
+    @Mock private PromotionRedemptionRepository redemptionRepository;
 
     private PromotionService service() {
         return new PromotionService(repository, campaignRepository, planRepository, currencyRepository,
-                allyRepository, allyProductRepository, entityManager);
+                allyRepository, allyProductRepository, entityManager, redemptionRepository);
     }
 
     private static Campaign campaign() {
@@ -366,5 +368,61 @@ class PromotionServiceTest {
         assertThat(p.isActive()).isFalse();
         verify(campaignRepository).findForUpdateById(40L);
         verify(repository).findForUpdateByUuid(p.getUuid());
+    }
+
+    // ─── Quota and kind rules ───────────────────────────────────────────────
+
+    private static PromotionRequest ownQuota(int max) {
+        return new PromotionRequest("Cupo propio", null, Kind.ACQUISITION, null, new BigDecimal("10.00"), null, null,
+                AppliesTo.MONTHLY, null, false, true, max, false, false, false, false, null, null, null,
+                null, null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void ownQuota_aboveTheCampaignQuota_is422() {
+        Campaign campaign = campaign();
+        campaign.setMaxRedemptions(20);
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+
+        assertThatThrownBy(() -> service().create(campaign.getUuid(), ownQuota(21)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promotion.max_redemptions.exceeds_campaign");
+
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+        assertThat(service().create(campaign.getUuid(), ownQuota(20)).maxRedemptions()).isEqualTo(20);
+    }
+
+    @Test
+    void ownQuota_isFree_whenTheCampaignHasNoQuota() {
+        Campaign campaign = campaign();
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service().create(campaign.getUuid(), ownQuota(500)).maxRedemptions()).isEqualTo(500);
+    }
+
+    @Test
+    void update_changingTheBenefitKind_ofAPromotionAlreadyTaken_is422() {
+        Campaign campaign = campaign();
+        Promotion taken = lockable(campaign);
+        taken.setBenefitKind(BenefitKind.DISCOUNT);
+        when(redemptionRepository.existsByPromotion_Id(41L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service().update(taken.getUuid(),
+                allyBenefit(UUID.randomUUID(), UUID.randomUUID(), BenefitType.FREE, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promotion.benefit_kind.has_redemptions");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_keepingTheBenefitKind_ofAPromotionAlreadyTaken_isAllowed() {
+        Campaign campaign = campaign();
+        Promotion taken = lockable(campaign);
+        taken.setRedemptionsCount(2);
+        when(repository.save(any(Promotion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service().update(taken.getUuid(), discountRequest(null, new BigDecimal("20.00"), null, null))
+                .discountPct()).isEqualByComparingTo("20.00");
     }
 }
