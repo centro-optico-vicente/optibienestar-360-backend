@@ -284,6 +284,49 @@ class MemberPromoterServiceTest {
     }
 
     @Test
+    void assign_422_whenTargetIsSystemAdvisor() {
+        service = service();
+        Member member = member(null);
+        Promoter institucion = promoter("INSTITUCION", true);
+        institucion.setSystem(true);
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        when(promoterRepository.findByUuid(institucion.getUuid())).thenReturn(Optional.of(institucion));
+
+        assertThatThrownBy(() -> service.assign(member.getUuid(), institucion.getUuid(), "x", UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.system_not_assignable");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void assign_422_whenReferralCodeIsSystemAdvisor() {
+        service = service();
+        Member member = member(null);
+        Promoter institucion = promoter("INSTITUCION", true);
+        institucion.setSystem(true);
+        when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));
+        when(promoterRepository.findByReferralCode("INSTITUCION")).thenReturn(Optional.of(institucion));
+
+        assertThatThrownBy(() -> service.assign(member.getUuid(), null, " institucion ", "x", UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.system_not_assignable");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void bulkAssign_rejectsSystemAdvisorTarget() {
+        service = service();
+        Promoter institucion = promoter("INSTITUCION", true);
+        institucion.setSystem(true);
+        when(promoterRepository.findByUuid(institucion.getUuid())).thenReturn(Optional.of(institucion));
+
+        assertThatThrownBy(() -> service.bulkAssign(List.of(UUID.randomUUID()), institucion.getUuid(), "x", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("promoter.system_not_assignable");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
     void portfolioToSupervisor_skipsInactiveSupervisor_rollsUpToNextActive() {
         service = service();
         Promoter coordinator = promoter("COORD", true);

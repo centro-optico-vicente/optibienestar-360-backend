@@ -62,3 +62,7 @@ Hoy las comisiones atribuidas a INSTITUCION se **generan y se marcan PAID sin pa
 - La cartera sin asesor y la de asesores dados de baja se mueve en bloque con auditoría completa.
 - El frontend deja de cargar la cartera completa sin paginar para reasignar: usa `candidates` paginado.
 - Nuevo permiso `AFFILIATION_REQUEST_ASSIGN_PROMOTER` (V250), otorgado a todo rol que ya tenía `MEMBER_ASSIGN_PROMOTER`.
+
+## Enmienda (a) — 2026-11-14: los endpoints manuales tampoco aceptan INSTITUCION
+
+`POST /v1/admin/members/{uuid}/assign-advisor` (por uuid o por código de referido) y `POST /v1/admin/members/advisor/bulk-assign` rechazan al asesor de sistema con 422 `promoter.system_not_assignable`, igual que `distribute`, el bulk de aliados y la reasignación de solicitudes. Un afiliado sin asesor queda "sin asesor"; el único camino que asigna INSTITUCION es el roll-up `portfolio-to-supervisor` cuando no hay supervisor activo. El frontend ya no lo ofrecía (las opciones de `/options` excluyen el sistema por defecto).
