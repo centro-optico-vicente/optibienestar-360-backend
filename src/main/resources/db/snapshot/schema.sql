@@ -1687,6 +1687,10 @@ CREATE TABLE app.campaigns (
     closed_note text,
     confirm_grace_until timestamp with time zone,
     confirm_grace_days integer,
+    quota_trigger character varying(30) DEFAULT 'ON_ENROLLMENT'::character varying NOT NULL,
+    pending_ttl_days integer,
+    usage_window character varying(30) DEFAULT 'CAMPAIGN_DATES'::character varying NOT NULL,
+    usage_window_days integer,
     CONSTRAINT campaigns_target_amount_currency_xor CHECK ((((target_amount IS NULL) AND (target_amount_currency_id IS NULL)) OR ((target_amount IS NOT NULL) AND (target_amount_currency_id IS NOT NULL)))),
     CONSTRAINT chk_campaigns_at_end_requires_ends_at CHECK (((NOT (evaluate_only_at_end OR pay_only_at_end)) OR (ends_at IS NOT NULL))),
     CONSTRAINT chk_campaigns_close_on_end_date CHECK (((NOT close_on_end_date) OR (ends_at IS NOT NULL))),
@@ -1699,8 +1703,12 @@ CREATE TABLE app.campaigns (
     CONSTRAINT chk_campaigns_lifecycle_status CHECK (((lifecycle_status)::text = ANY ((ARRAY['DRAFT'::character varying, 'ACTIVE'::character varying, 'PAUSED'::character varying, 'SOLD_OUT'::character varying, 'CLOSED'::character varying])::text[]))),
     CONSTRAINT chk_campaigns_max_redemptions CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1))),
     CONSTRAINT chk_campaigns_mode CHECK (((mode)::text = ANY ((ARRAY['TARGETED'::character varying, 'GENERAL'::character varying])::text[]))),
+    CONSTRAINT chk_campaigns_pending_ttl_days CHECK (((pending_ttl_days IS NULL) OR (pending_ttl_days >= 1))),
+    CONSTRAINT chk_campaigns_quota_trigger CHECK (((quota_trigger)::text = ANY ((ARRAY['ON_ENROLLMENT'::character varying, 'ON_PAYMENT_REGISTERED'::character varying, 'ON_PAYMENT_CONFIRMED'::character varying])::text[]))),
     CONSTRAINT chk_campaigns_redemptions_count CHECK (((redemptions_count >= 0) AND (confirmed_count >= 0) AND (confirmed_count <= redemptions_count))),
-    CONSTRAINT chk_campaigns_scope CHECK (((scope)::text = ANY ((ARRAY['ALL'::character varying, 'INCLUDE'::character varying, 'EXCLUDE'::character varying])::text[])))
+    CONSTRAINT chk_campaigns_scope CHECK (((scope)::text = ANY ((ARRAY['ALL'::character varying, 'INCLUDE'::character varying, 'EXCLUDE'::character varying])::text[]))),
+    CONSTRAINT chk_campaigns_usage_window CHECK (((usage_window)::text = ANY ((ARRAY['CAMPAIGN_DATES'::character varying, 'DAYS_AFTER_CONFIRMATION'::character varying])::text[]))),
+    CONSTRAINT chk_campaigns_usage_window_days CHECK ((((usage_window_days IS NULL) OR (usage_window_days >= 1)) AND (((usage_window)::text <> 'DAYS_AFTER_CONFIRMATION'::text) OR (usage_window_days IS NOT NULL))))
 );
 
 --
@@ -5251,6 +5259,53 @@ CREATE TABLE app.promotion_plans (
 );
 
 --
+-- Name: promotion_redemptions; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.promotion_redemptions (
+    promotion_redemptions_id bigint NOT NULL,
+    uuid uuid NOT NULL,
+    membership_promotion_id bigint NOT NULL,
+    promotion_id bigint NOT NULL,
+    campaign_id bigint NOT NULL,
+    redemption_status character varying(20) NOT NULL,
+    reserved_at timestamp with time zone NOT NULL,
+    confirmed_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    usage_ends_at timestamp with time zone,
+    released_at timestamp with time zone,
+    confirmed_by_payment_id bigint,
+    is_active boolean DEFAULT true NOT NULL,
+    status character varying(50),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    CONSTRAINT chk_promotion_redemptions_confirmed CHECK ((((redemption_status)::text <> 'CONFIRMED'::text) OR (confirmed_at IS NOT NULL))),
+    CONSTRAINT chk_promotion_redemptions_released CHECK ((((redemption_status)::text <> ALL ((ARRAY['EXPIRED'::character varying, 'RELEASED'::character varying])::text[])) OR (released_at IS NOT NULL))),
+    CONSTRAINT chk_promotion_redemptions_status CHECK (((redemption_status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'EXPIRED'::character varying, 'RELEASED'::character varying])::text[])))
+);
+
+--
+-- Name: TABLE promotion_redemptions; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON TABLE app.promotion_redemptions IS 'Cupo de campaña ocupado por una promoción aplicada a una membresía (pendiente, confirmado, vencido o liberado)';
+
+--
+-- Name: promotion_redemptions_promotion_redemptions_id_seq; Type: SEQUENCE; Schema: app; Owner: -
+--
+
+ALTER TABLE app.promotion_redemptions ALTER COLUMN promotion_redemptions_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME app.promotion_redemptions_promotion_redemptions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+--
 -- Name: promotions; Type: TABLE; Schema: app; Owner: -
 --
 
@@ -7863,6 +7918,27 @@ ALTER TABLE ONLY app.promotion_plans
     ADD CONSTRAINT promotion_plans_pkey PRIMARY KEY (promotion_id, plan_id);
 
 --
+-- Name: promotion_redemptions promotion_redemptions_membership_promotion_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_membership_promotion_id_key UNIQUE (membership_promotion_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_pkey PRIMARY KEY (promotion_redemptions_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_uuid_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_uuid_key UNIQUE (uuid);
+
+--
 -- Name: promotions promotions_pkey; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -9439,6 +9515,24 @@ CREATE INDEX idx_promoters_real_leaderboard ON app.promoters USING btree (total_
 CREATE INDEX idx_promoters_supervisor ON app.promoters USING btree (supervisor_id);
 
 --
+-- Name: idx_promotion_redemptions_campaign_status; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotion_redemptions_campaign_status ON app.promotion_redemptions USING btree (campaign_id, redemption_status);
+
+--
+-- Name: idx_promotion_redemptions_promotion; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotion_redemptions_promotion ON app.promotion_redemptions USING btree (promotion_id);
+
+--
+-- Name: idx_promotion_redemptions_status_expires; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotion_redemptions_status_expires ON app.promotion_redemptions USING btree (redemption_status, expires_at);
+
+--
 -- Name: idx_promotions_campaign; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -10307,6 +10401,12 @@ CREATE TRIGGER trg_promoter_types_updated_at BEFORE UPDATE ON app.promoter_types
 --
 
 CREATE TRIGGER trg_promoters_updated_at BEFORE UPDATE ON app.promoters FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+--
+-- Name: promotion_redemptions trg_promotion_redemptions_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER trg_promotion_redemptions_updated_at BEFORE UPDATE ON app.promotion_redemptions FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 --
 -- Name: promotions trg_promotions_updated_at; Type: TRIGGER; Schema: app; Owner: -
@@ -12092,6 +12192,34 @@ ALTER TABLE ONLY app.promotion_plans
     ADD CONSTRAINT promotion_plans_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES app.promotions(promotions_id) ON DELETE CASCADE;
 
 --
+-- Name: promotion_redemptions promotion_redemptions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(campaigns_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_confirmed_by_payment_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_confirmed_by_payment_id_fkey FOREIGN KEY (confirmed_by_payment_id) REFERENCES app.payments(payments_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_membership_promotion_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_membership_promotion_id_fkey FOREIGN KEY (membership_promotion_id) REFERENCES app.membership_promotions(membership_promotions_id);
+
+--
+-- Name: promotion_redemptions promotion_redemptions_promotion_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotion_redemptions
+    ADD CONSTRAINT promotion_redemptions_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES app.promotions(promotions_id);
+
+--
 -- Name: promotions promotions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -13674,6 +13802,20 @@ GRANT SELECT,USAGE ON SEQUENCE app.promoters_promoters_id_seq TO optibienestar36
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE app.promotion_plans TO optibienestar360_app;
 GRANT SELECT ON TABLE app.promotion_plans TO optibienestar360_readonly;
+
+--
+-- Name: TABLE promotion_redemptions; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE app.promotion_redemptions TO optibienestar360_app;
+GRANT SELECT ON TABLE app.promotion_redemptions TO optibienestar360_readonly;
+
+--
+-- Name: SEQUENCE promotion_redemptions_promotion_redemptions_id_seq; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,USAGE ON SEQUENCE app.promotion_redemptions_promotion_redemptions_id_seq TO optibienestar360_app;
+GRANT SELECT,USAGE ON SEQUENCE app.promotion_redemptions_promotion_redemptions_id_seq TO optibienestar360_readonly;
 
 --
 -- Name: TABLE promotions; Type: ACL; Schema: app; Owner: -

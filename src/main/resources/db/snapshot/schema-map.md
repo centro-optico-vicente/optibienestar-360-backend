@@ -1,10 +1,10 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V255. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V256. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
-116 tables.
+117 tables.
 
-`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_password_history` · `user_roles` · `users`
+`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotion_redemptions` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_password_history` · `user_roles` · `users`
 
 # Relationships (child → parent)
 
@@ -249,6 +249,10 @@
 - `promoters`.user_id → `users`.users_id
 - `promotion_plans`.plan_id → `plans`.plans_id
 - `promotion_plans`.promotion_id → `promotions`.promotions_id (ON DELETE CASCADE)
+- `promotion_redemptions`.campaign_id → `campaigns`.campaigns_id
+- `promotion_redemptions`.confirmed_by_payment_id → `payments`.payments_id
+- `promotion_redemptions`.membership_promotion_id → `membership_promotions`.membership_promotions_id
+- `promotion_redemptions`.promotion_id → `promotions`.promotions_id
 - `promotions`.campaign_id → `campaigns`.campaigns_id
 - `promotions`.discount_currency_id → `currencies`.currencies_id
 - `referrals`.referred_member_id → `members`.members_id
@@ -1133,6 +1137,10 @@
 - `closed_note` text
 - `confirm_grace_until` timestamp with time zone
 - `confirm_grace_days` integer
+- `quota_trigger` character varying(30) NOT NULL DEFAULT 'ON_ENROLLMENT'::character varying
+- `pending_ttl_days` integer
+- `usage_window` character varying(30) NOT NULL DEFAULT 'CAMPAIGN_DATES'::character varying
+- `usage_window_days` integer
 
 **Constraints**
 - PK PRIMARY KEY (campaigns_id)
@@ -1151,8 +1159,12 @@
 - CHECK `chk_campaigns_lifecycle_status` CHECK (((lifecycle_status)::text = ANY ((ARRAY['DRAFT'::character varying, 'ACTIVE'::character varying, 'PAUSED'::character varying, 'SOLD_OUT'::character varying, 'CLOSED'::character varying])::text[])))
 - CHECK `chk_campaigns_max_redemptions` CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1)))
 - CHECK `chk_campaigns_mode` CHECK (((mode)::text = ANY ((ARRAY['TARGETED'::character varying, 'GENERAL'::character varying])::text[])))
+- CHECK `chk_campaigns_pending_ttl_days` CHECK (((pending_ttl_days IS NULL) OR (pending_ttl_days >= 1)))
+- CHECK `chk_campaigns_quota_trigger` CHECK (((quota_trigger)::text = ANY ((ARRAY['ON_ENROLLMENT'::character varying, 'ON_PAYMENT_REGISTERED'::character varying, 'ON_PAYMENT_CONFIRMED'::character varying])::text[])))
 - CHECK `chk_campaigns_redemptions_count` CHECK (((redemptions_count >= 0) AND (confirmed_count >= 0) AND (confirmed_count <= redemptions_count)))
 - CHECK `chk_campaigns_scope` CHECK (((scope)::text = ANY ((ARRAY['ALL'::character varying, 'INCLUDE'::character varying, 'EXCLUDE'::character varying])::text[])))
+- CHECK `chk_campaigns_usage_window` CHECK (((usage_window)::text = ANY ((ARRAY['CAMPAIGN_DATES'::character varying, 'DAYS_AFTER_CONFIRMATION'::character varying])::text[])))
+- CHECK `chk_campaigns_usage_window_days` CHECK ((((usage_window_days IS NULL) OR (usage_window_days >= 1)) AND (((usage_window)::text <> 'DAYS_AFTER_CONFIRMATION'::text) OR (usage_window_days IS NOT NULL))))
 
 **Indexes**
 - `idx_campaigns_active_window` btree (is_active, starts_at, ends_at)
@@ -1162,7 +1174,7 @@
 **Triggers**
 - `trg_campaigns_updated_at` BEFORE UPDATE ON app.campaigns FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `campaign_promoters`.(campaign_id), `campaign_transaction_exceptions`.(campaign_id), `campaign_transaction_links`.(campaign_id), `collection_commission_tiers`.(campaign_id), `commission_bonus_rules`.(campaign_id), `commission_tiers`.(campaign_id), `competitive_commission_rules`.(campaign_id), `hierarchy_override_tiers`.(campaign_id), `memberships`.(campaign_id), `payments`.(campaign_id), `promotions`.(campaign_id)
+**Referenced by** `campaign_promoters`.(campaign_id), `campaign_transaction_exceptions`.(campaign_id), `campaign_transaction_links`.(campaign_id), `collection_commission_tiers`.(campaign_id), `commission_bonus_rules`.(campaign_id), `commission_tiers`.(campaign_id), `competitive_commission_rules`.(campaign_id), `hierarchy_override_tiers`.(campaign_id), `memberships`.(campaign_id), `payments`.(campaign_id), `promotion_redemptions`.(campaign_id), `promotions`.(campaign_id)
 
 ## cities
 
@@ -2874,7 +2886,7 @@
 **Triggers**
 - `trg_membership_promotions_updated_at` BEFORE UPDATE ON app.membership_promotions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `membership_charges`.(membership_promotion_id)
+**Referenced by** `membership_charges`.(membership_promotion_id), `promotion_redemptions`.(membership_promotion_id)
 
 ## memberships
 
@@ -3411,7 +3423,7 @@
 **Triggers**
 - `trg_payments_updated_at` BEFORE UPDATE ON app.payments FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `affiliation_requests`.(payment_id), `beneficiaries`.(inscription_payment_id), `campaign_transaction_exceptions`.(payment_id), `campaign_transaction_links`.(payment_id), `commission_retroactive_topup_cuts`.(payout_payment_id), `commission_retroactive_topups`.(payout_payment_id), `commissions`.(payment_id), `commissions`.(payout_payment_id), `competitive_commission_award_settlements`.(payout_payment_id), `competitive_commission_awards`.(payout_payment_id), `membership_charges`.(covered_by_payment_id), `payment_credit_claims`.(payment_id), `payment_lines`.(payment_id), `person_credit_entries`.(payment_id), `promoter_hierarchy_overrides`.(payout_payment_id), `referrals`.(reward_payment_id)
+**Referenced by** `affiliation_requests`.(payment_id), `beneficiaries`.(inscription_payment_id), `campaign_transaction_exceptions`.(payment_id), `campaign_transaction_links`.(payment_id), `commission_retroactive_topup_cuts`.(payout_payment_id), `commission_retroactive_topups`.(payout_payment_id), `commissions`.(payment_id), `commissions`.(payout_payment_id), `competitive_commission_award_settlements`.(payout_payment_id), `competitive_commission_awards`.(payout_payment_id), `membership_charges`.(covered_by_payment_id), `payment_credit_claims`.(payment_id), `payment_lines`.(payment_id), `person_credit_entries`.(payment_id), `promoter_hierarchy_overrides`.(payout_payment_id), `promotion_redemptions`.(confirmed_by_payment_id), `referrals`.(reward_payment_id)
 
 ## permission_domains
 
@@ -4197,6 +4209,50 @@
 - FK `promotion_plans_plan_id_fkey` FOREIGN KEY (plan_id) REFERENCES plans(plans_id)
 - FK `promotion_plans_promotion_id_fkey` FOREIGN KEY (promotion_id) REFERENCES promotions(promotions_id) ON DELETE CASCADE
 
+## promotion_redemptions
+
+> Cupo de campaña ocupado por una promoción aplicada a una membresía (pendiente, confirmado, vencido o liberado)
+
+**Columns**
+- `promotion_redemptions_id` bigint NOT NULL IDENTITY
+- `uuid` uuid NOT NULL
+- `membership_promotion_id` bigint NOT NULL
+- `promotion_id` bigint NOT NULL
+- `campaign_id` bigint NOT NULL
+- `redemption_status` character varying(20) NOT NULL
+- `reserved_at` timestamp with time zone NOT NULL
+- `confirmed_at` timestamp with time zone
+- `expires_at` timestamp with time zone
+- `usage_ends_at` timestamp with time zone
+- `released_at` timestamp with time zone
+- `confirmed_by_payment_id` bigint
+- `is_active` boolean NOT NULL DEFAULT true
+- `status` character varying(50)
+- `created_at` timestamp with time zone NOT NULL DEFAULT now()
+- `updated_at` timestamp with time zone NOT NULL DEFAULT now()
+- `created_by` uuid
+- `updated_by` uuid
+
+**Constraints**
+- PK PRIMARY KEY (promotion_redemptions_id)
+- FK `promotion_redemptions_campaign_id_fkey` FOREIGN KEY (campaign_id) REFERENCES campaigns(campaigns_id)
+- FK `promotion_redemptions_confirmed_by_payment_id_fkey` FOREIGN KEY (confirmed_by_payment_id) REFERENCES payments(payments_id)
+- FK `promotion_redemptions_membership_promotion_id_fkey` FOREIGN KEY (membership_promotion_id) REFERENCES membership_promotions(membership_promotions_id)
+- FK `promotion_redemptions_promotion_id_fkey` FOREIGN KEY (promotion_id) REFERENCES promotions(promotions_id)
+- UNIQUE `promotion_redemptions_membership_promotion_id_key` UNIQUE (membership_promotion_id)
+- UNIQUE `promotion_redemptions_uuid_key` UNIQUE (uuid)
+- CHECK `chk_promotion_redemptions_confirmed` CHECK ((((redemption_status)::text <> 'CONFIRMED'::text) OR (confirmed_at IS NOT NULL)))
+- CHECK `chk_promotion_redemptions_released` CHECK ((((redemption_status)::text <> ALL ((ARRAY['EXPIRED'::character varying, 'RELEASED'::character varying])::text[])) OR (released_at IS NOT NULL)))
+- CHECK `chk_promotion_redemptions_status` CHECK (((redemption_status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'EXPIRED'::character varying, 'RELEASED'::character varying])::text[])))
+
+**Indexes**
+- `idx_promotion_redemptions_campaign_status` btree (campaign_id, redemption_status)
+- `idx_promotion_redemptions_promotion` btree (promotion_id)
+- `idx_promotion_redemptions_status_expires` btree (redemption_status, expires_at)
+
+**Triggers**
+- `trg_promotion_redemptions_updated_at` BEFORE UPDATE ON app.promotion_redemptions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
 ## promotions
 
 **Columns**
@@ -4254,7 +4310,7 @@
 **Triggers**
 - `trg_promotions_updated_at` BEFORE UPDATE ON app.promotions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `membership_promotions`.(promotion_id), `promotion_plans`.(promotion_id)
+**Referenced by** `membership_promotions`.(promotion_id), `promotion_plans`.(promotion_id), `promotion_redemptions`.(promotion_id)
 
 ## referrals
 
