@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.sql.Connection;
@@ -32,6 +33,7 @@ import com.fenixcore.optibienestar360.core.branding.BrandingService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.fenixcore.optibienestar360.modules.document.jasper.JasperReportService;
+import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import com.fenixcore.optibienestar360.modules.membership.repository.PlanRepository;
 import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
@@ -63,8 +65,34 @@ public class GenericDocumentController {
     private final PlanRepository planRepository;
     private final SystemConfigService systemConfigService;
     private final BrandingService brandingService;
+    private final UserRepository userRepository;
 
     @Autowired
+    public GenericDocumentController(
+            GenericRecordReportService recordReportService,
+            GenericRecordResolverService recordResolverService,
+            MessageSource messageSource,
+            ReportAuditService reportAuditService,
+            JasperReportService jasperReportService,
+            DataSource dataSource,
+            PromoterRepository promoterRepository,
+            PlanRepository planRepository,
+            SystemConfigService systemConfigService,
+            ObjectProvider<BrandingService> brandingServiceProvider,
+            UserRepository userRepository
+    ) {
+        this.recordReportService = recordReportService;
+        this.recordResolverService = recordResolverService;
+        this.messageSource = messageSource;
+        this.reportAuditService = reportAuditService;
+        this.jasperReportService = jasperReportService;
+        this.dataSource = dataSource;
+        this.promoterRepository = promoterRepository;
+        this.planRepository = planRepository;
+        this.systemConfigService = systemConfigService;
+        this.brandingService = brandingServiceProvider != null ? brandingServiceProvider.getIfAvailable() : null;
+        this.userRepository = userRepository;
+    }
 
     public GenericDocumentController(
             GenericRecordReportService recordReportService,
@@ -78,16 +106,7 @@ public class GenericDocumentController {
             SystemConfigService systemConfigService,
             ObjectProvider<BrandingService> brandingServiceProvider
     ) {
-        this.recordReportService = recordReportService;
-        this.recordResolverService = recordResolverService;
-        this.messageSource = messageSource;
-        this.reportAuditService = reportAuditService;
-        this.jasperReportService = jasperReportService;
-        this.dataSource = dataSource;
-        this.promoterRepository = promoterRepository;
-        this.planRepository = planRepository;
-        this.systemConfigService = systemConfigService;
-        this.brandingService = brandingServiceProvider != null ? brandingServiceProvider.getIfAvailable() : null;
+        this(recordReportService, recordResolverService, messageSource, reportAuditService, jasperReportService, dataSource, promoterRepository, planRepository, systemConfigService, brandingServiceProvider, null);
     }
 
     public GenericDocumentController(
@@ -115,7 +134,8 @@ public class GenericDocumentController {
     @PostMapping("/generic")
 	@PreAuthorize("hasAnyAuthority('REPORT_REPORT_GENERATE', 'USER_REPORT_GENERATE', 'MEMBER_REPORT_GENERATE', 'ALLY_REPORT_GENERATE', 'PLAN_REPORT_GENERATE', 'MEMBERSHIP_REPORT_GENERATE', 'PAYMENT_REPORT_GENERATE', 'COLLECTION_REPORT_GENERATE', 'PROMOTER_REPORT_GENERATE', 'COMMISSION_REPORT_GENERATE', 'REFERRAL_REPORT_GENERATE', 'CAMPAIGN_REPORT_GENERATE')")
     @Operation(summary = "Genera un reporte o ficha genérica en PDF o XLSX para cualquier payload de registro")
-    public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request) {
+    public ResponseEntity<byte[]> generateGenericDocument(@RequestBody GenericReportRequest request,
+                                                          @AuthenticationPrincipal CustomUserDetails actor) {
         if (request.data() == null || request.data().isEmpty()) {
             throw new NoSuchElementException("report.error.no_data");
         }
@@ -131,7 +151,7 @@ public class GenericDocumentController {
                 request.title(),
                 request.subtitle(),
                 safeIdentifier,
-                resolveGeneratedBy(null),
+                resolveGeneratedBy(actor),
                 selectedFormat
         );
 
@@ -603,8 +623,24 @@ public class GenericDocumentController {
         }
     }
 
+    /**
+     * Name printed as "Generado por" on the document. A JWT principal carries only the user's UUID
+     * (its {@code getUsername()} is that UUID), so the readable name is looked up: the person's full
+     * name, else the login email. The raw UUID is never printed; without a resolvable user the
+     * document falls back to the system-user label.
+     */
     private String resolveGeneratedBy(CustomUserDetails actor) {
-        if (actor != null && actor.getUsername() != null && !actor.getUsername().isBlank()) {
+        if (actor != null && actor.getUuid() != null && userRepository != null) {
+            try {
+                Optional<String> name = userRepository.findDisplayNameByUuid(actor.getUuid());
+                if (name.isPresent() && !name.get().isBlank()) {
+                    return name.get().trim();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (actor != null && actor.getUsername() != null && !actor.getUsername().isBlank()
+                && !UUID_PATTERN.matcher(actor.getUsername()).matches()) {
             return actor.getUsername();
         }
         if (messageSource != null) {

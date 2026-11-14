@@ -452,7 +452,7 @@ class GenericDocumentControllerJasperTest {
 
         var request = new GenericDocumentController.GenericReportRequest("Title", "Subtitle", "ID", "PDF", Map.of());
         var ex = assertThrows(java.util.NoSuchElementException.class, () ->
-                controller.generateGenericDocument(request)
+                controller.generateGenericDocument(request, null)
         );
         assertEquals("report.error.no_data", ex.getMessage());
     }
