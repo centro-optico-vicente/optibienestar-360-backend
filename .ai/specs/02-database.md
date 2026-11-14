@@ -20,7 +20,7 @@ Ver [hub `05-domain-model.md`](https://github.com/centro-optico-vicente/centro-o
 | `V2__base_audit_function.sql` | función `set_updated_at()` |
 | `V3__app_roles.sql` | DB roles `optibienestar360_migration`/`optibienestar360_app`/`optibienestar360_readonly` con CONNECTION LIMIT + statement_timeout + idle_in_transaction_timeout; REVOKE PUBLIC; ALTER ROLE search_path |
 | `V4__contact_messages.sql` | contact_messages (landing) |
-| `V5__users_and_roles.sql` | security_policies, roles, **permission_domains** (10 seed), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log |
+| `V5__users_and_roles.sql` | security_policies, roles, **permission_domains** (10 seed), permissions (con `domain_id` FK), users, user_password_history, user_roles, role_permissions, user_sessions_log _(retirada en V248)_ |
 | `V6__seed_roles.sql` | 7 roles + 50 permisos (incluye `ROLE_PERMISSION_EDIT`) + asignación rol→permisos + security_policies default |
 | `V7__seed_users.sql` | 2 usuarios seed (System, Administrador) |
 | `V8__locations.sql` | countries, states, cities (seed Venezuela 24 estados + capitales) |

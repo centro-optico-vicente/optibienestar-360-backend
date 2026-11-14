@@ -81,8 +81,12 @@ BEGIN
            AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
         IF rc.atttypid = 'date'::regtype THEN
+            -- A day of slack each side: a migration may derive a date in the
+            -- business timezone (e.g. promoters.joined_at from created_at AT TIME
+            -- ZONE 'America/Caracas'), which differs from the UTC run date
+            -- between 20:00 and 24:00 Caracas time.
             EXECUTE format('UPDATE app.%1$I SET %2$I = %3$L::date WHERE %2$I BETWEEN %4$L::date AND %5$L::date',
-                           rc.relname, rc.attname, epoch, lo, hi);
+                           rc.relname, rc.attname, epoch, lo - interval '1 day', hi + interval '1 day');
         ELSE
             EXECUTE format('UPDATE app.%1$I SET %2$I = %3$L WHERE %2$I::timestamptz BETWEEN %4$L AND %5$L',
                            rc.relname, rc.attname, epoch, lo, hi);

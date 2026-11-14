@@ -102,7 +102,7 @@ CREATE TABLE login_audit_log
     ip_address          INET,
     user_agent          VARCHAR(500),
     hostname            VARCHAR(255),        -- best-effort
-    jti                 VARCHAR(36),         -- solo SUCCESS; enlaza (sin FK física) con user_sessions_log.jti
+    jti                 VARCHAR(36),         -- solo SUCCESS; jti del access token de la sesión
     failure_reason      VARCHAR(255),
     session_status      VARCHAR(20)          -- ACTIVE | LOGGED_OUT | EXPIRED | REVOKED (histórico/reportes)
         CONSTRAINT chk_login_audit_session_status
@@ -266,7 +266,9 @@ Aplicación en servicios (`AlliesService`, `MembersService`, extensible al resto
 - **Éxito** → `startSession(...)` inserta la fila **antes** de generar los tokens (`session_status=ACTIVE`, `session_expires_at = now() + system_configs.login_session_expiration_days` (configurable sin redeploy, default 30 — independiente de `jwt.refresh-expiration-days`, que solo controla el TTL del propio JWT), `roles`/`locale` como snapshot), devolviendo su `uuid` como `sid`; `JwtService.generateAccessToken`/`generateRefreshToken` ganan un parámetro `sessionId` que se embebe como claim `sid` (ambos tokens). Una vez generado el access token, `attachJti(sid, accessJti)` completa la fila. `refresh()` extrae el `sid` del refresh token entrante y lo propaga a los tokens reemitidos (misma sesión, no una nueva); `updateMyLocale` hace lo mismo vía `principal.getSessionId()` (nuevo campo en `CustomUserDetails`, poblado por `JwtAuthenticationFilter` desde el claim).
 - **`login_audit_enabled=false`** (override global, Decisión 8): `startSession`/`recordFailure` no insertan nada; los tokens se emiten sin claim `sid`. `JwtAuthenticationFilter` trata la ausencia de `sid` como "nada que verificar" (nunca rechaza por eso) — el blacklist de `jti` sigue siendo la garantía de seguridad independiente.
 
-`user_sessions_log` no se reemplaza — sigue siendo el registro operativo de sesiones vivas (`AuthService.logout()` sigue cerrándolo igual que antes).
+`user_sessions_log` se retiró en **V248**: duplicaba un subconjunto de `login_audit_log` (`login_locale`→`locale`, `login_at`→`attempted_at`, `logout_at`→`logged_out_at`), nadie la leía y nunca marcaba sesiones vencidas. `login_audit_log` es el único registro de sesiones; su CHECK de `logout_reason` vino de ahí. Con `login_audit_enabled=false` no queda registro de sesiones.
+
+**Rendimiento (V248):** `login_audit_log` lleva `fillfactor=90` (cada login exitoso se actualiza justo después del insert por `attachJti`, y otra vez al logout o por el barrido; el espacio libre deja esos UPDATE como HOT). El `?q=` del listado admin es un `LIKE '%…%'` que ningún índice sirve, así que sin `from` se acota a los últimos 90 días (`LoginAuditQueryService.DEFAULT_SEARCH_WINDOW`) y entra por `idx_login_audit_attempted_at`; la IP se busca con el filtro RSQL exacto, no con `q`. Siguiente paso de escalado si la tabla pasa de decenas de millones de filas: particionar por mes de `attempted_at`.
 
 **Chequeo `is_valid` en el hot path** — `JwtAuthenticationFilter` extrae el claim `sid` y llama a `LoginAuditService.isSessionValid(sid)`, respaldado por `LoginSessionValidityCache` (`@Cacheable("login-session")`, TTL 30s, mismo patrón self-invocation-safe que `AuditEntityConfigCache`). Contrato fail-safe: un `sid` desconocido (fila ausente) **sí rechaza** — es una señal legítima de token alterado; solo un error de infraestructura (excepción de BD/cache) falla abierto. Un token sin claim `sid` (auditoría deshabilitada al momento de emitirlo) no se verifica en absoluto.
 

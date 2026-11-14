@@ -3452,10 +3452,11 @@ CREATE TABLE app.login_audit_log (
     attempted_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     active_role_id bigint,
+    CONSTRAINT chk_login_audit_logout_reason CHECK (((logout_reason)::text = ANY ((ARRAY['user_logout'::character varying, 'role_switch'::character varying, 'password_reset'::character varying, 'password_change'::character varying, 'token_expired'::character varying, 'forced'::character varying])::text[]))),
     CONSTRAINT chk_login_audit_result CHECK (((result)::text = ANY ((ARRAY['SUCCESS'::character varying, 'FAILED_CREDENTIALS'::character varying, 'FAILED_LOCKED'::character varying, 'FAILED_INACTIVE'::character varying])::text[]))),
     CONSTRAINT chk_login_audit_session_status CHECK (((session_status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'LOGGED_OUT'::character varying, 'EXPIRED'::character varying, 'REVOKED'::character varying])::text[])))
 )
-WITH (fillfactor='90', autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02');
+WITH (autovacuum_vacuum_scale_factor='0.05', autovacuum_analyze_scale_factor='0.02', fillfactor='90');
 
 --
 -- Name: login_audit_log_login_audit_log_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5975,37 +5976,6 @@ ALTER TABLE app.user_roles ALTER COLUMN user_roles_id ADD GENERATED ALWAYS AS ID
 );
 
 --
--- Name: user_sessions_log; Type: TABLE; Schema: app; Owner: -
---
-
-CREATE TABLE app.user_sessions_log (
-    user_sessions_log_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    jti character varying(36) NOT NULL,
-    ip_address inet NOT NULL,
-    user_agent character varying(500),
-    login_locale character varying(10),
-    login_at timestamp with time zone DEFAULT now() NOT NULL,
-    logout_at timestamp with time zone,
-    logout_reason character varying(50),
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT user_sessions_log_logout_reason_check CHECK (((logout_reason)::text = ANY ((ARRAY['user_logout'::character varying, 'token_expired'::character varying, 'forced'::character varying, 'role_switch'::character varying])::text[])))
-);
-
---
--- Name: user_sessions_log_user_sessions_log_id_seq; Type: SEQUENCE; Schema: app; Owner: -
---
-
-ALTER TABLE app.user_sessions_log ALTER COLUMN user_sessions_log_id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME app.user_sessions_log_user_sessions_log_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
---
 -- Name: users_users_id_seq; Type: SEQUENCE; Schema: app; Owner: -
 --
 
@@ -8144,13 +8114,6 @@ ALTER TABLE ONLY app.user_roles
     ADD CONSTRAINT user_roles_user_id_role_id_key UNIQUE (user_id, role_id);
 
 --
--- Name: user_sessions_log user_sessions_log_pkey; Type: CONSTRAINT; Schema: app; Owner: -
---
-
-ALTER TABLE ONLY app.user_sessions_log
-    ADD CONSTRAINT user_sessions_log_pkey PRIMARY KEY (user_sessions_log_id);
-
---
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -9544,18 +9507,6 @@ CREATE INDEX idx_user_password_history_user_id ON app.user_password_history USIN
 --
 
 CREATE INDEX idx_user_roles_role_id ON app.user_roles USING btree (role_id);
-
---
--- Name: idx_user_sessions_log_open_jti; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_user_sessions_log_open_jti ON app.user_sessions_log USING btree (jti) WHERE (logout_at IS NULL);
-
---
--- Name: idx_user_sessions_log_user_id; Type: INDEX; Schema: app; Owner: -
---
-
-CREATE INDEX idx_user_sessions_log_user_id ON app.user_sessions_log USING btree (user_id);
 
 --
 -- Name: idx_users_default_role; Type: INDEX; Schema: app; Owner: -
@@ -12227,13 +12178,6 @@ ALTER TABLE ONLY app.user_roles
     ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(users_id);
 
 --
--- Name: user_sessions_log user_sessions_log_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
---
-
-ALTER TABLE ONLY app.user_sessions_log
-    ADD CONSTRAINT user_sessions_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(users_id);
-
---
 -- Name: users users_default_role_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -13858,20 +13802,6 @@ GRANT SELECT ON TABLE app.user_roles TO optibienestar360_readonly;
 
 GRANT SELECT,USAGE ON SEQUENCE app.user_roles_user_roles_id_seq TO optibienestar360_app;
 GRANT SELECT,USAGE ON SEQUENCE app.user_roles_user_roles_id_seq TO optibienestar360_readonly;
-
---
--- Name: TABLE user_sessions_log; Type: ACL; Schema: app; Owner: -
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE app.user_sessions_log TO optibienestar360_app;
-GRANT SELECT ON TABLE app.user_sessions_log TO optibienestar360_readonly;
-
---
--- Name: SEQUENCE user_sessions_log_user_sessions_log_id_seq; Type: ACL; Schema: app; Owner: -
---
-
-GRANT SELECT,USAGE ON SEQUENCE app.user_sessions_log_user_sessions_log_id_seq TO optibienestar360_app;
-GRANT SELECT,USAGE ON SEQUENCE app.user_sessions_log_user_sessions_log_id_seq TO optibienestar360_readonly;
 
 --
 -- Name: SEQUENCE users_users_id_seq; Type: ACL; Schema: app; Owner: -

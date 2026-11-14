@@ -18,9 +18,6 @@ import java.time.Instant;
  *       Rows still pending or retrying are never touched.</li>
  *   <li>{@code scheduled_job_runs}: finished job runs. A {@code RUNNING} row is the
  *       concurrency guard, so it is never touched.</li>
- *   <li>{@code user_sessions_log}: legacy per-login rows, superseded by
- *       {@code login_audit_log} (the session record, which stays). Closed sessions,
- *       or never-closed ones logged in before the cutoff.</li>
  *   <li>{@code file_download_links}: links already expired or revoked before the cutoff.</li>
  * </ul>
  *
@@ -57,15 +54,6 @@ public class OperationalLogRetentionService {
                 DELETE FROM scheduled_job_runs WHERE scheduled_job_runs_id IN (
                     SELECT scheduled_job_runs_id FROM scheduled_job_runs
                     WHERE outcome <> 'RUNNING' AND started_at < :cutoff
-                    LIMIT :batch)
-                """, cutoff);
-    }
-
-    public int purgeSessionLog(Instant cutoff) {
-        return purge("user_sessions_log", """
-                DELETE FROM user_sessions_log WHERE user_sessions_log_id IN (
-                    SELECT user_sessions_log_id FROM user_sessions_log
-                    WHERE COALESCE(logout_at, login_at) < :cutoff
                     LIMIT :batch)
                 """, cutoff);
     }

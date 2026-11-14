@@ -141,7 +141,7 @@ Si esto pasa:
 @Column(unique = true, columnDefinition = "citext")
 private String email;
 
-// INET (IPv4/IPv6, ej. user_sessions_log.ip_address)
+// INET (IPv4/IPv6, ej. login_audit_log.ip_address)
 @Column(name = "ip_address", nullable = false, columnDefinition = "inet")
 private String ipAddress;
 

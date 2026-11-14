@@ -20,6 +20,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,16 @@ public class LoginAuditQueryService {
 
     public static final int MAX_PAGE_SIZE = 200;
 
+    /**
+     * Window a free-text {@code ?q=} search is bounded to when the caller gives no
+     * {@code from}. The search is a {@code LIKE '%…%'} that no index can serve, and
+     * this table gets a row per login attempt: unbounded, it would read the whole
+     * history on every keystroke. Bounded, the planner reaches the window through
+     * {@code idx_login_audit_attempted_at} and only scans those rows. An explicit
+     * {@code from} (or an RSQL date filter) still searches any range.
+     */
+    static final Duration DEFAULT_SEARCH_WINDOW = Duration.ofDays(90);
+
     private static final Set<String> ALLOWED_FILTER_FIELDS = Set.of(
             "attemptedEmail", "result", "userId", "sessionStatus", "valid", "attemptedAt", "createdAt"
     );
@@ -48,6 +60,7 @@ public class LoginAuditQueryService {
     private final UserRepository userRepository;
     private final MessageSource messageSource;
     private final DefaultSortResolver defaultSortResolver;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public Page<LoginAuditLogDto> list(Pageable pageable, UUID uuid, String email, UUID userUuid, LoginAuditResult result,
@@ -89,8 +102,14 @@ public class LoginAuditQueryService {
         }
 
         if (q != null && !q.isBlank()) {
+            // ipAddress is left out: casting inet to text rules out any index, and
+            // an IP is searched exactly with the RSQL filter instead.
             spec = spec.and(SearchSpecifications.acrossFields(q,
-                    "attemptedEmail", "ipAddress", "hostname", "userAgent", "failureReason"));
+                    "attemptedEmail", "hostname", "userAgent", "failureReason"));
+            if (from == null) {
+                Instant windowStart = Instant.now(clock).minus(DEFAULT_SEARCH_WINDOW);
+                spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("attemptedAt"), windowStart));
+            }
         }
 
         Pageable defaultedPageable = defaultSortResolver.withDefaultSortIfUnsorted("login_audit_log", pageable);

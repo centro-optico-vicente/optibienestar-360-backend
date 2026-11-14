@@ -1830,6 +1830,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 237	244	operational log retention job	SQL	V244__operational_log_retention_job.sql	661983863	snapshot	2026-01-01 00:00:00	0	t
 238	246	rate dates use value date	SQL	V246__rate_dates_use_value_date.sql	1886350107	snapshot	2026-01-01 00:00:00	0	t
 239	247	seed demo users by segment	SQL	V247__seed_demo_users_by_segment.sql	582982516	snapshot	2026-01-01 00:00:00	0	t
+240	248	retire user sessions log	SQL	V248__retire_user_sessions_log.sql	677190198	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -3803,7 +3804,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 17	d7c21522-7d38-493f-0714-5134fae371e2	CREDIT_AUTO_APPLY	Aplicación automática de saldo a favor	Cubre con el saldo a favor de la persona los meses completos de las membresías ACTIVE, del más antiguo al más nuevo, sin cobros parciales.	0 30 2 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 18	1aa1309b-e6fb-702b-b2ae-ed22717fad83	MEMBERSHIP_TERM_RENEWAL	Renovación de vigencia de membresías	Renueva automáticamente la vigencia de las membresías vencidas; si el plan exige reinscripción, deja la membresía SUSPENDED hasta que se aplique un pago de inscripción aprobado.	0 30 1 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 19	380ffac9-dda0-14c8-fbcd-2c953f230316	REGISTRATION_DRAFT_CLEANUP	Limpieza de borradores de registro abandonados	Descarta los registros de afiliado y aliado que siguen en borrador (sin enviar a revisión) tras los días de retención configurados; libera su cédula y correo. Nunca toca lo ya enviado.	0 15 3 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
-20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs, el log de sesiones legado y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "sessionLogDays": 180, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
+20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -3912,17 +3913,6 @@ COPY app.user_roles (user_roles_id, user_id, role_id, assigned_by, expires_at, i
 \.
 
 ALTER TABLE app.user_roles ENABLE TRIGGER ALL;
-
---
--- Data for Name: user_sessions_log; Type: TABLE DATA; Schema: app; Owner: -
---
-
-ALTER TABLE app.user_sessions_log DISABLE TRIGGER ALL;
-
-COPY app.user_sessions_log (user_sessions_log_id, user_id, jti, ip_address, user_agent, login_locale, login_at, logout_at, logout_reason, created_at) FROM stdin;
-\.
-
-ALTER TABLE app.user_sessions_log ENABLE TRIGGER ALL;
 
 --
 -- Name: affiliation_request_logs_affiliation_request_logs_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4583,12 +4573,6 @@ SELECT pg_catalog.setval('app.user_password_history_user_password_history_id_seq
 --
 
 SELECT pg_catalog.setval('app.user_roles_user_roles_id_seq', 2, true);
-
---
--- Name: user_sessions_log_user_sessions_log_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
---
-
-SELECT pg_catalog.setval('app.user_sessions_log_user_sessions_log_id_seq', 1, false);
 
 --
 -- Name: users_users_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
