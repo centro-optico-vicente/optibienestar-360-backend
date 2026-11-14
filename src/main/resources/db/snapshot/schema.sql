@@ -6153,6 +6153,73 @@ ALTER TABLE app.terms_versions ALTER COLUMN terms_versions_id ADD GENERATED ALWA
 );
 
 --
+-- Name: user_notifications; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.user_notifications (
+    user_notifications_id bigint NOT NULL,
+    uuid uuid DEFAULT gen_random_uuid() NOT NULL,
+    recipient_user_id bigint NOT NULL,
+    type character varying(80) NOT NULL,
+    category character varying(30) NOT NULL,
+    severity character varying(20) DEFAULT 'INFO'::character varying NOT NULL,
+    params jsonb DEFAULT '{}'::jsonb NOT NULL,
+    fallback_title character varying(200) NOT NULL,
+    fallback_body text,
+    action_url character varying(500),
+    source_module character varying(40),
+    source_entity_uuid uuid,
+    dedup_key character varying(200),
+    read_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    is_active boolean DEFAULT true NOT NULL,
+    status character varying(50) DEFAULT 'ACTIVE'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    CONSTRAINT user_notifications_category_check CHECK (((category)::text = ANY ((ARRAY['ACCOUNT'::character varying, 'PAYMENTS'::character varying, 'COMMISSIONS'::character varying, 'MEMBERSHIP'::character varying, 'NETWORK'::character varying, 'CELEBRATIONS'::character varying])::text[]))),
+    CONSTRAINT user_notifications_severity_check CHECK (((severity)::text = ANY ((ARRAY['INFO'::character varying, 'SUCCESS'::character varying, 'WARNING'::character varying, 'ERROR'::character varying])::text[])))
+);
+
+--
+-- Name: TABLE user_notifications; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON TABLE app.user_notifications IS 'In-app notification inbox, one row per recipient user (hub ADR 0039)';
+
+--
+-- Name: COLUMN user_notifications.type; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.user_notifications.type IS 'Open notification type code, e.g. REGISTRATION_APPROVED';
+
+--
+-- Name: COLUMN user_notifications.params; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.user_notifications.params IS 'Values the frontend interpolates into the i18n text of the type';
+
+--
+-- Name: COLUMN user_notifications.dedup_key; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.user_notifications.dedup_key IS 'Idempotency key per recipient and type; NULL = no dedup';
+
+--
+-- Name: user_notifications_user_notifications_id_seq; Type: SEQUENCE; Schema: app; Owner: -
+--
+
+ALTER TABLE app.user_notifications ALTER COLUMN user_notifications_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME app.user_notifications_user_notifications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+--
 -- Name: user_password_history; Type: TABLE; Schema: app; Owner: -
 --
 
@@ -8367,6 +8434,20 @@ ALTER TABLE ONLY app.subsidy_beneficiaries
     ADD CONSTRAINT uq_subsidy_beneficiaries UNIQUE (subsidy_id, beneficiary_id);
 
 --
+-- Name: user_notifications user_notifications_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.user_notifications
+    ADD CONSTRAINT user_notifications_pkey PRIMARY KEY (user_notifications_id);
+
+--
+-- Name: user_notifications user_notifications_uuid_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.user_notifications
+    ADD CONSTRAINT user_notifications_uuid_key UNIQUE (uuid);
+
+--
 -- Name: user_password_history user_password_history_pkey; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -9843,6 +9924,12 @@ CREATE INDEX idx_terms_versions_scope_valid_from ON app.terms_versions USING btr
 CREATE INDEX idx_terms_versions_type_valid_from ON app.terms_versions USING btree (term_type, valid_from DESC);
 
 --
+-- Name: idx_user_notifications_inbox; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_user_notifications_inbox ON app.user_notifications USING btree (recipient_user_id, read_at, created_at DESC);
+
+--
 -- Name: idx_user_password_history_user_id; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -10081,6 +10168,12 @@ CREATE UNIQUE INDEX uq_terms_acceptances_user_version ON app.terms_acceptances U
 --
 
 CREATE UNIQUE INDEX uq_terms_acceptances_user_version_agreement ON app.terms_acceptances USING btree (user_id, terms_versions_id, ally_agreement_id) WHERE (ally_agreement_id IS NOT NULL);
+
+--
+-- Name: uq_user_notifications_dedup; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_user_notifications_dedup ON app.user_notifications USING btree (recipient_user_id, type, dedup_key) WHERE (dedup_key IS NOT NULL);
 
 --
 -- Name: affiliation_requests trg_affiliation_requests_updated_at; Type: TRIGGER; Schema: app; Owner: -
@@ -10645,6 +10738,12 @@ CREATE TRIGGER trg_terms_acceptances_updated_at BEFORE UPDATE ON app.terms_accep
 --
 
 CREATE TRIGGER trg_terms_versions_updated_at BEFORE UPDATE ON app.terms_versions FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+--
+-- Name: user_notifications trg_user_notifications_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER trg_user_notifications_updated_at BEFORE UPDATE ON app.user_notifications FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 --
 -- Name: user_roles trg_user_roles_updated_at; Type: TRIGGER; Schema: app; Owner: -
@@ -12640,6 +12739,13 @@ ALTER TABLE ONLY app.terms_versions
     ADD CONSTRAINT terms_versions_ally_type_id_fkey FOREIGN KEY (ally_type_id) REFERENCES app.ally_types(ally_types_id);
 
 --
+-- Name: user_notifications user_notifications_recipient_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.user_notifications
+    ADD CONSTRAINT user_notifications_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES app.users(users_id);
+
+--
 -- Name: user_password_history user_password_history_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -14285,6 +14391,20 @@ GRANT SELECT ON TABLE app.terms_versions TO optibienestar360_readonly;
 
 GRANT SELECT,USAGE ON SEQUENCE app.terms_versions_terms_versions_id_seq TO optibienestar360_app;
 GRANT SELECT,USAGE ON SEQUENCE app.terms_versions_terms_versions_id_seq TO optibienestar360_readonly;
+
+--
+-- Name: TABLE user_notifications; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE app.user_notifications TO optibienestar360_app;
+GRANT SELECT ON TABLE app.user_notifications TO optibienestar360_readonly;
+
+--
+-- Name: SEQUENCE user_notifications_user_notifications_id_seq; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,USAGE ON SEQUENCE app.user_notifications_user_notifications_id_seq TO optibienestar360_app;
+GRANT SELECT,USAGE ON SEQUENCE app.user_notifications_user_notifications_id_seq TO optibienestar360_readonly;
 
 --
 -- Name: TABLE user_password_history; Type: ACL; Schema: app; Owner: -

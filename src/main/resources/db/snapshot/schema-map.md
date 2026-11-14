@@ -1,10 +1,10 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V258. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V259. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
-118 tables.
+119 tables.
 
-`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_benefit_grants` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotion_redemptions` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_password_history` · `user_roles` · `users`
+`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_benefit_grants` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotion_redemptions` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_notifications` · `user_password_history` · `user_roles` · `users`
 
 # Relationships (child → parent)
 
@@ -291,6 +291,7 @@
 - `terms_acceptances`.user_id → `users`.users_id
 - `terms_versions`.ally_id → `allies`.allies_id
 - `terms_versions`.ally_type_id → `ally_types`.ally_types_id
+- `user_notifications`.recipient_user_id → `users`.users_id
 - `user_password_history`.user_id → `users`.users_id
 - `user_roles`.role_id → `roles`.roles_id
 - `user_roles`.user_id → `users`.users_id
@@ -4934,6 +4935,47 @@
 
 **Referenced by** `affiliation_requests`.(terms_versions_id), `ally_agreements`.(terms_version_id), `terms_acceptances`.(terms_versions_id)
 
+## user_notifications
+
+> In-app notification inbox, one row per recipient user (hub ADR 0039)
+
+**Columns**
+- `user_notifications_id` bigint NOT NULL IDENTITY
+- `uuid` uuid NOT NULL DEFAULT gen_random_uuid()
+- `recipient_user_id` bigint NOT NULL
+- `type` character varying(80) NOT NULL — Open notification type code, e.g. REGISTRATION_APPROVED
+- `category` character varying(30) NOT NULL
+- `severity` character varying(20) NOT NULL DEFAULT 'INFO'::character varying
+- `params` jsonb NOT NULL DEFAULT '{}'::jsonb — Values the frontend interpolates into the i18n text of the type
+- `fallback_title` character varying(200) NOT NULL
+- `fallback_body` text
+- `action_url` character varying(500)
+- `source_module` character varying(40)
+- `source_entity_uuid` uuid
+- `dedup_key` character varying(200) — Idempotency key per recipient and type; NULL = no dedup
+- `read_at` timestamp with time zone
+- `expires_at` timestamp with time zone
+- `is_active` boolean NOT NULL DEFAULT true
+- `status` character varying(50) NOT NULL DEFAULT 'ACTIVE'::character varying
+- `created_at` timestamp with time zone NOT NULL DEFAULT now()
+- `updated_at` timestamp with time zone NOT NULL DEFAULT now()
+- `created_by` uuid
+- `updated_by` uuid
+
+**Constraints**
+- PK PRIMARY KEY (user_notifications_id)
+- FK `user_notifications_recipient_user_id_fkey` FOREIGN KEY (recipient_user_id) REFERENCES users(users_id)
+- UNIQUE `user_notifications_uuid_key` UNIQUE (uuid)
+- CHECK `user_notifications_category_check` CHECK (((category)::text = ANY ((ARRAY['ACCOUNT'::character varying, 'PAYMENTS'::character varying, 'COMMISSIONS'::character varying, 'MEMBERSHIP'::character varying, 'NETWORK'::character varying, 'CELEBRATIONS'::character varying])::text[])))
+- CHECK `user_notifications_severity_check` CHECK (((severity)::text = ANY ((ARRAY['INFO'::character varying, 'SUCCESS'::character varying, 'WARNING'::character varying, 'ERROR'::character varying])::text[])))
+
+**Indexes**
+- `idx_user_notifications_inbox` btree (recipient_user_id, read_at, created_at DESC)
+- `uq_user_notifications_dedup` UNIQUE btree (recipient_user_id, type, dedup_key) WHERE (dedup_key IS NOT NULL)
+
+**Triggers**
+- `trg_user_notifications_updated_at` BEFORE UPDATE ON app.user_notifications FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
 ## user_password_history
 
 **Columns**
@@ -5018,7 +5060,7 @@
 **Triggers**
 - `trg_users_updated_at` BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `campaigns`.(closed_by_user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
+**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `campaigns`.(closed_by_user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_notifications`.(recipient_user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
 
 # Views
 
