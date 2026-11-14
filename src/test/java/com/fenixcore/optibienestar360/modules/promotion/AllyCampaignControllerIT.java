@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.promotion.dto.AllyPartnershipCampaignDto;
 import com.fenixcore.optibienestar360.modules.promotion.service.AllyPartnershipService;
 import com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService;
+import com.fenixcore.optibienestar360.modules.terms.service.TermsAcceptanceService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,10 @@ class AllyCampaignControllerIT {
 
     @MockitoBean
     private MembershipBenefitGrantService grantService;
+
+    /** Ally portal gate ({@code TermsGateInterceptor}) asks it for pending contracts; this IT has no real database. */
+    @MockitoBean
+    private TermsAcceptanceService termsAcceptanceService;
 
     private MockMvc mockMvc;
 
