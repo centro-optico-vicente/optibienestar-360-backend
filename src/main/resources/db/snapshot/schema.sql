@@ -1461,6 +1461,7 @@ CREATE TABLE app.benefit_usages (
     copay_amount_converted numeric(14,2),
     copay_exchange_rate numeric(18,8),
     exchange_rate_date date,
+    benefit_grant_id bigint,
     CONSTRAINT benefit_usages_status_check CHECK (((status)::text = ANY ((ARRAY['REGISTERED'::character varying, 'REVERSED'::character varying, 'DISPUTED'::character varying])::text[]))),
     CONSTRAINT chk_benefit_usages_ally_rating_range CHECK (((ally_rating IS NULL) OR ((ally_rating >= 1) AND (ally_rating <= 5)))),
     CONSTRAINT chk_benefit_usages_consumption_converted_paired CHECK (((consumption_amount_converted IS NULL) = (consumption_exchange_rate IS NULL))),
@@ -1691,6 +1692,8 @@ CREATE TABLE app.campaigns (
     pending_ttl_days integer,
     usage_window character varying(30) DEFAULT 'CAMPAIGN_DATES'::character varying NOT NULL,
     usage_window_days integer,
+    ally_id bigint,
+    allows_ally_partnership boolean DEFAULT false NOT NULL,
     CONSTRAINT campaigns_target_amount_currency_xor CHECK ((((target_amount IS NULL) AND (target_amount_currency_id IS NULL)) OR ((target_amount IS NOT NULL) AND (target_amount_currency_id IS NOT NULL)))),
     CONSTRAINT chk_campaigns_at_end_requires_ends_at CHECK (((NOT (evaluate_only_at_end OR pay_only_at_end)) OR (ends_at IS NOT NULL))),
     CONSTRAINT chk_campaigns_close_on_end_date CHECK (((NOT close_on_end_date) OR (ends_at IS NOT NULL))),
@@ -3794,6 +3797,59 @@ ALTER TABLE app.members ALTER COLUMN members_id ADD GENERATED ALWAYS AS IDENTITY
 );
 
 --
+-- Name: membership_benefit_grants; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.membership_benefit_grants (
+    membership_benefit_grants_id bigint NOT NULL,
+    uuid uuid NOT NULL,
+    membership_promotion_id bigint NOT NULL,
+    membership_id bigint NOT NULL,
+    promotion_id bigint NOT NULL,
+    ally_id bigint NOT NULL,
+    ally_product_id bigint NOT NULL,
+    benefit_type character varying(20) NOT NULL,
+    benefit_pct numeric(5,2),
+    benefit_amount numeric(18,2),
+    benefit_currency_id bigint,
+    quantity integer NOT NULL,
+    remaining_qty integer NOT NULL,
+    grant_status character varying(20) NOT NULL,
+    granted_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone,
+    redeemed_at timestamp with time zone,
+    is_active boolean DEFAULT true NOT NULL,
+    status character varying(50),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    CONSTRAINT chk_membership_benefit_grants_qty CHECK (((quantity >= 1) AND (remaining_qty >= 0) AND (remaining_qty <= quantity))),
+    CONSTRAINT chk_membership_benefit_grants_redeemed CHECK ((((grant_status)::text <> 'REDEEMED'::text) OR ((redeemed_at IS NOT NULL) AND (remaining_qty = 0)))),
+    CONSTRAINT chk_membership_benefit_grants_status CHECK (((grant_status)::text = ANY ((ARRAY['AVAILABLE'::character varying, 'REDEEMED'::character varying, 'EXPIRED'::character varying, 'CANCELED'::character varying])::text[]))),
+    CONSTRAINT chk_membership_benefit_grants_type CHECK (((benefit_type)::text = ANY ((ARRAY['FREE'::character varying, 'PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))
+);
+
+--
+-- Name: TABLE membership_benefit_grants; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON TABLE app.membership_benefit_grants IS 'Vale de un aliado que recibe el afiliado al confirmarse su cupo en una campaña';
+
+--
+-- Name: membership_benefit_grants_membership_benefit_grants_id_seq; Type: SEQUENCE; Schema: app; Owner: -
+--
+
+ALTER TABLE app.membership_benefit_grants ALTER COLUMN membership_benefit_grants_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME app.membership_benefit_grants_membership_benefit_grants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+--
 -- Name: membership_charges; Type: TABLE; Schema: app; Owner: -
 --
 
@@ -3876,6 +3932,8 @@ CREATE TABLE app.membership_promotions (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
     updated_by uuid,
+    benefit_kind character varying(20) DEFAULT 'DISCOUNT'::character varying NOT NULL,
+    CONSTRAINT chk_membership_promotions_benefit_kind CHECK (((benefit_kind)::text = ANY ((ARRAY['DISCOUNT'::character varying, 'ALLY_BENEFIT'::character varying])::text[]))),
     CONSTRAINT chk_membership_promotions_cycles CHECK (((cycles_remaining IS NULL) OR (cycles_remaining >= 0))),
     CONSTRAINT chk_membership_promotions_ended CHECK ((((status)::text = 'ACTIVE'::text) OR (ended_at IS NOT NULL))),
     CONSTRAINT chk_membership_promotions_origin CHECK (((origin)::text = ANY ((ARRAY['ENROLLMENT'::character varying, 'ADMIN'::character varying])::text[]))),
@@ -5317,7 +5375,7 @@ CREATE TABLE app.promotions (
     description text,
     kind character varying(20) NOT NULL,
     discount_pct numeric(5,2),
-    applies_to character varying(20) NOT NULL,
+    applies_to character varying(20),
     cycles integer,
     covers_extra_beneficiaries boolean DEFAULT false NOT NULL,
     max_redemptions integer,
@@ -5339,11 +5397,23 @@ CREATE TABLE app.promotions (
     discount_currency_id bigint,
     own_quota boolean DEFAULT false NOT NULL,
     confirmed_count integer DEFAULT 0 NOT NULL,
+    benefit_kind character varying(20) DEFAULT 'DISCOUNT'::character varying NOT NULL,
+    ally_id bigint,
+    created_by_ally boolean DEFAULT false NOT NULL,
+    ally_product_id bigint,
+    benefit_type character varying(20),
+    benefit_pct numeric(5,2),
+    benefit_amount numeric(18,2),
+    benefit_currency_id bigint,
+    benefit_quantity integer DEFAULT 1 NOT NULL,
     CONSTRAINT chk_promotions_applies_to CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[]))),
+    CONSTRAINT chk_promotions_benefit_coherence CHECK (((((benefit_kind)::text = 'DISCOUNT'::text) AND (applies_to IS NOT NULL) AND (ally_product_id IS NULL) AND (benefit_type IS NULL) AND (benefit_pct IS NULL) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL) AND ((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL)))) OR (((benefit_kind)::text = 'ALLY_BENEFIT'::text) AND ((kind)::text = 'ACQUISITION'::text) AND (ally_id IS NOT NULL) AND (ally_product_id IS NOT NULL) AND (benefit_type IS NOT NULL) AND (discount_pct IS NULL) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL) AND ((((benefit_type)::text = 'FREE'::text) AND (benefit_pct IS NULL) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL)) OR (((benefit_type)::text = 'PERCENTAGE'::text) AND (benefit_pct IS NOT NULL) AND (benefit_pct > (0)::numeric) AND (benefit_pct <= (100)::numeric) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL)) OR (((benefit_type)::text = 'FLAT'::text) AND (benefit_amount IS NOT NULL) AND (benefit_amount > (0)::numeric) AND (benefit_currency_id IS NOT NULL) AND (benefit_pct IS NULL)))))),
+    CONSTRAINT chk_promotions_benefit_kind CHECK (((benefit_kind)::text = ANY ((ARRAY['DISCOUNT'::character varying, 'ALLY_BENEFIT'::character varying])::text[]))),
+    CONSTRAINT chk_promotions_benefit_quantity CHECK ((benefit_quantity >= 1)),
+    CONSTRAINT chk_promotions_benefit_type CHECK (((benefit_type IS NULL) OR ((benefit_type)::text = ANY ((ARRAY['FREE'::character varying, 'PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))),
     CONSTRAINT chk_promotions_code_owner CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code)),
     CONSTRAINT chk_promotions_confirmed_count CHECK (((confirmed_count >= 0) AND (confirmed_count <= redemptions_count))),
     CONSTRAINT chk_promotions_cycles CHECK (((cycles IS NULL) OR (cycles >= 1))),
-    CONSTRAINT chk_promotions_discount_coherence CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL)))),
     CONSTRAINT chk_promotions_discount_type CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[]))),
     CONSTRAINT chk_promotions_kind CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[]))),
     CONSTRAINT chk_promotions_max_redemptions CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1))),
@@ -5376,6 +5446,18 @@ COMMENT ON COLUMN app.promotions.discount_currency_id IS 'Moneda del monto fijo;
 --
 
 COMMENT ON COLUMN app.promotions.own_quota IS 'La promoción cuenta su propio cupo (max_redemptions) además del cupo de la campaña';
+
+--
+-- Name: COLUMN promotions.benefit_kind; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.benefit_kind IS 'DISCOUNT (descuento sobre inscripción/mensualidad) o ALLY_BENEFIT (vale de un aliado)';
+
+--
+-- Name: COLUMN promotions.created_by_ally; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.created_by_ally IS 'La línea la propuso el aliado desde su portal (campaña con alianza)';
 
 --
 -- Name: promotions_promotions_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -7358,6 +7440,27 @@ ALTER TABLE ONLY app.members
     ADD CONSTRAINT members_uuid_key UNIQUE (uuid);
 
 --
+-- Name: membership_benefit_grants membership_benefit_grants_membership_promotion_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_membership_promotion_id_key UNIQUE (membership_promotion_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_pkey PRIMARY KEY (membership_benefit_grants_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_uuid_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_uuid_key UNIQUE (uuid);
+
+--
 -- Name: membership_charges membership_charges_pkey; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -8549,6 +8652,12 @@ CREATE INDEX idx_benefit_usages_ally_rated ON app.benefit_usages USING btree (al
 CREATE INDEX idx_benefit_usages_beneficiary ON app.benefit_usages USING btree (beneficiary_id, usage_date DESC) WHERE (beneficiary_id IS NOT NULL);
 
 --
+-- Name: idx_benefit_usages_benefit_grant; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_benefit_usages_benefit_grant ON app.benefit_usages USING btree (benefit_grant_id) WHERE (benefit_grant_id IS NOT NULL);
+
+--
 -- Name: idx_benefit_usages_category_date; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -8613,6 +8722,12 @@ CREATE INDEX idx_campaign_transaction_links_payment ON app.campaign_transaction_
 --
 
 CREATE INDEX idx_campaigns_active_window ON app.campaigns USING btree (is_active, starts_at, ends_at);
+
+--
+-- Name: idx_campaigns_ally; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_campaigns_ally ON app.campaigns USING btree (ally_id) WHERE (ally_id IS NOT NULL);
 
 --
 -- Name: idx_campaigns_exclusivity_group; Type: INDEX; Schema: app; Owner: -
@@ -9033,6 +9148,24 @@ CREATE INDEX idx_members_occupation ON app.members USING btree (occupation_id) W
 --
 
 CREATE INDEX idx_members_promoter_id ON app.members USING btree (promoter_id) WHERE (promoter_id IS NOT NULL);
+
+--
+-- Name: idx_membership_benefit_grants_ally_status; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_membership_benefit_grants_ally_status ON app.membership_benefit_grants USING btree (ally_id, grant_status);
+
+--
+-- Name: idx_membership_benefit_grants_membership_status; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_membership_benefit_grants_membership_status ON app.membership_benefit_grants USING btree (membership_id, grant_status);
+
+--
+-- Name: idx_membership_benefit_grants_promotion; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_membership_benefit_grants_promotion ON app.membership_benefit_grants USING btree (promotion_id);
 
 --
 -- Name: idx_membership_charges_covered_by_payment; Type: INDEX; Schema: app; Owner: -
@@ -9533,6 +9666,12 @@ CREATE INDEX idx_promotion_redemptions_promotion ON app.promotion_redemptions US
 CREATE INDEX idx_promotion_redemptions_status_expires ON app.promotion_redemptions USING btree (redemption_status, expires_at);
 
 --
+-- Name: idx_promotions_ally; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_promotions_ally ON app.promotions USING btree (ally_id) WHERE (ally_id IS NOT NULL);
+
+--
 -- Name: idx_promotions_campaign; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -9887,10 +10026,16 @@ CREATE UNIQUE INDEX uq_exchange_rates_pair_operation_date ON app.exchange_rates 
 CREATE UNIQUE INDEX uq_media_items_one_primary ON app.media_items USING btree (owner_table, owner_uuid) WHERE (is_primary AND is_active);
 
 --
--- Name: uq_membership_promotions_one_active; Type: INDEX; Schema: app; Owner: -
+-- Name: uq_membership_promotions_active_promotion; Type: INDEX; Schema: app; Owner: -
 --
 
-CREATE UNIQUE INDEX uq_membership_promotions_one_active ON app.membership_promotions USING btree (membership_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active);
+CREATE UNIQUE INDEX uq_membership_promotions_active_promotion ON app.membership_promotions USING btree (membership_id, promotion_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active);
+
+--
+-- Name: uq_membership_promotions_one_active_discount; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_membership_promotions_one_active_discount ON app.membership_promotions USING btree (membership_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active AND ((benefit_kind)::text = 'DISCOUNT'::text));
 
 --
 -- Name: uq_memberships_contract_number; Type: INDEX; Schema: app; Owner: -
@@ -10215,6 +10360,12 @@ CREATE TRIGGER trg_member_documents_updated_at BEFORE UPDATE ON app.member_docum
 --
 
 CREATE TRIGGER trg_members_updated_at BEFORE UPDATE ON app.members FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+--
+-- Name: membership_benefit_grants trg_membership_benefit_grants_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER trg_membership_benefit_grants_updated_at BEFORE UPDATE ON app.membership_benefit_grants FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 --
 -- Name: membership_charges trg_membership_charges_updated_at; Type: TRIGGER; Schema: app; Owner: -
@@ -10813,6 +10964,13 @@ ALTER TABLE ONLY app.benefit_usages
     ADD CONSTRAINT benefit_usages_beneficiary_id_fkey FOREIGN KEY (beneficiary_id) REFERENCES app.beneficiaries(beneficiaries_id);
 
 --
+-- Name: benefit_usages benefit_usages_benefit_grant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.benefit_usages
+    ADD CONSTRAINT benefit_usages_benefit_grant_id_fkey FOREIGN KEY (benefit_grant_id) REFERENCES app.membership_benefit_grants(membership_benefit_grants_id);
+
+--
 -- Name: benefit_usages benefit_usages_consumption_currency_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -10902,6 +11060,13 @@ ALTER TABLE ONLY app.campaign_transaction_links
 
 ALTER TABLE ONLY app.campaign_transaction_links
     ADD CONSTRAINT campaign_transaction_links_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES app.payments(payments_id);
+
+--
+-- Name: campaigns campaigns_ally_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.campaigns
+    ADD CONSTRAINT campaigns_ally_id_fkey FOREIGN KEY (ally_id) REFERENCES app.allies(allies_id);
 
 --
 -- Name: campaigns campaigns_closed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
@@ -11583,6 +11748,48 @@ ALTER TABLE ONLY app.members
     ADD CONSTRAINT members_promoter_id_fkey FOREIGN KEY (promoter_id) REFERENCES app.promoters(promoters_id);
 
 --
+-- Name: membership_benefit_grants membership_benefit_grants_ally_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_ally_id_fkey FOREIGN KEY (ally_id) REFERENCES app.allies(allies_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_ally_product_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_ally_product_id_fkey FOREIGN KEY (ally_product_id) REFERENCES app.ally_products(ally_products_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_benefit_currency_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_benefit_currency_id_fkey FOREIGN KEY (benefit_currency_id) REFERENCES app.currencies(currencies_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_membership_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_membership_id_fkey FOREIGN KEY (membership_id) REFERENCES app.memberships(memberships_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_membership_promotion_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_membership_promotion_id_fkey FOREIGN KEY (membership_promotion_id) REFERENCES app.membership_promotions(membership_promotions_id);
+
+--
+-- Name: membership_benefit_grants membership_benefit_grants_promotion_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.membership_benefit_grants
+    ADD CONSTRAINT membership_benefit_grants_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES app.promotions(promotions_id);
+
+--
 -- Name: membership_charges membership_charges_covered_by_payment_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -12218,6 +12425,27 @@ ALTER TABLE ONLY app.promotion_redemptions
 
 ALTER TABLE ONLY app.promotion_redemptions
     ADD CONSTRAINT promotion_redemptions_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES app.promotions(promotions_id);
+
+--
+-- Name: promotions promotions_ally_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotions
+    ADD CONSTRAINT promotions_ally_id_fkey FOREIGN KEY (ally_id) REFERENCES app.allies(allies_id);
+
+--
+-- Name: promotions promotions_ally_product_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotions
+    ADD CONSTRAINT promotions_ally_product_id_fkey FOREIGN KEY (ally_product_id) REFERENCES app.ally_products(ally_products_id);
+
+--
+-- Name: promotions promotions_benefit_currency_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotions
+    ADD CONSTRAINT promotions_benefit_currency_id_fkey FOREIGN KEY (benefit_currency_id) REFERENCES app.currencies(currencies_id);
 
 --
 -- Name: promotions promotions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
@@ -13375,6 +13603,20 @@ GRANT SELECT,USAGE ON SEQUENCE app.member_promoter_assignments_member_promoter_a
 
 GRANT SELECT,USAGE ON SEQUENCE app.members_members_id_seq TO optibienestar360_app;
 GRANT SELECT,USAGE ON SEQUENCE app.members_members_id_seq TO optibienestar360_readonly;
+
+--
+-- Name: TABLE membership_benefit_grants; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE app.membership_benefit_grants TO optibienestar360_app;
+GRANT SELECT ON TABLE app.membership_benefit_grants TO optibienestar360_readonly;
+
+--
+-- Name: SEQUENCE membership_benefit_grants_membership_benefit_grants_id_seq; Type: ACL; Schema: app; Owner: -
+--
+
+GRANT SELECT,USAGE ON SEQUENCE app.membership_benefit_grants_membership_benefit_grants_id_seq TO optibienestar360_app;
+GRANT SELECT,USAGE ON SEQUENCE app.membership_benefit_grants_membership_benefit_grants_id_seq TO optibienestar360_readonly;
 
 --
 -- Name: TABLE membership_charges; Type: ACL; Schema: app; Owner: -
