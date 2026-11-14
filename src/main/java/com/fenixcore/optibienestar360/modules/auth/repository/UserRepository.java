@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,4 +56,13 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
      */
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.role.permissions"})
     Optional<User> findByPerson_DocumentTypeAndPerson_DocumentNumber(String documentType, String documentNumber);
+
+    /**
+     * Clears the sign-in role of every user whose default is {@code roleId}
+     * (used when the role is deactivated: nobody may keep starting with it).
+     * Returns how many users changed.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE User u SET u.defaultRole = null WHERE u.defaultRole.id = :roleId")
+    int clearDefaultRole(@Param("roleId") Long roleId);
 }

@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.modules.auth.dto.AdminUpdateUserRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.MyRoleDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
@@ -108,6 +109,34 @@ class UserServiceMyDefaultRoleTest {
         user.setDefaultRole(role(3L, "OPERADOR"));
         assertThat(userService.getMyEffectiveRoles(userUuid)).extracting(MyRoleDto::name)
                 .containsExactly(RoleNames.ADMINISTRATOR, "ASESOR");
+    }
+
+    @Test
+    void updateUser_droppingTheSignInRoleClearsTheDefault() {
+        Role admin = role(1L, RoleNames.ADMINISTRATOR);
+        Role advisor = role(2L, "ASESOR");
+        UserRole adminPivot = effective(admin);
+        UserRole advisorPivot = effective(advisor);
+        User user = userWith(adminPivot, advisorPivot);
+        user.setDefaultRole(advisor);
+
+        UUID actorUuid = UUID.randomUUID();
+        User actor = new User();
+        actor.setUuid(actorUuid);
+        actor.setUserRoles(new ArrayList<>(List.of(effective(role(3L, RoleNames.ADMINISTRATOR)))));
+
+        when(userRepository.findWithRolesByUuid(userUuid)).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesByUuid(actorUuid)).thenReturn(Optional.of(actor));
+        when(roleRepository.findByUuid(admin.getUuid())).thenReturn(Optional.of(admin));
+        when(userRoleRepository.findByUserId(user.getId())).thenReturn(List.of(adminPivot, advisorPivot));
+
+        // Keep only ADMINISTRATOR: ASESOR is removed, so it can no longer be the sign-in role.
+        AdminUpdateUserRequest request = new AdminUpdateUserRequest(null, null, null, null, null, null, null, null,
+                null, null, null, null, List.of(admin.getUuid()), null);
+        userService.updateUser(userUuid, request, actorUuid);
+
+        assertThat(advisorPivot.isActive()).isFalse();
+        assertThat(user.getDefaultRole()).isNull();
     }
 
     private User userWith(UserRole... assignments) {

@@ -1833,6 +1833,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 240	248	retire user sessions log	SQL	V248__retire_user_sessions_log.sql	677190198	snapshot	2026-01-01 00:00:00	0	t
 241	249	link status	SQL	V249__link_status.sql	1512890983	snapshot	2026-01-01 00:00:00	0	t
 242	250	affiliation request assign promoter permission	SQL	V250__affiliation_request_assign_promoter_permission.sql	-1350594115	snapshot	2026-01-01 00:00:00	0	t
+243	251	clear default role not held	SQL	V251__clear_default_role_not_held.sql	106180069	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;

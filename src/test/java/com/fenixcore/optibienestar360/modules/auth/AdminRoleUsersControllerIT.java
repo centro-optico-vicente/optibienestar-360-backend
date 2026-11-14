@@ -98,7 +98,7 @@ class AdminRoleUsersControllerIT {
     void list_withRoleUserViewAll_returns200() throws Exception {
         UUID roleUuid = UUID.randomUUID();
         when(roleService.listUsers(eq(roleUuid), any(), any())).thenReturn(
-                List.of(new RoleUserDto(UUID.randomUUID(), "a@b.com", "Ana Perez", "ACTIVE", true)));
+                List.of(new RoleUserDto(UUID.randomUUID(), "a@b.com", "Ana Perez", "ACTIVE", true, true)));
 
         mockMvc.perform(get(LIST_URL, roleUuid).with(actorWith("ROLE_USER_VIEW_ALL")))
                 .andExpect(status().isOk())
