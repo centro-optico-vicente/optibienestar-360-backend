@@ -195,6 +195,34 @@ class CampaignLifecycleServiceTest {
         assertThat(reopened.getClosedAt()).isNull();
     }
 
+    @Test
+    void reopen_ofAManualOnlyCampaign_withoutQuotaNorEndDate_needsNothingToEnlarge() {
+        Campaign c = campaign(LifecycleStatus.CLOSED);
+        c.setEndsAt(null);
+        c.setCloseOnEndDate(false);
+        c.setRedemptionsCount(7);
+
+        Campaign reopened = service().reopen(c.getUuid(), new CampaignReopenRequest(null, null));
+
+        assertThat(reopened.getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
+        assertThat(reopened.getMaxRedemptions()).isNull();
+        assertThat(reopened.getClosedAt()).isNull();
+    }
+
+    @Test
+    void reopen_settingAFirstQuota_aboveTheTakenSlots_isAnEnlargement() {
+        Campaign c = campaign(LifecycleStatus.CLOSED);
+        c.setRedemptionsCount(4);
+        c.setConfirmedCount(3);
+
+        assertThatThrownBy(() -> service().reopen(c.getUuid(), new CampaignReopenRequest(4, null)))
+                .hasMessage("campaign.reopen.not_enlarged");
+
+        Campaign reopened = service().reopen(c.getUuid(), new CampaignReopenRequest(5, null));
+        assertThat(reopened.getMaxRedemptions()).isEqualTo(5);
+        assertThat(reopened.getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
+    }
+
     // ─── END_DATE close (job) ───────────────────────────────────────────────
 
     @Test

@@ -93,9 +93,11 @@ public class CampaignLifecycleService {
 
     /**
      * CLOSED → ACTIVE (or SOLD_OUT when still full). Only when the request
-     * enlarges the campaign: a quota above the current one, or an end date
-     * later than now and than the current end. Clears every {@code closed_*}
-     * column.
+     * enlarges the campaign: a quota above the current one (or a first quota
+     * above the slots already taken, for a campaign without one), or an end
+     * date later than now and than the current end. A campaign with neither a
+     * quota nor an end date (closes only by hand) has nothing to enlarge and
+     * reopens as it is. Clears every {@code closed_*} column.
      */
     @Transactional
     public Campaign reopen(UUID uuid, CampaignReopenRequest request) {
@@ -105,11 +107,14 @@ public class CampaignLifecycleService {
 
         Integer newMax = request != null ? request.maxRedemptions() : null;
         OffsetDateTime newEnd = request != null ? request.endsAt() : null;
-        boolean enlargesQuota = newMax != null && campaign.getMaxRedemptions() != null
-                && newMax > campaign.getMaxRedemptions();
+        Integer currentMax = campaign.getMaxRedemptions();
+        boolean enlargesQuota = newMax != null
+                && (currentMax == null ? newMax > campaign.getRedemptionsCount() : newMax > currentMax);
         boolean extendsEnd = newEnd != null && newEnd.isAfter(now) && newEnd.isAfter(campaign.getStartsAt())
                 && (campaign.getEndsAt() == null || newEnd.isAfter(campaign.getEndsAt()));
-        if ((newMax != null && !enlargesQuota) || (newEnd != null && !extendsEnd) || (!enlargesQuota && !extendsEnd)) {
+        boolean unbounded = currentMax == null && campaign.getEndsAt() == null;
+        if ((newMax != null && !enlargesQuota) || (newEnd != null && !extendsEnd)
+                || (!enlargesQuota && !extendsEnd && !unbounded)) {
             throw new IllegalArgumentException("campaign.reopen.not_enlarged");
         }
         if (enlargesQuota) {
