@@ -573,6 +573,7 @@ public class UserService {
                     .orElseThrow(() -> new NoSuchElementException("role.not_found"));
             requested.put(role.getId(), role);
         }
+        Set<Long> requestedIds = Set.copyOf(requested.keySet());
 
         List<UserRole> toSave = new ArrayList<>();
 
@@ -596,5 +597,10 @@ public class UserService {
         }
 
         userRoleRepository.saveAll(toSave);
+
+        // A user can only sign in with a role they hold: drop a default that is no longer requested.
+        if (user.getDefaultRole() != null && !requestedIds.contains(user.getDefaultRole().getId())) {
+            user.setDefaultRole(null);
+        }
     }
 }

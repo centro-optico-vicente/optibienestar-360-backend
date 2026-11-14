@@ -232,6 +232,9 @@ public class RoleService {
             return;
         }
         role.setActive(false);
+        // Nobody may keep signing in with a deactivated role; they fall back to
+        // their oldest effective role (PermissionResolver.resolveDefaultActiveRole).
+        userRepository.clearDefaultRole(role.getId());
         // managed entity → dirty-check on commit
         // Same staleness fan-out as updateRolePermissions: users keep the
         // role in their JWT claim until refresh, but the role is now
@@ -314,6 +317,10 @@ public class RoleService {
                     userRole.setActive(false);
                     blacklistService.markUserInvalidatedNow(userUuid.toString());
                 });
+        // A user can only sign in with a role they hold: drop it as their default.
+        if (user.getDefaultRole() != null && role.getId().equals(user.getDefaultRole().getId())) {
+            user.setDefaultRole(null);
+        }
     }
 
     private User findUser(UUID uuid) {
