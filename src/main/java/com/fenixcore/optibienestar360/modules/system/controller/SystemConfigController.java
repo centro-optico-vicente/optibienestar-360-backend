@@ -53,6 +53,7 @@ public class SystemConfigController {
 			config.isPatientMedicalAccessEnabled(),
 			config.getPdfMaxConcurrentRenders(),
 			config.getPdfRenderWaitSeconds(),
+			config.getGeneratedReportRetentionDays(),
 			config.getUpdatedAt()
         );
     }

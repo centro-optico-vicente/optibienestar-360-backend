@@ -234,6 +234,9 @@ public class SystemConfigService {
 		if (request.pdfRenderWaitSeconds() != null) {
 			config.setPdfRenderWaitSeconds(request.pdfRenderWaitSeconds());
 		}
+		if (request.generatedReportRetentionDays() != null) {
+			config.setGeneratedReportRetentionDays(request.generatedReportRetentionDays());
+		}
 
         return systemConfigRepository.save(config);
     }

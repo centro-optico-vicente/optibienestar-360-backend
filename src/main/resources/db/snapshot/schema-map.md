@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V251. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V252. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 116 tables.
 
@@ -844,6 +844,7 @@
 
 **Indexes**
 - `idx_attached_files_owner` btree (owner_table, owner_uuid)
+- `idx_attached_files_temporary_stored` btree (uploaded_at, attached_files_id) WHERE (((visibility)::text = 'TEMPORARY'::text) AND is_active)
 - `idx_attached_files_uploader` btree (uploaded_by)
 
 **Triggers**
@@ -4653,6 +4654,7 @@
 - `patient_medical_access_enabled` boolean NOT NULL DEFAULT false — Activa el acceso de los aliados médicos a la historia de sus pacientes (ADR 0032). Apagado hasta que legal confirme la cláusula del Acuerdo B2C.
 - `pdf_max_concurrent_renders` integer NOT NULL DEFAULT 5 — Max generic PDF documents rendered at the same time; 0 or -1 = no cap
 - `pdf_render_wait_seconds` integer NOT NULL DEFAULT 10 — Seconds a PDF request waits for a free render slot before 503; 0 or -1 = no time limit
+- `generated_report_retention_days` integer NOT NULL DEFAULT 30 — Days a generated report stays stored in R2 before GENERATED_REPORT_PURGE deletes it (the audit row stays)
 
 **Constraints**
 - PK PRIMARY KEY (system_configs_id)
@@ -4661,6 +4663,7 @@
 - CHECK `chk_system_configs_audit_delete_mode` CHECK (((audit_delete_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[])))
 - CHECK `chk_system_configs_audit_update_mode` CHECK (((audit_update_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[])))
 - CHECK `chk_system_configs_capture_before_after_mode` CHECK (((capture_before_after_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[])))
+- CHECK `chk_system_configs_generated_report_retention_days` CHECK ((generated_report_retention_days > 0))
 - CHECK `chk_system_configs_login_session_expiration_days` CHECK ((login_session_expiration_days > 0))
 - CHECK `chk_system_configs_pdf_max_concurrent_renders` CHECK ((pdf_max_concurrent_renders >= '-1'::integer))
 - CHECK `chk_system_configs_pdf_render_wait_seconds` CHECK ((pdf_render_wait_seconds >= '-1'::integer))

@@ -5728,10 +5728,12 @@ CREATE TABLE app.system_configs (
     patient_medical_access_enabled boolean DEFAULT false NOT NULL,
     pdf_max_concurrent_renders integer DEFAULT 5 NOT NULL,
     pdf_render_wait_seconds integer DEFAULT 10 NOT NULL,
+    generated_report_retention_days integer DEFAULT 30 NOT NULL,
     CONSTRAINT chk_system_configs_audit_create_mode CHECK (((audit_create_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[]))),
     CONSTRAINT chk_system_configs_audit_delete_mode CHECK (((audit_delete_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[]))),
     CONSTRAINT chk_system_configs_audit_update_mode CHECK (((audit_update_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[]))),
     CONSTRAINT chk_system_configs_capture_before_after_mode CHECK (((capture_before_after_mode)::text = ANY ((ARRAY['PER_ENTITY'::character varying, 'FORCE_ENABLED'::character varying, 'FORCE_DISABLED'::character varying])::text[]))),
+    CONSTRAINT chk_system_configs_generated_report_retention_days CHECK ((generated_report_retention_days > 0)),
     CONSTRAINT chk_system_configs_login_session_expiration_days CHECK ((login_session_expiration_days > 0)),
     CONSTRAINT chk_system_configs_pdf_max_concurrent_renders CHECK ((pdf_max_concurrent_renders >= '-1'::integer)),
     CONSTRAINT chk_system_configs_pdf_render_wait_seconds CHECK ((pdf_render_wait_seconds >= '-1'::integer)),
@@ -5761,6 +5763,12 @@ COMMENT ON COLUMN app.system_configs.pdf_max_concurrent_renders IS 'Max generic 
 --
 
 COMMENT ON COLUMN app.system_configs.pdf_render_wait_seconds IS 'Seconds a PDF request waits for a free render slot before 503; 0 or -1 = no time limit';
+
+--
+-- Name: COLUMN system_configs.generated_report_retention_days; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.system_configs.generated_report_retention_days IS 'Days a generated report stays stored in R2 before GENERATED_REPORT_PURGE deletes it (the audit row stays)';
 
 --
 -- Name: system_configs_system_configs_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -8314,6 +8322,12 @@ CREATE INDEX idx_ally_users_user ON app.ally_users USING btree (user_id);
 --
 
 CREATE INDEX idx_attached_files_owner ON app.attached_files USING btree (owner_table, owner_uuid);
+
+--
+-- Name: idx_attached_files_temporary_stored; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_attached_files_temporary_stored ON app.attached_files USING btree (uploaded_at, attached_files_id) WHERE (((visibility)::text = 'TEMPORARY'::text) AND is_active);
 
 --
 -- Name: idx_attached_files_uploader; Type: INDEX; Schema: app; Owner: -

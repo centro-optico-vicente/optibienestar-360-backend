@@ -1834,6 +1834,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 241	249	link status	SQL	V249__link_status.sql	1512890983	snapshot	2026-01-01 00:00:00	0	t
 242	250	affiliation request assign promoter permission	SQL	V250__affiliation_request_assign_promoter_permission.sql	-1350594115	snapshot	2026-01-01 00:00:00	0	t
 243	251	clear default role not held	SQL	V251__clear_default_role_not_held.sql	106180069	snapshot	2026-01-01 00:00:00	0	t
+244	252	generated report purge	SQL	V252__generated_report_purge.sql	468917937	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -3812,6 +3813,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 19	380ffac9-dda0-14c8-fbcd-2c953f230316	REGISTRATION_DRAFT_CLEANUP	Limpieza de borradores de registro abandonados	Descarta los registros de afiliado y aliado que siguen en borrador (sin enviar a revisión) tras los días de retención configurados; libera su cédula y correo. Nunca toca lo ya enviado.	0 15 3 * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+22	256ddf28-6faf-0ef1-a203-188404848324	GENERATED_REPORT_PURGE	Depuración de reportes generados	Borra de R2 los reportes y fichas generados (archivos temporales) con más días que la retención configurada en el sistema, y los marca como depurados. La auditoría de reportes se conserva; solo se elimina la copia del archivo.	0 30 4 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -3878,8 +3880,8 @@ ALTER TABLE app.subsidy_beneficiaries ENABLE TRIGGER ALL;
 
 ALTER TABLE app.system_configs DISABLE TRIGGER ALL;
 
-COPY app.system_configs (system_configs_id, uuid, report_footer, is_active, created_at, updated_at, created_by, updated_by, report_audit_mode, login_audit_enabled, login_session_expiration_days, default_sort, audit_create_mode, audit_update_mode, audit_delete_mode, capture_before_after_mode, patient_medical_access_enabled, pdf_max_concurrent_renders, pdf_render_wait_seconds) FROM stdin;
-1	cfe357ee-29b7-41e8-f363-aa5591ff455a	\N	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	PER_ENTITY	t	30	\N	PER_ENTITY	PER_ENTITY	PER_ENTITY	PER_ENTITY	f	5	10
+COPY app.system_configs (system_configs_id, uuid, report_footer, is_active, created_at, updated_at, created_by, updated_by, report_audit_mode, login_audit_enabled, login_session_expiration_days, default_sort, audit_create_mode, audit_update_mode, audit_delete_mode, capture_before_after_mode, patient_medical_access_enabled, pdf_max_concurrent_renders, pdf_render_wait_seconds, generated_report_retention_days) FROM stdin;
+1	cfe357ee-29b7-41e8-f363-aa5591ff455a	\N	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	PER_ENTITY	t	30	\N	PER_ENTITY	PER_ENTITY	PER_ENTITY	PER_ENTITY	f	5	10	30
 \.
 
 ALTER TABLE app.system_configs ENABLE TRIGGER ALL;
@@ -4519,7 +4521,7 @@ SELECT pg_catalog.setval('app.scheduled_job_runs_scheduled_job_runs_id_seq', 1, 
 -- Name: scheduled_jobs_scheduled_jobs_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 21, true);
+SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 22, true);
 
 --
 -- Name: security_policies_security_policies_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

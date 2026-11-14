@@ -23,5 +23,6 @@ public record SystemConfigDto(
 	@Display(Display.Kind.BOOLEAN) boolean patientMedicalAccessEnabled,
 	int pdfMaxConcurrentRenders,
 	int pdfRenderWaitSeconds,
+	int generatedReportRetentionDays,
 	@Display(Display.Kind.DATETIME) Instant updatedAt
 ) {}

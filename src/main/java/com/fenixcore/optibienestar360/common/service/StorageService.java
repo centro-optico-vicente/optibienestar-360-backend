@@ -9,7 +9,12 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -19,6 +24,9 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 import java.io.InputStream;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Thin wrapper over the S3 SDK pointed at Cloudflare R2. Two buckets are in
@@ -120,6 +128,36 @@ public class StorageService {
                 .key(key)
                 .build());
         log.debug("Deleted {}/{}", targetBucket, key);
+    }
+
+    /** Max keys a single S3/R2 {@code DeleteObjects} request accepts. */
+    public static final int MAX_KEYS_PER_DELETE = 1000;
+
+    /**
+     * Deletes many objects with one {@code DeleteObjects} request per
+     * {@value #MAX_KEYS_PER_DELETE} keys, instead of one request per object.
+     * A key that does not exist counts as deleted (S3 semantics).
+     *
+     * @return the keys R2 reported as <b>not</b> deleted; empty when all went through
+     */
+    public Set<String> deleteAll(String targetBucket, List<String> keys) {
+        Set<String> failed = new HashSet<>();
+        for (int from = 0; from < keys.size(); from += MAX_KEYS_PER_DELETE) {
+            List<String> chunk = keys.subList(from, Math.min(from + MAX_KEYS_PER_DELETE, keys.size()));
+            List<ObjectIdentifier> objects = chunk.stream()
+                    .map(key -> ObjectIdentifier.builder().key(key).build())
+                    .toList();
+            DeleteObjectsResponse response = s3Client.deleteObjects(DeleteObjectsRequest.builder()
+                    .bucket(targetBucket)
+                    .delete(Delete.builder().objects(objects).quiet(true).build())
+                    .build());
+            for (S3Error error : response.errors()) {
+                failed.add(error.key());
+                log.warn("Could not delete {}/{}: {} {}", targetBucket, error.key(), error.code(), error.message());
+            }
+        }
+        log.debug("Deleted {} of {} object(s) from {}", keys.size() - failed.size(), keys.size(), targetBucket);
+        return failed;
     }
 
     public boolean exists(String key) {

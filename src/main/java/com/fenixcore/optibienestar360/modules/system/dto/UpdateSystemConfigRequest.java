@@ -36,5 +36,8 @@ public record UpdateSystemConfigRequest(
 	Integer pdfMaxConcurrentRenders,
 	/** Seconds a PDF request waits for a free render slot before 503 (V238); 0 or -1 = no time limit. */
 	@Min(value = -1, message = "system_config.pdf_render_wait_seconds.min")
-	Integer pdfRenderWaitSeconds
+	Integer pdfRenderWaitSeconds,
+	/** Days a generated report stays stored in R2 before the purge job deletes it (V252). */
+	@Positive(message = "system_config.generated_report_retention_days.positive")
+	Integer generatedReportRetentionDays
 ) {}
