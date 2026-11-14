@@ -17,7 +17,7 @@
     <div class="info-box" th:if="${keepDiscount}">
         <p>
             Tu próximo pago vence el <strong th:text="${#temporals.format(nextDueDate, 'dd/MM/yyyy')}"></strong>.
-            Págalo a tiempo para conservar tu descuento del <strong th:text="${discountPct} + '%'"></strong>:
+            Págalo a tiempo para conservar tu descuento del <strong th:text="${discountLabel}"></strong>:
             si el pago se atrasa, la promoción se pierde.
         </p>
     </div>

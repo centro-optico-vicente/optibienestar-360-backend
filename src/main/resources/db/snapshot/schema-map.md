@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V253. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V254. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 116 tables.
 
@@ -249,6 +249,7 @@
 - `promotion_plans`.plan_id → `plans`.plans_id
 - `promotion_plans`.promotion_id → `promotions`.promotions_id (ON DELETE CASCADE)
 - `promotions`.campaign_id → `campaigns`.campaigns_id
+- `promotions`.discount_currency_id → `currencies`.currencies_id
 - `referrals`.referred_member_id → `members`.members_id
 - `referrals`.referrer_member_id → `members`.members_id
 - `referrals`.reward_currency_id → `currencies`.currencies_id
@@ -2147,7 +2148,7 @@
 **Triggers**
 - `trg_currencies_updated_at` BEFORE UPDATE ON app.currencies FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `ally_products`.(price_currency_id), `benefit_usages`.(consumption_currency_id), `benefit_usages`.(converted_currency_id), `benefit_usages`.(copay_currency_id), `campaigns`.(target_amount_currency_id), `collection_commission_tiers`.(flat_amount_currency_id), `collection_commission_tiers`.(min_amount_currency_id), `commission_bonus_rules`.(reward_currency_id), `commission_bonus_rules`.(threshold_currency_id), `commission_retroactive_topup_cuts`.(currency_id), `commission_retroactive_topups`.(currency_id), `commission_tiers`.(flat_amount_currency_id), `commission_tiers`.(threshold_amount_currency_id), `commissions`.(currency_id), `company_bank_accounts`.(currency_id), `competitive_commission_award_settlements`.(currency_id), `competitive_commission_awards`.(currency_id), `competitive_commission_rule_positions`.(reward_currency_id), `competitive_commission_rules`.(threshold_currency_id), `countries`.(official_currency_id), `exchange_rates`.(base_currency_id), `exchange_rates`.(quote_currency_id), `hierarchy_override_tiers`.(flat_amount_currency_id), `hierarchy_override_tiers`.(threshold_amount_currency_id), `membership_charges`.(currency_id), `memberships`.(currency_id), `organizations`.(official_currency_id), `organizations`.(reference_currency_id), `payment_lines`.(currency_id), `payments`.(currency_id), `person_credit_entries`.(converted_currency_id), `person_credit_entries`.(currency_id), `plans`.(currency_id), `promoter_bonus_awards`.(reward_currency_id), `promoter_hierarchy_overrides`.(currency_id), `promoter_member_contacts`.(promised_currency_id), `referrals`.(reward_currency_id)
+**Referenced by** `ally_products`.(price_currency_id), `benefit_usages`.(consumption_currency_id), `benefit_usages`.(converted_currency_id), `benefit_usages`.(copay_currency_id), `campaigns`.(target_amount_currency_id), `collection_commission_tiers`.(flat_amount_currency_id), `collection_commission_tiers`.(min_amount_currency_id), `commission_bonus_rules`.(reward_currency_id), `commission_bonus_rules`.(threshold_currency_id), `commission_retroactive_topup_cuts`.(currency_id), `commission_retroactive_topups`.(currency_id), `commission_tiers`.(flat_amount_currency_id), `commission_tiers`.(threshold_amount_currency_id), `commissions`.(currency_id), `company_bank_accounts`.(currency_id), `competitive_commission_award_settlements`.(currency_id), `competitive_commission_awards`.(currency_id), `competitive_commission_rule_positions`.(reward_currency_id), `competitive_commission_rules`.(threshold_currency_id), `countries`.(official_currency_id), `exchange_rates`.(base_currency_id), `exchange_rates`.(quote_currency_id), `hierarchy_override_tiers`.(flat_amount_currency_id), `hierarchy_override_tiers`.(threshold_amount_currency_id), `membership_charges`.(currency_id), `memberships`.(currency_id), `organizations`.(official_currency_id), `organizations`.(reference_currency_id), `payment_lines`.(currency_id), `payments`.(currency_id), `person_credit_entries`.(converted_currency_id), `person_credit_entries`.(currency_id), `plans`.(currency_id), `promoter_bonus_awards`.(reward_currency_id), `promoter_hierarchy_overrides`.(currency_id), `promoter_member_contacts`.(promised_currency_id), `promotions`.(discount_currency_id), `referrals`.(reward_currency_id)
 
 ## data_change_audit_log
 
@@ -4181,7 +4182,7 @@
 - `name` character varying(150) NOT NULL
 - `description` text
 - `kind` character varying(20) NOT NULL
-- `discount_pct` numeric(5,2) NOT NULL
+- `discount_pct` numeric(5,2)
 - `applies_to` character varying(20) NOT NULL
 - `cycles` integer
 - `covers_extra_beneficiaries` boolean NOT NULL DEFAULT false
@@ -4199,15 +4200,20 @@
 - `updated_at` timestamp with time zone NOT NULL DEFAULT now()
 - `created_by` uuid
 - `updated_by` uuid
+- `discount_type` character varying(20) NOT NULL DEFAULT 'PERCENTAGE'::character varying — Tipo de descuento: PERCENTAGE (porcentaje) o FLAT (monto fijo)
+- `discount_amount` numeric(18,2) — Monto fijo de descuento por cobro, en discount_currency_id; solo para FLAT
+- `discount_currency_id` bigint — Moneda del monto fijo; solo para FLAT
 
 **Constraints**
 - PK PRIMARY KEY (promotions_id)
 - FK `promotions_campaign_id_fkey` FOREIGN KEY (campaign_id) REFERENCES campaigns(campaigns_id)
+- FK `promotions_discount_currency_id_fkey` FOREIGN KEY (discount_currency_id) REFERENCES currencies(currencies_id)
 - UNIQUE `promotions_uuid_key` UNIQUE (uuid)
 - CHECK `chk_promotions_applies_to` CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[])))
 - CHECK `chk_promotions_code_owner` CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code))
 - CHECK `chk_promotions_cycles` CHECK (((cycles IS NULL) OR (cycles >= 1)))
-- CHECK `chk_promotions_discount_pct` CHECK (((discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric)))
+- CHECK `chk_promotions_discount_coherence` CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL))))
+- CHECK `chk_promotions_discount_type` CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))
 - CHECK `chk_promotions_kind` CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[])))
 - CHECK `chk_promotions_max_redemptions` CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1)))
 - CHECK `chk_promotions_recovery_monthly` CHECK ((((kind)::text <> 'RECOVERY'::text) OR ((applies_to)::text = 'MONTHLY'::text)))

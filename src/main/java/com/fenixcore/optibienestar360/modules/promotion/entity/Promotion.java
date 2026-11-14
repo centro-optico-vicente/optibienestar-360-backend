@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promotion.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -23,8 +24,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * A % discount offered to members inside a {@link Campaign} (V175, hub ADR
- * 0018). Applied to a membership through {@link MembershipPromotion}; the
+ * A discount offered to members inside a {@link Campaign} (V175, hub ADR
+ * 0018): a percentage or, since V255 (hub ADR 0038), a fixed amount in its own
+ * currency. Applied to a membership through {@link MembershipPromotion}; the
  * campaign window bounds when it can be applied.
  */
 @Getter
@@ -49,8 +51,21 @@ public class Promotion extends BaseEntity {
     @Column(name = "kind", length = 20, nullable = false)
     private Kind kind = Kind.ACQUISITION;
 
-    @Column(name = "discount_pct", precision = 5, scale = 2, nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type", length = 20, nullable = false)
+    private DiscountType discountType = DiscountType.PERCENTAGE;
+
+    /** Percentage off; only for {@link DiscountType#PERCENTAGE}. */
+    @Column(name = "discount_pct", precision = 5, scale = 2)
     private BigDecimal discountPct;
+
+    /** Amount off each discounted charge, in {@link #discountCurrency}; only for {@link DiscountType#FLAT} (V255). */
+    @Column(name = "discount_amount", precision = 18, scale = 2)
+    private BigDecimal discountAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discount_currency_id")
+    private Currency discountCurrency;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "applies_to", length = 20, nullable = false)
@@ -105,6 +120,10 @@ public class Promotion extends BaseEntity {
         return appliesTo == AppliesTo.MONTHLY || appliesTo == AppliesTo.BOTH;
     }
 
+    public boolean isFlat() {
+        return discountType == DiscountType.FLAT;
+    }
+
     /** ACQUISITION: new or up-to-date memberships, lost on any delay. RECOVERY: delayed memberships only, survives the delay. */
     public enum Kind {
         ACQUISITION, RECOVERY
@@ -112,5 +131,10 @@ public class Promotion extends BaseEntity {
 
     public enum AppliesTo {
         INSCRIPTION, MONTHLY, BOTH
+    }
+
+    /** PERCENTAGE: {@code discountPct} of each charge. FLAT: {@code discountAmount} (converted) off each charge. */
+    public enum DiscountType {
+        PERCENTAGE, FLAT
     }
 }

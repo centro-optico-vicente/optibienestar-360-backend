@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.promotion.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 
 import java.math.BigDecimal;
@@ -15,7 +16,11 @@ public record MembershipPromotionDto(
         @Display DisplayRef promotion,
         @Display DisplayRef campaign,
         @Display(Display.Kind.ENUM) Kind kind,
+        @Display(Display.Kind.ENUM) DiscountType discountType,
         @Display(Display.Kind.PERCENT) BigDecimal discountPct,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "discountCurrency_Code") BigDecimal discountAmount,
+        @Display DisplayRef discountCurrency,
+        String discountCurrency_Code,
         @Display(Display.Kind.ENUM) AppliesTo appliesTo,
         Integer cyclesRemaining,
         boolean inscriptionApplied,

@@ -5216,7 +5216,7 @@ CREATE TABLE app.promotions (
     name character varying(150) NOT NULL,
     description text,
     kind character varying(20) NOT NULL,
-    discount_pct numeric(5,2) NOT NULL,
+    discount_pct numeric(5,2),
     applies_to character varying(20) NOT NULL,
     cycles integer,
     covers_extra_beneficiaries boolean DEFAULT false NOT NULL,
@@ -5234,16 +5234,38 @@ CREATE TABLE app.promotions (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
     updated_by uuid,
+    discount_type character varying(20) DEFAULT 'PERCENTAGE'::character varying NOT NULL,
+    discount_amount numeric(18,2),
+    discount_currency_id bigint,
     CONSTRAINT chk_promotions_applies_to CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[]))),
     CONSTRAINT chk_promotions_code_owner CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code)),
     CONSTRAINT chk_promotions_cycles CHECK (((cycles IS NULL) OR (cycles >= 1))),
-    CONSTRAINT chk_promotions_discount_pct CHECK (((discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric))),
+    CONSTRAINT chk_promotions_discount_coherence CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL)))),
+    CONSTRAINT chk_promotions_discount_type CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[]))),
     CONSTRAINT chk_promotions_kind CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[]))),
     CONSTRAINT chk_promotions_max_redemptions CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1))),
     CONSTRAINT chk_promotions_recovery_monthly CHECK ((((kind)::text <> 'RECOVERY'::text) OR ((applies_to)::text = 'MONTHLY'::text))),
     CONSTRAINT chk_promotions_redemptions_count CHECK ((redemptions_count >= 0)),
     CONSTRAINT chk_promotions_referrer_reward CHECK ((((referrer_reward_pct IS NULL) AND (referrer_reward_cycles IS NULL)) OR ((referrer_reward_pct > (0)::numeric) AND (referrer_reward_pct <= (100)::numeric) AND (referrer_reward_cycles >= 1) AND accepts_member_code)))
 );
+
+--
+-- Name: COLUMN promotions.discount_type; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.discount_type IS 'Tipo de descuento: PERCENTAGE (porcentaje) o FLAT (monto fijo)';
+
+--
+-- Name: COLUMN promotions.discount_amount; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.discount_amount IS 'Monto fijo de descuento por cobro, en discount_currency_id; solo para FLAT';
+
+--
+-- Name: COLUMN promotions.discount_currency_id; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.discount_currency_id IS 'Moneda del monto fijo; solo para FLAT';
 
 --
 -- Name: promotions_promotions_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -12007,6 +12029,13 @@ ALTER TABLE ONLY app.promotion_plans
 
 ALTER TABLE ONLY app.promotions
     ADD CONSTRAINT promotions_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(campaigns_id);
+
+--
+-- Name: promotions promotions_discount_currency_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.promotions
+    ADD CONSTRAINT promotions_discount_currency_id_fkey FOREIGN KEY (discount_currency_id) REFERENCES app.currencies(currencies_id);
 
 --
 -- Name: referrals referrals_referred_member_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
