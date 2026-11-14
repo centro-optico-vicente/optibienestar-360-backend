@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.card.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -12,6 +13,10 @@ import java.util.UUID;
  * <p>{@code planName} / {@code membershipStatus} / {@code nextDueDate} are
  * {@code null} when the member has no active membership. Presentational
  * scalars carry a localized {@code _Display} sibling (hub ADR 0014).</p>
+ *
+ * <p>{@code monthlyFee} / {@code currency_Code} (V258) prefill the
+ * affiliate's payment form with the membership's fee (hub ADR 0037 §5);
+ * null without an active membership and on a beneficiary's card.</p>
  */
 public record DigitalCardDto(
         UUID memberUuid,
@@ -30,5 +35,8 @@ public record DigitalCardDto(
         // Beneficiary card (V195): the holder covering this person and the
         // relationship to them. Both null on the holder's own card.
         String holderName,
-        String relationship
+        String relationship,
+
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal monthlyFee,
+        String currency_Code
 ) {}

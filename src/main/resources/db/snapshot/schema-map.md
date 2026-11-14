@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V257. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V258. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 118 tables.
 
@@ -5050,12 +5050,15 @@
     ms.next_due_date,
     m.enrolled_at AS member_since,
     ms.expires_at,
-    ms.inscription_due_since
+    ms.inscription_due_since,
+    ms.monthly_fee,
+    c.code AS currency_code
    FROM members m
      JOIN persons p ON p.persons_id = m.person_id
      LEFT JOIN users u ON u.person_id = p.persons_id
      LEFT JOIN memberships ms ON ms.member_id = m.members_id AND ms.is_active = true
      LEFT JOIN plans pl ON pl.plans_id = ms.plan_id
+     LEFT JOIN currencies c ON c.currencies_id = ms.currency_id
   WHERE m.is_active = true;
 ```
 

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,6 +74,9 @@ class DigitalCardServiceTest {
         assertThat(dto.holderName()).isEqualTo("Ana Pérez");
         assertThat(dto.relationship()).isEqualTo("CHILD");
         assertThat(dto.memberUuid()).isEqualTo(memberUuid);
+        // The holder pays the fee: nothing to prefill on a beneficiary's card.
+        assertThat(dto.monthlyFee()).isNull();
+        assertThat(dto.currency_Code()).isNull();
     }
 
     @Test
@@ -82,6 +86,8 @@ class DigitalCardServiceTest {
         DigitalCardRow row = mock(DigitalCardRow.class);
         when(row.getMemberUuid()).thenReturn(memberUuid);
         when(row.getFullName()).thenReturn("Ana Pérez");
+        when(row.getMonthlyFee()).thenReturn(new BigDecimal("25.00"));
+        when(row.getCurrencyCode()).thenReturn("USD");
         when(repository.findByUserUuid(userUuid)).thenReturn(Optional.of(row));
         when(qrCodeGenerator.toPngDataUri(eq(memberUuid.toString()), anyInt()))
                 .thenReturn("data:image/png;base64,QR");
@@ -91,6 +97,8 @@ class DigitalCardServiceTest {
         assertThat(dto.memberUuid()).isEqualTo(memberUuid);
         assertThat(dto.fullName()).isEqualTo("Ana Pérez");
         assertThat(dto.qrCodeDataUri()).isEqualTo("data:image/png;base64,QR");
+        assertThat(dto.monthlyFee()).isEqualByComparingTo("25.00");
+        assertThat(dto.currency_Code()).isEqualTo("USD");
     }
 
     @Test

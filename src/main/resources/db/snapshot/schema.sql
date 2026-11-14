@@ -3152,12 +3152,15 @@ CREATE VIEW app.digital_cards_view AS
     ms.next_due_date,
     m.enrolled_at AS member_since,
     ms.expires_at,
-    ms.inscription_due_since
-   FROM ((((app.members m
+    ms.inscription_due_since,
+    ms.monthly_fee,
+    c.code AS currency_code
+   FROM (((((app.members m
      JOIN app.persons p ON ((p.persons_id = m.person_id)))
      LEFT JOIN app.users u ON ((u.person_id = p.persons_id)))
      LEFT JOIN app.memberships ms ON (((ms.member_id = m.members_id) AND (ms.is_active = true))))
      LEFT JOIN app.plans pl ON ((pl.plans_id = ms.plan_id)))
+     LEFT JOIN app.currencies c ON ((c.currencies_id = ms.currency_id)))
   WHERE (m.is_active = true);
 
 --
