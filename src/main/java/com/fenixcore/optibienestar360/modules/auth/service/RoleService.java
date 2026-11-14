@@ -256,8 +256,19 @@ public class RoleService {
                 .map(UserRole::getUser)
                 .filter(TextSearch.<User>matching(q, User::getEmail,
                         u -> u.getPerson() == null ? null : u.getPerson().getFullName()))
-                .map(userMapper::toRoleUserDto)
+                .map(user -> toRoleUserDto(user, role))
                 .toList();
+    }
+
+    /** Table row of a role's member; {@code isDefault} marks the users that sign in with this role. */
+    private static RoleUserDto toRoleUserDto(User user, Role role) {
+        return new RoleUserDto(
+                user.getUuid(),
+                user.getEmail(),
+                user.getPerson() == null ? null : user.getPerson().getFullName(),
+                user.getStatus(),
+                user.isActive(),
+                user.getDefaultRole() != null && role.getId().equals(user.getDefaultRole().getId()));
     }
 
     /**

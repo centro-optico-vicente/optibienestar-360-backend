@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.auth.service;
 
+import com.fenixcore.optibienestar360.modules.auth.dto.RoleUserDto;
 import com.fenixcore.optibienestar360.modules.auth.entity.Role;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.entity.UserRole;
@@ -16,7 +17,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -159,6 +163,26 @@ class RoleUsersServiceTest {
         verifyNoInteractions(blacklistService);
     }
 
+    @Test
+    void listingUsers_marksThoseWhoSignInWithTheRole() {
+        Role role = role(1L);
+        Role other = role(9L);
+        User signsInWithIt = user(2L, UUID.randomUUID());
+        signsInWithIt.setDefaultRole(role);
+        User signsInWithOther = user(3L, UUID.randomUUID());
+        signsInWithOther.setDefaultRole(other);
+        User noDefault = user(4L, UUID.randomUUID());
+
+        when(roleRepository.findByUuid(role.getUuid())).thenReturn(Optional.of(role));
+        when(defaultSortResolver.withDefaultSortIfUnsorted(any(), any())).thenReturn(Pageable.unsorted());
+        when(userRoleRepository.findByRoleIdAndActiveTrue(any(), any(Sort.class)))
+                .thenReturn(List.of(pivot(role, signsInWithIt), pivot(role, signsInWithOther), pivot(role, noDefault)));
+
+        List<RoleUserDto> rows = service.listUsers(role.getUuid(), Pageable.unsorted());
+
+        assertThat(rows).extracting(RoleUserDto::isDefault).containsExactly(true, false, false);
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────
 
     private Role role(long id) {
@@ -167,6 +191,14 @@ class RoleUsersServiceTest {
         r.setUuid(UUID.randomUUID());
         r.setName(RoleNames.ADMINISTRATOR);
         return r;
+    }
+
+    private UserRole pivot(Role role, User user) {
+        UserRole ur = new UserRole();
+        ur.setRole(role);
+        ur.setUser(user);
+        ur.setActive(true);
+        return ur;
     }
 
     private User user(long id, UUID uuid) {

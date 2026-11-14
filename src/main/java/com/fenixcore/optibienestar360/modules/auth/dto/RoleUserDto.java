@@ -11,12 +11,14 @@ import java.util.UUID;
  * flattening approach: enough to render a table row without a second
  * round-trip, without pulling in the full {@link UserDto} shape.
  * {@code status} / {@code active} carry a localized {@code _Display}
- * sibling (hub ADR 0014).
+ * sibling (hub ADR 0014). {@code isDefault} is true when this role is the one
+ * the user signs in with ({@code users.default_role}).
  */
 public record RoleUserDto(
         UUID userUuid,
         String email,
         String fullName,
         @Display(value = Display.Kind.ENUM, enumScope = "user.status") String status,
-        @Display(Display.Kind.BOOLEAN) boolean active
+        @Display(Display.Kind.BOOLEAN) boolean active,
+        boolean isDefault
 ) {}
