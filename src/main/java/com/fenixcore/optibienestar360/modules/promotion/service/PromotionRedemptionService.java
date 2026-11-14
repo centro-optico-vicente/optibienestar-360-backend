@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promotion.service;
 
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.QuotaTrigger;
@@ -59,6 +60,10 @@ public class PromotionRedemptionService {
     public static final String REASON_QUOTA_EXPIRED = "QUOTA_EXPIRED";
     public static final String REASON_USAGE_WINDOW_ENDED = "USAGE_WINDOW_ENDED";
     public static final String REASON_CAMPAIGN_CLOSED = "CAMPAIGN_CLOSED";
+    /** An admin released the slot by hand (V260, hub ADR 0038 §9). */
+    public static final String REASON_SLOT_RELEASED = "SLOT_RELEASED";
+    /** How early the member and their advisor are told a PENDING slot is about to expire. */
+    public static final Duration EXPIRY_NOTICE_AHEAD = Duration.ofHours(48);
 
     private final PromotionRedemptionRepository repository;
     private final CampaignRepository campaignRepository;
@@ -71,6 +76,9 @@ public class PromotionRedemptionService {
      * PromotionLifecycle → this} would otherwise be a constructor cycle.
      */
     private final ObjectProvider<com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService> chargeServiceProvider;
+    /** Payment-side rules of a slot: frozen deadline, payment that confirms it (V260). */
+    private final PromotionSlotStatusService slotStatus;
+    private final PromotionSlotNoticeService noticeService;
 
     // ─── Reserve / confirm ──────────────────────────────────────────────────
 
@@ -126,7 +134,10 @@ public class PromotionRedemptionService {
      * {@code trigger}: the inscription payment confirms an ACQUISITION
      * promotion, a monthly-fee payment a RECOVERY one (it has no
      * inscription). A slot past its effective deadline (own deadline cut by
-     * the post-close grace) is left for the job to expire.
+     * the post-close grace) is left for the job to expire — unless the
+     * campaign waits for the approval and this payment was registered before
+     * that deadline: the payment in review froze the deadline, so its late
+     * approval still confirms (V260, hub ADR 0038 §9).
      */
     int confirmFor(Long paymentId, QuotaTrigger trigger) {
         Payment payment = paymentId == null ? null : paymentRepository.findById(paymentId).orElse(null);
@@ -148,7 +159,9 @@ public class PromotionRedemptionService {
                 continue;
             }
             Instant deadline = campaign.pendingDeadline(pending.getExpiresAt());
-            if (deadline != null && now.isAfter(deadline)) {
+            boolean frozenByThisPayment = trigger == QuotaTrigger.ON_PAYMENT_CONFIRMED
+                    && PromotionSlotStatusService.registeredBy(payment, deadline);
+            if (deadline != null && now.isAfter(deadline) && !frozenByThisPayment) {
                 continue;
             }
             markConfirmed(pending, campaign, promotion, now, payment);
@@ -156,6 +169,43 @@ public class PromotionRedemptionService {
             confirmed++;
         }
         return confirmed;
+    }
+
+    /**
+     * A collection was rejected (runs after the review commits): the deadline
+     * it froze runs again. A PENDING slot of the membership, of a campaign
+     * that waits for the approval, whose deadline already passed and that no
+     * other qualifying payment in review keeps frozen, expires now — same path
+     * as the job (slot freed, promotion ended, open discounts undone, member
+     * and advisor told).
+     *
+     * @return how many slots expired
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int onPaymentRejected(Long paymentId) {
+        Payment payment = paymentId == null ? null : paymentRepository.findById(paymentId).orElse(null);
+        if (payment == null || "OUT".equals(payment.getDirection())
+                || payment.getMembership() == null || payment.getMembership().getId() == null) {
+            return 0;
+        }
+        Instant now = Instant.now();
+        int expired = 0;
+        for (PromotionRedemption pending : repository.findByMembershipAndStatus(
+                payment.getMembership().getId(), RedemptionStatus.PENDING)) {
+            Campaign campaign = lockCampaign(pending.getCampaign().getId());
+            lockFresh(pending);
+            if (campaign.getQuotaTrigger() != QuotaTrigger.ON_PAYMENT_CONFIRMED || !pending.isPending()
+                    || payment.isInscription() != confirmedByInscription(pending.getPromotion())) {
+                continue;
+            }
+            Instant deadline = campaign.pendingDeadline(pending.getExpiresAt());
+            if (deadline == null || deadline.isAfter(now) || slotStatus.isFrozen(pending)) {
+                continue;
+            }
+            expire(pending, now);
+            expired++;
+        }
+        return expired;
     }
 
     /**
@@ -248,7 +298,10 @@ public class PromotionRedemptionService {
     /**
      * Job: PENDING slots past their effective deadline become EXPIRED, free
      * their slot (a SOLD_OUT campaign goes back to ACTIVE) and end their
-     * membership promotion ({@code QUOTA_EXPIRED}).
+     * membership promotion ({@code QUOTA_EXPIRED}). Right before expiring,
+     * the payment is checked again (V260, hub ADR 0038 §9): a slot whose
+     * payment already satisfies the trigger in time is confirmed instead, and
+     * a slot frozen by a qualifying payment in review is left alone.
      */
     @Transactional
     public int expirePending(Instant now) {
@@ -263,12 +316,146 @@ public class PromotionRedemptionService {
             if (deadline == null || deadline.isAfter(now)) {
                 continue;
             }
-            free(r, RedemptionStatus.EXPIRED, now);
-            endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_QUOTA_EXPIRED);
-            undoOpenDiscounts(r.getMembershipPromotion());
+            Payment paid = slotStatus.confirmingPayment(r);
+            if (paid != null) {
+                Promotion promotion = lockPromotion(r.getPromotion().getId());
+                markConfirmed(r, campaign, promotion, now, paid);
+                recomputeQuotaStatus(campaign);
+                continue;
+            }
+            if (slotStatus.isFrozen(r)) {
+                continue;
+            }
+            expire(r, now);
             expired++;
         }
         return expired;
+    }
+
+    /** Expires a locked PENDING slot: frees it, ends its promotion, undoes the open discounts and tells the member. */
+    private void expire(PromotionRedemption r, Instant now) {
+        free(r, RedemptionStatus.EXPIRED, now);
+        endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_QUOTA_EXPIRED);
+        undoOpenDiscounts(r.getMembershipPromotion());
+        noticeService.notifyExpired(r);
+    }
+
+    /**
+     * Job, before {@link #expirePending}: confirms the PENDING slots whose
+     * payment already satisfies the campaign trigger in time (an event lost
+     * or failed, a payment approved while the listener was down).
+     *
+     * @return how many slots were confirmed
+     */
+    @Transactional
+    public int reconcilePending(Instant now) {
+        int confirmed = 0;
+        for (PromotionRedemption r : repository.findAllInStatus(RedemptionStatus.PENDING)) {
+            Campaign campaign = lockCampaign(r.getCampaign().getId());
+            lockFresh(r);
+            if (!r.isPending()) {
+                continue;
+            }
+            Payment paid = slotStatus.confirmingPayment(r);
+            if (paid == null) {
+                continue;
+            }
+            Promotion promotion = lockPromotion(r.getPromotion().getId());
+            markConfirmed(r, campaign, promotion, now, paid);
+            recomputeQuotaStatus(campaign);
+            confirmed++;
+        }
+        return confirmed;
+    }
+
+    /**
+     * Job: tells the member and their advisor, once, that a PENDING slot
+     * expires within {@link #EXPIRY_NOTICE_AHEAD}. A frozen slot is not
+     * warned (its deadline does not run while the payment is in review).
+     *
+     * @return how many slots were warned
+     */
+    @Transactional
+    public int sendExpiryNotices(Instant now) {
+        Instant horizon = now.plus(EXPIRY_NOTICE_AHEAD);
+        int warned = 0;
+        for (PromotionRedemption r : repository.findExpiryNoticeCandidates(horizon)) {
+            if (!r.isPending() || r.getExpiryNoticeSentAt() != null) {
+                continue;
+            }
+            Instant deadline = r.getCampaign().pendingDeadline(r.getExpiresAt());
+            if (deadline == null || !deadline.isAfter(now) || deadline.isAfter(horizon) || slotStatus.isFrozen(r)) {
+                continue;
+            }
+            noticeService.notifyExpiring(r, deadline);
+            r.setExpiryNoticeSentAt(now);
+            warned++;
+        }
+        return warned;
+    }
+
+    // ─── Manual confirm / release (V260, hub ADR 0038 §9) ────────────────────
+
+    /**
+     * An admin confirms a PENDING slot by hand (permission
+     * {@code PROMOTION_SLOT_CONFIRM}), with a required note. Any other state
+     * is rejected (422).
+     */
+    @Transactional
+    public PromotionRedemption confirmManually(PromotionRedemption r, User actor, String note) {
+        requireNote(note);
+        Campaign campaign = lockCampaign(r.getCampaign().getId());
+        lockFresh(r);
+        if (!r.isPending()) {
+            throw new IllegalArgumentException("promotion_slot.confirm.not_pending");
+        }
+        Promotion promotion = lockPromotion(r.getPromotion().getId());
+        markConfirmed(r, campaign, promotion, Instant.now(), null);
+        r.setManualNote(note.trim());
+        r.setManualBy(actor);
+        recomputeQuotaStatus(campaign);
+        return r;
+    }
+
+    /**
+     * An admin releases a slot by hand (permission
+     * {@code PROMOTION_SLOT_RELEASE}), with a required note: a PENDING slot,
+     * or a CONFIRMED one never used (no fee discount applied, no voucher unit
+     * redeemed). The membership promotion ends ({@code SLOT_RELEASED}) and the
+     * discounts still open are undone. Any other state is rejected (422).
+     */
+    @Transactional
+    public PromotionRedemption releaseManually(PromotionRedemption r, User actor, String note) {
+        requireNote(note);
+        lockCampaign(r.getCampaign().getId());
+        lockFresh(r);
+        MembershipPromotion mp = r.getMembershipPromotion();
+        boolean releasable = r.isPending() || (r.isConfirmed() && !isUsed(mp));
+        if (!releasable) {
+            throw new IllegalArgumentException("promotion_slot.release.not_allowed");
+        }
+        free(r, RedemptionStatus.RELEASED, Instant.now());
+        r.setManualNote(note.trim());
+        r.setManualBy(actor);
+        endIfOngoing(mp, Status.CANCELED, REASON_SLOT_RELEASED);
+        undoOpenDiscounts(mp);
+        return r;
+    }
+
+    private static void requireNote(String note) {
+        if (note == null || note.isBlank()) {
+            throw new IllegalArgumentException("promotion_slot.note.required");
+        }
+    }
+
+    /** "Used" = a fee discount was applied (DISCOUNT) or a voucher unit was redeemed (ALLY_BENEFIT, V257). */
+    private boolean isUsed(MembershipPromotion mp) {
+        if (mp == null) {
+            return false;
+        }
+        return mp.getBenefitKind() == Promotion.BenefitKind.ALLY_BENEFIT
+                ? grantService.anyRedeemed(mp)
+                : mp.isInscriptionApplied() || (mp.getId() != null && repository.anyDiscountedCharge(mp.getId()));
     }
 
     /** Job: a CONFIRMED slot whose usage window ended ends its membership promotion; the slot stays CONFIRMED. */
@@ -387,6 +574,11 @@ public class PromotionRedemptionService {
     public PromotionRedemption findFor(MembershipPromotion mp) {
         return mp == null || mp.getId() == null ? null
                 : repository.findByMembershipPromotion_Id(mp.getId()).orElse(null);
+    }
+
+    /** Whether a qualifying payment in review keeps the PENDING slot's deadline from running (V260). */
+    public boolean isDeadlineFrozen(PromotionRedemption r) {
+        return r != null && slotStatus.isFrozen(r);
     }
 
     /** Quota counters of a campaign and of each of its promotions ({@code GET /v1/admin/campaigns/{uuid}/quota}). */

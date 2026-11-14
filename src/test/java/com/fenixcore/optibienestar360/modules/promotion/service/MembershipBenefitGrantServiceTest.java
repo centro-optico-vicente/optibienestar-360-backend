@@ -57,11 +57,12 @@ class MembershipBenefitGrantServiceTest {
     @Mock private CurrencyRepository currencyRepository;
     @Mock private CurrencyConversionService currencyConversionService;
     @Mock private ValidatorCacheService validatorCacheService;
+    @Mock private PromotionSlotStatusService slotStatus;
 
     private MembershipBenefitGrantService service() {
         return new MembershipBenefitGrantService(repository, allyUserRepository, membershipRepository, memberRepository,
                 campaignRepository, promotionRepository, currencyRepository, currencyConversionService,
-                validatorCacheService);
+                validatorCacheService, slotStatus);
     }
 
     private static Ally ally(long id) {
@@ -205,7 +206,7 @@ class MembershipBenefitGrantServiceTest {
                 .thenReturn(List.of(usable, expired));
         ValidationResultDto answer = new ValidationResultDto(ValidationStatus.ACTIVE, "V", "123",
                 null, null, null, null, null, membership.getUuid(), null, null, null, null,
-                null, null, null, null, true, null);
+                null, null, null, null, true, null, null);
 
         ValidationResultDto enriched = service().withGrants(answer, actor);
 
@@ -277,7 +278,7 @@ class MembershipBenefitGrantServiceTest {
                 .thenReturn(List.of());
         ValidationResultDto answer = new ValidationResultDto(ValidationStatus.ACTIVE, "V", "123",
                 null, null, null, null, null, membership.getUuid(), null, null, null, null,
-                null, null, null, null, false, null);
+                null, null, null, null, false, null, null);
 
         assertThat(service().withGrants(answer, actor, second.getUuid()).benefitGrants()).isEmpty();
         verify(repository).findForMembershipAndAllies(5L, GrantStatus.AVAILABLE, Set.of(2L));
@@ -285,5 +286,72 @@ class MembershipBenefitGrantServiceTest {
         // An ally the caller does not operate: no vouchers, and no lookup at all.
         assertThat(service().withGrants(answer, actor, UUID.randomUUID()).benefitGrants()).isEmpty();
         verify(repository, org.mockito.Mockito.times(1)).findForMembershipAndAllies(any(), any(), any());
+    }
+
+    // ─── Pending confirmation (V260, hub ADR 0038 §9) ───────────────────────
+
+    @Test
+    void redeem_rejectsAVoucherThatIsNotAvailable_soNothingPendingOrCanceledIsRedeemable() {
+        Ally ally = ally(1L);
+        AllyProduct offer = offer(10L, ally);
+        Membership membership = membership(5L);
+        MembershipBenefitGrant canceled = grant(membership, ally, offer, 1);
+        canceled.setGrantStatus(GrantStatus.CANCELED);
+        when(repository.findForUpdateByUuid(canceled.getUuid())).thenReturn(Optional.of(canceled));
+
+        assertThatThrownBy(() -> service().redeem(canceled.getUuid(), membership, ally, offer))
+                .hasMessage("benefit_grant.not_available");
+        assertThat(canceled.getRemainingQty()).isEqualTo(1);
+
+        // A benefit whose slot is still PENDING has no voucher row at all: its (absent) uuid is not found.
+        UUID noVoucher = UUID.randomUUID();
+        when(repository.findForUpdateByUuid(noVoucher)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service().redeem(noVoucher, membership, ally, offer))
+                .hasMessage("benefit_grant.not_found");
+    }
+
+    @Test
+    void validator_addsTheCallingAllysPendingBenefits_asInformationOnly() {
+        Ally mine = ally(1L);
+        AllyUser operator = new AllyUser();
+        operator.setAlly(mine);
+        UUID actor = UUID.randomUUID();
+        Membership membership = membership(5L);
+        when(allyUserRepository.findActiveByUserUuid(actor)).thenReturn(List.of(operator));
+        when(membershipRepository.findByUuid(membership.getUuid())).thenReturn(Optional.of(membership));
+        com.fenixcore.optibienestar360.modules.promotion.dto.PendingBenefitDto pending =
+                new com.fenixcore.optibienestar360.modules.promotion.dto.PendingBenefitDto(null, null, null,
+                        BenefitType.FREE, null, null, null, 1,
+                        com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.QuotaTrigger.ON_PAYMENT_CONFIRMED,
+                        Instant.now().plusSeconds(3600), true);
+        when(slotStatus.pendingAllyBenefits(5L, Set.of(1L))).thenReturn(List.of(pending));
+        ValidationResultDto answer = new ValidationResultDto(ValidationStatus.ACTIVE, "V", "123",
+                null, null, null, null, null, membership.getUuid(), null, null, null, null,
+                null, null, null, null, false, null, null);
+
+        ValidationResultDto enriched = service().withGrants(answer, actor);
+
+        assertThat(enriched.benefitGrants()).isEmpty();
+        assertThat(enriched.pendingBenefits()).containsExactly(pending);
+    }
+
+    @Test
+    void forUser_includePending_listsThePendingEntriesFirst_andTheDefaultIsUnchanged() {
+        UUID user = UUID.randomUUID();
+        com.fenixcore.optibienestar360.modules.member.entity.Member member =
+                new com.fenixcore.optibienestar360.modules.member.entity.Member();
+        member.setId(3L);
+        Membership membership = membership(5L);
+        when(memberRepository.findByUserUuid(user)).thenReturn(Optional.of(member));
+        when(membershipRepository.findFirstByMemberIdAndActiveTrue(3L)).thenReturn(Optional.of(membership));
+        when(repository.findByMembership_IdOrderByGrantedAtDesc(5L)).thenReturn(List.of());
+        com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto pendingEntry =
+                new com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto(null, null, null,
+                        null, null, BenefitType.FREE, null, null, null, null, 1, 1,
+                        GrantStatus.PENDING_CONFIRMATION, null, Instant.now().plusSeconds(60), null);
+        when(slotStatus.pendingGrantEntries(5L)).thenReturn(List.of(pendingEntry));
+
+        assertThat(service().forUser(user)).isEmpty();
+        assertThat(service().forUser(user, true)).containsExactly(pendingEntry);
     }
 }

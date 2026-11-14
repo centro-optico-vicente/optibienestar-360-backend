@@ -19,7 +19,10 @@ import java.util.Map;
  * end before this runs. Since V257 it also expires the PENDING slots past
  * their deadline (a SOLD_OUT campaign that gets room back returns to ACTIVE)
  * and ends the promotions whose usage window is over. Since V257 it also
- * expires the ally vouchers not redeemed before their expiry.
+ * expires the ally vouchers not redeemed before their expiry. Since V260 it
+ * runs hourly reconciliation first (PENDING slots whose payment is already
+ * there are confirmed; a slot frozen by a payment in review never expires)
+ * and warns the member and their advisor 48 h before a slot expires.
  */
 @Component
 @RequiredArgsConstructor
@@ -40,12 +43,17 @@ public class CampaignLifecycleJobRunner implements ScheduledJobRunner {
     public JobRunResult run() {
         int closed = lifecycleService.closeEnded(OffsetDateTime.now());
         Instant now = Instant.now();
+        // V260: confirm the slots whose payment is already there before expiring the rest.
+        int reconciled = redemptionService.reconcilePending(now);
         int expired = redemptionService.expirePending(now);
+        int expiryNotices = redemptionService.sendExpiryNotices(now);
         int usageEnded = redemptionService.endUsageWindows(now);
         int grantsExpired = grantService.expireAvailable(now);
         return JobRunResult.success(Map.of(
                 "closedByEndDate", closed,
+                "reconciledPending", reconciled,
                 "expiredPending", expired,
+                "expiryNoticesSent", expiryNotices,
                 "usageWindowsEnded", usageEnded,
                 "benefitGrantsExpired", grantsExpired));
     }

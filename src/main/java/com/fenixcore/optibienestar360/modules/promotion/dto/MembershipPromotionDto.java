@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.promotion.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
@@ -37,5 +38,9 @@ public record MembershipPromotionDto(
         @Display(value = Display.Kind.ENUM, enumScope = "promotion.redemptionStatus") RedemptionStatus redemptionStatus,
         /** Effective deadline of a PENDING slot (own deadline cut by the post-close grace); {@code null} otherwise. */
         @Display(Display.Kind.DATETIME) Instant redemptionExpiresAt,
-        @Display(Display.Kind.DATETIME) Instant usageEndsAt
+        @Display(Display.Kind.DATETIME) Instant usageEndsAt,
+        /** A qualifying payment in review keeps the PENDING slot's deadline from running (V260, hub ADR 0038 §9). */
+        boolean deadlineFrozen,
+        /** When the campaign confirms the slot (V260: shown next to the slot status). */
+        @Display(value = Display.Kind.ENUM, enumScope = "campaign.quotaTrigger") Campaign.QuotaTrigger quotaTrigger
 ) {}

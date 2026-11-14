@@ -55,6 +55,8 @@ class PromotionRedemptionServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private MembershipChargeService chargeService;
     @Mock private ObjectProvider<MembershipChargeService> chargeServiceProvider;
+    @Mock private PromotionSlotStatusService slotStatus;
+    @Mock private PromotionSlotNoticeService noticeService;
 
     private static final long MEMBERSHIP_ID = 10L;
 
@@ -65,7 +67,7 @@ class PromotionRedemptionServiceTest {
 
     private PromotionRedemptionService service() {
         return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository,
-                grantService, entityManager, chargeServiceProvider);
+                grantService, entityManager, chargeServiceProvider, slotStatus, noticeService);
     }
 
     @BeforeEach
@@ -625,5 +627,180 @@ class PromotionRedemptionServiceTest {
         assertThat(service().releaseIfUnused(usedMp)).isFalse();
         assertThat(used.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
         verify(grantService).cancelFor(usedMp);
+    }
+
+    // ─── Reconciliation with the payments (V260, hub ADR 0038 §9) ────────────
+
+    private PromotionRedemption pendingPastDeadline(MembershipPromotion mp) {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        campaign.setPendingTtlDays(1);
+        PromotionRedemption r = reserve(mp);
+        r.setExpiresAt(Instant.now().minusSeconds(60));
+        return r;
+    }
+
+    @Test
+    void lateApproval_ofAPaymentRegisteredBeforeTheDeadline_confirmsTheFrozenSlot() {
+        PromotionRedemption r = pendingPastDeadline(membershipPromotion());
+        Payment inscription = payment(920L, true);
+        inscription.setCreatedAt(Instant.now().minus(Duration.ofDays(2)));
+        pendingOfMembership(r);
+
+        assertThat(service().onPaymentApproved(920L)).isEqualTo(1);
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(r.getConfirmedByPayment()).isSameAs(inscription);
+        assertThat(campaign.getConfirmedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void lateApproval_ofAPaymentRegisteredAfterTheDeadline_leavesTheSlotForTheJob() {
+        PromotionRedemption r = pendingPastDeadline(membershipPromotion());
+        Payment inscription = payment(921L, true);
+        inscription.setCreatedAt(Instant.now().minusSeconds(1));
+        pendingOfMembership(r);
+
+        assertThat(service().onPaymentApproved(921L)).isZero();
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+    }
+
+    @Test
+    void rejection_afterTheDeadline_expiresTheSlot_andUndoesTheOpenDiscount() {
+        MembershipPromotion mp = membershipPromotion();
+        mp.setInscriptionApplied(true);
+        PromotionRedemption r = pendingPastDeadline(mp);
+        payment(930L, true);
+        pendingOfMembership(r);
+        Payment otherInReview = discountedInscription("PENDING", "Promoción: Navidad (50%)");
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, true, List.of("DRAFT", "PENDING")))
+                .thenReturn(List.of(otherInReview));
+
+        assertThat(service().onPaymentRejected(930L)).isEqualTo(1);
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.EXPIRED);
+        assertThat(campaign.getRedemptionsCount()).isZero();
+        assertThat(mp.getStatus()).isEqualTo("CANCELED");
+        assertThat(mp.getEndedReason()).isEqualTo(PromotionRedemptionService.REASON_QUOTA_EXPIRED);
+        assertThat(otherInReview.getDiscountAmount()).isNull();
+        assertThat(mp.isInscriptionApplied()).isFalse();
+        verify(noticeService).notifyExpired(r);
+    }
+
+    @Test
+    void rejection_beforeTheDeadline_letsTheDeadlineRunAgain() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        campaign.setPendingTtlDays(3);
+        PromotionRedemption r = reserve(membershipPromotion());
+        payment(931L, true);
+        pendingOfMembership(r);
+
+        assertThat(service().onPaymentRejected(931L)).isZero();
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+    }
+
+    @Test
+    void rejection_withAnotherQualifyingPaymentInReview_keepsTheSlotFrozen() {
+        PromotionRedemption r = pendingPastDeadline(membershipPromotion());
+        payment(932L, true);
+        pendingOfMembership(r);
+        when(slotStatus.isFrozen(r)).thenReturn(true);
+
+        assertThat(service().onPaymentRejected(932L)).isZero();
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+    }
+
+    @Test
+    void reconcile_confirmsAPendingSlotThatAlreadyHasItsPayment() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        PromotionRedemption r = reserve(membershipPromotion());
+        Payment registered = collection(940L, true, Instant.now().minus(Duration.ofHours(2)));
+        when(repository.findAllInStatus(RedemptionStatus.PENDING)).thenReturn(List.of(r));
+        when(slotStatus.confirmingPayment(r)).thenReturn(registered);
+
+        assertThat(service().reconcilePending(Instant.now())).isEqualTo(1);
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(r.getConfirmedByPayment()).isSameAs(registered);
+        assertThat(campaign.getConfirmedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void expiry_confirmsInsteadWhenThePaymentIsThere_andSkipsAFrozenSlot() {
+        PromotionRedemption paid = pendingPastDeadline(membershipPromotion());
+        PromotionRedemption frozen = pendingPastDeadline(membershipPromotion());
+        Payment approved = collection(950L, true, Instant.now().minus(Duration.ofDays(2)));
+        when(repository.findPendingExpiryCandidates(any(Instant.class))).thenReturn(List.of(paid, frozen));
+        when(slotStatus.confirmingPayment(paid)).thenReturn(approved);
+        when(slotStatus.isFrozen(frozen)).thenReturn(true);
+
+        assertThat(service().expirePending(Instant.now())).isZero();
+
+        assertThat(paid.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(paid.getConfirmedByPayment()).isSameAs(approved);
+        assertThat(frozen.getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+        verify(noticeService, never()).notifyExpired(any());
+    }
+
+    @Test
+    void expiryNotice_isSentOnce_andNeverForAFrozenSlot() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        PromotionRedemption soon = reserve(membershipPromotion());
+        soon.setExpiresAt(Instant.now().plus(Duration.ofHours(20)));
+        PromotionRedemption frozen = reserve(membershipPromotion());
+        frozen.setExpiresAt(Instant.now().plus(Duration.ofHours(20)));
+        when(repository.findExpiryNoticeCandidates(any(Instant.class))).thenReturn(List.of(frozen, soon));
+        when(slotStatus.isFrozen(frozen)).thenReturn(true);
+
+        assertThat(service().sendExpiryNotices(Instant.now())).isEqualTo(1);
+        assertThat(soon.getExpiryNoticeSentAt()).isNotNull();
+        assertThat(frozen.getExpiryNoticeSentAt()).isNull();
+
+        assertThat(service().sendExpiryNotices(Instant.now())).isZero();
+        verify(noticeService, org.mockito.Mockito.times(1)).notifyExpiring(eq(soon), any(Instant.class));
+        verify(noticeService, never()).notifyExpiring(eq(frozen), any(Instant.class));
+    }
+
+    @Test
+    void manualConfirm_confirmsAPendingSlotWithTheNote_andRejectsOtherStatesOrABlankNote() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        PromotionRedemption r = reserve(membershipPromotion());
+        com.fenixcore.optibienestar360.modules.auth.entity.User admin = new com.fenixcore.optibienestar360.modules.auth.entity.User();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service().confirmManually(r, admin, "  "))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("promotion_slot.note.required");
+
+        service().confirmManually(r, admin, " Pago verificado en banco ");
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(r.getManualNote()).isEqualTo("Pago verificado en banco");
+        assertThat(r.getManualBy()).isSameAs(admin);
+        assertThat(r.getConfirmedByPayment()).isNull();
+        assertThat(campaign.getConfirmedCount()).isEqualTo(1);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service().confirmManually(r, admin, "Otra vez"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("promotion_slot.confirm.not_pending");
+    }
+
+    @Test
+    void manualRelease_freesAPendingSlot_butNotAConfirmedOneAlreadyUsed() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        MembershipPromotion pendingMp = membershipPromotion();
+        PromotionRedemption pending = reserve(pendingMp);
+        com.fenixcore.optibienestar360.modules.auth.entity.User admin = new com.fenixcore.optibienestar360.modules.auth.entity.User();
+
+        service().releaseManually(pending, admin, "El afiliado desistió");
+        assertThat(pending.getRedemptionStatus()).isEqualTo(RedemptionStatus.RELEASED);
+        assertThat(pending.getManualNote()).isEqualTo("El afiliado desistió");
+        assertThat(pendingMp.getStatus()).isEqualTo("CANCELED");
+        assertThat(pendingMp.getEndedReason()).isEqualTo(PromotionRedemptionService.REASON_SLOT_RELEASED);
+        assertThat(campaign.getRedemptionsCount()).isZero();
+
+        campaign.setQuotaTrigger(QuotaTrigger.ON_ENROLLMENT);
+        MembershipPromotion usedMp = membershipPromotion();
+        usedMp.setInscriptionApplied(true);
+        PromotionRedemption used = reserve(usedMp);
+        assertThat(used.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service().releaseManually(used, admin, "Liberar"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("promotion_slot.release.not_allowed");
+        assertThat(used.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
     }
 }

@@ -69,4 +69,21 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE User u SET u.defaultRole = null WHERE u.defaultRole.id = :roleId")
     int clearDefaultRole(@Param("roleId") Long roleId);
+
+    /**
+     * Login emails of the active users holding {@code permission} through an
+     * active role assignment (internal reminders to whoever approves
+     * payments, hub ADR 0038 §9).
+     */
+    @Query("""
+            SELECT DISTINCT u.email FROM User u
+              JOIN u.userRoles ur
+              JOIN ur.role r
+              JOIN r.permissions p
+            WHERE p.name = :permission
+              AND u.active = true
+              AND ur.active = true
+              AND u.email IS NOT NULL
+            """)
+    java.util.List<String> findActiveEmailsWithPermission(@Param("permission") String permission);
 }

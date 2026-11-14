@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.promotion.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import jakarta.persistence.AttributeOverride;
@@ -71,6 +72,28 @@ public class PromotionRedemption extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "confirmed_by_payment_id")
     private Payment confirmedByPayment;
+
+    // ─── Reconciliation with the payments (V260, hub ADR 0038 §9) ───────────
+
+    /** Required note of a manual confirm / release; {@code null} when the system moved the slot. */
+    @Column(name = "manual_note", columnDefinition = "text")
+    private String manualNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manual_by_user_id")
+    private User manualBy;
+
+    /** When the member and their advisor were told the PENDING slot expires within 48 h (sent once). */
+    @Column(name = "expiry_notice_sent_at")
+    private Instant expiryNoticeSentAt;
+
+    /** Last internal reminder about the payment that confirms the slot (at most one per hour). */
+    @Column(name = "last_reminded_at")
+    private Instant lastRemindedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_reminded_by_user_id")
+    private User lastRemindedBy;
 
     public boolean isPending() {
         return redemptionStatus == RedemptionStatus.PENDING;

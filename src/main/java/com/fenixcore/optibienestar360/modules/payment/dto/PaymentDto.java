@@ -143,10 +143,22 @@ public record PaymentDto(
 
         // Credit (V205) — only when the payment ever held credit: what is left of it, and its OPEN claim if any
         PaymentClaimDto openClaim,
-        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal creditRemaining
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "currency_Code") BigDecimal creditRemaining,
+
+        /**
+         * The campaign slot this payment confirmed or may confirm (V260, hub
+         * ADR 0038 §9) — {@code null} when none; filled on the detail and the
+         * lists, see {@code PaymentsService.toDtoWithCredit}.
+         */
+        com.fenixcore.optibienestar360.modules.promotion.dto.PaymentPromotionSlotDto promotionSlot
 ) {
+    /** Rebuilds this record with the campaign slot of the payment (V260) — see {@code PaymentsService.toDtoWithCredit}. */
+    public PaymentDto withPromotionSlot(com.fenixcore.optibienestar360.modules.promotion.dto.PaymentPromotionSlotDto slot) {
+        return new PaymentDto(uuid, direction, paymentType, person, promoter, beneficiary, beneficiaryDocument, beneficiaryContractNumber, membership, member, plan, campaign, payerUserUuid, amount, currency_Code, currency, amountConverted, convertedCurrency_Code, convertedCurrency, exchangeRateUsed, exchangeRateDate, paymentMethod, paymentMethodDescription, paymentMethodMandatoryIdentification, paymentMethodMandatoryBank, paymentMethodMandatoryBankAccount, paymentMethodMandatoryAccountType, paymentMethodMandatoryAccountCode, paymentMethodMandatoryPhone, paymentMethodMandatoryEmail, paymentMethodMandatoryReferenceNumber, referenceNumber, bank, identification, bankAccountType, bankAccountCode, bankAccountIdentifier, phone, email, lines, paymentDate, receivedAt, inscription, appliedPeriod, coverageThroughPeriod, supportFileAvailable, supportFileName, supportFileContentType, supportFileSizeBytes, adminNotes, status, reviewedBy, reviewedAt, reviewReason, discountAmount, discountReason, discountedByUserUuid, discountedAt, active, createdAt, updatedAt, openClaim, creditRemaining, slot);
+    }
+
     /** Rebuilds this record with the credit view populated — see {@code PaymentsService.toDtoWithCredit}. */
     public PaymentDto withCredit(PaymentClaimDto openClaim, BigDecimal creditRemaining) {
-        return new PaymentDto(uuid, direction, paymentType, person, promoter, beneficiary, beneficiaryDocument, beneficiaryContractNumber, membership, member, plan, campaign, payerUserUuid, amount, currency_Code, currency, amountConverted, convertedCurrency_Code, convertedCurrency, exchangeRateUsed, exchangeRateDate, paymentMethod, paymentMethodDescription, paymentMethodMandatoryIdentification, paymentMethodMandatoryBank, paymentMethodMandatoryBankAccount, paymentMethodMandatoryAccountType, paymentMethodMandatoryAccountCode, paymentMethodMandatoryPhone, paymentMethodMandatoryEmail, paymentMethodMandatoryReferenceNumber, referenceNumber, bank, identification, bankAccountType, bankAccountCode, bankAccountIdentifier, phone, email, lines, paymentDate, receivedAt, inscription, appliedPeriod, coverageThroughPeriod, supportFileAvailable, supportFileName, supportFileContentType, supportFileSizeBytes, adminNotes, status, reviewedBy, reviewedAt, reviewReason, discountAmount, discountReason, discountedByUserUuid, discountedAt, active, createdAt, updatedAt, openClaim, creditRemaining);
+        return new PaymentDto(uuid, direction, paymentType, person, promoter, beneficiary, beneficiaryDocument, beneficiaryContractNumber, membership, member, plan, campaign, payerUserUuid, amount, currency_Code, currency, amountConverted, convertedCurrency_Code, convertedCurrency, exchangeRateUsed, exchangeRateDate, paymentMethod, paymentMethodDescription, paymentMethodMandatoryIdentification, paymentMethodMandatoryBank, paymentMethodMandatoryBankAccount, paymentMethodMandatoryAccountType, paymentMethodMandatoryAccountCode, paymentMethodMandatoryPhone, paymentMethodMandatoryEmail, paymentMethodMandatoryReferenceNumber, referenceNumber, bank, identification, bankAccountType, bankAccountCode, bankAccountIdentifier, phone, email, lines, paymentDate, receivedAt, inscription, appliedPeriod, coverageThroughPeriod, supportFileAvailable, supportFileName, supportFileContentType, supportFileSizeBytes, adminNotes, status, reviewedBy, reviewedAt, reviewReason, discountAmount, discountReason, discountedByUserUuid, discountedAt, active, createdAt, updatedAt, openClaim, creditRemaining, promotionSlot);
     }
 }

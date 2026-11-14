@@ -26,6 +26,7 @@ public interface PaymentMapper {
     @Mapping(target = "beneficiary",             source = "beneficiaryPerson")
     @Mapping(target = "openClaim",               ignore = true)
     @Mapping(target = "creditRemaining",         ignore = true)
+    @Mapping(target = "promotionSlot",           ignore = true)
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")

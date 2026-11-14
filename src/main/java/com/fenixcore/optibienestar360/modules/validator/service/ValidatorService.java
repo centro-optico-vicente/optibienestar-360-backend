@@ -242,7 +242,8 @@ public class ValidatorService {
                 source.beneficiaryUuid(), source.beneficiaryFullName(), source.beneficiaryRelationship(),
                 source.beneficiaries(),
                 cached,
-                source.benefitGrants());
+                source.benefitGrants(),
+                source.pendingBenefits());
     }
 
     // ─── Document parsing ──────────────────────────────────────────────────
@@ -334,7 +335,7 @@ public class ValidatorService {
                     planUuid, planCode, planName,
                     membershipUuid, enrolledAt, nextDueDate, lastPaidThrough, gracePeriodDays,
                     beneficiaryUuid, beneficiaryFullName, beneficiaryRelationship, beneficiaries,
-                    cached, null);
+                    cached, null, null);
         }
     }
 }

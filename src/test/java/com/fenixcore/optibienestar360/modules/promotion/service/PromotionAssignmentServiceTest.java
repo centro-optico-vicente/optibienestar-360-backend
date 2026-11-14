@@ -60,6 +60,8 @@ class PromotionAssignmentServiceTest {
     @Mock private jakarta.persistence.EntityManager entityManager;
     @Mock private org.springframework.beans.factory.ObjectProvider<
             com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService> chargeServiceProvider;
+    @Mock private PromotionSlotStatusService slotStatus;
+    @Mock private PromotionSlotNoticeService noticeService;
 
     private final AtomicLong ids = new AtomicLong(100);
 
@@ -72,7 +74,7 @@ class PromotionAssignmentServiceTest {
     private PromotionAssignmentService service() {
         PromotionRedemptionService redemptions = new PromotionRedemptionService(
                 redemptionRepository, campaignRepository, promotionRepository, paymentRepository, grantService,
-                entityManager, chargeServiceProvider);
+                entityManager, chargeServiceProvider, slotStatus, noticeService);
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
                 membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
                 memberRepository, campaignRepository, redemptions);

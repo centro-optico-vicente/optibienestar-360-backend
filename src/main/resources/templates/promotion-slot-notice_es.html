@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; margin: 12px 0; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2 th:if="${!expired}">Un cupo de promoción está por vencer</h2>
+    <h2 th:if="${expired}">Un cupo de promoción venció</h2>
+
+    <p th:if="${!forAdvisor}">Hola <span th:text="${memberName}"></span>,</p>
+    <p th:if="${forAdvisor}">Hola,</p>
+
+    <div class="info-box" th:if="${!expired and !forAdvisor}">
+        <p>
+            Tu cupo en la promoción <strong th:text="${promotionName}"></strong>
+            todavía no está confirmado y vence el <strong th:text="${deadline}"></strong>.
+            Registra o completa tu pago antes de esa fecha para no perderlo.
+        </p>
+    </div>
+    <div class="info-box" th:if="${!expired and forAdvisor}">
+        <p>
+            El cupo de <strong th:text="${memberName}"></strong> en la promoción
+            <strong th:text="${promotionName}"></strong> todavía no está confirmado y vence el
+            <strong th:text="${deadline}"></strong>. Ayúdale a registrar su pago antes de esa fecha.
+        </p>
+    </div>
+    <div class="info-box" th:if="${expired and !forAdvisor}">
+        <p>
+            Tu cupo en la promoción <strong th:text="${promotionName}"></strong> venció sin confirmarse,
+            así que la promoción ya no se aplica a tu afiliación.
+        </p>
+    </div>
+    <div class="info-box" th:if="${expired and forAdvisor}">
+        <p>
+            El cupo de <strong th:text="${memberName}"></strong> en la promoción
+            <strong th:text="${promotionName}"></strong> venció sin confirmarse y se liberó.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Campaña:</span>
+        <span th:text="${campaignName}"></span>
+    </div>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Este es un mensaje automático. No es necesario responderlo.
+    </div>
+</body>
+</html>

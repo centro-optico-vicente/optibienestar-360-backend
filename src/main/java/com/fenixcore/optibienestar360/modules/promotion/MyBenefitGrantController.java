@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -23,7 +24,12 @@ public class MyBenefitGrantController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_VIEW_OWN')")
-    public ResponseEntity<List<MembershipBenefitGrantDto>> mine(@AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(grantService.forUser(actor.getUuid()));
+    public ResponseEntity<List<MembershipBenefitGrantDto>> mine(
+            @AuthenticationPrincipal CustomUserDetails actor,
+            @RequestParam(defaultValue = "false") boolean includePending) {
+        // includePending (V260): ally benefits whose slot awaits confirmation, as PENDING_CONFIRMATION entries.
+        return ResponseEntity.ok(includePending
+                ? grantService.forUser(actor.getUuid(), true)
+                : grantService.forUser(actor.getUuid()));
     }
 }

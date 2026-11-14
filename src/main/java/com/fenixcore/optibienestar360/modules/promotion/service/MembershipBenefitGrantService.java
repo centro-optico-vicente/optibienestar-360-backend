@@ -66,6 +66,8 @@ public class MembershipBenefitGrantService {
     private final CurrencyRepository currencyRepository;
     private final CurrencyConversionService currencyConversionService;
     private final ValidatorCacheService validatorCacheService;
+    /** PENDING ally-benefit slots shown as "pending confirmation" (V260, hub ADR 0038 §9). */
+    private final PromotionSlotStatusService slotStatus;
 
     // ─── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -263,11 +265,11 @@ public class MembershipBenefitGrantService {
                 .map(Ally::getId)
                 .collect(Collectors.toSet());
         if (allyIds.isEmpty()) {
-            return result.withBenefitGrants(List.of());
+            return result.withBenefits(List.of(), List.of());
         }
         Membership membership = membershipRepository.findByUuid(result.membershipUuid()).orElse(null);
         if (membership == null) {
-            return result.withBenefitGrants(List.of());
+            return result.withBenefits(List.of(), List.of());
         }
         Instant now = Instant.now();
         List<MembershipBenefitGrantDto> grants = repository
@@ -275,16 +277,34 @@ public class MembershipBenefitGrantService {
                 .filter(g -> g.isUsableAt(now))
                 .map(MembershipBenefitGrantService::toDto)
                 .toList();
-        return result.withBenefitGrants(grants);
+        // A benefit whose slot is still PENDING is shown, but it has no voucher to redeem yet.
+        return result.withBenefits(grants, slotStatus.pendingAllyBenefits(membership.getId(), allyIds));
     }
 
     /** The caller member's vouchers (any status), newest first ({@code GET /v1/me/benefit-grants}). */
     public List<MembershipBenefitGrantDto> forUser(UUID userUuid) {
+        return forUser(userUuid, false);
+    }
+
+    /**
+     * As {@link #forUser(UUID)}; with {@code includePending} the ally
+     * benefits whose slot is still PENDING come first, as entries without
+     * uuid in status PENDING_CONFIRMATION whose expiry is the slot's
+     * effective deadline (V260, hub ADR 0038 §9).
+     */
+    public List<MembershipBenefitGrantDto> forUser(UUID userUuid, boolean includePending) {
         return memberRepository.findByUserUuid(userUuid)
                 .flatMap(member -> membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()))
-                .map(membership -> repository.findByMembership_IdOrderByGrantedAtDesc(membership.getId()).stream()
-                        .map(MembershipBenefitGrantService::toDto)
-                        .toList())
+                .map(membership -> {
+                    List<MembershipBenefitGrantDto> grants = new java.util.ArrayList<>();
+                    if (includePending) {
+                        grants.addAll(slotStatus.pendingGrantEntries(membership.getId()));
+                    }
+                    repository.findByMembership_IdOrderByGrantedAtDesc(membership.getId()).stream()
+                            .map(MembershipBenefitGrantService::toDto)
+                            .forEach(grants::add);
+                    return List.copyOf(grants);
+                })
                 .orElse(List.of());
     }
 
