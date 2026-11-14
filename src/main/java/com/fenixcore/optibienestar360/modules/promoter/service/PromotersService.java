@@ -139,10 +139,19 @@ public class PromotersService {
      * Lightweight advisor options for selects/typeaheads: label = display name,
      * code = referral code. {@code q} is accent- and case-insensitive over both;
      * {@code currentValues} are always included so a selected advisor keeps its label.
+     *
+     * <p>The INSTITUCION system row is left out unless {@code includeSystem}: it is
+     * not a person, so it makes no sense as the advisor to assign (an ally's advisor,
+     * a member reassignment target). Filters over attributed records (payments,
+     * commissions, members) pass {@code includeSystem=true}, since filtering by it
+     * finds what nobody brought in. A system row in {@code currentValues} still shows.</p>
      */
-    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues) {
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, boolean includeSystem) {
         Specification<Promoter> spec = activeOnly()
                 .and(SearchSpecifications.acrossFields(q, "displayName", "referralCode"));
+        if (!includeSystem) {
+            spec = spec.and((root, query, cb) -> cb.isFalse(root.get("system")));
+        }
         return OptionsSupport.build(repository, repository::findByUuid, spec, currentValues, limit,
                 Promoter::getUuid, Promoter::getReferralCode, Promoter::getDisplayName, Promoter::isActive);
     }

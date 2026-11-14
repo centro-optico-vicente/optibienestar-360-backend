@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -32,7 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * IT of {@code GET /v1/admin/advisors/options} — the typeahead surface used by
  * payment, commission and membership filters. Verifies the flat {@code List<OptionDto>}
  * shape and that an inactive advisor passed via {@code currentValues} still
- * surfaces (with {@code active:false}) instead of being silently dropped.
+ * surfaces (with {@code active:false}) instead of being silently dropped, and that
+ * the INSTITUCION system row is left out unless the caller asks for it
+ * ({@code includeSystem=true}, used by the filters).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
@@ -73,7 +76,7 @@ class AdminPromoterControllerOptionsIT {
     @Test
     void options_returnsFlatListWithoutPageWrapper() throws Exception {
         UUID activeUuid = UUID.randomUUID();
-        when(promotersService.listOptions(any(), eq(50), any()))
+        when(promotersService.listOptions(any(), eq(50), any(), eq(false)))
                 .thenReturn(List.of(new OptionDto(activeUuid, "ABC123", "Juan Pérez", true)));
 
         mockMvc.perform(get("/v1/admin/advisors/options").param("q", "juan").with(principal("PROMOTER_VIEW_ALL")))
@@ -86,7 +89,7 @@ class AdminPromoterControllerOptionsIT {
     @Test
     void options_currentValues_inactiveAdvisorStillAppears() throws Exception {
         UUID inactiveUuid = UUID.randomUUID();
-        when(promotersService.listOptions(any(), eq(50), eq(List.of(inactiveUuid))))
+        when(promotersService.listOptions(any(), eq(50), eq(List.of(inactiveUuid)), eq(false)))
                 .thenReturn(List.of(new OptionDto(inactiveUuid, "OLD999", "Ex Asesor", false)));
 
         mockMvc.perform(get("/v1/admin/advisors/options")
@@ -95,5 +98,24 @@ class AdminPromoterControllerOptionsIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].active").value(false));
+    }
+
+    @Test
+    void options_byDefault_asksTheServiceToLeaveTheSystemAdvisorOut() throws Exception {
+        mockMvc.perform(get("/v1/admin/advisors/options").with(principal()))
+                .andExpect(status().isOk());
+
+        verify(promotersService).listOptions(any(), eq(50), any(), eq(false));
+    }
+
+    @Test
+    void options_includeSystem_isPassedThrough() throws Exception {
+        UUID systemUuid = UUID.randomUUID();
+        when(promotersService.listOptions(any(), eq(50), any(), eq(true)))
+                .thenReturn(List.of(new OptionDto(systemUuid, "INSTITUCION", "Institución", true)));
+
+        mockMvc.perform(get("/v1/admin/advisors/options").param("includeSystem", "true").with(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("INSTITUCION"));
     }
 }

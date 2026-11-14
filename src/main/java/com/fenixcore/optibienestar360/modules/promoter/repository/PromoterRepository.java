@@ -54,11 +54,13 @@ public interface PromoterRepository extends JpaRepository<Promoter, Long>,
      * superiors"). The caller is responsible for treating an empty result as
      * "this is the top rank, no supervisor applies" vs. "no eligible
      * candidate exists yet" — both render the same way here (empty list) but
-     * mean different things to the UI.
+     * mean different things to the UI. The INSTITUCION system row never
+     * qualifies: it is not a person who can supervise anyone.
      */
     @Query("""
             SELECT p FROM Promoter p
             WHERE p.active = true
+              AND p.system = false
               AND p.rank IS NOT NULL
               AND p.rank.hierarchyLevel > :minLevel
               AND (:maxLevel IS NULL OR p.rank.hierarchyLevel <= :maxLevel)

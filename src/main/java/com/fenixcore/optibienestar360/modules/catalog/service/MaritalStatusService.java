@@ -86,8 +86,13 @@ public class MaritalStatusService {
                 MaritalStatus::getUuid, MaritalStatus::getCode, MaritalStatusService::labelOf, MaritalStatus::isActive);
     }
 
-    private static String labelOf(MaritalStatus m) {
-        return m.getCode() + " — " + m.getName();
+    /**
+     * The code is a technical {@code SNAKE_CASE} identifier (e.g. {@code SOLTERO}),
+     * so the select shows only the name; the code still travels in {@code OptionDto.code}
+     * (ADR LOC-0013, rule 5).
+     */
+    static String labelOf(MaritalStatus m) {
+        return m.getName();
     }
 
     @Cacheable(value = "catalogs", key = "'marital_status:all'")
