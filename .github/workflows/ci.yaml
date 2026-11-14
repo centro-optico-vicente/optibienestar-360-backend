@@ -81,6 +81,16 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      # Deployed app sessions connect as optibienestar360_app, whose search_path
+      # V3 pins to `app, public`; native SQL (DashboardQueries, retention/sweep
+      # jobs) and app.immutable_unaccent() (?q= search) rely on it unqualified.
+      # CI connects as `postgres` instead, so give that role the same search_path
+      # or any IT exercising them fails with "relation/function does not exist".
+      - name: Give the CI role the app roles' search_path
+        run: psql -h localhost -U postgres -d optibienestar360_test -c "ALTER ROLE postgres SET search_path = app, public"
+        env:
+          PGPASSWORD: postgres
+
       - name: Build and Test
         run: ./gradlew build --no-daemon --console=plain --warning-mode all --stacktrace
         env:
