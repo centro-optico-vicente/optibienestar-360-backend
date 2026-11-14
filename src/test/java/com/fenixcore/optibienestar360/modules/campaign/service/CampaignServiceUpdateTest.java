@@ -61,7 +61,7 @@ class CampaignServiceUpdateTest {
     private static CampaignRequest request(Campaign c, Integer max) {
         return new CampaignRequest("Navidad 2026", null, c.getStartsAt(), null, true,
                 Campaign.CampaignScope.ALL, Campaign.CampaignMode.GENERAL, false, false,
-                null, null, null, null, null, null, List.of(), List.of(), max, null, null,
+                null, null, null, null, null, List.of(), List.of(), max, null, null,
                 // draft = true is ignored on update: the lifecycle never comes from the request
                 true, null, null, null, null, null, false);
     }
