@@ -31,11 +31,6 @@
       "skillPath": "skills/rest-api-design/SKILL.md",
       "computedHash": "e249c58df5d9d59407fc4de70b0d75bb336d917bbe0a75695d6ec8cf13cfaf35"
     },
-    "smithery-ai-cli": {
-      "source": "smithery.ai",
-      "sourceType": "well-known",
-      "computedHash": "dc17f090c975afe1d96a25dbe843fc9c978e96d5699eed1bb7c12b411e10b830"
-    },
     "spring-boot-engineer": {
       "source": "jeffallan/claude-skills",
       "sourceType": "github",

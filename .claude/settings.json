@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./src/main/resources/db/snapshot/schema.sql)",
+      "Read(./src/main/resources/db/snapshot/data.sql)",
+      "Read(./build/**)",
+      "Read(./.gradle/**)",
+      "Read(./bin/**)",
+      "Read(**/*.ttf)",
+      "Read(**/*.jar)"
+    ]
+  }
+}

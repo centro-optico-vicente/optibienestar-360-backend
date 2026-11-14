@@ -1,52 +1,39 @@
 # optibienestar-360-backend
 
-Backend REST API del ecosistema **OptiBienestar 360 / Centro Óptico Vicente**. Spring Boot 4.0.6 + Java 25 + PostgreSQL 15 + Redis 7 + Cloudflare R2.
+API REST de **OptiBienestar 360** (Centro Óptico Vicente). Java 25 + Spring Boot 4 (Jetty) + Gradle, PostgreSQL 15 (Flyway + JPA `validate`), Redis 7, Cloudflare R2 (S3), JWT, MapStruct, RSQL, JasperReports. Docs del repo en `.ai/` (español); visión cross-stack en el hub [`../centro-optico-vicente`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai) (ADR sin prefijo = del hub; `LOC-` = de este repo).
 
-**Parte del ecosistema:** [centro-optico-vicente](https://github.com/fenix-core/centro-optico-vicente) (hub maestro)
+Código: `src/main/java/com/fenixcore/optibienestar360/{core,security,common,modules/<módulo>/{entity,repository,dto,mapper,service,…}}`; controllers en la raíz de cada módulo. Migraciones en `src/main/resources/db/migration/`.
 
-## Documentación
+## Reglas duras
 
-Toda la documentación específica del backend para asistencia IA vive en [`.ai/`](.ai/). **Empezar por [`.ai/CLAUDE.md`](.ai/CLAUDE.md)**.
+1. **BD = snapshot generado**, no replay de migraciones. Consultarlo con `scripts/db/table.sh` (abajo). Nunca leer enteros `schema-map.md` (300 KB), `schema.sql` ni `data.sql`.
+2. **Migraciones Flyway** `V{N}__snake_case.sql`, inmutables una vez mergeadas; corregir con una nueva. JPA siempre `validate`. Al crear una, regenerar `src/main/resources/db/snapshot/` en el mismo PR (skill `new-migration`).
+3. **Tablas** extienden `BaseEntity`: PK `BIGINT` `{tabla}_id` + `uuid` externo + auditoría + `is_active` + `status` ([ADR 0006](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)). Soft delete (`setIsActive(false)`), nunca `delete()` en datos sensibles.
+4. **API:** `/v1/{grupo}/…` kebab-case, JSON `camelCase`, convención `_Display` para valores presentacionales, errores RFC 7807. Listados devuelven `*ListItemDto` compacto; el detalle va por `GET /{uuid}`.
+5. **Permisos granulares** (uno por acción: `X_VIEW_ALL`, `X_CREATE`…), nunca `*_MANAGE`. El JWT lleva permisos, no roles: para saber el rol del actor, cargarlo de BD.
+6. **Idioma:** código, comentarios, logs y commits en inglés. Texto visible al usuario solo en `messages_*.properties` / `ValidationMessages_*.properties` / plantillas `<name>_<lang>.html`, vía código de MessageSource, nunca literal.
+7. **Datos médicos:** `@PreAuthorize` + bitácora en cada acceso. **Pagos siempre manuales**, sin pasarelas.
+8. **Git:** nunca commit a `main`; rama `<tipo>/<kebab>` con `git switch -c X --no-track origin/main`; sin `Co-Authored-By`.
 
-Para decisiones cross-stack (modelo de dominio, infraestructura, integración con frontend/landing), ver el **hub maestro**: [`../centro-optico-vicente/.ai/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/).
+## Qué leer según la tarea
 
-| Necesito | Archivo |
+| Tarea | Leer / usar |
 |---|---|
-| Brief de entrada al backend | [`.ai/CLAUDE.md`](.ai/CLAUDE.md) |
-| Checklist operacional (tareas backend) | [`.ai/checklist.md`](.ai/checklist.md) |
-| **BD actual** (tablas, FKs, índices, relaciones, datos sembrados; generado, no editar; importable con `scripts/db/restore.sh` o `./gradlew dbRestore`; regenerar con `./gradlew dbSnapshot`) | [`src/main/resources/db/snapshot/schema-map.md`](src/main/resources/db/snapshot/schema-map.md) · [`schema.sql`](src/main/resources/db/snapshot/schema.sql) · [`data.sql`](src/main/resources/db/snapshot/data.sql) · [README](src/main/resources/db/snapshot/README.md) |
-| Diseño/convenciones de la BD (manual, histórico) | [`.ai/specs/02-database.md`](.ai/specs/02-database.md) |
-| Convenciones de paquetes y arquitectura | [`.ai/specs/01-package-structure.md`](.ai/specs/01-package-structure.md) |
-| Playbooks (nueva entidad, migración, endpoint) | [`.ai/playbooks/`](.ai/playbooks/) |
-| Reglas de negocio | [`../centro-optico-vicente/.ai/context/business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md) |
-| ADRs cross-stack | [`../centro-optico-vicente/.ai/decisions/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/decisions/) |
+| Qué tablas/columnas/FKs existen | `scripts/db/table.sh <tabla>` · `--find txt` · `--column col` · `--refs tabla` · `--columns tabla` |
+| Datos sembrados / catálogos | `src/main/resources/db/snapshot/seed-catalog.md` (buscar con `grep`) |
+| Última migración | `ls src/main/resources/db/migration \| sort -V \| tail -1` |
+| Nueva migración / entidad / endpoint | skills `new-migration`, `new-entity`, `new-endpoint` |
+| Convención de un área | `.ai/specs/NN-*.md` (índice en `.ai/specs/00-overview.md`): seguridad 04, roles 05, REST 06, R2 08, i18n 14, reportes 15, auditoría 16, filtros 19 |
+| ¿Ya está decidido? | `.ai/decisions/README.md` (ADR locales) y el índice del hub `../centro-optico-vicente/.ai/decisions/README.md` |
+| Regla de negocio | `../centro-optico-vicente/.ai/context/business-rules.md` (buscar la sección, no leer entero) |
+| Qué existe / qué falta | `.ai/context/current-state.md` · `.ai/checklist.md` → `.ai/checklists/vertical-*.md` |
 
-## Stack
+Reglas extra que se cargan solas al tocar migraciones, controllers/DTOs o `messages*.properties`: `.claude/rules/`.
 
-- **Java 25** + **Spring Boot 4.0.6** + **Gradle 9.4.1**
-- **Servidor:** Jetty embebido (más liviano que Tomcat)
-- **Persistencia:** Spring Data JPA + Hibernate + PostgreSQL 15
-- **Migraciones:** Flyway — DDL versionado (`src/main/resources/db/migration/`) + JPA en `validate` mode
-- **Auth:** JWT con jjwt 0.13.0 (access 15min + refresh 30d)
-- **Cache:** Spring Cache + Redis 7
-- **Storage:** Spring Cloud AWS S3 4.0.2 → Cloudflare R2
-- **API docs:** springdoc-openapi (Swagger UI)
-- **DTO mapping:** MapStruct 1.6.3
-- **Filtering:** RSQL JPA 7.0.0 para listings
-- **Reportes:** JasperReports (`resources/reports/*.jrxml`) + openhtmltopdf + fastexcel
-- **Tests:** JUnit 5 + Mockito (unitarios) + `*IT` de integración contra PostgreSQL (servicio `postgres` en CI)
-
-## Cómo correr (local)
+## Comandos
 
 ```bash
-# Requisitos: Java 25, Postgres 15 local, Redis 7 local
-./gradlew bootRun --args='--spring.profiles.active=dev'
-# API en http://localhost:8080
-# Swagger en http://localhost:8080/swagger-ui/index.html
+./gradlew bootRun --args='--spring.profiles.active=dev'   # API :8080, Swagger /swagger-ui/index.html
+./gradlew test                                            # unit; *IT necesitan Postgres
+scripts/db/snapshot.sh --fresh                            # regenerar snapshot de BD (o ./gradlew dbSnapshot)
 ```
-
-Variables clave en `application-dev.properties`. Ver [`.ai/specs/01-package-structure.md`](.ai/specs/01-package-structure.md).
-
-## Estado actual
-
-Fase 2 en construcción: 26 módulos de negocio, ~97 controllers REST y migraciones Flyway hasta `V190`. Resumen verificado en [`.ai/context/current-state.md`](.ai/context/current-state.md); avance por vertical en [`.ai/checklist.md`](.ai/checklist.md).
