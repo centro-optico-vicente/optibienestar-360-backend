@@ -1836,6 +1836,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 243	251	clear default role not held	SQL	V251__clear_default_role_not_held.sql	106180069	snapshot	2026-01-01 00:00:00	0	t
 244	252	generated report purge	SQL	V252__generated_report_purge.sql	468917937	snapshot	2026-01-01 00:00:00	0	t
 245	253	operator reviews affiliation requests	SQL	V253__operator_reviews_affiliation_requests.sql	1580565186	snapshot	2026-01-01 00:00:00	0	t
+246	254	promotion flat discount	SQL	V254__promotion_flat_discount.sql	1073705325	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -1954,7 +1955,7 @@ ALTER TABLE app.member_promoter_assignments ENABLE TRIGGER ALL;
 
 ALTER TABLE app.promotions DISABLE TRIGGER ALL;
 
-COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by, discount_type, discount_amount, discount_currency_id) FROM stdin;
 \.
 
 ALTER TABLE app.promotions ENABLE TRIGGER ALL;
