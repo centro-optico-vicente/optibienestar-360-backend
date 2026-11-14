@@ -42,6 +42,7 @@ public interface UserMapper {
     @Mapping(target = "active",            source = "active")
     @Mapping(target = "lastLoginAt",       source = "lastLoginAt")
     @Mapping(target = "roles",             expression = "java(mapRoles(user.getUserRoles()))")
+    @Mapping(target = "defaultRoleUuid",   source = "defaultRole.uuid")
     UserDto toDto(User user);
 
     @Mapping(target = "uuid",        source = "uuid")

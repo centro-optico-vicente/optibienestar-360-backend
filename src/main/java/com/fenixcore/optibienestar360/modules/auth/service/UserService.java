@@ -91,28 +91,52 @@ public class UserService {
     }
 
     /**
-     * Roles selectable as the caller's active session role — the union,
-     * deduplicated by role id, of {@code user.defaultRole} (a direct FK that
-     * may in principle point at a role with no {@code user_roles} row, though
-     * {@link #setDefaultRole} never leaves it in that state going forward) and
-     * the user's effective (active, non-expired) {@code user_roles} rows.
+     * Roles selectable as the caller's active session role: the user's
+     * effective (active, non-expired) {@code user_roles} rows, default first.
+     * A {@code user.defaultRole} the user no longer holds is not offered —
+     * switching to it would fail, and the login already falls back to the
+     * oldest effective role (PermissionResolver.resolveDefaultActiveRole).
      */
     public List<MyRoleDto> getMyEffectiveRoles(UUID userUuid) {
         User user = userRepository.findWithRolesByUuid(userUuid)
                 .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        return toMyRoles(user);
+    }
 
+    /**
+     * Sets the role the caller's sessions start with (hub ADR 0037 §5: each
+     * role lands on its own home). Only a role the caller already holds
+     * effectively; unlike the admin {@code defaultRoleUuid}, it never assigns a
+     * role, so it is safe as a self-service action. The current session keeps
+     * its active role: the change applies from the next login. Returns the
+     * user (the audit diff compares it with the user before the change).
+     */
+    @Transactional
+    @Auditable(entity = "user", action = AuditAction.UPDATE, uuidArgIndex = 0)
+    public UserDto setMyDefaultRole(UUID userUuid, UUID roleUuid) {
+        User user = userRepository.findWithRolesByUuid(userUuid)
+                .orElseThrow(() -> new NoSuchElementException("user.not_found"));
+        Role role = user.getUserRoles().stream()
+                .filter(UserRole::isEffective)
+                .map(UserRole::getRole)
+                .filter(r -> roleUuid.equals(r.getUuid()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("user.default_role.not_held"));
+        user.setDefaultRole(role);
+        return userMapper.toDto(userRepository.save(user));
+    }
+
+    private List<MyRoleDto> toMyRoles(User user) {
         Role defaultRole = user.getDefaultRole();
         Long defaultRoleId = defaultRole != null ? defaultRole.getId() : null;
 
         Map<Long, Role> byRoleId = new LinkedHashMap<>();
-        if (defaultRole != null) {
-            byRoleId.put(defaultRole.getId(), defaultRole);
-        }
         user.getUserRoles().stream()
                 .filter(UserRole::isEffective)
                 .forEach(ur -> byRoleId.putIfAbsent(ur.getRole().getId(), ur.getRole()));
 
         return byRoleId.values().stream()
+                .sorted((a, b) -> Boolean.compare(b.getId().equals(defaultRoleId), a.getId().equals(defaultRoleId)))
                 .map(role -> new MyRoleDto(role.getUuid(), role.getName(), role.getDescription(),
                         role.getId().equals(defaultRoleId)))
                 .toList();

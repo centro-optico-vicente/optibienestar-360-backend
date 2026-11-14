@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.auth;
 
 import com.fenixcore.optibienestar360.modules.auth.dto.AccessTokenResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.ChangePasswordRequest;
+import com.fenixcore.optibienestar360.modules.auth.dto.DefaultRoleRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LocalePreferenceRequest;
 import com.fenixcore.optibienestar360.modules.auth.dto.LoginResponse;
 import com.fenixcore.optibienestar360.modules.auth.dto.MyRoleDto;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +41,18 @@ public class MeController {
     /** Roles the caller may pick as their active session role — powers the role-switch selector. */
     @GetMapping("/roles")
     public ResponseEntity<List<MyRoleDto>> myRoles(@AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(userService.getMyEffectiveRoles(principal.getUuid()));
+    }
+
+    /**
+     * Sets the role the caller's next sessions start with (only one they already
+     * hold). Returns the updated list for the role selector.
+     */
+    @PutMapping("/default-role")
+    public ResponseEntity<List<MyRoleDto>> setDefaultRole(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @Valid @RequestBody DefaultRoleRequest request) {
+        userService.setMyDefaultRole(principal.getUuid(), request.roleUuid());
         return ResponseEntity.ok(userService.getMyEffectiveRoles(principal.getUuid()));
     }
 

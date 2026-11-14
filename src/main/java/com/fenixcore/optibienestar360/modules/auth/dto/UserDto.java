@@ -38,5 +38,7 @@ public record UserDto(
         @Display(Display.Kind.BOOLEAN) boolean active,
         @Display(Display.Kind.DATETIME) Instant lastLoginAt,
 
-        List<RoleDto> roles
+        List<RoleDto> roles,
+        // Role every session starts with (null = the oldest effective role is used).
+        UUID defaultRoleUuid
 ) {}
