@@ -44,5 +44,11 @@ public record CampaignDto(
         @Display DisplayRef closedBy,
         String closedNote,
         OffsetDateTime confirmGraceUntil,
-        Integer confirmGraceDays) {
+        Integer confirmGraceDays,
+        @Display(value = Display.Kind.ENUM, enumScope = "campaign.quotaTrigger") Campaign.QuotaTrigger quotaTrigger,
+        Integer pendingTtlDays,
+        @Display(value = Display.Kind.ENUM, enumScope = "campaign.usageWindow") Campaign.UsageWindow usageWindow,
+        Integer usageWindowDays,
+        /** Slots reserved and still waiting for their confirmation (occupied − confirmed). */
+        int pendingCount) {
 }

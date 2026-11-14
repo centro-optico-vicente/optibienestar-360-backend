@@ -105,6 +105,7 @@ public class CampaignService {
     private final DefaultSortResolver defaultSortResolver;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionService promotionService;
     private final CampaignLifecycleService lifecycleService;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService redemptionService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -207,6 +208,11 @@ public class CampaignService {
         return toDto(lifecycleService.reopen(uuid, req));
     }
 
+    /** Quota counters of the campaign and its promotions (V257). */
+    public com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto quota(UUID uuid) {
+        return redemptionService.quota(uuid);
+    }
+
     // ─── Relaunch / clone ───────────────────────────────────────────────────
 
     /**
@@ -253,6 +259,10 @@ public class CampaignService {
         clone.setMaxRedemptions(source.getMaxRedemptions());
         clone.setConfirmGraceUntil(null);
         clone.setConfirmGraceDays(source.getConfirmGraceDays());
+        clone.setQuotaTrigger(source.getQuotaTrigger());
+        clone.setPendingTtlDays(source.getPendingTtlDays());
+        clone.setUsageWindow(source.getUsageWindow());
+        clone.setUsageWindowDays(source.getUsageWindowDays());
         clone.setLifecycleStatus(Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(clone);
 
@@ -608,6 +618,9 @@ public class CampaignService {
         if (req.confirmGraceUntil() != null && req.confirmGraceDays() != null) {
             throw new IllegalArgumentException("campaign.confirm_grace.only_one");
         }
+        if (req.usageWindow() == Campaign.UsageWindow.DAYS_AFTER_CONFIRMATION && req.usageWindowDays() == null) {
+            throw new IllegalArgumentException("campaign.usage_window.days_required");
+        }
         // Rules scored or paid only at the end need an end (hub ADR 0038, consequences).
         if ((req.evaluateOnlyAtEnd() || req.payOnlyAtEnd()) && req.endsAt() == null) {
             throw new IllegalArgumentException("campaign.at_end_rules.require_ends_at");
@@ -658,6 +671,11 @@ public class CampaignService {
         campaign.setMaxRedemptions(req.maxRedemptions());
         campaign.setConfirmGraceUntil(req.confirmGraceUntil());
         campaign.setConfirmGraceDays(req.confirmGraceDays());
+        campaign.setQuotaTrigger(req.quotaTrigger() != null ? req.quotaTrigger() : Campaign.QuotaTrigger.ON_ENROLLMENT);
+        campaign.setPendingTtlDays(req.pendingTtlDays());
+        Campaign.UsageWindow usageWindow = req.usageWindow() != null ? req.usageWindow() : Campaign.UsageWindow.CAMPAIGN_DATES;
+        campaign.setUsageWindow(usageWindow);
+        campaign.setUsageWindowDays(usageWindow == Campaign.UsageWindow.DAYS_AFTER_CONFIRMATION ? req.usageWindowDays() : null);
     }
 
     private void syncPromoters(Campaign campaign, List<UUID> promoterUuids) {
@@ -692,7 +710,10 @@ public class CampaignService {
                 campaign.getMaxRedemptions(), campaign.getRedemptionsCount(), campaign.getConfirmedCount(),
                 campaign.freeSlots(),
                 campaign.getClosedAt(), campaign.getClosedReason(), DisplayRefs.ref(campaign.getClosedBy()),
-                campaign.getClosedNote(), campaign.getConfirmGraceUntil(), campaign.getConfirmGraceDays());
+                campaign.getClosedNote(), campaign.getConfirmGraceUntil(), campaign.getConfirmGraceDays(),
+                campaign.getQuotaTrigger(), campaign.getPendingTtlDays(),
+                campaign.getUsageWindow(), campaign.getUsageWindowDays(),
+                campaign.getRedemptionsCount() - campaign.getConfirmedCount());
     }
 
     private Campaign findManaged(UUID uuid) {

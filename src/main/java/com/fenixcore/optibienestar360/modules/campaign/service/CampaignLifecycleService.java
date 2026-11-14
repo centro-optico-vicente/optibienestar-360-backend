@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReason;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
+import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class CampaignLifecycleService {
 
     private final CampaignRepository repository;
     private final UserRepository userRepository;
+    private final PromotionRedemptionService redemptionService;
 
     /** DRAFT → ACTIVE (or SOLD_OUT when the quota is already full). */
     @Transactional
@@ -64,7 +66,12 @@ public class CampaignLifecycleService {
         return campaign;
     }
 
-    /** Any state but CLOSED → CLOSED by hand (reason MANUAL, who and when recorded). */
+    /**
+     * Any state but CLOSED → CLOSED by hand (reason MANUAL, who and when
+     * recorded). With {@code cancelPending} every PENDING slot is released and
+     * its promotion cancelled; otherwise they may still be confirmed until
+     * their effective deadline (hub ADR 0038 §6).
+     */
     @Transactional
     public Campaign close(UUID uuid, CampaignCloseRequest request, UUID actorUuid) {
         Campaign campaign = lock(uuid);
@@ -75,6 +82,9 @@ public class CampaignLifecycleService {
         String note = request != null && request.note() != null && !request.note().isBlank()
                 ? request.note().trim() : null;
         campaign.close(CloseReason.MANUAL, actor, note, OffsetDateTime.now());
+        if (request != null && request.cancelPending()) {
+            redemptionService.cancelPending(campaign);
+        }
         return campaign;
     }
 

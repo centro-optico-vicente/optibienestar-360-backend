@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReason;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
+import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -32,9 +33,10 @@ class CampaignLifecycleServiceTest {
 
     @Mock private CampaignRepository repository;
     @Mock private UserRepository userRepository;
+    @Mock private PromotionRedemptionService redemptionService;
 
     private CampaignLifecycleService service() {
-        return new CampaignLifecycleService(repository, userRepository);
+        return new CampaignLifecycleService(repository, userRepository, redemptionService);
     }
 
     private Campaign campaign(LifecycleStatus status) {
@@ -107,6 +109,16 @@ class CampaignLifecycleServiceTest {
         assertThat(closed.getClosedBy()).isSameAs(admin);
         assertThat(closed.getClosedNote()).isEqualTo("Fin anticipado");
         assertThat(closed.getClosedAt()).isNotNull();
+        verify(redemptionService, org.mockito.Mockito.never()).cancelPending(any());
+    }
+
+    @Test
+    void manualClose_withCancelPending_releasesThePendingSlots() {
+        Campaign c = campaign(LifecycleStatus.ACTIVE);
+
+        service().close(c.getUuid(), new CampaignCloseRequest(true, null), null);
+
+        verify(redemptionService).cancelPending(c);
     }
 
     @Test

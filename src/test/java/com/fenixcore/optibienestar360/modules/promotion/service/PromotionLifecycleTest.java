@@ -14,12 +14,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PromotionLifecycleTest {
 
     @Mock private MembershipPromotionRepository repository;
+    @Mock private PromotionRedemptionService redemptionService;
 
     private MembershipPromotion ongoing(Kind kind) {
         Promotion promotion = new Promotion();
@@ -40,22 +43,22 @@ class PromotionLifecycleTest {
     @Test
     void acquisitionPromotion_isLostOnAnyDelay() {
         MembershipPromotion suspended = ongoing(Kind.ACQUISITION);
-        new PromotionLifecycle(repository).onStatusChanged(membership(), LifecycleStatus.SUSPENDED);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.SUSPENDED);
         assertThat(suspended.getStatus()).isEqualTo("CANCELED");
         assertThat(suspended.getEndedReason()).isEqualTo("Atraso en el pago");
 
         MembershipPromotion expired = ongoing(Kind.ACQUISITION);
-        new PromotionLifecycle(repository).onStatusChanged(membership(), LifecycleStatus.EXPIRED);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.EXPIRED);
         assertThat(expired.getStatus()).isEqualTo("CANCELED");
     }
 
     @Test
     void recoveryPromotion_survivesTheDelay_butNotACancellation() {
         MembershipPromotion mp = ongoing(Kind.RECOVERY);
-        new PromotionLifecycle(repository).onStatusChanged(membership(), LifecycleStatus.EXPIRED);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.EXPIRED);
         assertThat(mp.getStatus()).isEqualTo("ACTIVE");
 
-        new PromotionLifecycle(repository).onStatusChanged(membership(), LifecycleStatus.CANCELED);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.CANCELED);
         assertThat(mp.getStatus()).isEqualTo("CANCELED");
         assertThat(mp.getEndedReason()).isEqualTo("Membresía cancelada");
     }
@@ -63,7 +66,18 @@ class PromotionLifecycleTest {
     @Test
     void returningToActive_keepsThePromotion() {
         MembershipPromotion mp = ongoing(Kind.ACQUISITION);
-        new PromotionLifecycle(repository).onStatusChanged(membership(), LifecycleStatus.ACTIVE);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.ACTIVE);
         assertThat(mp.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void anEndedPromotion_triesToReleaseItsSlot_aKeptOneDoesNot() {
+        MembershipPromotion lost = ongoing(Kind.ACQUISITION);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.SUSPENDED);
+        verify(redemptionService).releaseIfUnused(lost);
+
+        MembershipPromotion kept = ongoing(Kind.RECOVERY);
+        new PromotionLifecycle(repository, redemptionService).onStatusChanged(membership(), LifecycleStatus.SUSPENDED);
+        verify(redemptionService, never()).releaseIfUnused(kept);
     }
 }

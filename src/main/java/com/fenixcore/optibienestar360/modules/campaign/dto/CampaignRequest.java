@@ -39,5 +39,11 @@ public record CampaignRequest(
         @Min(1) Integer maxRedemptions,
         OffsetDateTime confirmGraceUntil,
         @Min(1) Integer confirmGraceDays,
-        Boolean draft) {
+        Boolean draft,
+        /** When a reserved slot is confirmed (V257); null = ON_ENROLLMENT. */
+        Campaign.QuotaTrigger quotaTrigger,
+        @Min(1) Integer pendingTtlDays,
+        /** How long a confirmed slot keeps its benefit (V257); null = CAMPAIGN_DATES. */
+        Campaign.UsageWindow usageWindow,
+        @Min(1) Integer usageWindowDays) {
 }
