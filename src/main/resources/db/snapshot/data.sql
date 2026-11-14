@@ -768,7 +768,7 @@ ALTER TABLE app.banks ENABLE TRIGGER ALL;
 
 ALTER TABLE app.campaigns DISABLE TRIGGER ALL;
 
-COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id) FROM stdin;
+COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id, lifecycle_status, close_on_end_date, close_on_quota_filled, max_redemptions, redemptions_count, confirmed_count, closed_at, closed_reason, closed_by_user_id, closed_note, confirm_grace_until, confirm_grace_days) FROM stdin;
 \.
 
 ALTER TABLE app.campaigns ENABLE TRIGGER ALL;
@@ -1837,6 +1837,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 244	252	generated report purge	SQL	V252__generated_report_purge.sql	468917937	snapshot	2026-01-01 00:00:00	0	t
 245	253	operator reviews affiliation requests	SQL	V253__operator_reviews_affiliation_requests.sql	1580565186	snapshot	2026-01-01 00:00:00	0	t
 246	254	promotion flat discount	SQL	V254__promotion_flat_discount.sql	1073705325	snapshot	2026-01-01 00:00:00	0	t
+247	255	campaign lifecycle and quota	SQL	V255__campaign_lifecycle_and_quota.sql	-1255733395	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -1955,7 +1956,7 @@ ALTER TABLE app.member_promoter_assignments ENABLE TRIGGER ALL;
 
 ALTER TABLE app.promotions DISABLE TRIGGER ALL;
 
-COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by, discount_type, discount_amount, discount_currency_id) FROM stdin;
+COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by, discount_type, discount_amount, discount_currency_id, own_quota, confirmed_count) FROM stdin;
 \.
 
 ALTER TABLE app.promotions ENABLE TRIGGER ALL;
@@ -2544,6 +2545,9 @@ COPY app.permissions (permissions_id, uuid, name, domain_id, description, is_act
 442	2ad14df4-1806-0d5b-b4e7-93a7acb2d5ec	AFFILIATION_REQUEST_DRAFT_RETAIN	33	Mantener (o dejar de mantener) cualquier borrador de afiliación en progreso para que la limpieza no lo borre	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 443	14178ba5-abd3-fff5-48fa-6ed83155cf9e	AFFILIATION_REQUEST_DRAFT_RETAIN_ADVISOR	33	Encontrar y mantener (o dejar de mantener) un borrador de afiliación en progreso propio o sin asesor, para que la limpieza no lo borre (portal del asesor)	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 444	ef6b5709-5aea-7785-2ebd-b5a94ba135da	AFFILIATION_REQUEST_ASSIGN_PROMOTER	33	Cambiar el asesor de una solicitud de afiliación en borrador o pendiente	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+445	4f3319f0-287d-84e0-f6ce-d4209162b73a	CAMPAIGN_CLOSE	31	Cerrar una campaña a mano	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+446	d65617cc-326f-b919-d517-2378421ef7c5	CAMPAIGN_REOPEN	31	Reabrir una campaña cerrada ampliando su cupo o su fecha	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+447	1b617906-fdca-5eeb-0b90-2087d3afd62b	CAMPAIGN_PAUSE	31	Pausar y reanudar una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.permissions ENABLE TRIGGER ALL;
@@ -3787,6 +3791,15 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1517	3	351	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1518	3	352	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1519	3	353	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1520	1	445	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1521	1	446	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1522	1	447	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1526	2	445	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1527	2	446	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1528	2	447	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1529	3	445	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1530	3	446	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1531	3	447	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -3820,6 +3833,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 22	256ddf28-6faf-0ef1-a203-188404848324	GENERATED_REPORT_PURGE	Depuración de reportes generados	Borra de R2 los reportes y fichas generados (archivos temporales) con más días que la retención configurada en el sistema, y los marca como depurados. La auditoría de reportes se conserva; solo se elimina la copia del archivo.	0 30 4 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó (si la fecha es una condición de cierre) y mantiene al día el estado de sus cupos.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4389,7 +4403,7 @@ SELECT pg_catalog.setval('app.permission_domains_permission_domains_id_seq', 39,
 -- Name: permissions_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 444, true);
+SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 447, true);
 
 --
 -- Name: person_credit_entries_person_credit_entries_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4509,7 +4523,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1519, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1531, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4527,7 +4541,7 @@ SELECT pg_catalog.setval('app.scheduled_job_runs_scheduled_job_runs_id_seq', 1, 
 -- Name: scheduled_jobs_scheduled_jobs_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 22, true);
+SELECT pg_catalog.setval('app.scheduled_jobs_scheduled_jobs_id_seq', 23, true);
 
 --
 -- Name: security_policies_security_policies_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

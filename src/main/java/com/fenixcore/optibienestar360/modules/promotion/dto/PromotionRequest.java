@@ -31,6 +31,8 @@ public record PromotionRequest(
         @NotNull AppliesTo appliesTo,
         @Min(1) Integer cycles,
         boolean coversExtraBeneficiaries,
+        /** Own quota (V256); {@code maxRedemptions} is only accepted when true. */
+        boolean ownQuota,
         @Min(1) Integer maxRedemptions,
         boolean requiresCode,
         boolean acceptsPromoterCode,

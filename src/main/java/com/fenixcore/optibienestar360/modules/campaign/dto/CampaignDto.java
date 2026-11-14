@@ -9,6 +9,11 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * A campaign. Lifecycle and quota (V256, hub ADR 0038): {@code endsAt} is
+ * {@code null} for an open-ended campaign; {@code freeSlots} is {@code null}
+ * when the campaign has no quota.
+ */
 public record CampaignDto(
         UUID uuid,
         String name,
@@ -27,5 +32,17 @@ public record CampaignDto(
         String exclusivityGroup,
         Integer priority,
         boolean active,
-        List<UUID> promoterUuids) {
+        List<UUID> promoterUuids,
+        @Display(value = Display.Kind.ENUM, enumScope = "campaign.lifecycleStatus") Campaign.LifecycleStatus lifecycleStatus,
+        List<Campaign.CloseCondition> closeConditions,
+        Integer maxRedemptions,
+        int redemptionsCount,
+        int confirmedCount,
+        Integer freeSlots,
+        @Display(Display.Kind.DATETIME) OffsetDateTime closedAt,
+        @Display(value = Display.Kind.ENUM, enumScope = "campaign.closedReason") Campaign.CloseReason closedReason,
+        @Display DisplayRef closedBy,
+        String closedNote,
+        OffsetDateTime confirmGraceUntil,
+        Integer confirmGraceDays) {
 }

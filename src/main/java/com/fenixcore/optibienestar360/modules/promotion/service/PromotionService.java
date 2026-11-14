@@ -92,6 +92,7 @@ public class PromotionService {
             c.setAppliesTo(p.getAppliesTo());
             c.setCycles(p.getCycles());
             c.setCoversExtraBeneficiaries(p.isCoversExtraBeneficiaries());
+            c.setOwnQuota(p.isOwnQuota());
             c.setMaxRedemptions(p.getMaxRedemptions());
             c.setRequiresCode(p.isRequiresCode());
             c.setAcceptsPromoterCode(p.isAcceptsPromoterCode());
@@ -123,6 +124,7 @@ public class PromotionService {
         promotion.setAppliesTo(req.appliesTo());
         promotion.setCycles(req.cycles());
         promotion.setCoversExtraBeneficiaries(req.coversExtraBeneficiaries());
+        promotion.setOwnQuota(req.ownQuota());
         promotion.setMaxRedemptions(req.maxRedemptions());
         promotion.setRequiresCode(req.requiresCode());
         promotion.setAcceptsPromoterCode(req.acceptsPromoterCode());
@@ -156,6 +158,9 @@ public class PromotionService {
 
     private static void validate(PromotionRequest req) {
         validateDiscount(req);
+        if (!req.ownQuota() && req.maxRedemptions() != null) {
+            throw new IllegalArgumentException("promotion.max_redemptions.requires_own_quota");
+        }
         if (req.kind() == Kind.RECOVERY && req.appliesTo() != AppliesTo.MONTHLY) {
             throw new IllegalArgumentException("promotion.recovery.monthly_only");
         }
@@ -218,8 +223,10 @@ public class PromotionService {
                 p.getAppliesTo(),
                 p.getCycles(),
                 p.isCoversExtraBeneficiaries(),
+                p.isOwnQuota(),
                 p.getMaxRedemptions(),
                 p.getRedemptionsCount(),
+                p.getConfirmedCount(),
                 p.isRequiresCode(),
                 p.isAcceptsPromoterCode(),
                 p.isAcceptsMemberCode(),

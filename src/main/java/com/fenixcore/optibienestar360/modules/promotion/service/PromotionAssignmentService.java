@@ -4,6 +4,8 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.auth.repository.UserRepository;
+import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
+import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
@@ -49,6 +51,7 @@ public class PromotionAssignmentService {
     private final com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService chargeService;
     private final ReferrerRewardService referrerRewardService;
     private final com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
+    private final CampaignRepository campaignRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -100,18 +103,28 @@ public class PromotionAssignmentService {
      * Validates and records a promotion on {@code membership}. Called inside
      * the enrollment transaction too, so an invalid promotion rolls back the
      * whole enrollment.
+     *
+     * <p>Quota (hub ADR 0038 §4): the campaign row and then the promotion row
+     * are locked ({@code SELECT ... FOR UPDATE}) before checking for room, in
+     * the same transaction that increments both counters, so two simultaneous
+     * assignments can't take the same last slot.</p>
      */
     @Transactional
     public MembershipPromotion assign(Membership membership, UUID promotionUuid, String code,
                                       Origin origin, UUID actorUuid) {
-        Promotion promotion = promotionRepository.findByUuid(promotionUuid)
+        Long campaignId = promotionRepository.findCampaignIdByUuid(promotionUuid)
+                .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
+        Campaign campaign = campaignRepository.findForUpdateById(campaignId)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        Promotion promotion = promotionRepository.findForUpdateByUuid(promotionUuid)
                 .filter(Promotion::isActive)
                 .orElseThrow(() -> new NoSuchElementException("promotion.not_found"));
 
         OffsetDateTime now = OffsetDateTime.now();
-        var campaign = promotion.getCampaign();
-        if (!campaign.isActive() || !campaign.isEnabled()
-                || now.isBefore(campaign.getStartsAt()) || now.isAfter(campaign.getEndsAt())) {
+        if (campaign.getLifecycleStatus() == Campaign.LifecycleStatus.SOLD_OUT) {
+            throw new IllegalArgumentException("promotion.campaign.quota_full");
+        }
+        if (!campaign.isOffering(now)) {
             throw new IllegalArgumentException("promotion.campaign.not_running");
         }
         if (!fitsPlan(promotion, membership.getPlan())) {
@@ -122,7 +135,10 @@ public class PromotionAssignmentService {
                     ? "promotion.recovery.requires_delayed_membership"
                     : "promotion.acquisition.requires_active_membership");
         }
-        if (!hasRoom(promotion)) {
+        if (!campaign.hasFreeSlot()) {
+            throw new IllegalArgumentException("promotion.campaign.quota_full");
+        }
+        if (!promotion.hasOwnFreeSlot()) {
             throw new IllegalArgumentException("promotion.max_redemptions_reached");
         }
         if (membership.getId() != null && membershipPromotionRepository.findOngoing(membership.getId()).isPresent()) {
@@ -154,7 +170,7 @@ public class PromotionAssignmentService {
             mp.setCodeOwnerMember(owner.member());
             mp.setCodeOwnerAlly(owner.ally());
         }
-        promotion.setRedemptionsCount(promotion.getRedemptionsCount() + 1);
+        occupySlot(campaign, promotion, now);
         MembershipPromotion saved = membershipPromotionRepository.save(mp);
         if (owner != null && owner.member() != null) {
             referrerRewardService.registerReferral(saved);
@@ -182,6 +198,19 @@ public class PromotionAssignmentService {
         mp.setEndedReason(reason);
     }
 
+    /**
+     * Takes one slot of the promotion and of its campaign (both rows already
+     * locked). Every slot is confirmed on assignment here; the campaign then
+     * re-derives SOLD_OUT / CLOSED(QUOTA_FILLED).
+     */
+    private static void occupySlot(Campaign campaign, Promotion promotion, OffsetDateTime now) {
+        promotion.setRedemptionsCount(promotion.getRedemptionsCount() + 1);
+        promotion.setConfirmedCount(promotion.getConfirmedCount() + 1);
+        campaign.setRedemptionsCount(campaign.getRedemptionsCount() + 1);
+        campaign.setConfirmedCount(campaign.getConfirmedCount() + 1);
+        campaign.recomputeQuotaStatus(now);
+    }
+
     // ─── Rules ──────────────────────────────────────────────────────────────
 
     static boolean fitsPlan(Promotion promotion, Plan plan) {
@@ -197,8 +226,9 @@ public class PromotionAssignmentService {
                 : LifecycleStatus.ACTIVE.name().equals(membershipStatus);
     }
 
+    /** Room in the campaign quota (shared) and, with {@code ownQuota}, in the promotion's own cap. */
     static boolean hasRoom(Promotion promotion) {
-        return promotion.getMaxRedemptions() == null || promotion.getRedemptionsCount() < promotion.getMaxRedemptions();
+        return promotion.getCampaign().hasFreeSlot() && promotion.hasOwnFreeSlot();
     }
 
     private Membership findMembership(UUID uuid) {

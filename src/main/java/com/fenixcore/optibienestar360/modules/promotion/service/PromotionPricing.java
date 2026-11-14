@@ -164,8 +164,8 @@ public class PromotionPricing {
             PromotionAssignmentService.end(mp, Status.CONSUMED, "Ciclos agotados");
             return null;
         }
-        if (mp.getCyclesRemaining() == null
-                && OffsetDateTime.now().isAfter(mp.getPromotion().getCampaign().getEndsAt())) {
+        OffsetDateTime campaignEnd = mp.getPromotion().getCampaign().effectiveEndsAt();
+        if (mp.getCyclesRemaining() == null && campaignEnd != null && OffsetDateTime.now().isAfter(campaignEnd)) {
             PromotionAssignmentService.end(mp, Status.CONSUMED, "La campaña terminó");
             return null;
         }

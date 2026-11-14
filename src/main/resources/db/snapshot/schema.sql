@@ -1658,7 +1658,7 @@ CREATE TABLE app.campaigns (
     name character varying(150) NOT NULL,
     description text,
     starts_at timestamp with time zone NOT NULL,
-    ends_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone,
     enabled boolean DEFAULT true NOT NULL,
     scope character varying(20) DEFAULT 'ALL'::character varying NOT NULL,
     mode character varying(20) DEFAULT 'GENERAL'::character varying NOT NULL,
@@ -1675,12 +1675,57 @@ CREATE TABLE app.campaigns (
     created_by uuid,
     updated_by uuid,
     target_amount_currency_id bigint,
+    lifecycle_status character varying(20) DEFAULT 'ACTIVE'::character varying NOT NULL,
+    close_on_end_date boolean DEFAULT true NOT NULL,
+    close_on_quota_filled boolean DEFAULT false NOT NULL,
+    max_redemptions integer,
+    redemptions_count integer DEFAULT 0 NOT NULL,
+    confirmed_count integer DEFAULT 0 NOT NULL,
+    closed_at timestamp with time zone,
+    closed_reason character varying(20),
+    closed_by_user_id bigint,
+    closed_note text,
+    confirm_grace_until timestamp with time zone,
+    confirm_grace_days integer,
     CONSTRAINT campaigns_target_amount_currency_xor CHECK ((((target_amount IS NULL) AND (target_amount_currency_id IS NULL)) OR ((target_amount IS NOT NULL) AND (target_amount_currency_id IS NOT NULL)))),
-    CONSTRAINT chk_campaigns_dates CHECK ((ends_at > starts_at)),
+    CONSTRAINT chk_campaigns_at_end_requires_ends_at CHECK (((NOT (evaluate_only_at_end OR pay_only_at_end)) OR (ends_at IS NOT NULL))),
+    CONSTRAINT chk_campaigns_close_on_end_date CHECK (((NOT close_on_end_date) OR (ends_at IS NOT NULL))),
+    CONSTRAINT chk_campaigns_close_on_quota_filled CHECK (((NOT close_on_quota_filled) OR (max_redemptions IS NOT NULL))),
+    CONSTRAINT chk_campaigns_closed CHECK (((((lifecycle_status)::text = 'CLOSED'::text) = (closed_at IS NOT NULL)) AND ((closed_at IS NULL) OR (closed_reason IS NOT NULL)))),
+    CONSTRAINT chk_campaigns_closed_reason CHECK (((closed_reason IS NULL) OR ((closed_reason)::text = ANY ((ARRAY['END_DATE'::character varying, 'QUOTA_FILLED'::character varying, 'MANUAL'::character varying])::text[])))),
+    CONSTRAINT chk_campaigns_confirm_grace CHECK ((((confirm_grace_days IS NULL) OR (confirm_grace_days >= 1)) AND (NOT ((confirm_grace_until IS NOT NULL) AND (confirm_grace_days IS NOT NULL))))),
+    CONSTRAINT chk_campaigns_dates CHECK (((ends_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT chk_campaigns_evaluate_end_implies_pay_end CHECK (((NOT evaluate_only_at_end) OR pay_only_at_end)),
+    CONSTRAINT chk_campaigns_lifecycle_status CHECK (((lifecycle_status)::text = ANY ((ARRAY['DRAFT'::character varying, 'ACTIVE'::character varying, 'PAUSED'::character varying, 'SOLD_OUT'::character varying, 'CLOSED'::character varying])::text[]))),
+    CONSTRAINT chk_campaigns_max_redemptions CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1))),
     CONSTRAINT chk_campaigns_mode CHECK (((mode)::text = ANY ((ARRAY['TARGETED'::character varying, 'GENERAL'::character varying])::text[]))),
+    CONSTRAINT chk_campaigns_redemptions_count CHECK (((redemptions_count >= 0) AND (confirmed_count >= 0) AND (confirmed_count <= redemptions_count))),
     CONSTRAINT chk_campaigns_scope CHECK (((scope)::text = ANY ((ARRAY['ALL'::character varying, 'INCLUDE'::character varying, 'EXCLUDE'::character varying])::text[])))
 );
+
+--
+-- Name: COLUMN campaigns.lifecycle_status; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.campaigns.lifecycle_status IS 'Ciclo de vida: DRAFT, ACTIVE, PAUSED, SOLD_OUT (agotada temporal) o CLOSED';
+
+--
+-- Name: COLUMN campaigns.max_redemptions; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.campaigns.max_redemptions IS 'Cupo total de la campaña, compartido por sus promociones; NULL = sin tope';
+
+--
+-- Name: COLUMN campaigns.redemptions_count; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.campaigns.redemptions_count IS 'Cupos ocupados (pendientes + confirmados)';
+
+--
+-- Name: COLUMN campaigns.confirmed_count; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.campaigns.confirmed_count IS 'Cupos confirmados';
 
 --
 -- Name: campaigns_campaigns_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5237,13 +5282,17 @@ CREATE TABLE app.promotions (
     discount_type character varying(20) DEFAULT 'PERCENTAGE'::character varying NOT NULL,
     discount_amount numeric(18,2),
     discount_currency_id bigint,
+    own_quota boolean DEFAULT false NOT NULL,
+    confirmed_count integer DEFAULT 0 NOT NULL,
     CONSTRAINT chk_promotions_applies_to CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[]))),
     CONSTRAINT chk_promotions_code_owner CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code)),
+    CONSTRAINT chk_promotions_confirmed_count CHECK (((confirmed_count >= 0) AND (confirmed_count <= redemptions_count))),
     CONSTRAINT chk_promotions_cycles CHECK (((cycles IS NULL) OR (cycles >= 1))),
     CONSTRAINT chk_promotions_discount_coherence CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL)))),
     CONSTRAINT chk_promotions_discount_type CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[]))),
     CONSTRAINT chk_promotions_kind CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[]))),
     CONSTRAINT chk_promotions_max_redemptions CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1))),
+    CONSTRAINT chk_promotions_own_quota CHECK ((own_quota OR (max_redemptions IS NULL))),
     CONSTRAINT chk_promotions_recovery_monthly CHECK ((((kind)::text <> 'RECOVERY'::text) OR ((applies_to)::text = 'MONTHLY'::text))),
     CONSTRAINT chk_promotions_redemptions_count CHECK ((redemptions_count >= 0)),
     CONSTRAINT chk_promotions_referrer_reward CHECK ((((referrer_reward_pct IS NULL) AND (referrer_reward_cycles IS NULL)) OR ((referrer_reward_pct > (0)::numeric) AND (referrer_reward_pct <= (100)::numeric) AND (referrer_reward_cycles >= 1) AND accepts_member_code)))
@@ -5266,6 +5315,12 @@ COMMENT ON COLUMN app.promotions.discount_amount IS 'Monto fijo de descuento por
 --
 
 COMMENT ON COLUMN app.promotions.discount_currency_id IS 'Moneda del monto fijo; solo para FLAT';
+
+--
+-- Name: COLUMN promotions.own_quota; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.promotions.own_quota IS 'La promoción cuenta su propio cupo (max_redemptions) además del cupo de la campaña';
 
 --
 -- Name: promotions_promotions_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -8490,6 +8545,12 @@ CREATE INDEX idx_campaigns_active_window ON app.campaigns USING btree (is_active
 CREATE INDEX idx_campaigns_exclusivity_group ON app.campaigns USING btree (exclusivity_group) WHERE (exclusivity_group IS NOT NULL);
 
 --
+-- Name: idx_campaigns_lifecycle_status; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX idx_campaigns_lifecycle_status ON app.campaigns USING btree (lifecycle_status) WHERE is_active;
+
+--
 -- Name: idx_cca_promoter; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -10741,6 +10802,13 @@ ALTER TABLE ONLY app.campaign_transaction_links
 
 ALTER TABLE ONLY app.campaign_transaction_links
     ADD CONSTRAINT campaign_transaction_links_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES app.payments(payments_id);
+
+--
+-- Name: campaigns campaigns_closed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.campaigns
+    ADD CONSTRAINT campaigns_closed_by_user_id_fkey FOREIGN KEY (closed_by_user_id) REFERENCES app.users(users_id);
 
 --
 -- Name: campaigns campaigns_target_amount_currency_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -

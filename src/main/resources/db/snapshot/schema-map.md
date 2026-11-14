@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V254. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V255. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 116 tables.
 
@@ -66,6 +66,7 @@
 - `campaign_transaction_links`.campaign_id → `campaigns`.campaigns_id
 - `campaign_transaction_links`.membership_id → `memberships`.memberships_id
 - `campaign_transaction_links`.payment_id → `payments`.payments_id
+- `campaigns`.closed_by_user_id → `users`.users_id
 - `campaigns`.target_amount_currency_id → `currencies`.currencies_id
 - `cities`.state_id → `states`.states_id
 - `collection_commission_tier_promoter_types`.collection_commission_tier_id → `collection_commission_tiers`.collection_commission_tiers_id (ON DELETE CASCADE)
@@ -1103,7 +1104,7 @@
 - `name` character varying(150) NOT NULL
 - `description` text
 - `starts_at` timestamp with time zone NOT NULL
-- `ends_at` timestamp with time zone NOT NULL
+- `ends_at` timestamp with time zone
 - `enabled` boolean NOT NULL DEFAULT true
 - `scope` character varying(20) NOT NULL DEFAULT 'ALL'::character varying
 - `mode` character varying(20) NOT NULL DEFAULT 'GENERAL'::character varying
@@ -1120,20 +1121,43 @@
 - `created_by` uuid
 - `updated_by` uuid
 - `target_amount_currency_id` bigint
+- `lifecycle_status` character varying(20) NOT NULL DEFAULT 'ACTIVE'::character varying — Ciclo de vida: DRAFT, ACTIVE, PAUSED, SOLD_OUT (agotada temporal) o CLOSED
+- `close_on_end_date` boolean NOT NULL DEFAULT true
+- `close_on_quota_filled` boolean NOT NULL DEFAULT false
+- `max_redemptions` integer — Cupo total de la campaña, compartido por sus promociones; NULL = sin tope
+- `redemptions_count` integer NOT NULL DEFAULT 0 — Cupos ocupados (pendientes + confirmados)
+- `confirmed_count` integer NOT NULL DEFAULT 0 — Cupos confirmados
+- `closed_at` timestamp with time zone
+- `closed_reason` character varying(20)
+- `closed_by_user_id` bigint
+- `closed_note` text
+- `confirm_grace_until` timestamp with time zone
+- `confirm_grace_days` integer
 
 **Constraints**
 - PK PRIMARY KEY (campaigns_id)
+- FK `campaigns_closed_by_user_id_fkey` FOREIGN KEY (closed_by_user_id) REFERENCES users(users_id)
 - FK `campaigns_target_amount_currency_id_fkey` FOREIGN KEY (target_amount_currency_id) REFERENCES currencies(currencies_id)
 - UNIQUE `campaigns_uuid_key` UNIQUE (uuid)
 - CHECK `campaigns_target_amount_currency_xor` CHECK ((((target_amount IS NULL) AND (target_amount_currency_id IS NULL)) OR ((target_amount IS NOT NULL) AND (target_amount_currency_id IS NOT NULL))))
-- CHECK `chk_campaigns_dates` CHECK ((ends_at > starts_at))
+- CHECK `chk_campaigns_at_end_requires_ends_at` CHECK (((NOT (evaluate_only_at_end OR pay_only_at_end)) OR (ends_at IS NOT NULL)))
+- CHECK `chk_campaigns_close_on_end_date` CHECK (((NOT close_on_end_date) OR (ends_at IS NOT NULL)))
+- CHECK `chk_campaigns_close_on_quota_filled` CHECK (((NOT close_on_quota_filled) OR (max_redemptions IS NOT NULL)))
+- CHECK `chk_campaigns_closed` CHECK (((((lifecycle_status)::text = 'CLOSED'::text) = (closed_at IS NOT NULL)) AND ((closed_at IS NULL) OR (closed_reason IS NOT NULL))))
+- CHECK `chk_campaigns_closed_reason` CHECK (((closed_reason IS NULL) OR ((closed_reason)::text = ANY ((ARRAY['END_DATE'::character varying, 'QUOTA_FILLED'::character varying, 'MANUAL'::character varying])::text[]))))
+- CHECK `chk_campaigns_confirm_grace` CHECK ((((confirm_grace_days IS NULL) OR (confirm_grace_days >= 1)) AND (NOT ((confirm_grace_until IS NOT NULL) AND (confirm_grace_days IS NOT NULL)))))
+- CHECK `chk_campaigns_dates` CHECK (((ends_at IS NULL) OR (ends_at > starts_at)))
 - CHECK `chk_campaigns_evaluate_end_implies_pay_end` CHECK (((NOT evaluate_only_at_end) OR pay_only_at_end))
+- CHECK `chk_campaigns_lifecycle_status` CHECK (((lifecycle_status)::text = ANY ((ARRAY['DRAFT'::character varying, 'ACTIVE'::character varying, 'PAUSED'::character varying, 'SOLD_OUT'::character varying, 'CLOSED'::character varying])::text[])))
+- CHECK `chk_campaigns_max_redemptions` CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1)))
 - CHECK `chk_campaigns_mode` CHECK (((mode)::text = ANY ((ARRAY['TARGETED'::character varying, 'GENERAL'::character varying])::text[])))
+- CHECK `chk_campaigns_redemptions_count` CHECK (((redemptions_count >= 0) AND (confirmed_count >= 0) AND (confirmed_count <= redemptions_count)))
 - CHECK `chk_campaigns_scope` CHECK (((scope)::text = ANY ((ARRAY['ALL'::character varying, 'INCLUDE'::character varying, 'EXCLUDE'::character varying])::text[])))
 
 **Indexes**
 - `idx_campaigns_active_window` btree (is_active, starts_at, ends_at)
 - `idx_campaigns_exclusivity_group` btree (exclusivity_group) WHERE (exclusivity_group IS NOT NULL)
+- `idx_campaigns_lifecycle_status` btree (lifecycle_status) WHERE is_active
 
 **Triggers**
 - `trg_campaigns_updated_at` BEFORE UPDATE ON app.campaigns FOR EACH ROW EXECUTE FUNCTION set_updated_at()
@@ -4203,6 +4227,8 @@
 - `discount_type` character varying(20) NOT NULL DEFAULT 'PERCENTAGE'::character varying — Tipo de descuento: PERCENTAGE (porcentaje) o FLAT (monto fijo)
 - `discount_amount` numeric(18,2) — Monto fijo de descuento por cobro, en discount_currency_id; solo para FLAT
 - `discount_currency_id` bigint — Moneda del monto fijo; solo para FLAT
+- `own_quota` boolean NOT NULL DEFAULT false — La promoción cuenta su propio cupo (max_redemptions) además del cupo de la campaña
+- `confirmed_count` integer NOT NULL DEFAULT 0
 
 **Constraints**
 - PK PRIMARY KEY (promotions_id)
@@ -4211,11 +4237,13 @@
 - UNIQUE `promotions_uuid_key` UNIQUE (uuid)
 - CHECK `chk_promotions_applies_to` CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[])))
 - CHECK `chk_promotions_code_owner` CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code))
+- CHECK `chk_promotions_confirmed_count` CHECK (((confirmed_count >= 0) AND (confirmed_count <= redemptions_count)))
 - CHECK `chk_promotions_cycles` CHECK (((cycles IS NULL) OR (cycles >= 1)))
 - CHECK `chk_promotions_discount_coherence` CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL))))
 - CHECK `chk_promotions_discount_type` CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))
 - CHECK `chk_promotions_kind` CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[])))
 - CHECK `chk_promotions_max_redemptions` CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1)))
+- CHECK `chk_promotions_own_quota` CHECK ((own_quota OR (max_redemptions IS NULL)))
 - CHECK `chk_promotions_recovery_monthly` CHECK ((((kind)::text <> 'RECOVERY'::text) OR ((applies_to)::text = 'MONTHLY'::text)))
 - CHECK `chk_promotions_redemptions_count` CHECK ((redemptions_count >= 0))
 - CHECK `chk_promotions_referrer_reward` CHECK ((((referrer_reward_pct IS NULL) AND (referrer_reward_cycles IS NULL)) OR ((referrer_reward_pct > (0)::numeric) AND (referrer_reward_pct <= (100)::numeric) AND (referrer_reward_cycles >= 1) AND accepts_member_code)))
@@ -4843,7 +4871,7 @@
 **Triggers**
 - `trg_users_updated_at` BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
+**Referenced by** `affiliation_request_logs`.(actor_user_id), `affiliation_requests`.(reviewed_by), `affiliation_requests`.(user_id), `ally_patient_links`.(created_by_user_id), `ally_product_review_log`.(actor_user_id), `ally_products`.(reviewed_by), `ally_users`.(user_id), `attached_files`.(published_by), `attached_files`.(uploaded_by), `beneficiaries`.(user_id), `campaigns`.(closed_by_user_id), `commissions`.(approved_by_user_id), `corporate_contracts`.(contact_user_id), `data_change_audit_log`.(actor_id), `file_download_links`.(created_by), `login_audit_log`.(user_id), `medical_record_access_log`.(accessed_by_user_id), `member_documents`.(uploaded_by), `member_promoter_assignments`.(actor_user_id), `membership_promotions`.(assigned_by_user_id), `notifications`.(recipient_user_id), `payment_credit_claims`.(opened_by), `payment_credit_claims`.(resolved_by), `payment_lines`.(reviewed_by), `payments`.(discounted_by), `payments`.(payer_user_id), `payments`.(reviewed_by), `promoter_supervisor_assignments`.(actor_user_id), `promoters`.(user_id), `report_audit_log`.(actor_id), `report_share`.(created_by), `subsidies`.(authorized_by), `subsidy_audit_log`.(actor_id), `terms_acceptances`.(user_id), `user_password_history`.(user_id), `user_roles`.(user_id)
 
 # Views
 

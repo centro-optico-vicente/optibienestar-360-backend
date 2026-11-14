@@ -3,14 +3,17 @@ package com.fenixcore.optibienestar360.modules.campaign;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAudienceRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignCloseRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignEffectivenessDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignReopenRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignTransactionLinkDto;
 import com.fenixcore.optibienestar360.modules.campaign.service.CampaignService;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,7 +44,10 @@ import java.util.List;
  * {@code _UPDATE}/{@code _DELETE}, plus {@code CAMPAIGN_EXCEPTION_CREATE}/
  * {@code _DELETE} for the manual transaction-override sub-resource.
  * {@code /relaunch} is gated by create (it makes a new campaign row) and
- * {@code /effectiveness} by view (read-only report).
+ * {@code /effectiveness} by view (read-only report). Lifecycle (V256, hub
+ * ADR 0038): {@code /activate} by update, {@code /pause}+{@code /resume} by
+ * {@code CAMPAIGN_PAUSE}, {@code /close} by {@code CAMPAIGN_CLOSE},
+ * {@code /reopen} by {@code CAMPAIGN_REOPEN}.
  */
 @RestController
 @RequestMapping("/v1/admin/campaigns")
@@ -99,6 +106,46 @@ public class AdminCampaignController {
     public ResponseEntity<Void> delete(@PathVariable UUID uuid) {
         campaignService.delete(uuid);
         return ResponseEntity.noContent().build();
+    }
+
+    /** DRAFT → ACTIVE. */
+    @PostMapping("/{uuid}/activate")
+    @PreAuthorize("hasAuthority('CAMPAIGN_UPDATE')")
+    public ResponseEntity<CampaignDto> activate(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(campaignService.activate(uuid));
+    }
+
+    /** ACTIVE | SOLD_OUT → PAUSED. */
+    @PostMapping("/{uuid}/pause")
+    @PreAuthorize("hasAuthority('CAMPAIGN_PAUSE')")
+    public ResponseEntity<CampaignDto> pause(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(campaignService.pause(uuid));
+    }
+
+    /** PAUSED → ACTIVE (or SOLD_OUT when the quota is full). */
+    @PostMapping("/{uuid}/resume")
+    @PreAuthorize("hasAuthority('CAMPAIGN_PAUSE')")
+    public ResponseEntity<CampaignDto> resume(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(campaignService.resume(uuid));
+    }
+
+    /** Any state but CLOSED → CLOSED (reason MANUAL). */
+    @PostMapping("/{uuid}/close")
+    @PreAuthorize("hasAuthority('CAMPAIGN_CLOSE')")
+    public ResponseEntity<CampaignDto> close(@PathVariable UUID uuid,
+                                             @Valid @RequestBody(required = false) CampaignCloseRequest request,
+                                             @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(campaignService.close(uuid,
+                request != null ? request : new CampaignCloseRequest(false, null),
+                actor != null ? actor.getUuid() : null));
+    }
+
+    /** CLOSED → ACTIVE (or SOLD_OUT), only when the quota or the end date grows. */
+    @PostMapping("/{uuid}/reopen")
+    @PreAuthorize("hasAuthority('CAMPAIGN_REOPEN')")
+    public ResponseEntity<CampaignDto> reopen(@PathVariable UUID uuid,
+                                              @Valid @RequestBody CampaignReopenRequest request) {
+        return ResponseEntity.ok(campaignService.reopen(uuid, request));
     }
 
     /** Clones the campaign's config + anchored commission rules into a brand-new campaign with new dates. */

@@ -55,12 +55,23 @@ class PromotionServiceTest {
                                             boolean acceptsMemberCode, BigDecimal rewardPct, Integer rewardCycles,
                                             List<UUID> planUuids) {
         return new PromotionRequest("Inscripción 50%", null, kind, null, new BigDecimal("50.00"), null, null, appliesTo,
-                3, false, 100, requiresCode, false, acceptsMemberCode, false, rewardPct, rewardCycles, planUuids);
+                3, false, true, 100, requiresCode, false, acceptsMemberCode, false, rewardPct, rewardCycles, planUuids);
     }
 
     private static PromotionRequest discountRequest(DiscountType type, BigDecimal pct, BigDecimal amount, UUID currencyUuid) {
         return new PromotionRequest("Inscripción $5", null, Kind.ACQUISITION, type, pct, amount, currencyUuid,
-                AppliesTo.BOTH, null, false, null, false, false, false, false, null, null, null);
+                AppliesTo.BOTH, null, false, false, null, false, false, false, false, null, null, null);
+    }
+
+    @Test
+    void create_rejectsAMaxWithoutOwnQuota() {
+        Campaign campaign = campaign();
+        when(campaignRepository.findByUuid(campaign.getUuid())).thenReturn(Optional.of(campaign));
+        PromotionRequest req = new PromotionRequest("Cupo", null, Kind.ACQUISITION, null, new BigDecimal("10.00"), null,
+                null, AppliesTo.MONTHLY, null, false, false, 50, false, false, false, false, null, null, null);
+
+        assertThatThrownBy(() -> service().create(campaign.getUuid(), req))
+                .hasMessage("promotion.max_redemptions.requires_own_quota");
     }
 
     private static Currency currency(String code) {
@@ -187,7 +198,10 @@ class PromotionServiceTest {
         original.setDiscountPct(new BigDecimal("20.00"));
         original.setAppliesTo(AppliesTo.MONTHLY);
         original.setCycles(3);
+        original.setOwnQuota(true);
+        original.setMaxRedemptions(50);
         original.setRedemptionsCount(42);
+        original.setConfirmedCount(40);
         original.setPlans(Set.of(new Plan()));
         when(repository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(source)).thenReturn(List.of(original));
 
@@ -198,6 +212,9 @@ class PromotionServiceTest {
         assertThat(saved.getValue().getCampaign()).isSameAs(target);
         assertThat(saved.getValue().getCycles()).isEqualTo(3);
         assertThat(saved.getValue().getRedemptionsCount()).isZero();
+        assertThat(saved.getValue().getConfirmedCount()).isZero();
+        assertThat(saved.getValue().isOwnQuota()).isTrue();
+        assertThat(saved.getValue().getMaxRedemptions()).isEqualTo(50);
         assertThat(saved.getValue().getPlans()).hasSize(1);
     }
 }
