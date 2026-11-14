@@ -58,18 +58,21 @@ class PromotionAssignmentServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private MembershipBenefitGrantService grantService;
     @Mock private jakarta.persistence.EntityManager entityManager;
+    @Mock private org.springframework.beans.factory.ObjectProvider<
+            com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService> chargeServiceProvider;
 
     private final AtomicLong ids = new AtomicLong(100);
 
     @org.junit.jupiter.api.BeforeEach
     void stubRedemptionSave() {
         lenient().when(redemptionRepository.save(any(PromotionRedemption.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(chargeServiceProvider.getObject()).thenReturn(chargeService);
     }
 
     private PromotionAssignmentService service() {
         PromotionRedemptionService redemptions = new PromotionRedemptionService(
                 redemptionRepository, campaignRepository, promotionRepository, paymentRepository, grantService,
-                entityManager);
+                entityManager, chargeServiceProvider);
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
                 membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
                 memberRepository, campaignRepository, redemptions);

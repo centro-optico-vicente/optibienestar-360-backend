@@ -21,6 +21,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +66,11 @@ public class PromotionRedemptionService {
     private final PaymentRepository paymentRepository;
     private final MembershipBenefitGrantService grantService;
     private final EntityManager entityManager;
+    /**
+     * Lazy: {@code MembershipChargeService → MembershipStatusService →
+     * PromotionLifecycle → this} would otherwise be a constructor cycle.
+     */
+    private final ObjectProvider<com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService> chargeServiceProvider;
 
     // ─── Reserve / confirm ──────────────────────────────────────────────────
 
@@ -233,6 +239,7 @@ public class PromotionRedemptionService {
             return false;
         }
         free(r, RedemptionStatus.RELEASED, Instant.now());
+        undoOpenDiscounts(mp);
         return true;
     }
 
@@ -256,6 +263,7 @@ public class PromotionRedemptionService {
             }
             free(r, RedemptionStatus.EXPIRED, now);
             endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_QUOTA_EXPIRED);
+            undoOpenDiscounts(r.getMembershipPromotion());
             expired++;
         }
         return expired;
@@ -281,6 +289,7 @@ public class PromotionRedemptionService {
         for (PromotionRedemption r : repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.PENDING)) {
             free(r, RedemptionStatus.RELEASED, now);
             endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_CAMPAIGN_CLOSED);
+            undoOpenDiscounts(r.getMembershipPromotion());
             released++;
         }
         return released;
@@ -300,6 +309,32 @@ public class PromotionRedemptionService {
         }
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
         grantService.cancelFor(r.getMembershipPromotion());
+    }
+
+    /**
+     * The promotion of a freed slot (EXPIRED/RELEASED) already ended: its
+     * discount must not stay on what is still open. An inscription payment
+     * still under review loses the discount the system put on it for this
+     * promotion (an approved one is left as it is), and the open monthly
+     * charges are re-priced without it. Must run after the promotion ended, or
+     * the re-pricing would find it still ongoing. Ally vouchers never discount
+     * fees, so they have nothing to undo.
+     */
+    private void undoOpenDiscounts(MembershipPromotion mp) {
+        if (mp == null || mp.getBenefitKind() == Promotion.BenefitKind.ALLY_BENEFIT) {
+            return;
+        }
+        Membership membership = mp.getMembership();
+        if (membership == null || membership.getId() == null) {
+            return;
+        }
+        for (Payment payment : paymentRepository.findCollectionsOfMembership(membership.getId(), true,
+                List.of(PaymentStatus.DRAFT.name(), PaymentStatus.PENDING.name()))) {
+            if (PromotionPricing.clearPromotionDiscount(payment, mp.getPromotion())) {
+                mp.setInscriptionApplied(false);
+            }
+        }
+        chargeServiceProvider.getObject().repriceOpenCharges(membership);
     }
 
     private static boolean endIfOngoing(MembershipPromotion mp, Status status, String reason) {

@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.QuotaTrig
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.UsageWindow;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
+import com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -51,6 +53,8 @@ class PromotionRedemptionServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private MembershipBenefitGrantService grantService;
     @Mock private EntityManager entityManager;
+    @Mock private MembershipChargeService chargeService;
+    @Mock private ObjectProvider<MembershipChargeService> chargeServiceProvider;
 
     private static final long MEMBERSHIP_ID = 10L;
 
@@ -60,7 +64,7 @@ class PromotionRedemptionServiceTest {
 
     private PromotionRedemptionService service() {
         return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository,
-                grantService, entityManager);
+                grantService, entityManager, chargeServiceProvider);
     }
 
     @BeforeEach
@@ -79,6 +83,7 @@ class PromotionRedemptionServiceTest {
         lenient().when(campaignRepository.findForUpdateById(1L)).thenReturn(Optional.of(campaign));
         lenient().when(promotionRepository.findForUpdateById(2L)).thenReturn(Optional.of(promotion));
         lenient().when(repository.save(any(PromotionRedemption.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(chargeServiceProvider.getObject()).thenReturn(chargeService);
     }
 
     private MembershipPromotion membershipPromotion() {
@@ -318,6 +323,75 @@ class PromotionRedemptionServiceTest {
         assertThat(campaign.getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
         assertThat(mp.getStatus()).isEqualTo("CANCELED");
         assertThat(mp.getEndedReason()).isEqualTo(PromotionRedemptionService.REASON_QUOTA_EXPIRED);
+    }
+
+    private static Payment discountedInscription(String status, String reason) {
+        Payment payment = new Payment();
+        payment.setDirection("IN");
+        payment.setInscription(true);
+        payment.setStatus(status);
+        payment.setAmount(new java.math.BigDecimal("20.00"));
+        payment.setDiscountAmount(new java.math.BigDecimal("10.00"));
+        payment.setDiscountReason(reason);
+        payment.setDiscountedAt(Instant.now());
+        return payment;
+    }
+
+    @Test
+    void pendingExpiry_undoesTheDiscountOnWhatIsStillOpen() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        campaign.setPendingTtlDays(1);
+        MembershipPromotion mp = membershipPromotion();
+        mp.setInscriptionApplied(true);
+        PromotionRedemption r = reserve(mp);
+        r.setExpiresAt(Instant.now().minusSeconds(60));
+        when(repository.findPendingExpiryCandidates(any(Instant.class))).thenReturn(List.of(r));
+        Payment underReview = discountedInscription("PENDING", "Promoción: Navidad (50%)");
+        Payment typedByHand = discountedInscription("PENDING", "Descuento especial");
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, true, List.of("DRAFT", "PENDING")))
+                .thenReturn(List.of(underReview, typedByHand));
+
+        service().expirePending(Instant.now());
+
+        // The system discount of the lost promotion goes; a hand-made one stays.
+        assertThat(underReview.getDiscountAmount()).isNull();
+        assertThat(underReview.getDiscountReason()).isNull();
+        assertThat(underReview.getDiscountedAt()).isNull();
+        assertThat(typedByHand.getDiscountAmount()).isEqualByComparingTo("10.00");
+        assertThat(mp.isInscriptionApplied()).isFalse();
+        // Open monthly charges are re-priced once the promotion has ended.
+        assertThat(mp.getStatus()).isEqualTo("CANCELED");
+        verify(chargeService).repriceOpenCharges(mp.getMembership());
+    }
+
+    @Test
+    void approvedPayments_keepTheirDiscount() {
+        Payment approved = discountedInscription("APPROVED", "Promoción: Navidad (50%)");
+
+        assertThat(PromotionPricing.clearPromotionDiscount(approved, promotion)).isFalse();
+        assertThat(approved.getDiscountAmount()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void cancelPending_andRelease_alsoRepriceTheOpenCharges_butAnAllyVoucherDoesNot() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        MembershipPromotion closedMp = membershipPromotion();
+        PromotionRedemption closedSlot = reserve(closedMp);
+        when(repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.PENDING)).thenReturn(List.of(closedSlot));
+        service().cancelPending(campaign);
+        verify(chargeService).repriceOpenCharges(closedMp.getMembership());
+
+        MembershipPromotion releasedMp = membershipPromotion();
+        reserve(releasedMp);
+        assertThat(service().releaseIfUnused(releasedMp)).isTrue();
+        verify(chargeService).repriceOpenCharges(releasedMp.getMembership());
+
+        promotion.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        MembershipPromotion voucherMp = membershipPromotion();
+        voucherMp.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        reserve(voucherMp);
+        assertThat(service().releaseIfUnused(voucherMp)).isTrue();
+        verify(chargeService, never()).repriceOpenCharges(voucherMp.getMembership());
     }
 
     @Test

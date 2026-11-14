@@ -111,9 +111,41 @@ public class PromotionPricing {
         BigDecimal amount = discountFor(promotion, payment.getAmount(), payment.getCurrency(), asOf);
         if (amount == null) return false;
         payment.setDiscountAmount(amount);
-        payment.setDiscountReason("Promoción: " + promotion.getName() + " (" + discountLabel(promotion) + ")");
+        payment.setDiscountReason(discountReasonPrefix(promotion) + discountLabel(promotion) + ")");
         payment.setDiscountedBy(actor);
         payment.setDiscountedAt(Instant.now());
+        return true;
+    }
+
+    /** Start of the {@code discount_reason} the system writes for {@code promotion}: "Promoción: <name> (". */
+    static String discountReasonPrefix(Promotion promotion) {
+        return "Promoción: " + promotion.getName() + " (";
+    }
+
+    /**
+     * Takes back the discount {@link #applyInscriptionDiscount} put on a
+     * payment for {@code promotion}, while the payment is still DRAFT or
+     * PENDING review (the promotion was lost before the payment was approved).
+     * An approved or rejected payment, or a discount someone entered by hand,
+     * is left alone.
+     *
+     * @return whether the discount was removed
+     */
+    public static boolean clearPromotionDiscount(Payment payment, Promotion promotion) {
+        if (payment == null || promotion == null
+                || payment.getDiscountAmount() == null || payment.getDiscountReason() == null) {
+            return false;
+        }
+        String status = payment.getStatus();
+        boolean underReview = Payment.PaymentStatus.DRAFT.name().equals(status)
+                || Payment.PaymentStatus.PENDING.name().equals(status);
+        if (!underReview || !payment.getDiscountReason().startsWith(discountReasonPrefix(promotion))) {
+            return false;
+        }
+        payment.setDiscountAmount(null);
+        payment.setDiscountReason(null);
+        payment.setDiscountedBy(null);
+        payment.setDiscountedAt(null);
         return true;
     }
 
