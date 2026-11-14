@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +45,33 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
     @Query("SELECT ur.user.uuid FROM UserRole ur " +
            "WHERE ur.role.id = :roleId AND ur.active = true")
     List<UUID> findActiveUserUuidsByRoleId(@Param("roleId") Long roleId);
+
+    // ─── Notification fan-out ───────────────────────────────────────────────
+
+    /**
+     * Ids of the active users that currently hold (effective, not expired) any
+     * of the active roles named {@code roleNames}. Used by
+     * {@code UserNotificationPublisher} to resolve "every user with role X" at
+     * publish time.
+     */
+    @Query("SELECT DISTINCT ur.user.id FROM UserRole ur " +
+           "WHERE ur.active = true AND (ur.expiresAt IS NULL OR ur.expiresAt > :now) " +
+           "AND ur.user.active = true AND ur.user.status = 'ACTIVE' " +
+           "AND ur.role.active = true AND ur.role.name IN :roleNames")
+    List<Long> findEffectiveUserIdsByRoleNames(@Param("roleNames") Collection<String> roleNames,
+                                               @Param("now") Instant now);
+
+    /**
+     * Ids of the active users that currently hold an effective role granting any
+     * of the permissions named {@code permissionNames}. Same purpose as
+     * {@link #findEffectiveUserIdsByRoleNames}, for "every user who can do X".
+     */
+    @Query("SELECT DISTINCT ur.user.id FROM UserRole ur JOIN ur.role r JOIN r.permissions p " +
+           "WHERE ur.active = true AND (ur.expiresAt IS NULL OR ur.expiresAt > :now) " +
+           "AND ur.user.active = true AND ur.user.status = 'ACTIVE' " +
+           "AND r.active = true AND p.active = true AND p.name IN :permissionNames")
+    List<Long> findEffectiveUserIdsByPermissionNames(@Param("permissionNames") Collection<String> permissionNames,
+                                                     @Param("now") Instant now);
 
     // ─── By the functional composite key (user_id, role_id) ─────────────────
     Optional<UserRole> findByUserIdAndRoleId(Long userId, Long roleId);

@@ -1874,6 +1874,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 248	256	promotion redemptions	SQL	V256__promotion_redemptions.sql	-828639989	snapshot	2026-01-01 00:00:00	0	t
 249	257	campaign ally benefits	SQL	V257__campaign_ally_benefits.sql	1805520810	snapshot	2026-01-01 00:00:00	0	t
 250	258	digital card view monthly fee	SQL	V258__digital_card_view_monthly_fee.sql	-1905277104	snapshot	2026-01-01 00:00:00	0	t
+251	259	user notifications	SQL	V259__user_notifications.sql	-1605888821	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -3955,6 +3956,17 @@ COPY app.terms_acceptances (terms_acceptances_id, uuid, user_id, terms_versions_
 ALTER TABLE app.terms_acceptances ENABLE TRIGGER ALL;
 
 --
+-- Data for Name: user_notifications; Type: TABLE DATA; Schema: app; Owner: -
+--
+
+ALTER TABLE app.user_notifications DISABLE TRIGGER ALL;
+
+COPY app.user_notifications (user_notifications_id, uuid, recipient_user_id, type, category, severity, params, fallback_title, fallback_body, action_url, source_module, source_entity_uuid, dedup_key, read_at, expires_at, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+\.
+
+ALTER TABLE app.user_notifications ENABLE TRIGGER ALL;
+
+--
 -- Data for Name: user_password_history; Type: TABLE DATA; Schema: app; Owner: -
 --
 
@@ -4639,6 +4651,12 @@ SELECT pg_catalog.setval('app.terms_acceptances_terms_acceptances_id_seq', 1, fa
 --
 
 SELECT pg_catalog.setval('app.terms_versions_terms_versions_id_seq', 7, true);
+
+--
+-- Name: user_notifications_user_notifications_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
+--
+
+SELECT pg_catalog.setval('app.user_notifications_user_notifications_id_seq', 1, false);
 
 --
 -- Name: user_password_history_user_password_history_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

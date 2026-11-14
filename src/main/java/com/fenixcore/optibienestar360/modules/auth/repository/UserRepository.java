@@ -17,6 +17,10 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     Optional<User> findByUuid(UUID uuid);
 
+    /** Internal id of a user by its public uuid — one column, no entity load (inbox polling). */
+    @Query("SELECT u.id FROM User u WHERE u.uuid = :uuid")
+    Optional<Long> findIdByUuid(@Param("uuid") UUID uuid);
+
     /**
      * Readable name of a user for document metadata ("Generado por"): the person's full name, or
      * the login email when the name is blank. One column, no entity load.
