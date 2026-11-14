@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 12 | 12 | 0 | 100% | ✅ |
+| 13 | 13 | 0 | 100% | ✅ |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -18,6 +18,8 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P1/C2] `V259__user_notifications.sql` _(Bandeja de notificaciones en la app ([hub ADR 0039](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0039-in-app-notifications.md)), separada de la cola de correo V28: una fila por usuario destinatario con `type` abierto (sin CHECK, como `template_code`), `category` (`ACCOUNT`/`PAYMENTS`/`COMMISSIONS`/`MEMBERSHIP`/`NETWORK`/`CELEBRATIONS`) y `severity` (`INFO`/`SUCCESS`/`WARNING`/`ERROR`) con CHECK, `params JSONB` para el i18n del frontend, `fallback_title`/`fallback_body`, `action_url`, `source_module`/`source_entity_uuid`, `dedup_key` (UNIQUE parcial por destinatario + tipo), `read_at`, `expires_at`. Índice `(recipient_user_id, read_at, created_at DESC)`. Sin permisos nuevos: los endpoints `/v1/me/notifications` solo piden sesión.)_
 
 ## Código
+
+- [x] [P2/C1] Mensualidad en el carnet: `V258__digital_card_view_monthly_fee.sql` agrega `monthly_fee` + `currency_code` a `digital_cards_view`; `GET /v1/me/digital-card` devuelve `monthlyFee` (MONEY `_Display`) + `currency_Code` (null en la tarjeta de un beneficiario) para prellenar "Registrar pago" (hub ADR 0037 §5) — #458 — 2026-11-14
 
 - [x] [P1/C2] Cola async `@Async` + reintentos exponenciales (Tarea 1.8 pendiente) _(El envío ya era `@Async`+`@Retryable` en `EmailService`; la cola persistente V28 le pone durabilidad encima. `EmailService.sendTemplatedSync` (nueva ruta síncrona, sin `@Async`/`@Retryable`) da al worker un punto de entrada que propaga `MailException`, para que la cola controle su propio backoff en vez de fire-and-forget. Backoff exponencial `60s × 2^(intento-1)` clamped a 1h, hasta `max_attempts` por fila; el último intento fallido → `DEAD_LETTER`. Cubierto por `NotificationServiceTest.backoff_*`.)_
 - [x] [P0/C2] Entidad Notification (cola persistente) _(`modules/notification/entity/Notification` mapea las 24 columnas de V28: channel/recipient snapshot/template_code+subject+`template_vars` JSONB (`@JdbcTypeCode(SqlTypes.JSON)`)/source (module+entity_uuid)/lifecycle (status vía BaseEntity)/retry policy (attempt_count, max_attempts, next_retry_at, last_error_message)/sent_at. `recipient_user_id` como `Long` plano (sin `@ManyToOne`) para desacoplar del módulo auth. Enums internos `Channel{EMAIL}` + `NotificationStatus{PENDING,SENDING,SENT,FAILED,DEAD_LETTER}`. `NotificationRepository` con `findDueForDispatch` (PENDING vencidos + FAILED con backoff cumplido) y el pre-check idempotente por (module, entity, template).)_

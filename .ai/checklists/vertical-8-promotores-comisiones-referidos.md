@@ -6,7 +6,7 @@
 <!-- resumen-totales:start -->
 | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|
-| 79 | 51 | 28 | 65% | 🟡 |
+| 85 | 57 | 28 | 67% | 🟡 |
 
 _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md](../checklist.md)._
 <!-- resumen-totales:end -->
@@ -115,6 +115,17 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [v3] [P0/C2] `ReferralRepository.countReferralsByReferrerInPeriod(referrerId, start, end)` — conteo mensual de referidos confirmados (status REGISTERED) por afiliado. Reset por ventana calendario (no acumulable entre meses). _(Reusa `PeriodStrategies.MONTHLY`.)_
 - [ ] [v3] [P0/C3] `ReferralRewardJobRunner` (runner programado + fila en `scheduled_jobs`, cron mensual `America/Caracas`): por afiliado cuenta referidos del mes → `blocks = count / goal_count` → auto-inserta un `subsidies` (`monthly_percentage=100`, `valid_from`=próximo ciclo, ventana = `blocks × months_per_block` meses) vía el motor V41 (`MembershipStatusService` ya lo honra: ACTIVE sin pago). Idempotente por `(member, período)`. Notifica al afiliado (`NotificationService`). _(Puente referidos→subsidios; ver [vertical-12](vertical-12-subsidios-y-exoneraciones.md).)_
 - [ ] [v3] [P1/C1] Deprecar el reward dormido "10% off 1 pago FIFO" (`ReferralService.applyRewardsTo`) a favor del salto de mensualidad, o mantenerlo como `reward_type` alterno del programa (decisión ADR 0013 §4). Los 7 ítems `[v2]` de `referral_programs`/`referral_rewards` de arriba quedan superseded por este bloque. _(No duplicar: un solo modelo de recompensa por referido.)_
+
+## Campañas: cupos, cierre, descuento fijo y beneficios de aliados ([hub ADR 0038](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/decisions/0038-campaign-quotas-flat-discounts-ally-benefits.md))
+
+> Plan del hub: [`2026-11-14-campaign-quotas-and-ally-benefits.md`](https://github.com/fenix-core/centro-optico-vicente/blob/main/.ai/plans/2026-11-14-campaign-quotas-and-ally-benefits.md). Enmienda el ADR 0018 (promociones, V175).
+
+- [x] [P1/C2] Descuento `FLAT` (monto en la moneda de la promoción, convertido a la moneda del cargo) además de `PERCENTAGE`; contra un subsidio gana el mayor monto — #453 (V254) — 2026-11-14
+- [x] [P1/C3] Cierre configurable de la campaña (fecha, cupo, manual), fecha de fin opcional, estados `ACTIVE`/`SOLD_OUT`/`CLOSED`, reabrir ampliando cupo o fecha, tope compartido por campaña + cupo propio por promoción reservado con bloqueo de filas — #454 (V255) — 2026-11-14
+- [x] [P1/C3] Ciclo de vida del cupo (`PENDING` → `CONFIRMED` / `EXPIRED` / `RELEASED`) según el `quota_trigger` de la campaña; job `CAMPAIGN_LIFECYCLE` cada hora — #455 (V256) — 2026-11-14
+- [x] [P1/C3] Vales de beneficios de aliados al confirmar el cupo, canje en el validador, campañas exclusivas o de varios aliados — #456 (V257) — 2026-11-14
+- [x] [P1/C3] Conciliación del cupo con los pagos: un pago en revisión congela el plazo, conciliación horaria, confirmar/liberar a mano (`PROMOTION_SLOT_CONFIRM`/`_RELEASE`), reporte de inconsistencias, avisos de vencimiento, sección "Pagos" de la campaña (`CAMPAIGN_PAYMENT_VIEW`/`_REMIND`), `promotionSlot` en los pagos y `pendingBenefits` en el validador — #460 (V260) — 2026-11-14
+- [ ] [P2/C1] Cancelar un vale de aliado asignado por error (hoy solo se cancela el descuento)
 
 ## Pendientes de análisis / Decisiones diferidas
 

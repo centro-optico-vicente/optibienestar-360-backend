@@ -52,17 +52,17 @@
 
 | # | Vertical | Archivo | Tareas | Hechas | Pendientes | % avance | Estado |
 |---|---|---|---|---|---|---|---|
-| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 44 | 43 | 1 | 98% | 🟡 hardening/tests |
+| 1 | Seguridad y Autenticación | [vertical-1](checklists/vertical-1-seguridad-y-autenticacion.md) | 47 | 46 | 1 | 98% | 🟡 hardening/tests |
 | 2 | Catálogos | [vertical-2](checklists/vertical-2-catalogos.md) | 9 | 9 | 0 | 100% | ✅ Completa |
-| 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 30 | 22 | 8 | 73% | 🟡 |
-| 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 26 | 20 | 6 | 77% | 🟠 |
+| 3 | Aliados | [vertical-3](checklists/vertical-3-aliados.md) | 43 | 34 | 9 | 79% | 🟡 |
+| 4 | Afiliados y Familia | [vertical-4](checklists/vertical-4-afiliados-y-familia.md) | 30 | 23 | 7 | 77% | 🟠 |
 | 5 | Planes y Membresías | [vertical-5](checklists/vertical-5-planes-y-membresias.md) | 33 | 28 | 5 | 85% | 🟡 |
 | 6 | Pagos manuales | [vertical-6](checklists/vertical-6-pagos-manuales.md) | 10 | 10 | 0 | 100% | ✅ Completa |
 | 7 | Validador | [vertical-7](checklists/vertical-7-validador.md) | 10 | 6 | 4 | 60% | 🟡 |
-| 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 79 | 51 | 28 | 65% | 🟡 |
-| 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 12 | 12 | 0 | 100% | ✅ Completa |
+| 8 | Promotores, Comisiones y Referidos | [vertical-8](checklists/vertical-8-promotores-comisiones-referidos.md) | 85 | 57 | 28 | 67% | 🟡 |
+| 9 | Notificaciones y Carnet digital | [vertical-9](checklists/vertical-9-notificaciones-y-carnet.md) | 13 | 13 | 0 | 100% | ✅ Completa |
 | 10 | Optimización, Reportes y Hardening | [vertical-10](checklists/vertical-10-optimizacion-reportes-hardening.md) | 37 | 1 | 36 | 3% | 🔴 |
-| **TOTAL Fase 2** | | | **290** | **202** | **88** | **70%** | 🟡 |
+| **TOTAL Fase 2** | | | **317** | **227** | **90** | **72%** | 🟡 |
 
 > **% avance** = round(100 × hechas / tareas), redondeado al entero más cercano, contando checkboxes `- [ ]` / `- [x]` en cada archivo vertical (el método de "Conteo rápido" abajo). Cada archivo repite su fila como tabla de totales al inicio. Bandas del estado: ✅ 100% · 🟡 50–99% · 🟠 10–49% · 🔴 <10%.
 > Los conteos previos estaban desactualizados (marcaban 0 hechas en verticales ya construidos) y usaban una granularidad de tarea distinta a la de los archivos; esta tabla se recalculó desde los checkboxes reales.
