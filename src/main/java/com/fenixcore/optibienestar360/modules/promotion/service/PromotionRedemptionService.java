@@ -5,7 +5,9 @@ import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.QuotaTrigger;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Status;
@@ -85,6 +87,12 @@ public class PromotionRedemptionService {
             r.setRedemptionStatus(RedemptionStatus.PENDING);
             r.setExpiresAt(campaign.getPendingTtlDays() == null ? null
                     : now.plus(Duration.ofDays(campaign.getPendingTtlDays())));
+            // The payment the trigger waits for may already exist (a promotion assigned after the
+            // inscription was paid): no event will come for it, so it confirms the slot right away.
+            Payment alreadyPaid = existingQualifyingPayment(campaign.getQuotaTrigger(), promotion, mp);
+            if (alreadyPaid != null) {
+                markConfirmed(r, campaign, promotion, now, alreadyPaid);
+            }
         }
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
         return repository.save(r);
@@ -124,8 +132,7 @@ public class PromotionRedemptionService {
                 continue;
             }
             Promotion promotion = lockPromotion(pending.getPromotion().getId());
-            boolean confirmsByKind = promotion.getKind() == Kind.RECOVERY ? !payment.isInscription() : payment.isInscription();
-            if (!confirmsByKind) {
+            if (payment.isInscription() != confirmedByInscription(promotion)) {
                 continue;
             }
             Instant deadline = campaign.pendingDeadline(pending.getExpiresAt());
@@ -137,6 +144,45 @@ public class PromotionRedemptionService {
             confirmed++;
         }
         return confirmed;
+    }
+
+    /**
+     * Which payment confirms a slot of {@code promotion}: the inscription for
+     * an ACQUISITION promotion (ally benefits included), a monthly fee for a
+     * RECOVERY one (it has no inscription).
+     */
+    private static boolean confirmedByInscription(Promotion promotion) {
+        return promotion.getKind() != Kind.RECOVERY;
+    }
+
+    /**
+     * A payment of the membership that already satisfies {@code trigger}:
+     * registered (PENDING or APPROVED) for ON_PAYMENT_REGISTERED, APPROVED for
+     * ON_PAYMENT_CONFIRMED; of the kind {@link #confirmedByInscription} asks
+     * for. For RECOVERY only a monthly fee registered after the membership fell
+     * behind (its last status change) counts; when that moment is unknown, the
+     * latest monthly fee does. {@code null} = none yet.
+     */
+    private Payment existingQualifyingPayment(QuotaTrigger trigger, Promotion promotion, MembershipPromotion mp) {
+        Membership membership = mp != null ? mp.getMembership() : null;
+        if (membership == null || membership.getId() == null) {
+            return null;
+        }
+        List<String> statuses = trigger == QuotaTrigger.ON_PAYMENT_CONFIRMED
+                ? List.of(PaymentStatus.APPROVED.name())
+                : List.of(PaymentStatus.PENDING.name(), PaymentStatus.APPROVED.name());
+        boolean inscription = confirmedByInscription(promotion);
+        List<Payment> payments = paymentRepository.findCollectionsOfMembership(membership.getId(), inscription, statuses);
+        if (payments.isEmpty()) {
+            return null;
+        }
+        Payment latest = payments.get(0);
+        if (inscription) {
+            return latest;
+        }
+        Instant overdueSince = membership.getLastStatusChangeAt();
+        return overdueSince == null || (latest.getCreatedAt() != null && latest.getCreatedAt().isAfter(overdueSince))
+                ? latest : null;
     }
 
     private void markConfirmed(PromotionRedemption r, Campaign campaign, Promotion promotion, Instant now, Payment payment) {

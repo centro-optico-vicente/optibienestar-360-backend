@@ -182,4 +182,23 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
                                                           @Param("includeSystem") boolean includeSystem,
                                                           @Param("typeIds") java.util.Collection<Long> typeIds,
                                                           @Param("rankIds") java.util.Collection<Long> rankIds);
+
+    /**
+     * The membership's collections (IN) of one kind — inscription or monthly
+     * fee — in one of {@code statuses}, newest registration first. A campaign
+     * slot reserved after its payment already exists confirms at once with it
+     * (hub ADR 0038 §5).
+     */
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.membership.id = :membershipId
+              AND p.direction = 'IN'
+              AND p.inscription = :inscription
+              AND p.active = true
+              AND p.status IN :statuses
+            ORDER BY p.createdAt DESC
+            """)
+    java.util.List<Payment> findCollectionsOfMembership(@Param("membershipId") Long membershipId,
+                                                        @Param("inscription") boolean inscription,
+                                                        @Param("statuses") java.util.Collection<String> statuses);
 }

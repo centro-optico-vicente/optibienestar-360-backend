@@ -177,6 +177,68 @@ class PromotionRedemptionServiceTest {
         assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
     }
 
+    // ─── Payment already there when the slot is reserved ─────────────────────
+
+    private static Payment collection(long id, boolean inscription, Instant registeredAt) {
+        Payment payment = new Payment();
+        payment.setId(id);
+        payment.setDirection("IN");
+        payment.setInscription(inscription);
+        payment.setCreatedAt(registeredAt);
+        return payment;
+    }
+
+    @Test
+    void reserve_afterTheInscriptionWasRegistered_confirmsAtOnceWithThatPayment() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        campaign.setPendingTtlDays(3);
+        Payment inscription = collection(910L, true, Instant.now().minus(Duration.ofDays(1)));
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, true, List.of("PENDING", "APPROVED")))
+                .thenReturn(List.of(inscription));
+
+        PromotionRedemption r = reserve(membershipPromotion());
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(r.getConfirmedByPayment()).isSameAs(inscription);
+        assertThat(campaign.getRedemptionsCount()).isEqualTo(1);
+        assertThat(campaign.getConfirmedCount()).isEqualTo(1);
+        assertThat(promotion.getConfirmedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void reserve_onPaymentConfirmed_onlyAnApprovedPaymentConfirmsAtOnce() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_CONFIRMED);
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, true, List.of("APPROVED")))
+                .thenReturn(List.of());
+
+        PromotionRedemption r = reserve(membershipPromotion());
+
+        assertThat(r.getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+        assertThat(campaign.getConfirmedCount()).isZero();
+    }
+
+    @Test
+    void reserve_recovery_onlyAMonthlyFeeRegisteredAfterTheDelayConfirmsAtOnce() {
+        campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
+        promotion.setKind(Kind.RECOVERY);
+        Instant overdueSince = Instant.now().minus(Duration.ofDays(10));
+
+        MembershipPromotion beforeDelay = membershipPromotion();
+        beforeDelay.getMembership().setLastStatusChangeAt(overdueSince);
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, false, List.of("PENDING", "APPROVED")))
+                .thenReturn(List.of(collection(911L, false, overdueSince.minus(Duration.ofDays(20)))));
+        assertThat(reserve(beforeDelay).getRedemptionStatus()).isEqualTo(RedemptionStatus.PENDING);
+
+        MembershipPromotion afterDelay = membershipPromotion();
+        afterDelay.getMembership().setLastStatusChangeAt(overdueSince);
+        Payment monthly = collection(912L, false, Instant.now().minus(Duration.ofDays(1)));
+        when(paymentRepository.findCollectionsOfMembership(MEMBERSHIP_ID, false, List.of("PENDING", "APPROVED")))
+                .thenReturn(List.of(monthly));
+        PromotionRedemption confirmed = reserve(afterDelay);
+        assertThat(confirmed.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        assertThat(confirmed.getConfirmedByPayment()).isSameAs(monthly);
+    }
+
     @Test
     void confirmedCount_reachingTheMax_closesWithQuotaFilled() {
         campaign.setQuotaTrigger(QuotaTrigger.ON_PAYMENT_REGISTERED);
