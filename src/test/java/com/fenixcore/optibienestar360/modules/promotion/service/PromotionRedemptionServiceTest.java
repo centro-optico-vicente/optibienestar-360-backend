@@ -34,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Slot lifecycle of a campaign quota (V257, hub ADR 0038 §5-§6). */
@@ -44,6 +46,7 @@ class PromotionRedemptionServiceTest {
     @Mock private CampaignRepository campaignRepository;
     @Mock private PromotionRepository promotionRepository;
     @Mock private PaymentRepository paymentRepository;
+    @Mock private MembershipBenefitGrantService grantService;
 
     private static final long MEMBERSHIP_ID = 10L;
 
@@ -52,7 +55,8 @@ class PromotionRedemptionServiceTest {
     private long nextId = 500;
 
     private PromotionRedemptionService service() {
-        return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository);
+        return new PromotionRedemptionService(repository, campaignRepository, promotionRepository, paymentRepository,
+                grantService);
     }
 
     @BeforeEach
@@ -323,5 +327,37 @@ class PromotionRedemptionServiceTest {
         assertThat(p.free()).isEqualTo(1);
         assertThat(p.pending()).isEqualTo(1);
         assertThat(p.expired()).isEqualTo(2);
+    }
+
+    // ─── Ally benefits (V257) ───────────────────────────────────────────────
+
+    @Test
+    void confirmingAnAllyBenefitSlot_grantsTheVoucher_aDiscountDoesNot() {
+        PromotionRedemption discount = reserve(membershipPromotion());
+        verify(grantService, never()).grantFor(discount);
+
+        promotion.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        PromotionRedemption allyBenefit = reserve(membershipPromotion());
+        verify(grantService).grantFor(allyBenefit);
+    }
+
+    @Test
+    void releasingAnAllyBenefit_dependsOnTheVoucherUse() {
+        promotion.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        MembershipPromotion unusedMp = membershipPromotion();
+        unusedMp.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        PromotionRedemption unused = reserve(unusedMp);
+        when(grantService.anyRedeemed(unusedMp)).thenReturn(false);
+        assertThat(service().releaseIfUnused(unusedMp)).isTrue();
+        assertThat(unused.getRedemptionStatus()).isEqualTo(RedemptionStatus.RELEASED);
+        verify(grantService).cancelFor(unusedMp);
+
+        MembershipPromotion usedMp = membershipPromotion();
+        usedMp.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        PromotionRedemption used = reserve(usedMp);
+        when(grantService.anyRedeemed(usedMp)).thenReturn(true);
+        assertThat(service().releaseIfUnused(usedMp)).isFalse();
+        assertThat(used.getRedemptionStatus()).isEqualTo(RedemptionStatus.CONFIRMED);
+        verify(grantService).cancelFor(usedMp);
     }
 }

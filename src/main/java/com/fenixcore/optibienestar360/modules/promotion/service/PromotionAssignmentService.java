@@ -145,7 +145,13 @@ public class PromotionAssignmentService {
         if (!promotion.hasOwnFreeSlot()) {
             throw new IllegalArgumentException("promotion.max_redemptions_reached");
         }
-        if (membership.getId() != null && membershipPromotionRepository.findOngoing(membership.getId()).isPresent()) {
+        if (promotion.isAllyBenefit()) {
+            // Ally vouchers (V257) never conflict with the fee discount; only the same one twice.
+            if (membership.getId() != null && membershipPromotionRepository.existsByMembership_IdAndPromotion_IdAndStatusAndActiveTrue(
+                    membership.getId(), promotion.getId(), Status.ACTIVE.name())) {
+                throw new IllegalArgumentException("promotion.membership.already_has_benefit");
+            }
+        } else if (membership.getId() != null && membershipPromotionRepository.findOngoing(membership.getId()).isPresent()) {
             throw new IllegalArgumentException("promotion.membership.already_has_one");
         }
 
@@ -168,6 +174,7 @@ public class PromotionAssignmentService {
         mp.setAssignedAt(Instant.now());
         mp.setAssignedBy(actorUuid == null ? null : userRepository.findByUuid(actorUuid).orElse(null));
         mp.setStatus(Status.ACTIVE.name());
+        mp.setBenefitKind(promotion.getBenefitKind());
         if (owner != null) {
             mp.setCodeUsed(owner.code());
             mp.setCodeOwnerPromoter(owner.promoter());
@@ -179,11 +186,31 @@ public class PromotionAssignmentService {
         if (owner != null && owner.member() != null) {
             referrerRewardService.registerReferral(saved);
         }
-        if (promotion.getKind() == Kind.RECOVERY) {
+        if (promotion.getKind() == Kind.RECOVERY && !promotion.isAllyBenefit()) {
             // The overdue months are already billed: discount them too.
             chargeService.repriceOpenCharges(membership);
         }
         return saved;
+    }
+
+    /**
+     * Enrollment: the ally vouchers chosen besides the fee discount
+     * ({@code allyBenefitPromotionUuids}). Each must be an ALLY_BENEFIT
+     * promotion; any failure rolls back the whole enrollment.
+     */
+    @Transactional
+    public void assignAllyBenefits(Membership membership, java.util.List<UUID> promotionUuids, UUID actorUuid) {
+        if (promotionUuids == null) {
+            return;
+        }
+        for (UUID promotionUuid : new java.util.LinkedHashSet<>(promotionUuids)) {
+            // Checked after the assignment so the promotion row is first read under its lock;
+            // a wrong kind throws and rolls back the whole enrollment anyway.
+            MembershipPromotion assigned = assign(membership, promotionUuid, null, Origin.ENROLLMENT, actorUuid);
+            if (!assigned.getPromotion().isAllyBenefit()) {
+                throw new IllegalArgumentException("promotion.ally_benefit.expected");
+            }
+        }
     }
 
     @Transactional

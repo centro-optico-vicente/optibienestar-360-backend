@@ -533,7 +533,7 @@ public class AffiliationRequestService {
 
         MembershipDto enrolled = membershipsService.enroll(memberDto.uuid(),
                 new MembershipCreateRequest(request.getPlan().getUuid(), null, request.getExpiresAtOverride(), null, null,
-                        request.getReinscriptionRequiredOverride()), actorUuid);
+                        request.getReinscriptionRequiredOverride(), null), actorUuid);
         Membership membership = membershipRepository.findByUuid(enrolled.uuid())
                 .orElseThrow(() -> new IllegalStateException("membership just created not found"));
         // Hub ADR 0037 §1: SUSPENDED until the payment is approved, unless the

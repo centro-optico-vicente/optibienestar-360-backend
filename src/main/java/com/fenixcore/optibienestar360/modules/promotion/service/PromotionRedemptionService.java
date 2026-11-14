@@ -59,6 +59,7 @@ public class PromotionRedemptionService {
     private final CampaignRepository campaignRepository;
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
+    private final MembershipBenefitGrantService grantService;
 
     // ─── Reserve / confirm ──────────────────────────────────────────────────
 
@@ -145,6 +146,10 @@ public class PromotionRedemptionService {
         r.setUsageEndsAt(campaign.usageEndsAt(now));
         promotion.setConfirmedCount(promotion.getConfirmedCount() + 1);
         campaign.setConfirmedCount(campaign.getConfirmedCount() + 1);
+        if (promotion.isAllyBenefit()) {
+            // ALLY_BENEFIT (V257): the confirmed slot gives the member the ally voucher.
+            grantService.grantFor(r);
+        }
     }
 
     // ─── Release / expire ───────────────────────────────────────────────────
@@ -164,11 +169,17 @@ public class PromotionRedemptionService {
         }
         PromotionRedemption r = repository.findByMembershipPromotion_Id(mp.getId()).orElse(null);
         if (r == null) {
+            grantService.cancelFor(mp);
             return false;
         }
-        boolean unusedConfirmed = r.isConfirmed() && !mp.isInscriptionApplied()
-                && !repository.anyDiscountedCharge(mp.getId());
+        // "Used" = a fee discount was applied (DISCOUNT) or a voucher unit was redeemed (ALLY_BENEFIT, V257).
+        boolean used = mp.getBenefitKind() == Promotion.BenefitKind.ALLY_BENEFIT
+                ? grantService.anyRedeemed(mp)
+                : mp.isInscriptionApplied() || repository.anyDiscountedCharge(mp.getId());
+        boolean unusedConfirmed = r.isConfirmed() && !used;
         if (!r.isPending() && !unusedConfirmed) {
+            // The slot stays CONFIRMED; whatever is left of a voucher is cancelled with the promotion.
+            grantService.cancelFor(mp);
             return false;
         }
         free(r, RedemptionStatus.RELEASED, Instant.now());
@@ -237,6 +248,7 @@ public class PromotionRedemptionService {
             campaign.setConfirmedCount(Math.max(0, campaign.getConfirmedCount() - 1));
         }
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        grantService.cancelFor(r.getMembershipPromotion());
     }
 
     private static boolean endIfOngoing(MembershipPromotion mp, Status status, String reason) {

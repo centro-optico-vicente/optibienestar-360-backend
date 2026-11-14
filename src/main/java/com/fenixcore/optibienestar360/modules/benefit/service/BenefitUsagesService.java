@@ -35,6 +35,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -75,6 +76,7 @@ public class BenefitUsagesService {
     private final BeneficiaryRepository beneficiaryRepository;
     private final BenefitUsageMapper mapper;
     private final ConversionEnricher conversionEnricher;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService benefitGrantService;
 
     /**
      * Powers {@code GET /v1/me/allies/usage-history}. Returns every benefit
@@ -181,6 +183,22 @@ public class BenefitUsagesService {
         validateCopay(request);
         validateConsumption(request);
 
+        // Campaign voucher (V257): locked and redeemed here; FREE/PERCENTAGE/FLAT lower the member's co-pay.
+        com.fenixcore.optibienestar360.modules.promotion.entity.MembershipBenefitGrant grant = null;
+        BigDecimal copayAmount = request.copayAmount();
+        String copayCurrency = request.copayCurrency();
+        if (request.benefitGrantUuid() != null) {
+            grant = benefitGrantService.redeem(request.benefitGrantUuid(), membership, ally, allyProduct);
+            if (allyProduct == null) {
+                allyProduct = grant.getAllyProduct();
+            }
+            String fallback = request.consumptionCurrency() != null ? request.consumptionCurrency()
+                    : allyProduct.getPriceCurrency() != null ? allyProduct.getPriceCurrency().getCode() : null;
+            var copay = benefitGrantService.copayAfter(grant, copayAmount, copayCurrency, fallback);
+            copayAmount = copay.amount();
+            copayCurrency = copay.amount() == null ? null : copay.currencyCode();
+        }
+
         BenefitUsage usage = new BenefitUsage();
         usage.setMembership(membership);
         usage.setAlly(ally);
@@ -190,8 +208,9 @@ public class BenefitUsagesService {
         usage.setProductCategory(resolveProductCategory(request, allyProduct));
         usage.setUsageDate(request.usageDate() != null ? request.usageDate() : LocalDate.now());
         usage.setUsageDatetime(Instant.now());
-        usage.setCopayAmount(request.copayAmount());
-        usage.setCopayCurrency(resolveCurrency(request.copayCurrency()));
+        usage.setCopayAmount(copayAmount);
+        usage.setCopayCurrency(resolveCurrency(copayCurrency));
+        usage.setBenefitGrant(grant);
         usage.setConsumptionAmount(request.consumptionAmount());
         usage.setConsumptionCurrency(resolveCurrency(request.consumptionCurrency()));
         usage.setMetadata(request.metadata());

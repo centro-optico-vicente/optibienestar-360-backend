@@ -50,5 +50,8 @@ public record CampaignDto(
         @Display(value = Display.Kind.ENUM, enumScope = "campaign.usageWindow") Campaign.UsageWindow usageWindow,
         Integer usageWindowDays,
         /** Slots reserved and still waiting for their confirmation (occupied − confirmed). */
-        int pendingCount) {
+        int pendingCount,
+        /** The ally the campaign is exclusive to (V257); {@code null} = several allies. */
+        @Display DisplayRef ally,
+        boolean allowsAllyPartnership) {
 }

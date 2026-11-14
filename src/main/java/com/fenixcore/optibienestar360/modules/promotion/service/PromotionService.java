@@ -2,7 +2,12 @@ package com.fenixcore.optibienestar360.modules.promotion.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.core.display.DisplayRefs;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyProductRepository;
+import com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
@@ -13,6 +18,8 @@ import com.fenixcore.optibienestar360.modules.promotion.dto.PromotionDto;
 import com.fenixcore.optibienestar360.modules.promotion.dto.PromotionRequest;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitKind;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
@@ -29,8 +36,13 @@ import java.util.UUID;
 
 /**
  * Admin CRUD of the promotions a campaign offers members (V175, hub ADR 0018).
- * Mirrors the V175 CHECK constraints so a bad request fails with a readable
- * message key instead of a constraint violation.
+ * Mirrors the V175/V255/V257 CHECK constraints so a bad request fails with a
+ * readable message key instead of a constraint violation.
+ *
+ * <p>Ally benefits (V257, hub ADR 0038 §7-§8): a campaign exclusive to an ally
+ * forces that ally on every line and rejects another one; in a multi-ally
+ * campaign each ALLY_BENEFIT line names its own ally, whose offer the voucher
+ * is for.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -41,6 +53,8 @@ public class PromotionService {
     private final CampaignRepository campaignRepository;
     private final PlanRepository planRepository;
     private final CurrencyRepository currencyRepository;
+    private final AllyRepository allyRepository;
+    private final AllyProductRepository allyProductRepository;
 
     public List<PromotionDto> listForCampaign(UUID campaignUuid) {
         return repository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(findCampaign(campaignUuid)).stream()
@@ -57,7 +71,7 @@ public class PromotionService {
     public PromotionDto create(UUID campaignUuid, PromotionRequest req) {
         Promotion promotion = new Promotion();
         promotion.setCampaign(findCampaign(campaignUuid));
-        apply(promotion, req);
+        apply(promotion, req, null);
         return toDto(repository.save(promotion));
     }
 
@@ -65,7 +79,7 @@ public class PromotionService {
     @Auditable(entity = "promotion", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public PromotionDto update(UUID uuid, PromotionRequest req) {
         Promotion promotion = findManaged(uuid);
-        apply(promotion, req);
+        apply(promotion, req, null);
         return toDto(repository.save(promotion));
     }
 
@@ -101,15 +115,52 @@ public class PromotionService {
             c.setReferrerRewardPct(p.getReferrerRewardPct());
             c.setReferrerRewardCycles(p.getReferrerRewardCycles());
             c.setPlans(new HashSet<>(p.getPlans()));
+            c.setBenefitKind(p.getBenefitKind());
+            c.setAlly(p.getAlly());
+            c.setCreatedByAlly(p.isCreatedByAlly());
+            c.setAllyProduct(p.getAllyProduct());
+            c.setBenefitType(p.getBenefitType());
+            c.setBenefitPct(p.getBenefitPct());
+            c.setBenefitAmount(p.getBenefitAmount());
+            c.setBenefitCurrency(p.getBenefitCurrency());
+            c.setBenefitQuantity(p.getBenefitQuantity());
             repository.save(c);
         }
     }
 
-    private void apply(Promotion promotion, PromotionRequest req) {
+    /**
+     * Validates and copies {@code req} onto {@code promotion}. {@code fixedAlly}
+     * is the caller ally of the ally portal (its own line); {@code null} for
+     * the admin, whose ally comes from the request or the campaign.
+     */
+    public void apply(Promotion promotion, PromotionRequest req, Ally fixedAlly) {
         validate(req);
         promotion.setName(req.name().trim());
         promotion.setDescription(req.description());
         promotion.setKind(req.kind());
+        BenefitKind benefitKind = benefitKindOf(req);
+        promotion.setBenefitKind(benefitKind);
+        Ally ally = resolveLineAlly(promotion.getCampaign(), req.allyUuid(), fixedAlly);
+        promotion.setAlly(ally);
+        if (benefitKind == BenefitKind.ALLY_BENEFIT) {
+            applyAllyBenefit(promotion, req, ally);
+        } else {
+            applyDiscount(promotion, req);
+        }
+        promotion.setCycles(req.cycles());
+        promotion.setCoversExtraBeneficiaries(req.coversExtraBeneficiaries());
+        promotion.setOwnQuota(req.ownQuota());
+        promotion.setMaxRedemptions(req.maxRedemptions());
+        promotion.setRequiresCode(req.requiresCode());
+        promotion.setAcceptsPromoterCode(req.acceptsPromoterCode());
+        promotion.setAcceptsMemberCode(req.acceptsMemberCode());
+        promotion.setAcceptsAllyCode(req.acceptsAllyCode());
+        promotion.setReferrerRewardPct(req.referrerRewardPct());
+        promotion.setReferrerRewardCycles(req.referrerRewardCycles());
+        promotion.setPlans(resolvePlans(req.planUuids()));
+    }
+
+    private void applyDiscount(Promotion promotion, PromotionRequest req) {
         DiscountType discountType = discountTypeOf(req);
         promotion.setDiscountType(discountType);
         if (discountType == DiscountType.FLAT) {
@@ -122,17 +173,85 @@ public class PromotionService {
             promotion.setDiscountCurrency(null);
         }
         promotion.setAppliesTo(req.appliesTo());
-        promotion.setCycles(req.cycles());
-        promotion.setCoversExtraBeneficiaries(req.coversExtraBeneficiaries());
-        promotion.setOwnQuota(req.ownQuota());
-        promotion.setMaxRedemptions(req.maxRedemptions());
-        promotion.setRequiresCode(req.requiresCode());
-        promotion.setAcceptsPromoterCode(req.acceptsPromoterCode());
-        promotion.setAcceptsMemberCode(req.acceptsMemberCode());
-        promotion.setAcceptsAllyCode(req.acceptsAllyCode());
-        promotion.setReferrerRewardPct(req.referrerRewardPct());
-        promotion.setReferrerRewardCycles(req.referrerRewardCycles());
-        promotion.setPlans(resolvePlans(req.planUuids()));
+        promotion.setAllyProduct(null);
+        promotion.setBenefitType(null);
+        promotion.setBenefitPct(null);
+        promotion.setBenefitAmount(null);
+        promotion.setBenefitCurrency(null);
+        promotion.setBenefitQuantity(1);
+    }
+
+    /** An ALLY_BENEFIT carries the ally's offer and the voucher's benefit; never a discount. */
+    private void applyAllyBenefit(Promotion promotion, PromotionRequest req, Ally ally) {
+        if (ally == null) {
+            throw new IllegalArgumentException("promotion.ally.required");
+        }
+        AllyProduct allyProduct = allyProductRepository.findByUuid(req.allyProductUuid())
+                .filter(AllyProduct::isActive)
+                .orElseThrow(() -> new NoSuchElementException("ally_product.not_found"));
+        if (allyProduct.getAlly() == null || !allyProduct.getAlly().getId().equals(ally.getId())) {
+            throw new IllegalArgumentException("promotion.ally_product.other_ally");
+        }
+        promotion.setAllyProduct(allyProduct);
+        promotion.setDiscountType(DiscountType.PERCENTAGE);
+        promotion.setDiscountPct(null);
+        promotion.setDiscountAmount(null);
+        promotion.setDiscountCurrency(null);
+        promotion.setAppliesTo(null);
+        promotion.setBenefitType(req.benefitType());
+        promotion.setBenefitPct(req.benefitType() == BenefitType.PERCENTAGE ? req.benefitPct() : null);
+        promotion.setBenefitAmount(req.benefitType() == BenefitType.FLAT ? req.benefitAmount() : null);
+        promotion.setBenefitCurrency(req.benefitType() == BenefitType.FLAT ? resolveCurrency(req.benefitCurrencyUuid()) : null);
+        promotion.setBenefitQuantity(req.benefitQuantity() != null ? req.benefitQuantity() : 1);
+    }
+
+    /**
+     * The ally of a line: the portal caller's own ally, else the campaign's
+     * ally when the campaign is exclusive (a different requested ally is a
+     * 422), else the requested one (optional for a DISCOUNT line).
+     */
+    private Ally resolveLineAlly(Campaign campaign, UUID requestedAllyUuid, Ally fixedAlly) {
+        Ally campaignAlly = campaign != null ? campaign.getAlly() : null;
+        Ally requested = fixedAlly;
+        if (requested == null && requestedAllyUuid != null) {
+            requested = allyRepository.findByUuid(requestedAllyUuid)
+                    .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
+        }
+        if (campaignAlly != null) {
+            if (requested != null && !requested.getId().equals(campaignAlly.getId())) {
+                throw new IllegalArgumentException("promotion.ally.campaign_exclusive");
+            }
+            return campaignAlly;
+        }
+        return requested;
+    }
+
+    private static BenefitKind benefitKindOf(PromotionRequest req) {
+        return req.benefitKind() == null ? BenefitKind.DISCOUNT : req.benefitKind();
+    }
+
+    /** Mirrors V257 {@code chk_promotions_benefit_coherence} for an ALLY_BENEFIT. */
+    private static void validateAllyBenefit(PromotionRequest req) {
+        if (req.kind() != Kind.ACQUISITION) {
+            throw new IllegalArgumentException("promotion.ally_benefit.acquisition_only");
+        }
+        if (req.allyProductUuid() == null || req.benefitType() == null) {
+            throw new IllegalArgumentException("promotion.ally_benefit.incomplete");
+        }
+        if (req.discountPct() != null || req.discountAmount() != null || req.discountCurrencyUuid() != null) {
+            throw new IllegalArgumentException("promotion.ally_benefit.no_discount");
+        }
+        boolean hasPct = req.benefitPct() != null;
+        boolean hasAmount = req.benefitAmount() != null || req.benefitCurrencyUuid() != null;
+        boolean coherent = switch (req.benefitType()) {
+            case FREE -> !hasPct && !hasAmount;
+            case PERCENTAGE -> hasPct && !hasAmount;
+            case FLAT -> !hasPct && req.benefitAmount() != null && req.benefitAmount().signum() > 0
+                    && req.benefitCurrencyUuid() != null;
+        };
+        if (!coherent) {
+            throw new IllegalArgumentException("promotion.ally_benefit.type_incoherent");
+        }
     }
 
     private static DiscountType discountTypeOf(PromotionRequest req) {
@@ -157,7 +276,14 @@ public class PromotionService {
     }
 
     private static void validate(PromotionRequest req) {
-        validateDiscount(req);
+        if (benefitKindOf(req) == BenefitKind.ALLY_BENEFIT) {
+            validateAllyBenefit(req);
+        } else {
+            validateDiscount(req);
+            if (req.appliesTo() == null) {
+                throw new IllegalArgumentException("promotion.applies_to.required");
+            }
+        }
         if (!req.ownQuota() && req.maxRedemptions() != null) {
             throw new IllegalArgumentException("promotion.max_redemptions.requires_own_quota");
         }
@@ -238,6 +364,27 @@ public class PromotionService {
                         .map(DisplayRefs::ref)
                         .toList(),
                 p.isActive(),
-                p.getCreatedAt());
+                p.getCreatedAt(),
+                p.getBenefitKind(),
+                DisplayRefs.ref(p.getAlly()),
+                allyProductRef(p.getAllyProduct()),
+                p.getBenefitType(),
+                p.getBenefitPct(),
+                p.getBenefitAmount(),
+                DisplayRefs.ref(p.getBenefitCurrency()),
+                currencyCode(p.getBenefitCurrency()),
+                p.getBenefitQuantity(),
+                p.isCreatedByAlly());
+    }
+
+    /** An ally offer is labelled by its product (code + name). */
+    static DisplayRef allyProductRef(AllyProduct allyProduct) {
+        if (allyProduct == null) {
+            return null;
+        }
+        var product = allyProduct.getProduct();
+        return DisplayRef.of(allyProduct.getUuid(),
+                product != null ? product.getCode() : null,
+                product != null ? product.getName() : null);
     }
 }

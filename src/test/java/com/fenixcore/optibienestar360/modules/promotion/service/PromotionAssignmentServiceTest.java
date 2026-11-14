@@ -56,6 +56,7 @@ class PromotionAssignmentServiceTest {
     @Mock private CampaignRepository campaignRepository;
     @Mock private PromotionRedemptionRepository redemptionRepository;
     @Mock private PaymentRepository paymentRepository;
+    @Mock private MembershipBenefitGrantService grantService;
 
     private final AtomicLong ids = new AtomicLong(100);
 
@@ -66,7 +67,7 @@ class PromotionAssignmentServiceTest {
 
     private PromotionAssignmentService service() {
         PromotionRedemptionService redemptions = new PromotionRedemptionService(
-                redemptionRepository, campaignRepository, promotionRepository, paymentRepository);
+                redemptionRepository, campaignRepository, promotionRepository, paymentRepository, grantService);
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
                 membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
                 memberRepository, campaignRepository, redemptions);
@@ -315,5 +316,36 @@ class PromotionAssignmentServiceTest {
         assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
                 promotion.getUuid(), null, Origin.ADMIN, null))
                 .hasMessage("promotion.campaign.not_running");
+    }
+
+    // ─── Ally benefits (V257) ───────────────────────────────────────────────
+
+    @Test
+    void allyBenefit_coexistsWithTheFeeDiscount_butNotTwiceTheSameOne() {
+        Promotion benefit = promotion(Kind.ACQUISITION, true);
+        benefit.setId(77L);
+        benefit.setBenefitKind(Promotion.BenefitKind.ALLY_BENEFIT);
+        lenient().when(membershipPromotionRepository.findOngoing(10L)).thenReturn(Optional.of(new MembershipPromotion()));
+        stubSave();
+
+        MembershipPromotion mp = service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                benefit.getUuid(), null, Origin.ENROLLMENT, null);
+        assertThat(mp.getBenefitKind()).isEqualTo(Promotion.BenefitKind.ALLY_BENEFIT);
+
+        when(membershipPromotionRepository.existsByMembership_IdAndPromotion_IdAndStatusAndActiveTrue(10L, 77L, "ACTIVE"))
+                .thenReturn(true);
+        assertThatThrownBy(() -> service().assign(membership(plan(1L), LifecycleStatus.ACTIVE),
+                benefit.getUuid(), null, Origin.ENROLLMENT, null))
+                .hasMessage("promotion.membership.already_has_benefit");
+    }
+
+    @Test
+    void enrollmentAllyBenefits_rejectAFeeDiscountPromotion() {
+        Promotion discount = promotion(Kind.ACQUISITION, true);
+        stubSave();
+
+        assertThatThrownBy(() -> service().assignAllyBenefits(membership(plan(1L), LifecycleStatus.ACTIVE),
+                java.util.List.of(discount.getUuid()), null))
+                .hasMessage("promotion.ally_benefit.expected");
     }
 }

@@ -162,6 +162,14 @@ public class AdminCampaignController {
         return ResponseEntity.created(location).body(created);
     }
 
+    /** Ally voucher reconciliation per ally-benefit promotion: granted, available, redeemed, expired, canceled (V257). */
+    @GetMapping("/{uuid}/ally-benefits")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<List<com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAllyBenefitDto>> allyBenefits(
+            @PathVariable UUID uuid) {
+        return ResponseEntity.ok(campaignService.allyBenefits(uuid));
+    }
+
     /** Quota counters of the campaign and each promotion: confirmed, pending, free, expired, released (V257). */
     @GetMapping("/{uuid}/quota")
     @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")

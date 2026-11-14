@@ -23,7 +23,8 @@ import java.time.Instant;
 
 /**
  * A {@link Promotion} applied to a {@link Membership} (V175). At most one
- * {@code ACTIVE} row per membership. The {@code code_owner_*} columns record
+ * {@code ACTIVE} DISCOUNT row per membership, plus any number of ACTIVE
+ * ALLY_BENEFIT rows (one per promotion, V257). The {@code code_owner_*} columns record
  * who issued the code the member used (at most one).
  */
 @Getter
@@ -83,6 +84,11 @@ public class MembershipPromotion extends BaseEntity {
 
     @Column(name = "ended_reason", columnDefinition = "text")
     private String endedReason;
+
+    /** Copied from the promotion (V257): one ACTIVE DISCOUNT per membership, any number of ALLY_BENEFIT ones. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "benefit_kind", length = 20, nullable = false)
+    private Promotion.BenefitKind benefitKind = Promotion.BenefitKind.DISCOUNT;
 
     public boolean isOngoing() {
         return Status.ACTIVE.name().equals(getStatus());

@@ -60,5 +60,8 @@ public record BenefitUsageRegisterRequest(
         String notes,
 
         // Who consumed (V195): one of the membership's active beneficiaries; null = the holder
-        UUID beneficiaryUuid
+        UUID beneficiaryUuid,
+
+        // Campaign voucher redeemed by this usage (V257, hub ADR 0038 §7); null = ordinary usage
+        UUID benefitGrantUuid
 ) {}

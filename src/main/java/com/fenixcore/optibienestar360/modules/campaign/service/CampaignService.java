@@ -106,6 +106,9 @@ public class CampaignService {
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionService promotionService;
     private final CampaignLifecycleService lifecycleService;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService redemptionService;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService grantService;
+    private final com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository allyRepository;
+    private final com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository promotionRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -147,6 +150,7 @@ public class CampaignService {
         validate(req);
         Campaign campaign = new Campaign();
         apply(campaign, req);
+        campaign.setAlly(resolveAlly(req.allyUuid()));
         campaign.setLifecycleStatus(Boolean.TRUE.equals(req.draft())
                 ? Campaign.LifecycleStatus.DRAFT : Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(campaign);
@@ -162,6 +166,7 @@ public class CampaignService {
         validate(req);
         Campaign campaign = findManaged(uuid);
         apply(campaign, req);
+        applyAlly(campaign, req.allyUuid());
         // A quota edited below the occupied slots turns the campaign SOLD_OUT (or closes it).
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
         syncPromoters(campaign, req.promoterUuids());
@@ -206,6 +211,11 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CampaignDto reopen(UUID uuid, CampaignReopenRequest req) {
         return toDto(lifecycleService.reopen(uuid, req));
+    }
+
+    /** Voucher reconciliation per ally-benefit promotion (V257). */
+    public List<com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAllyBenefitDto> allyBenefits(UUID uuid) {
+        return grantService.allyBenefits(uuid);
     }
 
     /** Quota counters of the campaign and its promotions (V257). */
@@ -263,6 +273,8 @@ public class CampaignService {
         clone.setPendingTtlDays(source.getPendingTtlDays());
         clone.setUsageWindow(source.getUsageWindow());
         clone.setUsageWindowDays(source.getUsageWindowDays());
+        clone.setAlly(source.getAlly());
+        clone.setAllowsAllyPartnership(source.isAllowsAllyPartnership());
         clone.setLifecycleStatus(Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(clone);
 
@@ -676,6 +688,28 @@ public class CampaignService {
         Campaign.UsageWindow usageWindow = req.usageWindow() != null ? req.usageWindow() : Campaign.UsageWindow.CAMPAIGN_DATES;
         campaign.setUsageWindow(usageWindow);
         campaign.setUsageWindowDays(usageWindow == Campaign.UsageWindow.DAYS_AFTER_CONFIRMATION ? req.usageWindowDays() : null);
+        campaign.setAllowsAllyPartnership(req.allowsAllyPartnership());
+    }
+
+    private com.fenixcore.optibienestar360.modules.ally.entity.Ally resolveAlly(UUID allyUuid) {
+        return allyUuid == null ? null : allyRepository.findByUuid(allyUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
+    }
+
+    /**
+     * The header ally (V257) drives every promotion line, so it only changes
+     * while the campaign has no promotions (simplest safe rule, hub ADR 0038 §8).
+     */
+    private void applyAlly(Campaign campaign, UUID allyUuid) {
+        com.fenixcore.optibienestar360.modules.ally.entity.Ally current = campaign.getAlly();
+        UUID currentUuid = current != null ? current.getUuid() : null;
+        if (java.util.Objects.equals(currentUuid, allyUuid)) {
+            return;
+        }
+        if (!promotionRepository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(campaign).isEmpty()) {
+            throw new IllegalArgumentException("campaign.ally.has_promotions");
+        }
+        campaign.setAlly(resolveAlly(allyUuid));
     }
 
     private void syncPromoters(Campaign campaign, List<UUID> promoterUuids) {
@@ -713,7 +747,8 @@ public class CampaignService {
                 campaign.getClosedNote(), campaign.getConfirmGraceUntil(), campaign.getConfirmGraceDays(),
                 campaign.getQuotaTrigger(), campaign.getPendingTtlDays(),
                 campaign.getUsageWindow(), campaign.getUsageWindowDays(),
-                campaign.getRedemptionsCount() - campaign.getConfirmedCount());
+                campaign.getRedemptionsCount() - campaign.getConfirmedCount(),
+                DisplayRefs.ref(campaign.getAlly()), campaign.isAllowsAllyPartnership());
     }
 
     private Campaign findManaged(UUID uuid) {

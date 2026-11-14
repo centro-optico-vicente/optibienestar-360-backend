@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.campaign.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
@@ -171,6 +172,17 @@ public class Campaign extends BaseEntity {
     /** Pending slots may still be confirmed for N days after the close (exclusive with {@link #confirmGraceUntil}). */
     @Column(name = "confirm_grace_days")
     private Integer confirmGraceDays;
+
+    // ─── Allies (V257, hub ADR 0038 §8) ──────────────────────────────────────
+
+    /** Set = campaign exclusive to this ally (every promotion line is its); {@code null} = several allies. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ally_id")
+    private Ally ally;
+
+    /** An ally may add its own ALLY_BENEFIT lines from its portal while the campaign is ACTIVE. */
+    @Column(name = "allows_ally_partnership", nullable = false)
+    private boolean allowsAllyPartnership;
 
     // ─── Slot lifecycle (V257, hub ADR 0038 §5) ──────────────────────────────
 

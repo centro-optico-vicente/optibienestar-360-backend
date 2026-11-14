@@ -15,6 +15,9 @@ public interface PromotionRedemptionRepository extends JpaRepository<PromotionRe
 
     Optional<PromotionRedemption> findByMembershipPromotion_Id(Long membershipPromotionId);
 
+    /** Whether the promotion ever took a slot (any status). */
+    boolean existsByPromotion_Id(Long promotionId);
+
     /**
      * The membership's slots in {@code status} (a PENDING one waits for the
      * payment that confirms it). Campaign and promotion are left unloaded on
