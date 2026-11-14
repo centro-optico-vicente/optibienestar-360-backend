@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.affiliation;
 
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
+import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestAdvisorAssignRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestApproveRequest;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestDetailDto;
 import com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListItemDto;
@@ -39,7 +40,8 @@ import java.util.UUID;
  * per action: {@code AFFILIATION_REQUEST_VIEW_ALL} (list + detail with its
  * log), {@code _UPDATE} (correct the data while PENDING), {@code _APPROVE}
  * (creates the user, the member and the SUSPENDED membership) and
- * {@code _REJECT} (reason required, emailed to the applicant). {@code PUT /{uuid}/retain}
+ * {@code _REJECT} (reason required, emailed to the applicant), {@code PUT /{uuid}/advisor}
+ * ({@code AFFILIATION_REQUEST_ASSIGN_PROMOTER}, V250) changes the advisor of an open request. {@code PUT /{uuid}/retain}
  * ({@code AFFILIATION_REQUEST_DRAFT_RETAIN}) holds a draft out of the abandoned-draft cleanup or
  * releases it; 422 once the request was sent to review.
  */
@@ -62,10 +64,11 @@ public class AdminAffiliationRequestController {
             @RequestParam(required = false) UUID promoterUuid,
             @RequestParam(required = false) UUID paymentMethodUuid,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo) {
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
+            @RequestParam(required = false) Boolean unassigned) {
         Page<AffiliationRequestListItemDto> page = service.list(pageable, status, q,
                 new com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListFilter(
-                        planUuid, promoterUuid, paymentMethodUuid, dateFrom, dateTo));
+                        planUuid, promoterUuid, paymentMethodUuid, dateFrom, dateTo, unassigned));
         return ResponseEntity.ok(new AppliedSortPage<>(page, service.effectiveSort(pageable)));
     }
 
@@ -97,6 +100,20 @@ public class AdminAffiliationRequestController {
             @Valid @RequestBody AffiliationRequestUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
         return ResponseEntity.ok(service.update(uuid, request, actor.getUuid()));
+    }
+
+    /**
+     * Changes the advisor of a request still open (DRAFT or PENDING; 422 once approved or rejected),
+     * so the member is enrolled under the new advisor on approval (ADR LOC-0016). The target must be
+     * active and not the INSTITUCION system advisor; the change is logged with the optional reason.
+     */
+    @PutMapping("/{uuid}/advisor")
+    @PreAuthorize("hasAuthority('AFFILIATION_REQUEST_ASSIGN_PROMOTER')")
+    public ResponseEntity<AffiliationRequestDetailDto> assignAdvisor(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody AffiliationRequestAdvisorAssignRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(service.assignAdvisor(uuid, request.promoterUuid(), request.reason(), actor.getUuid()));
     }
 
     @PostMapping("/{uuid}/approve")

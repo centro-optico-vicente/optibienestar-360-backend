@@ -15,6 +15,8 @@ import java.util.UUID;
  * @param confirmed          {@code true} = confirmed members, {@code false} = pending confirmation
  * @param dateFrom            inclusive lower bound on {@code enrolledAt} (Caracas day)
  * @param dateTo              inclusive upper bound on {@code enrolledAt} (Caracas day)
+ * @param unassigned          {@code true} = members nobody advises: no advisor or the INSTITUCION
+ *                            system advisor (ADR LOC-0016); combinable with the other filters
  */
 public record MemberListFilter(
         UUID promoterUuid,
@@ -24,12 +26,20 @@ public record MemberListFilter(
         UUID corporateContractUuid,
         Boolean confirmed,
         LocalDate dateFrom,
-        LocalDate dateTo) {
+        LocalDate dateTo,
+        Boolean unassigned) {
+
+    /** Pre-{@code unassigned} signature, kept so existing callers and tests compile. */
+    public MemberListFilter(UUID promoterUuid, UUID genderUuid, UUID cityUuid, UUID occupationUuid,
+                            UUID corporateContractUuid, Boolean confirmed, LocalDate dateFrom, LocalDate dateTo) {
+        this(promoterUuid, genderUuid, cityUuid, occupationUuid, corporateContractUuid, confirmed, dateFrom, dateTo,
+                null);
+    }
 
     /** Pre-date-range signature, kept so existing callers and tests compile. */
     public MemberListFilter(UUID promoterUuid, UUID genderUuid, UUID cityUuid, UUID occupationUuid,
                             UUID corporateContractUuid, Boolean confirmed) {
-        this(promoterUuid, genderUuid, cityUuid, occupationUuid, corporateContractUuid, confirmed, null, null);
+        this(promoterUuid, genderUuid, cityUuid, occupationUuid, corporateContractUuid, confirmed, null, null, null);
     }
 
     public static MemberListFilter none() {

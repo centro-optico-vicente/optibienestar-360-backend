@@ -321,6 +321,31 @@ class MemberPromoterServiceTest {
         verify(eventPublisher, never()).publishEvent(any());
     }
 
+    @Test
+    void reassignAll_writesOneAuditRowPerMove_withTheReason_andNotifies() {
+        service = service();
+        Promoter a = promoter("A", true);
+        Promoter b = promoter("B", true);
+        Member m1 = member(null);
+        Member m2 = member(promoter("OLD", false));
+        User actor = user();
+        when(userRepository.findByUuid(actor.getUuid())).thenReturn(Optional.of(actor));
+        stubSaveAssignment();
+
+        service.reassignAll(List.of(java.util.Map.entry(m1, a), java.util.Map.entry(m2, b)), "Rotación", actor.getUuid());
+
+        assertThat(m1.getPromoter()).isEqualTo(a);
+        assertThat(m2.getPromoter()).isEqualTo(b);
+        ArgumentCaptor<MemberPromoterAssignment> rows = ArgumentCaptor.forClass(MemberPromoterAssignment.class);
+        verify(assignmentRepository, times(2)).save(rows.capture());
+        assertThat(rows.getAllValues()).allSatisfy(r -> {
+            assertThat(r.getReason()).isEqualTo("Rotación");
+            assertThat(r.getActor()).isSameAs(actor);
+        });
+        assertThat(rows.getAllValues().get(0).getFromPromoter()).isNull();
+        verify(eventPublisher, times(2)).publishEvent(any(MemberPromoterReassignedEvent.class));
+    }
+
     private void stubSaveAssignment() {
         when(assignmentRepository.save(any())).thenAnswer(inv -> {
             MemberPromoterAssignment saved = inv.getArgument(0);

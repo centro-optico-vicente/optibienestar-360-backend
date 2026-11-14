@@ -211,8 +211,23 @@ public class MembersService {
             if (f.confirmed() != null) {
                 ps.add(f.confirmed() ? cb.isNotNull(root.get("confirmedAt")) : cb.isNull(root.get("confirmedAt")));
             }
+            if (Boolean.TRUE.equals(f.unassigned())) {
+                ps.add(unassignedPredicate(root, cb));
+            }
             return cb.and(ps.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
+    }
+
+    /**
+     * "Unassigned" (ADR LOC-0016): the member has no advisor ({@code promoter_id IS NULL}, the
+     * self-enrolled without a referral code) or only the INSTITUCION system advisor. Both are treated
+     * alike for money and for "first who collects", so the distribution screen and the list filter
+     * group them together.
+     */
+    public static jakarta.persistence.criteria.Predicate unassignedPredicate(
+            jakarta.persistence.criteria.Root<Member> root, jakarta.persistence.criteria.CriteriaBuilder cb) {
+        var advisor = root.join("promoter", jakarta.persistence.criteria.JoinType.LEFT);
+        return cb.or(cb.isNull(advisor.get("id")), cb.isTrue(advisor.get("system")));
     }
 
     /** The sort {@link #list} actually applies — see {@link DefaultSortResolver#effectiveSort}. */
@@ -383,9 +398,13 @@ public class MembersService {
 
     /**
      * Assembles a new {@link Member} from the request and its resolved person,
-     * including the permanent promoter attribution (v2 PDF #4/#5): the referral
-     * code resolves to a promoter (promoter-table precedence) or falls back to
-     * the INSTITUCION system promoter. Does not persist — the caller decides.
+     * including the permanent promoter attribution (v2 PDF #4/#5): an active
+     * promoter's referral code links the member to that promoter; no code (or an
+     * unknown / inactive one) leaves {@code promoter} {@code null} — the INSTITUCION
+     * system promoter is NOT stamped here, it only applies when attributing a
+     * payment or commission ({@code PromoterResolver.resolveForAttribution}) or after
+     * {@code portfolio-to-supervisor} finds no supervisor. Both cases count as
+     * "unassigned" (ADR LOC-0016). Does not persist — the caller decides.
      */
     private Member buildMember(MemberCreateRequest req, Person person) {
         Member member = new Member();

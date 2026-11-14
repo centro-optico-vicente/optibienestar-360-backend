@@ -29,6 +29,16 @@ public interface MembershipRepository extends JpaRepository<Membership, Long>,
     /** Currently-active subscription of the member. */
     Optional<Membership> findFirstByMemberIdAndActiveTrue(Long memberId);
 
+    /**
+     * Currently-active subscription (with its plan) of each of these members, in one query —
+     * the portfolio-distribution candidates page shows the plan and membership status per row
+     * (ADR LOC-0016). The V21 partial UNIQUE keeps it to at most one row per member.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM Membership m LEFT JOIN FETCH m.plan "
+            + "WHERE m.active = true AND m.member.id IN :memberIds")
+    List<Membership> findActiveWithPlanByMemberIds(
+            @org.springframework.data.repository.query.Param("memberIds") java.util.Collection<Long> memberIds);
+
     /** Usage check for {@code MembersService.countUsages} — ALL rows (active + inactive). */
     long countByMemberId(Long memberId);
 

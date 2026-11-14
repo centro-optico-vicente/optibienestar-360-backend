@@ -76,7 +76,7 @@ class AdminPromoterControllerOptionsIT {
     @Test
     void options_returnsFlatListWithoutPageWrapper() throws Exception {
         UUID activeUuid = UUID.randomUUID();
-        when(promotersService.listOptions(any(), eq(50), any(), eq(false)))
+        when(promotersService.listOptions(any(), eq(50), any(), eq(false), eq(false)))
                 .thenReturn(List.of(new OptionDto(activeUuid, "ABC123", "Juan Pérez", true)));
 
         mockMvc.perform(get("/v1/admin/advisors/options").param("q", "juan").with(principal("PROMOTER_VIEW_ALL")))
@@ -89,7 +89,7 @@ class AdminPromoterControllerOptionsIT {
     @Test
     void options_currentValues_inactiveAdvisorStillAppears() throws Exception {
         UUID inactiveUuid = UUID.randomUUID();
-        when(promotersService.listOptions(any(), eq(50), eq(List.of(inactiveUuid)), eq(false)))
+        when(promotersService.listOptions(any(), eq(50), eq(List.of(inactiveUuid)), eq(false), eq(false)))
                 .thenReturn(List.of(new OptionDto(inactiveUuid, "OLD999", "Ex Asesor", false)));
 
         mockMvc.perform(get("/v1/admin/advisors/options")
@@ -105,17 +105,31 @@ class AdminPromoterControllerOptionsIT {
         mockMvc.perform(get("/v1/admin/advisors/options").with(principal()))
                 .andExpect(status().isOk());
 
-        verify(promotersService).listOptions(any(), eq(50), any(), eq(false));
+        verify(promotersService).listOptions(any(), eq(50), any(), eq(false), eq(false));
     }
 
     @Test
     void options_includeSystem_isPassedThrough() throws Exception {
         UUID systemUuid = UUID.randomUUID();
-        when(promotersService.listOptions(any(), eq(50), any(), eq(true)))
+        when(promotersService.listOptions(any(), eq(50), any(), eq(true), eq(false)))
                 .thenReturn(List.of(new OptionDto(systemUuid, "INSTITUCION", "Institución", true)));
 
         mockMvc.perform(get("/v1/admin/advisors/options").param("includeSystem", "true").with(principal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].code").value("INSTITUCION"));
+    }
+
+    @Test
+    void options_includeInactive_isPassedThrough() throws Exception {
+        UUID inactiveUuid = UUID.randomUUID();
+        when(promotersService.listOptions(any(), eq(50), any(), eq(true), eq(true)))
+                .thenReturn(List.of(new OptionDto(inactiveUuid, "OLD999", "Ex Asesor", false)));
+
+        mockMvc.perform(get("/v1/admin/advisors/options")
+                        .param("includeSystem", "true")
+                        .param("includeInactive", "true")
+                        .with(principal()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].active").value(false));
     }
 }

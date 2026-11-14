@@ -266,6 +266,59 @@ class AffiliationRequestControllersIT {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    @Test
+    void adminList_passesTheUnassignedFilter() throws Exception {
+        org.mockito.ArgumentCaptor<com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListFilter> filter =
+                org.mockito.ArgumentCaptor.forClass(com.fenixcore.optibienestar360.modules.affiliation.dto.AffiliationRequestListFilter.class);
+        when(service.list(any(), any(), any(), filter.capture())).thenReturn(onePage());
+
+        mockMvc.perform(get("/v1/admin/affiliation-requests").param("unassigned", "true")
+                        .with(principal("AFFILIATION_REQUEST_VIEW_ALL")))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(filter.getValue().unassigned()).isTrue();
+    }
+
+    @Test
+    void adminAssignAdvisor_requiresAssignPromoter() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        UUID promoterUuid = UUID.randomUUID();
+        String body = "{\"promoterUuid\":\"" + promoterUuid + "\",\"reason\":\"Rotación\"}";
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/advisor", uuid).with(principal("AFFILIATION_REQUEST_UPDATE"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        verify(service, never()).assignAdvisor(any(), any(), any(), any());
+
+        when(service.assignAdvisor(eq(uuid), eq(promoterUuid), eq("Rotación"), any())).thenReturn(detail("PENDING"));
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/advisor", uuid)
+                        .with(principal("AFFILIATION_REQUEST_ASSIGN_PROMOTER"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void adminAssignAdvisor_withoutPromoter_is400() throws Exception {
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/advisor", UUID.randomUUID())
+                        .with(principal("AFFILIATION_REQUEST_ASSIGN_PROMOTER"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        verify(service, never()).assignAdvisor(any(), any(), any(), any());
+    }
+
+    @Test
+    void adminAssignAdvisor_ofAnApprovedRequest_is422() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        when(service.assignAdvisor(eq(uuid), any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("affiliation_request.advisor.invalid_state"));
+
+        mockMvc.perform(put("/v1/admin/affiliation-requests/{uuid}/advisor", uuid)
+                        .with(principal("AFFILIATION_REQUEST_ASSIGN_PROMOTER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"promoterUuid\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
     // ─── Advisor portal ─────────────────────────────────────────────────────
 
     @Test

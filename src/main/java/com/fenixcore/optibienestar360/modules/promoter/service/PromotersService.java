@@ -147,7 +147,18 @@ public class PromotersService {
      * finds what nobody brought in. A system row in {@code currentValues} still shows.</p>
      */
     public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, boolean includeSystem) {
-        Specification<Promoter> spec = activeOnly()
+        return listOptions(q, limit, currentValues, includeSystem, false);
+    }
+
+    /**
+     * Same as {@link #listOptions(String, int, List, boolean)}; {@code includeInactive} also lists the
+     * advisors that were deactivated (with {@code active:false}) — the portfolio-distribution screen
+     * picks a departed advisor as the source of the members to move (ADR LOC-0016).
+     */
+    public List<OptionDto> listOptions(String q, int limit, List<UUID> currentValues, boolean includeSystem,
+                                       boolean includeInactive) {
+        Specification<Promoter> base = includeInactive ? (root, query, cb) -> cb.conjunction() : activeOnly();
+        Specification<Promoter> spec = base
                 .and(SearchSpecifications.acrossFields(q, "displayName", "referralCode"));
         if (!includeSystem) {
             spec = spec.and((root, query, cb) -> cb.isFalse(root.get("system")));
