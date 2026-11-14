@@ -18,6 +18,8 @@
 #   scripts/db/snapshot.sh --migrate     # same, on the EMPTY database given by PG* vars (CI)
 #   ... --dump FILE                       # also write pg_dump -Fc of that database (release asset)
 #   ... --out DIR                         # output directory (default: src/main/resources/db/snapshot)
+#   ... --only LIST                       # write only these files, comma-separated:
+#                                         # schema,data,map,catalog (default: all four)
 #
 # --migrate refuses to run on a database that already has the `app` schema: the
 # normalization step rewrites uuids/timestamps and must never touch real data.
@@ -31,7 +33,7 @@ PG_IMAGE="${PG_IMAGE:-postgres:15-alpine}"
 FLYWAY_IMAGE="${FLYWAY_IMAGE:-flyway/flyway:11.7.2-alpine}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="$ROOT/src/main/resources/db/snapshot"
-FRESH=0 MIGRATE=0 DUMP=""
+FRESH=0 MIGRATE=0 DUMP="" ONLY="schema,data,map,catalog"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -39,12 +41,20 @@ while [ $# -gt 0 ]; do
         --migrate) MIGRATE=1 ;;
         --dump)    DUMP="$2"; shift ;;
         --out)     OUT="$2"; shift ;;
-        -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
+        --only)    ONLY="$2"; shift ;;
+        -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
     shift
 done
 [ "$MIGRATE" = 1 ] || { echo "Use --fresh (local) or --migrate (empty PG* database). See --help." >&2; exit 2; }
+for part in ${ONLY//,/ }; do
+    case "$part" in
+        schema|data|map|catalog) ;;
+        *) echo "Unknown --only part: $part (use schema,data,map,catalog)" >&2; exit 2 ;;
+    esac
+done
+want() { case ",$ONLY," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
 
 CONTAINER=""
 cleanup() { [ -n "$CONTAINER" ] && docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
@@ -124,19 +134,27 @@ pgc psql -X -q -v ON_ERROR_STOP=1 -f scripts/db/normalize.sql >/dev/null
 
 mkdir -p "$OUT"
 
-echo "▶ Writing $OUT/schema.sql"
-# Whole database, not `-n app`: the extensions live in schema app and a
-# schema-filtered dump would leave them out (the import would then fail).
-pgc pg_dump --schema-only --no-owner --no-tablespaces | strip_noise > "$OUT/schema.sql"
+if want schema; then
+    echo "▶ Writing $OUT/schema.sql"
+    # Whole database, not `-n app`: the extensions live in schema app and a
+    # schema-filtered dump would leave them out (the import would then fail).
+    pgc pg_dump --schema-only --no-owner --no-tablespaces | strip_noise > "$OUT/schema.sql"
+fi
 
-echo "▶ Writing $OUT/data.sql"
-pgc pg_dump --data-only --disable-triggers --no-owner --schema=app 2>/dev/null | strip_noise > "$OUT/data.sql"
+if want data; then
+    echo "▶ Writing $OUT/data.sql"
+    pgc pg_dump --data-only --disable-triggers --no-owner --schema=app 2>/dev/null | strip_noise > "$OUT/data.sql"
+fi
 
-echo "▶ Writing $OUT/schema-map.md"
-pgc psql -X -q -At -v ON_ERROR_STOP=1 -f scripts/db/schema-map.sql > "$OUT/schema-map.md"
+if want map; then
+    echo "▶ Writing $OUT/schema-map.md"
+    pgc psql -X -q -At -v ON_ERROR_STOP=1 -f scripts/db/schema-map.sql > "$OUT/schema-map.md"
+fi
 
-echo "▶ Writing $OUT/seed-catalog.md"
-pgc psql -X -q -At -v ON_ERROR_STOP=1 -f scripts/db/seed-catalog.sql > "$OUT/seed-catalog.md"
+if want catalog; then
+    echo "▶ Writing $OUT/seed-catalog.md"
+    pgc psql -X -q -At -v ON_ERROR_STOP=1 -f scripts/db/seed-catalog.sql > "$OUT/seed-catalog.md"
+fi
 
 if [ -n "$DUMP" ]; then
     echo "▶ Writing $DUMP (pg_dump -Fc of the final database)"

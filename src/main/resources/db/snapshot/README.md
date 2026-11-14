@@ -25,6 +25,22 @@ scripts/db/snapshot.sh --fresh      # ~15 s, needs Docker; never touches your de
 git add src/main/resources/db/snapshot
 ```
 
+The same is available as Gradle tasks (group `database`; they wrap the
+scripts and compile nothing):
+
+| Task | Writes |
+|---|---|
+| `./gradlew dbSnapshot` | all four files |
+| `./gradlew dbSnapshotSchema` | `schema.sql` + `schema-map.md` |
+| `./gradlew dbSnapshotData` | `data.sql` + `seed-catalog.md` |
+
+Every task accepts `-PdbHost -PdbPort -PdbName -PdbUser -PdbPassword`. Without
+them the snapshot uses an ephemeral Docker Postgres (`--fresh`); with them it
+runs `--migrate` on that database, which **must be empty** (the script refuses
+one that already has schema `app`). The script equivalent of a partial run is
+`--only schema,data,map,catalog`. Prefer an exported `PGPASSWORD` over
+`-PdbPassword`, which stays in shell history.
+
 If it is forgotten, the `db-snapshot` job in
 [`ci.yaml`](../../../../../.github/workflows/ci.yaml) regenerates it and
 commits it to the PR branch as `github-actions[bot]`. **Never edit these files
@@ -55,6 +71,8 @@ so nothing on the classpath can mistake them for a migration or an init script.
 scripts/db/restore.sh                                          # from this folder (drops + recreates the local DB)
 scripts/db/restore.sh --seed scripts/dev-seed-demo-user.sql    # + dev seeds, in the order given
 scripts/db/restore.sh --release <tag>                          # from a GitHub release asset instead
+./gradlew dbRestore -PdbSeeds=scripts/dev-seed-demo-user.sql   # same via Gradle (no prompt; -PdbRelease / -PdbFile;
+                                                               #   -PdbHost/-PdbPort/-PdbName/-PdbUser/-PdbPassword)
 ./gradlew bootRun                                              # Flyway applies only the newer migrations
 ```
 
