@@ -3,6 +3,9 @@ package com.fenixcore.optibienestar360.modules.document.generic.service;
 import com.fenixcore.optibienestar360.core.branding.BrandingContext;
 import com.fenixcore.optibienestar360.core.branding.BrandingService;
 import com.fenixcore.optibienestar360.modules.system.service.SystemConfigService;
+import com.openhtmltopdf.extend.FSCacheEx;
+import com.openhtmltopdf.extend.FSCacheValue;
+import com.openhtmltopdf.extend.impl.FSDefaultCacheStore;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import org.springframework.beans.factory.ObjectProvider;
@@ -12,7 +15,11 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +42,17 @@ public class GenericHtmlPdfService {
     );
 
     private record FontFace(String file, int weight, FontStyle style) {}
+
+    /** TTF bytes, read from the jar once instead of on every render. */
+    private static final List<byte[]> FONT_BYTES = FONT_FACES.stream()
+            .map(face -> readFont(FONT_DIR + face.file()))
+            .toList();
+
+    /**
+     * Font metrics shared across renders. Without it every render parses the TTF tables again to
+     * lay text out; the store is a ConcurrentHashMap, so concurrent renders can share it.
+     */
+    private static final FSCacheEx<String, FSCacheValue> FONT_METRICS_CACHE = new FSDefaultCacheStore();
 
     private final TemplateEngine templateEngine;
     private final SystemConfigService systemConfigService;
@@ -87,6 +105,7 @@ public class GenericHtmlPdfService {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
                 builder.useFastMode();
+                builder.useCacheStore(PdfRendererBuilder.CacheStore.PDF_FONT_METRICS, FONT_METRICS_CACHE);
                 registerBundledFonts(builder);
                 builder.withHtmlContent(renderedHtml, null);
                 builder.toStream(out);
@@ -100,10 +119,22 @@ public class GenericHtmlPdfService {
     }
 
     private static void registerBundledFonts(PdfRendererBuilder builder) {
-        for (FontFace face : FONT_FACES) {
-            String path = FONT_DIR + face.file();
-            builder.useFont(() -> GenericHtmlPdfService.class.getResourceAsStream(path),
+        for (int i = 0; i < FONT_FACES.size(); i++) {
+            FontFace face = FONT_FACES.get(i);
+            byte[] bytes = FONT_BYTES.get(i);
+            builder.useFont(() -> new ByteArrayInputStream(bytes),
                     FONT_FAMILY, face.weight(), face.style(), true);
+        }
+    }
+
+    private static byte[] readFont(String path) {
+        try (InputStream in = GenericHtmlPdfService.class.getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IllegalStateException("Bundled font missing from the classpath: " + path);
+            }
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read bundled font " + path, e);
         }
     }
 }
