@@ -5,7 +5,9 @@ import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.QuotaTrigger;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
+import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.modules.payment.entity.Payment.PaymentStatus;
 import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Status;
@@ -15,8 +17,11 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedempti
 import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption.RedemptionStatus;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +64,13 @@ public class PromotionRedemptionService {
     private final CampaignRepository campaignRepository;
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
+    private final MembershipBenefitGrantService grantService;
+    private final EntityManager entityManager;
+    /**
+     * Lazy: {@code MembershipChargeService → MembershipStatusService →
+     * PromotionLifecycle → this} would otherwise be a constructor cycle.
+     */
+    private final ObjectProvider<com.fenixcore.optibienestar360.modules.membership.service.MembershipChargeService> chargeServiceProvider;
 
     // ─── Reserve / confirm ──────────────────────────────────────────────────
 
@@ -84,9 +96,17 @@ public class PromotionRedemptionService {
             r.setRedemptionStatus(RedemptionStatus.PENDING);
             r.setExpiresAt(campaign.getPendingTtlDays() == null ? null
                     : now.plus(Duration.ofDays(campaign.getPendingTtlDays())));
+            // The payment the trigger waits for may already exist (a promotion assigned after the
+            // inscription was paid): no event will come for it, so it confirms the slot right away.
+            Payment alreadyPaid = existingQualifyingPayment(campaign.getQuotaTrigger(), promotion, mp);
+            if (alreadyPaid != null) {
+                markConfirmed(r, campaign, promotion, now, alreadyPaid);
+            }
         }
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
-        return repository.save(r);
+        // Saved before the state is re-derived: a close by QUOTA_FILLED must find this slot too.
+        PromotionRedemption saved = repository.save(r);
+        recomputeQuotaStatus(campaign);
+        return saved;
     }
 
     /** ON_PAYMENT_REGISTERED: a (non-draft) collection was registered. Runs after the registration commits. */
@@ -119,12 +139,12 @@ public class PromotionRedemptionService {
         for (PromotionRedemption pending : repository.findByMembershipAndStatus(
                 payment.getMembership().getId(), RedemptionStatus.PENDING)) {
             Campaign campaign = lockCampaign(pending.getCampaign().getId());
+            lockFresh(pending);
             if (campaign.getQuotaTrigger() != trigger || !pending.isPending()) {
                 continue;
             }
             Promotion promotion = lockPromotion(pending.getPromotion().getId());
-            boolean confirmsByKind = promotion.getKind() == Kind.RECOVERY ? !payment.isInscription() : payment.isInscription();
-            if (!confirmsByKind) {
+            if (payment.isInscription() != confirmedByInscription(promotion)) {
                 continue;
             }
             Instant deadline = campaign.pendingDeadline(pending.getExpiresAt());
@@ -132,10 +152,49 @@ public class PromotionRedemptionService {
                 continue;
             }
             markConfirmed(pending, campaign, promotion, now, payment);
-            campaign.recomputeQuotaStatus(OffsetDateTime.now());
+            recomputeQuotaStatus(campaign);
             confirmed++;
         }
         return confirmed;
+    }
+
+    /**
+     * Which payment confirms a slot of {@code promotion}: the inscription for
+     * an ACQUISITION promotion (ally benefits included), a monthly fee for a
+     * RECOVERY one (it has no inscription).
+     */
+    private static boolean confirmedByInscription(Promotion promotion) {
+        return promotion.getKind() != Kind.RECOVERY;
+    }
+
+    /**
+     * A payment of the membership that already satisfies {@code trigger}:
+     * registered (PENDING or APPROVED) for ON_PAYMENT_REGISTERED, APPROVED for
+     * ON_PAYMENT_CONFIRMED; of the kind {@link #confirmedByInscription} asks
+     * for. For RECOVERY only a monthly fee registered after the membership fell
+     * behind (its last status change) counts; when that moment is unknown, the
+     * latest monthly fee does. {@code null} = none yet.
+     */
+    private Payment existingQualifyingPayment(QuotaTrigger trigger, Promotion promotion, MembershipPromotion mp) {
+        Membership membership = mp != null ? mp.getMembership() : null;
+        if (membership == null || membership.getId() == null) {
+            return null;
+        }
+        List<String> statuses = trigger == QuotaTrigger.ON_PAYMENT_CONFIRMED
+                ? List.of(PaymentStatus.APPROVED.name())
+                : List.of(PaymentStatus.PENDING.name(), PaymentStatus.APPROVED.name());
+        boolean inscription = confirmedByInscription(promotion);
+        List<Payment> payments = paymentRepository.findCollectionsOfMembership(membership.getId(), inscription, statuses);
+        if (payments.isEmpty()) {
+            return null;
+        }
+        Payment latest = payments.get(0);
+        if (inscription) {
+            return latest;
+        }
+        Instant overdueSince = membership.getLastStatusChangeAt();
+        return overdueSince == null || (latest.getCreatedAt() != null && latest.getCreatedAt().isAfter(overdueSince))
+                ? latest : null;
     }
 
     private void markConfirmed(PromotionRedemption r, Campaign campaign, Promotion promotion, Instant now, Payment payment) {
@@ -145,6 +204,10 @@ public class PromotionRedemptionService {
         r.setUsageEndsAt(campaign.usageEndsAt(now));
         promotion.setConfirmedCount(promotion.getConfirmedCount() + 1);
         campaign.setConfirmedCount(campaign.getConfirmedCount() + 1);
+        if (promotion.isAllyBenefit()) {
+            // ALLY_BENEFIT (V257): the confirmed slot gives the member the ally voucher.
+            grantService.grantFor(r);
+        }
     }
 
     // ─── Release / expire ───────────────────────────────────────────────────
@@ -164,14 +227,21 @@ public class PromotionRedemptionService {
         }
         PromotionRedemption r = repository.findByMembershipPromotion_Id(mp.getId()).orElse(null);
         if (r == null) {
+            grantService.cancelFor(mp);
             return false;
         }
-        boolean unusedConfirmed = r.isConfirmed() && !mp.isInscriptionApplied()
-                && !repository.anyDiscountedCharge(mp.getId());
+        // "Used" = a fee discount was applied (DISCOUNT) or a voucher unit was redeemed (ALLY_BENEFIT, V257).
+        boolean used = mp.getBenefitKind() == Promotion.BenefitKind.ALLY_BENEFIT
+                ? grantService.anyRedeemed(mp)
+                : mp.isInscriptionApplied() || repository.anyDiscountedCharge(mp.getId());
+        boolean unusedConfirmed = r.isConfirmed() && !used;
         if (!r.isPending() && !unusedConfirmed) {
+            // The slot stays CONFIRMED; whatever is left of a voucher is cancelled with the promotion.
+            grantService.cancelFor(mp);
             return false;
         }
         free(r, RedemptionStatus.RELEASED, Instant.now());
+        undoOpenDiscounts(mp);
         return true;
     }
 
@@ -185,6 +255,7 @@ public class PromotionRedemptionService {
         int expired = 0;
         for (PromotionRedemption r : repository.findPendingExpiryCandidates(now)) {
             Campaign campaign = lockCampaign(r.getCampaign().getId());
+            lockFresh(r);
             if (!r.isPending()) {
                 continue;
             }
@@ -194,6 +265,7 @@ public class PromotionRedemptionService {
             }
             free(r, RedemptionStatus.EXPIRED, now);
             endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_QUOTA_EXPIRED);
+            undoOpenDiscounts(r.getMembershipPromotion());
             expired++;
         }
         return expired;
@@ -219,6 +291,7 @@ public class PromotionRedemptionService {
         for (PromotionRedemption r : repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.PENDING)) {
             free(r, RedemptionStatus.RELEASED, now);
             endIfOngoing(r.getMembershipPromotion(), Status.CANCELED, REASON_CAMPAIGN_CLOSED);
+            undoOpenDiscounts(r.getMembershipPromotion());
             released++;
         }
         return released;
@@ -236,7 +309,69 @@ public class PromotionRedemptionService {
             promotion.setConfirmedCount(Math.max(0, promotion.getConfirmedCount() - 1));
             campaign.setConfirmedCount(Math.max(0, campaign.getConfirmedCount() - 1));
         }
+        recomputeQuotaStatus(campaign);
+        grantService.cancelFor(r.getMembershipPromotion());
+    }
+
+    /** Re-derives the quota-driven state; a close it causes (QUOTA_FILLED) runs {@link #onCampaignClosed}. */
+    private void recomputeQuotaStatus(Campaign campaign) {
+        boolean wasClosed = campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED;
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        if (!wasClosed && campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED) {
+            onCampaignClosed(campaign);
+        }
+    }
+
+    /**
+     * The campaign was just closed (by hand, QUOTA_FILLED or END_DATE). With
+     * the CAMPAIGN_DATES usage window, a CONFIRMED slot with no usage end (an
+     * open-ended campaign) now ends at the close, and so do the AVAILABLE ally
+     * vouchers without an expiry; the job then ends the promotions and expires
+     * the vouchers once that instant passes.
+     *
+     * @return how many slots got the usage end
+     */
+    @Transactional
+    public int onCampaignClosed(Campaign campaign) {
+        if (campaign.getClosedAt() == null || campaign.getUsageWindow() != Campaign.UsageWindow.CAMPAIGN_DATES) {
+            return 0;
+        }
+        Instant closedAt = campaign.getClosedAt().toInstant();
+        int capped = 0;
+        for (PromotionRedemption r : repository.findByCampaignAndRedemptionStatus(campaign, RedemptionStatus.CONFIRMED)) {
+            if (r.getUsageEndsAt() == null) {
+                r.setUsageEndsAt(closedAt);
+                capped++;
+            }
+        }
+        grantService.expireAtClose(campaign, closedAt);
+        return capped;
+    }
+
+    /**
+     * The promotion of a freed slot (EXPIRED/RELEASED) already ended: its
+     * discount must not stay on what is still open. An inscription payment
+     * still under review loses the discount the system put on it for this
+     * promotion (an approved one is left as it is), and the open monthly
+     * charges are re-priced without it. Must run after the promotion ended, or
+     * the re-pricing would find it still ongoing. Ally vouchers never discount
+     * fees, so they have nothing to undo.
+     */
+    private void undoOpenDiscounts(MembershipPromotion mp) {
+        if (mp == null || mp.getBenefitKind() == Promotion.BenefitKind.ALLY_BENEFIT) {
+            return;
+        }
+        Membership membership = mp.getMembership();
+        if (membership == null || membership.getId() == null) {
+            return;
+        }
+        for (Payment payment : paymentRepository.findCollectionsOfMembership(membership.getId(), true,
+                List.of(PaymentStatus.DRAFT.name(), PaymentStatus.PENDING.name()))) {
+            if (PromotionPricing.clearPromotionDiscount(payment, mp.getPromotion())) {
+                mp.setInscriptionApplied(false);
+            }
+        }
+        chargeServiceProvider.getObject().repriceOpenCharges(membership);
     }
 
     private static boolean endIfOngoing(MembershipPromotion mp, Status status, String reason) {
@@ -300,6 +435,16 @@ public class PromotionRedemptionService {
     }
 
     // ─── Locks ──────────────────────────────────────────────────────────────
+
+    /**
+     * Row-locks the slot and re-reads it, after its campaign lock: the row was
+     * loaded before that lock, and a payment confirmation and the expiry job
+     * racing on the same PENDING slot must see each other's outcome (else it
+     * could be confirmed and expired at once, counted twice).
+     */
+    private void lockFresh(PromotionRedemption r) {
+        entityManager.refresh(r, LockModeType.PESSIMISTIC_WRITE);
+    }
 
     private Campaign lockCampaign(Long id) {
         return campaignRepository.findForUpdateById(id)

@@ -106,6 +106,10 @@ public class CampaignService {
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionService promotionService;
     private final CampaignLifecycleService lifecycleService;
     private final com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService redemptionService;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService grantService;
+    private final com.fenixcore.optibienestar360.modules.ally.repository.AllyRepository allyRepository;
+    private final com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository promotionRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -147,6 +151,7 @@ public class CampaignService {
         validate(req);
         Campaign campaign = new Campaign();
         apply(campaign, req);
+        campaign.setAlly(resolveAlly(req.allyUuid()));
         campaign.setLifecycleStatus(Boolean.TRUE.equals(req.draft())
                 ? Campaign.LifecycleStatus.DRAFT : Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(campaign);
@@ -160,10 +165,18 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public CampaignDto update(UUID uuid, CampaignRequest req) {
         validate(req);
-        Campaign campaign = findManaged(uuid);
+        // Row lock first: the slot lifecycle and the job write the counters and the lifecycle of this
+        // same row, and an unlocked full-row update would put their old values back (lost update).
+        Campaign campaign = lockManaged(uuid);
+        // Configuration only: lifecycle_status, the counters and closed_* never come from the request.
         apply(campaign, req);
+        applyAlly(campaign, req.allyUuid());
         // A quota edited below the occupied slots turns the campaign SOLD_OUT (or closes it).
+        boolean wasClosed = campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED;
         campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        if (!wasClosed && campaign.getLifecycleStatus() == Campaign.LifecycleStatus.CLOSED) {
+            redemptionService.onCampaignClosed(campaign);
+        }
         syncPromoters(campaign, req.promoterUuids());
         return toDto(campaign);   // managed → dirty-check on commit
     }
@@ -173,7 +186,7 @@ public class CampaignService {
     @Transactional
     @Auditable(entity = "campaign", action = AuditAction.DELETE, uuidArgIndex = 0)
     public void delete(UUID uuid) {
-        findManaged(uuid).setActive(false);
+        lockManaged(uuid).setActive(false);
     }
 
     // ─── Lifecycle (V256, hub ADR 0038 §3) ──────────────────────────────────
@@ -208,6 +221,11 @@ public class CampaignService {
         return toDto(lifecycleService.reopen(uuid, req));
     }
 
+    /** Voucher reconciliation per ally-benefit promotion (V257). */
+    public List<com.fenixcore.optibienestar360.modules.campaign.dto.CampaignAllyBenefitDto> allyBenefits(UUID uuid) {
+        return grantService.allyBenefits(uuid);
+    }
+
     /** Quota counters of the campaign and its promotions (V257). */
     public com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto quota(UUID uuid) {
         return redemptionService.quota(uuid);
@@ -234,8 +252,19 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.CREATE)
     public CampaignDto relaunch(UUID uuid, CampaignRelaunchRequest req) {
         Campaign source = findManaged(uuid);
-        if (!req.endsAt().isAfter(req.startsAt())) {
+        // endsAt is optional: no end = an open-ended edition (closes by quota or by hand).
+        boolean openEnded = req.endsAt() == null;
+        if (!openEnded && !req.endsAt().isAfter(req.startsAt())) {
             throw new IllegalArgumentException("campaign.dates.order");
+        }
+        if (openEnded && (source.isEvaluateOnlyAtEnd() || source.isPayOnlyAtEnd())) {
+            throw new IllegalArgumentException("campaign.at_end_rules.require_ends_at");
+        }
+        List<CommissionBonusRule> sourceBonusRules = bonusRuleRepository.findByCampaign(source);
+        if (openEnded && sourceBonusRules.stream()
+                .anyMatch(r -> r.getAccrualPeriodStrategy() == CommissionBonusRule.WindowStrategy.CAMPAIGN)) {
+            // chk_bonus_rule_campaign_dates: a CAMPAIGN-window bonus needs both campaign dates.
+            throw new IllegalArgumentException("campaign.relaunch.campaign_window_rules_require_ends_at");
         }
 
         Campaign clone = new Campaign();
@@ -254,7 +283,8 @@ public class CampaignService {
         clone.setExclusivityGroup(source.getExclusivityGroup());
         clone.setPriority(source.getPriority());
         // Lifecycle/quota config is copied; counters start at zero and the new edition is ACTIVE, not closed.
-        clone.setCloseOnEndDate(source.isCloseOnEndDate());
+        // Closing by date needs a date: an open-ended edition drops that condition.
+        clone.setCloseOnEndDate(source.isCloseOnEndDate() && !openEnded);
         clone.setCloseOnQuotaFilled(source.isCloseOnQuotaFilled());
         clone.setMaxRedemptions(source.getMaxRedemptions());
         clone.setConfirmGraceUntil(null);
@@ -263,6 +293,8 @@ public class CampaignService {
         clone.setPendingTtlDays(source.getPendingTtlDays());
         clone.setUsageWindow(source.getUsageWindow());
         clone.setUsageWindowDays(source.getUsageWindowDays());
+        clone.setAlly(source.getAlly());
+        clone.setAllowsAllyPartnership(source.isAllowsAllyPartnership());
         clone.setLifecycleStatus(Campaign.LifecycleStatus.ACTIVE);
         Campaign saved = repository.save(clone);
 
@@ -294,7 +326,7 @@ public class CampaignService {
             commissionTierRepository.save(c);
         }
 
-        for (CommissionBonusRule r : bonusRuleRepository.findByCampaign(source)) {
+        for (CommissionBonusRule r : sourceBonusRules) {
             CommissionBonusRule c = new CommissionBonusRule();
             c.setName(r.getName());
             c.setDescription(r.getDescription());
@@ -309,8 +341,10 @@ public class CampaignService {
             c.setPartialSettlementPeriodAnchor(r.getPartialSettlementPeriodAnchor());
             c.setFinalSettlementPeriodAnchor(r.getFinalSettlementPeriodAnchor());
             c.setRetroactiveSettlementPeriodAnchor(r.getRetroactiveSettlementPeriodAnchor());
-            c.setCampaignStart(saved.getStartsAt());
-            c.setCampaignEnd(saved.getEndsAt());
+            // chk_bonus_rule_campaign_dates: the legacy campaign window is set only for a CAMPAIGN accrual.
+            boolean campaignWindow = r.getAccrualPeriodStrategy() == CommissionBonusRule.WindowStrategy.CAMPAIGN;
+            c.setCampaignStart(campaignWindow ? saved.getStartsAt() : null);
+            c.setCampaignEnd(campaignWindow ? saved.getEndsAt() : null);
             c.setCampaign(saved);
             c.setStartsAt(saved.getStartsAt());
             c.setEndsAt(saved.getEndsAt());
@@ -676,6 +710,28 @@ public class CampaignService {
         Campaign.UsageWindow usageWindow = req.usageWindow() != null ? req.usageWindow() : Campaign.UsageWindow.CAMPAIGN_DATES;
         campaign.setUsageWindow(usageWindow);
         campaign.setUsageWindowDays(usageWindow == Campaign.UsageWindow.DAYS_AFTER_CONFIRMATION ? req.usageWindowDays() : null);
+        campaign.setAllowsAllyPartnership(req.allowsAllyPartnership());
+    }
+
+    private com.fenixcore.optibienestar360.modules.ally.entity.Ally resolveAlly(UUID allyUuid) {
+        return allyUuid == null ? null : allyRepository.findByUuid(allyUuid)
+                .orElseThrow(() -> new NoSuchElementException("ally.not_found"));
+    }
+
+    /**
+     * The header ally (V257) drives every promotion line, so it only changes
+     * while the campaign has no promotions (simplest safe rule, hub ADR 0038 §8).
+     */
+    private void applyAlly(Campaign campaign, UUID allyUuid) {
+        com.fenixcore.optibienestar360.modules.ally.entity.Ally current = campaign.getAlly();
+        UUID currentUuid = current != null ? current.getUuid() : null;
+        if (java.util.Objects.equals(currentUuid, allyUuid)) {
+            return;
+        }
+        if (!promotionRepository.findByCampaignAndActiveTrueOrderByCreatedAtAsc(campaign).isEmpty()) {
+            throw new IllegalArgumentException("campaign.ally.has_promotions");
+        }
+        campaign.setAlly(resolveAlly(allyUuid));
     }
 
     private void syncPromoters(Campaign campaign, List<UUID> promoterUuids) {
@@ -713,12 +769,26 @@ public class CampaignService {
                 campaign.getClosedNote(), campaign.getConfirmGraceUntil(), campaign.getConfirmGraceDays(),
                 campaign.getQuotaTrigger(), campaign.getPendingTtlDays(),
                 campaign.getUsageWindow(), campaign.getUsageWindowDays(),
-                campaign.getRedemptionsCount() - campaign.getConfirmedCount());
+                campaign.getRedemptionsCount() - campaign.getConfirmedCount(),
+                DisplayRefs.ref(campaign.getAlly()), campaign.isAllowsAllyPartnership());
     }
 
     private Campaign findManaged(UUID uuid) {
         return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+    }
+
+    /**
+     * The campaign row-locked ({@code SELECT ... FOR UPDATE}, same lock the
+     * slot lifecycle takes) and re-read under the lock: a copy loaded earlier
+     * in this request (the audit snapshot, open-in-view) would carry stale
+     * counters into the update.
+     */
+    private Campaign lockManaged(UUID uuid) {
+        Campaign campaign = repository.findForUpdateByUuid(uuid)
+                .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        entityManager.refresh(campaign);
+        return campaign;
     }
 
     private Payment resolvePayment(UUID uuid) {

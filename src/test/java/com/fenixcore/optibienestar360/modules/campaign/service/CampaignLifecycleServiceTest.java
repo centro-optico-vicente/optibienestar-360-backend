@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReas
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,9 +35,10 @@ class CampaignLifecycleServiceTest {
     @Mock private CampaignRepository repository;
     @Mock private UserRepository userRepository;
     @Mock private PromotionRedemptionService redemptionService;
+    @Mock private EntityManager entityManager;
 
     private CampaignLifecycleService service() {
-        return new CampaignLifecycleService(repository, userRepository, redemptionService);
+        return new CampaignLifecycleService(repository, userRepository, redemptionService, entityManager);
     }
 
     private Campaign campaign(LifecycleStatus status) {
@@ -62,6 +64,8 @@ class CampaignLifecycleServiceTest {
 
         assertThat(service().activate(c.getUuid()).getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
         verify(repository).findForUpdateByUuid(c.getUuid());
+        // Re-read under the lock: a copy loaded earlier in the request must not write stale counters back.
+        verify(entityManager).refresh(c);
     }
 
     @Test
@@ -110,6 +114,8 @@ class CampaignLifecycleServiceTest {
         assertThat(closed.getClosedNote()).isEqualTo("Fin anticipado");
         assertThat(closed.getClosedAt()).isNotNull();
         verify(redemptionService, org.mockito.Mockito.never()).cancelPending(any());
+        // Open-ended usage windows and vouchers end with the close.
+        verify(redemptionService).onCampaignClosed(c);
     }
 
     @Test
@@ -189,6 +195,34 @@ class CampaignLifecycleServiceTest {
         assertThat(reopened.getClosedAt()).isNull();
     }
 
+    @Test
+    void reopen_ofAManualOnlyCampaign_withoutQuotaNorEndDate_needsNothingToEnlarge() {
+        Campaign c = campaign(LifecycleStatus.CLOSED);
+        c.setEndsAt(null);
+        c.setCloseOnEndDate(false);
+        c.setRedemptionsCount(7);
+
+        Campaign reopened = service().reopen(c.getUuid(), new CampaignReopenRequest(null, null));
+
+        assertThat(reopened.getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
+        assertThat(reopened.getMaxRedemptions()).isNull();
+        assertThat(reopened.getClosedAt()).isNull();
+    }
+
+    @Test
+    void reopen_settingAFirstQuota_aboveTheTakenSlots_isAnEnlargement() {
+        Campaign c = campaign(LifecycleStatus.CLOSED);
+        c.setRedemptionsCount(4);
+        c.setConfirmedCount(3);
+
+        assertThatThrownBy(() -> service().reopen(c.getUuid(), new CampaignReopenRequest(4, null)))
+                .hasMessage("campaign.reopen.not_enlarged");
+
+        Campaign reopened = service().reopen(c.getUuid(), new CampaignReopenRequest(5, null));
+        assertThat(reopened.getMaxRedemptions()).isEqualTo(5);
+        assertThat(reopened.getLifecycleStatus()).isEqualTo(LifecycleStatus.ACTIVE);
+    }
+
     // ─── END_DATE close (job) ───────────────────────────────────────────────
 
     @Test
@@ -206,6 +240,20 @@ class CampaignLifecycleServiceTest {
         assertThat(c.getClosedReason()).isEqualTo(CloseReason.END_DATE);
         assertThat(c.getClosedAt()).isEqualTo(end);
         assertThat(c.getClosedBy()).isNull();
+        verify(entityManager).refresh(c);
+        verify(redemptionService).onCampaignClosed(c);
+    }
+
+    @Test
+    void activate_thatFillsTheQuota_followsUpTheQuotaFilledClose() {
+        Campaign c = campaign(LifecycleStatus.DRAFT);
+        c.setMaxRedemptions(1);
+        c.setCloseOnQuotaFilled(true);
+        c.setRedemptionsCount(1);
+        c.setConfirmedCount(1);
+
+        assertThat(service().activate(c.getUuid()).getClosedReason()).isEqualTo(CloseReason.QUOTA_FILLED);
+        verify(redemptionService).onCampaignClosed(c);
     }
 
     // ─── Quota-driven state (Campaign.recomputeQuotaStatus) ─────────────────

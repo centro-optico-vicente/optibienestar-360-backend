@@ -45,5 +45,8 @@ public record CampaignRequest(
         @Min(1) Integer pendingTtlDays,
         /** How long a confirmed slot keeps its benefit (V257); null = CAMPAIGN_DATES. */
         Campaign.UsageWindow usageWindow,
-        @Min(1) Integer usageWindowDays) {
+        @Min(1) Integer usageWindowDays,
+        /** Set = campaign exclusive to that ally (V257); changes only while the campaign has no promotions. */
+        UUID allyUuid,
+        boolean allowsAllyPartnership) {
 }

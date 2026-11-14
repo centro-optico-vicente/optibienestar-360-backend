@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,5 +36,7 @@ public record MembershipCreateRequest(
          * Optional override of the plan's re-inscription flag (hub ADR 0034); null = inherit. {@code true} on a plan
          * without a term rule needs an explicit {@code expiresAt} and renews every 12 months.
          */
-        Boolean reinscriptionRequired
+        Boolean reinscriptionRequired,
+        /** Optional ally vouchers (ALLY_BENEFIT promotions, hub ADR 0038 §7) applied besides the fee discount. */
+        List<UUID> allyBenefitPromotionUuids
 ) {}

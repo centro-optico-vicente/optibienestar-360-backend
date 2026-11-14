@@ -768,7 +768,7 @@ ALTER TABLE app.banks ENABLE TRIGGER ALL;
 
 ALTER TABLE app.campaigns DISABLE TRIGGER ALL;
 
-COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id, lifecycle_status, close_on_end_date, close_on_quota_filled, max_redemptions, redemptions_count, confirmed_count, closed_at, closed_reason, closed_by_user_id, closed_note, confirm_grace_until, confirm_grace_days, quota_trigger, pending_ttl_days, usage_window, usage_window_days) FROM stdin;
+COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id, lifecycle_status, close_on_end_date, close_on_quota_filled, max_redemptions, redemptions_count, confirmed_count, closed_at, closed_reason, closed_by_user_id, closed_note, confirm_grace_until, confirm_grace_days, quota_trigger, pending_ttl_days, usage_window, usage_window_days, ally_id, allows_ally_partnership) FROM stdin;
 \.
 
 ALTER TABLE app.campaigns ENABLE TRIGGER ALL;
@@ -1148,12 +1148,45 @@ COPY app.beneficiaries (beneficiaries_id, uuid, member_id, person_id, relationsh
 ALTER TABLE app.beneficiaries ENABLE TRIGGER ALL;
 
 --
+-- Data for Name: promotions; Type: TABLE DATA; Schema: app; Owner: -
+--
+
+ALTER TABLE app.promotions DISABLE TRIGGER ALL;
+
+COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by, discount_type, discount_amount, discount_currency_id, own_quota, confirmed_count, benefit_kind, ally_id, created_by_ally, ally_product_id, benefit_type, benefit_pct, benefit_amount, benefit_currency_id, benefit_quantity) FROM stdin;
+\.
+
+ALTER TABLE app.promotions ENABLE TRIGGER ALL;
+
+--
+-- Data for Name: membership_promotions; Type: TABLE DATA; Schema: app; Owner: -
+--
+
+ALTER TABLE app.membership_promotions DISABLE TRIGGER ALL;
+
+COPY app.membership_promotions (membership_promotions_id, uuid, membership_id, promotion_id, origin, code_used, code_owner_promoter_id, code_owner_member_id, code_owner_ally_id, cycles_remaining, inscription_applied, referrer_reward_granted, assigned_by_user_id, assigned_at, ended_at, ended_reason, is_active, status, created_at, updated_at, created_by, updated_by, benefit_kind) FROM stdin;
+\.
+
+ALTER TABLE app.membership_promotions ENABLE TRIGGER ALL;
+
+--
+-- Data for Name: membership_benefit_grants; Type: TABLE DATA; Schema: app; Owner: -
+--
+
+ALTER TABLE app.membership_benefit_grants DISABLE TRIGGER ALL;
+
+COPY app.membership_benefit_grants (membership_benefit_grants_id, uuid, membership_promotion_id, membership_id, promotion_id, ally_id, ally_product_id, benefit_type, benefit_pct, benefit_amount, benefit_currency_id, quantity, remaining_qty, grant_status, granted_at, expires_at, redeemed_at, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+\.
+
+ALTER TABLE app.membership_benefit_grants ENABLE TRIGGER ALL;
+
+--
 -- Data for Name: benefit_usages; Type: TABLE DATA; Schema: app; Owner: -
 --
 
 ALTER TABLE app.benefit_usages DISABLE TRIGGER ALL;
 
-COPY app.benefit_usages (benefit_usages_id, uuid, membership_id, ally_id, ally_product_id, ally_user_id, usage_date, usage_datetime, copay_amount, metadata, notes, is_active, status, created_at, updated_at, created_by, updated_by, copay_currency_id, consumption_amount, consumption_currency_id, product_category_id, beneficiary_id, ally_rating, product_rating, rating_comment, rated_at, converted_currency_id, consumption_amount_converted, consumption_exchange_rate, copay_amount_converted, copay_exchange_rate, exchange_rate_date) FROM stdin;
+COPY app.benefit_usages (benefit_usages_id, uuid, membership_id, ally_id, ally_product_id, ally_user_id, usage_date, usage_datetime, copay_amount, metadata, notes, is_active, status, created_at, updated_at, created_by, updated_by, copay_currency_id, consumption_amount, consumption_currency_id, product_category_id, beneficiary_id, ally_rating, product_rating, rating_comment, rated_at, converted_currency_id, consumption_amount_converted, consumption_exchange_rate, copay_amount_converted, copay_exchange_rate, exchange_rate_date, benefit_grant_id) FROM stdin;
 \.
 
 ALTER TABLE app.benefit_usages ENABLE TRIGGER ALL;
@@ -1839,6 +1872,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 246	254	promotion flat discount	SQL	V254__promotion_flat_discount.sql	1073705325	snapshot	2026-01-01 00:00:00	0	t
 247	255	campaign lifecycle and quota	SQL	V255__campaign_lifecycle_and_quota.sql	-1255733395	snapshot	2026-01-01 00:00:00	0	t
 248	256	promotion redemptions	SQL	V256__promotion_redemptions.sql	-828639989	snapshot	2026-01-01 00:00:00	0	t
+249	257	campaign ally benefits	SQL	V257__campaign_ally_benefits.sql	1805520810	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -1950,28 +1984,6 @@ COPY app.member_promoter_assignments (member_promoter_assignments_id, uuid, memb
 \.
 
 ALTER TABLE app.member_promoter_assignments ENABLE TRIGGER ALL;
-
---
--- Data for Name: promotions; Type: TABLE DATA; Schema: app; Owner: -
---
-
-ALTER TABLE app.promotions DISABLE TRIGGER ALL;
-
-COPY app.promotions (promotions_id, uuid, campaign_id, name, description, kind, discount_pct, applies_to, cycles, covers_extra_beneficiaries, max_redemptions, redemptions_count, requires_code, accepts_promoter_code, accepts_member_code, accepts_ally_code, referrer_reward_pct, referrer_reward_cycles, is_active, status, created_at, updated_at, created_by, updated_by, discount_type, discount_amount, discount_currency_id, own_quota, confirmed_count) FROM stdin;
-\.
-
-ALTER TABLE app.promotions ENABLE TRIGGER ALL;
-
---
--- Data for Name: membership_promotions; Type: TABLE DATA; Schema: app; Owner: -
---
-
-ALTER TABLE app.membership_promotions DISABLE TRIGGER ALL;
-
-COPY app.membership_promotions (membership_promotions_id, uuid, membership_id, promotion_id, origin, code_used, code_owner_promoter_id, code_owner_member_id, code_owner_ally_id, cycles_remaining, inscription_applied, referrer_reward_granted, assigned_by_user_id, assigned_at, ended_at, ended_reason, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
-\.
-
-ALTER TABLE app.membership_promotions ENABLE TRIGGER ALL;
 
 --
 -- Data for Name: membership_charges; Type: TABLE DATA; Schema: app; Owner: -
@@ -2549,6 +2561,10 @@ COPY app.permissions (permissions_id, uuid, name, domain_id, description, is_act
 445	4f3319f0-287d-84e0-f6ce-d4209162b73a	CAMPAIGN_CLOSE	31	Cerrar una campaña a mano	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 446	d65617cc-326f-b919-d517-2378421ef7c5	CAMPAIGN_REOPEN	31	Reabrir una campaña cerrada ampliando su cupo o su fecha	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 447	1b617906-fdca-5eeb-0b90-2087d3afd62b	CAMPAIGN_PAUSE	31	Pausar y reanudar una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+448	5a38b4d5-53a1-54e5-a318-192189047cb8	ALLY_CAMPAIGN_VIEW	3	Ver las campañas abiertas a alianza desde el portal del aliado	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+449	56b0f11a-3f03-327f-7d12-e4009b4d7737	ALLY_CAMPAIGN_PROMOTION_CREATE	3	Agregar beneficios propios a una campaña abierta a alianza	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+450	0134d151-ee11-ec77-be38-b7a627c356e4	ALLY_CAMPAIGN_PROMOTION_UPDATE	3	Editar los beneficios propios en una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+451	f33473fe-cee8-42bd-e226-32e58287086f	ALLY_CAMPAIGN_PROMOTION_DELETE	3	Eliminar los beneficios propios de una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.permissions ENABLE TRIGGER ALL;
@@ -3812,6 +3828,14 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1529	3	445	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1530	3	446	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1531	3	447	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1532	1	448	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1533	1	449	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1534	1	450	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1535	1	451	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1537	5	448	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1539	5	449	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1541	5	450	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1543	5	451	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -3845,7 +3869,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 22	256ddf28-6faf-0ef1-a203-188404848324	GENERATED_REPORT_PURGE	Depuración de reportes generados	Borra de R2 los reportes y fichas generados (archivos temporales) con más días que la retención configurada en el sistema, y los marca como depurados. La auditoría de reportes se conserva; solo se elimina la copia del archivo.	0 30 4 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
-23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó, vence los cupos pendientes sin confirmar (liberando cupo y reactivando campañas agotadas) y termina las promociones cuya ventana de uso acabó.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó, vence los cupos pendientes sin confirmar (liberando cupo y reactivando campañas agotadas), termina las promociones cuya ventana de uso acabó y vence los vales de aliados sin canjear.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4322,6 +4346,12 @@ SELECT pg_catalog.setval('app.member_promoter_assignments_member_promoter_assign
 SELECT pg_catalog.setval('app.members_members_id_seq', 1, false);
 
 --
+-- Name: membership_benefit_grants_membership_benefit_grants_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
+--
+
+SELECT pg_catalog.setval('app.membership_benefit_grants_membership_benefit_grants_id_seq', 1, false);
+
+--
 -- Name: membership_charges_membership_charges_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
@@ -4415,7 +4445,7 @@ SELECT pg_catalog.setval('app.permission_domains_permission_domains_id_seq', 39,
 -- Name: permissions_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 447, true);
+SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 451, true);
 
 --
 -- Name: person_credit_entries_person_credit_entries_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4541,7 +4571,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1531, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1543, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

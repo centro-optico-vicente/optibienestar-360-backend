@@ -9,6 +9,7 @@ import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.CloseReas
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign.LifecycleStatus;
 import com.fenixcore.optibienestar360.modules.campaign.repository.CampaignRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionRedemptionService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class CampaignLifecycleService {
     private final CampaignRepository repository;
     private final UserRepository userRepository;
     private final PromotionRedemptionService redemptionService;
+    private final EntityManager entityManager;
 
     /** DRAFT → ACTIVE (or SOLD_OUT when the quota is already full). */
     @Transactional
@@ -43,7 +45,7 @@ public class CampaignLifecycleService {
         Campaign campaign = lock(uuid);
         require(campaign, LifecycleStatus.DRAFT);
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        recomputeQuotaStatus(campaign, OffsetDateTime.now());
         return campaign;
     }
 
@@ -62,7 +64,7 @@ public class CampaignLifecycleService {
         Campaign campaign = lock(uuid);
         require(campaign, LifecycleStatus.PAUSED);
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(OffsetDateTime.now());
+        recomputeQuotaStatus(campaign, OffsetDateTime.now());
         return campaign;
     }
 
@@ -85,14 +87,17 @@ public class CampaignLifecycleService {
         if (request != null && request.cancelPending()) {
             redemptionService.cancelPending(campaign);
         }
+        redemptionService.onCampaignClosed(campaign);
         return campaign;
     }
 
     /**
      * CLOSED → ACTIVE (or SOLD_OUT when still full). Only when the request
-     * enlarges the campaign: a quota above the current one, or an end date
-     * later than now and than the current end. Clears every {@code closed_*}
-     * column.
+     * enlarges the campaign: a quota above the current one (or a first quota
+     * above the slots already taken, for a campaign without one), or an end
+     * date later than now and than the current end. A campaign with neither a
+     * quota nor an end date (closes only by hand) has nothing to enlarge and
+     * reopens as it is. Clears every {@code closed_*} column.
      */
     @Transactional
     public Campaign reopen(UUID uuid, CampaignReopenRequest request) {
@@ -102,11 +107,14 @@ public class CampaignLifecycleService {
 
         Integer newMax = request != null ? request.maxRedemptions() : null;
         OffsetDateTime newEnd = request != null ? request.endsAt() : null;
-        boolean enlargesQuota = newMax != null && campaign.getMaxRedemptions() != null
-                && newMax > campaign.getMaxRedemptions();
+        Integer currentMax = campaign.getMaxRedemptions();
+        boolean enlargesQuota = newMax != null
+                && (currentMax == null ? newMax > campaign.getRedemptionsCount() : newMax > currentMax);
         boolean extendsEnd = newEnd != null && newEnd.isAfter(now) && newEnd.isAfter(campaign.getStartsAt())
                 && (campaign.getEndsAt() == null || newEnd.isAfter(campaign.getEndsAt()));
-        if ((newMax != null && !enlargesQuota) || (newEnd != null && !extendsEnd) || (!enlargesQuota && !extendsEnd)) {
+        boolean unbounded = currentMax == null && campaign.getEndsAt() == null;
+        if ((newMax != null && !enlargesQuota) || (newEnd != null && !extendsEnd)
+                || (!enlargesQuota && !extendsEnd && !unbounded)) {
             throw new IllegalArgumentException("campaign.reopen.not_enlarged");
         }
         if (enlargesQuota) {
@@ -124,7 +132,7 @@ public class CampaignLifecycleService {
         }
         campaign.clearClose();
         campaign.setLifecycleStatus(LifecycleStatus.ACTIVE);
-        campaign.recomputeQuotaStatus(now);
+        recomputeQuotaStatus(campaign, now);
         return campaign;
     }
 
@@ -140,20 +148,41 @@ public class CampaignLifecycleService {
         for (Campaign due : repository.findDueForEndDateClose(
                 EnumSet.of(LifecycleStatus.ACTIVE, LifecycleStatus.SOLD_OUT, LifecycleStatus.PAUSED), now)) {
             Campaign campaign = repository.findForUpdateById(due.getId()).orElse(null);
-            if (campaign == null || campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
+            if (campaign == null) {
+                continue;
+            }
+            // The due list loaded this row without the lock: re-read it before closing (fresh counters).
+            entityManager.refresh(campaign);
+            if (campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
                 continue;
             }
             campaign.close(CloseReason.END_DATE, null, null, campaign.getEndsAt());
+            redemptionService.onCampaignClosed(campaign);
             closed++;
             log.info("Campaign {} closed by END_DATE (ended {})", campaign.getUuid(), campaign.getEndsAt());
         }
         return closed;
     }
 
+    /**
+     * Row lock, then a re-read under it: a copy of the row loaded earlier in
+     * the request (audit snapshot, open-in-view) would otherwise write stale
+     * counters back with the transition.
+     */
     private Campaign lock(UUID uuid) {
-        return repository.findForUpdateByUuid(uuid)
+        Campaign campaign = repository.findForUpdateByUuid(uuid)
                 .filter(Campaign::isActive)
                 .orElseThrow(() -> new NoSuchElementException("campaign.not_found"));
+        entityManager.refresh(campaign);
+        return campaign;
+    }
+
+    /** Re-derives the quota-driven state; a close it causes (QUOTA_FILLED) is followed up like any close. */
+    private void recomputeQuotaStatus(Campaign campaign, OffsetDateTime now) {
+        campaign.recomputeQuotaStatus(now);
+        if (campaign.getLifecycleStatus() == LifecycleStatus.CLOSED) {
+            redemptionService.onCampaignClosed(campaign);
+        }
     }
 
     private static void require(Campaign campaign, LifecycleStatus... allowed) {

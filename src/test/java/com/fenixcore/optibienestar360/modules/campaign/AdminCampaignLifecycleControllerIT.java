@@ -70,7 +70,8 @@ class AdminCampaignLifecycleControllerIT {
                 status, List.of(Campaign.CloseCondition.QUOTA_FILLED), max, occupied, occupied,
                 max == null ? null : max - occupied,
                 reason == null ? null : now, reason, null, null, null, null,
-                Campaign.QuotaTrigger.ON_ENROLLMENT, null, Campaign.UsageWindow.CAMPAIGN_DATES, null, 0);
+                Campaign.QuotaTrigger.ON_ENROLLMENT, null, Campaign.UsageWindow.CAMPAIGN_DATES, null, 0,
+                null, false);
     }
 
     @Test

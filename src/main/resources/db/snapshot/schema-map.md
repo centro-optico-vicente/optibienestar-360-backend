@@ -1,10 +1,10 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V256. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V257. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
-117 tables.
+118 tables.
 
-`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotion_redemptions` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_password_history` · `user_roles` · `users`
+`affiliation_request_logs` · `affiliation_requests` · `allies` · `ally_agreements` · `ally_ally_types` · `ally_opening_hours` · `ally_patient_links` · `ally_product_review_log` · `ally_products` · `ally_professions` · `ally_types` · `ally_users` · `attached_files` · `banks` · `beneficiaries` · `benefit_usages` · `campaign_promoters` · `campaign_transaction_exceptions` · `campaign_transaction_links` · `campaigns` · `cities` · `collection_commission_tier_promoter_types` · `collection_commission_tiers` · `commission_bonus_rule_promoter_types` · `commission_bonus_rules` · `commission_retroactive_topup_cuts` · `commission_retroactive_topups` · `commission_tier_promoter_types` · `commission_tiers` · `commissions` · `company_bank_account_payment_methods` · `company_bank_accounts` · `competitive_commission_award_settlements` · `competitive_commission_awards` · `competitive_commission_manual_decisions` · `competitive_commission_rule_positions` · `competitive_commission_rule_promoter_types` · `competitive_commission_rule_ranks` · `competitive_commission_rules` · `competitive_commission_tie_candidates` · `competitive_commission_ties` · `contact_messages` · `corporate_contracts` · `countries` · `currencies` · `data_change_audit_log` · `document_types` · `entity_config` · `exchange_rates` · `file_download_links` · `file_type_policies` · `genders` · `hierarchy_override_tiers` · `holidays` · `licensing_bodies` · `login_audit_log` · `marital_statuses` · `media_items` · `medical_record_access_log` · `medical_records` · `member_documents` · `member_promoter_assignments` · `members` · `membership_benefit_grants` · `membership_charges` · `membership_promotions` · `memberships` · `notifications` · `occupations` · `onboarding_policies` · `organizations` · `payer_bank_account_payment_methods` · `payer_bank_accounts` · `payment_categories` · `payment_credit_claims` · `payment_lines` · `payment_methods` · `payments` · `permission_domains` · `permissions` · `person_credit_entries` · `person_professional_licenses` · `persons` · `plans` · `product_categories` · `products` · `professions` · `promoter_bonus_awards` · `promoter_hierarchy_overrides` · `promoter_member_contacts` · `promoter_payout_account_payment_methods` · `promoter_payout_accounts` · `promoter_ranks` · `promoter_references` · `promoter_supervisor_assignments` · `promoter_types` · `promoters` · `promotion_plans` · `promotion_redemptions` · `promotions` · `referrals` · `report_audit_log` · `report_share` · `role_permissions` · `roles` · `scheduled_job_runs` · `scheduled_jobs` · `security_policies` · `states` · `subsidies` · `subsidy_audit_log` · `subsidy_beneficiaries` · `system_configs` · `terms_acceptances` · `terms_versions` · `user_password_history` · `user_roles` · `users`
 
 # Relationships (child → parent)
 
@@ -53,6 +53,7 @@
 - `benefit_usages`.ally_product_id → `ally_products`.ally_products_id
 - `benefit_usages`.ally_user_id → `ally_users`.ally_users_id
 - `benefit_usages`.beneficiary_id → `beneficiaries`.beneficiaries_id
+- `benefit_usages`.benefit_grant_id → `membership_benefit_grants`.membership_benefit_grants_id
 - `benefit_usages`.consumption_currency_id → `currencies`.currencies_id
 - `benefit_usages`.converted_currency_id → `currencies`.currencies_id
 - `benefit_usages`.copay_currency_id → `currencies`.currencies_id
@@ -66,6 +67,7 @@
 - `campaign_transaction_links`.campaign_id → `campaigns`.campaigns_id
 - `campaign_transaction_links`.membership_id → `memberships`.memberships_id
 - `campaign_transaction_links`.payment_id → `payments`.payments_id
+- `campaigns`.ally_id → `allies`.allies_id
 - `campaigns`.closed_by_user_id → `users`.users_id
 - `campaigns`.target_amount_currency_id → `currencies`.currencies_id
 - `cities`.state_id → `states`.states_id
@@ -162,6 +164,12 @@
 - `members`.occupation_id → `occupations`.occupations_id
 - `members`.person_id → `persons`.persons_id
 - `members`.promoter_id → `promoters`.promoters_id
+- `membership_benefit_grants`.ally_id → `allies`.allies_id
+- `membership_benefit_grants`.ally_product_id → `ally_products`.ally_products_id
+- `membership_benefit_grants`.benefit_currency_id → `currencies`.currencies_id
+- `membership_benefit_grants`.membership_id → `memberships`.memberships_id
+- `membership_benefit_grants`.membership_promotion_id → `membership_promotions`.membership_promotions_id
+- `membership_benefit_grants`.promotion_id → `promotions`.promotions_id
 - `membership_charges`.covered_by_payment_id → `payments`.payments_id
 - `membership_charges`.currency_id → `currencies`.currencies_id
 - `membership_charges`.membership_id → `memberships`.memberships_id
@@ -253,6 +261,9 @@
 - `promotion_redemptions`.confirmed_by_payment_id → `payments`.payments_id
 - `promotion_redemptions`.membership_promotion_id → `membership_promotions`.membership_promotions_id
 - `promotion_redemptions`.promotion_id → `promotions`.promotions_id
+- `promotions`.ally_id → `allies`.allies_id
+- `promotions`.ally_product_id → `ally_products`.ally_products_id
+- `promotions`.benefit_currency_id → `currencies`.currencies_id
 - `promotions`.campaign_id → `campaigns`.campaigns_id
 - `promotions`.discount_currency_id → `currencies`.currencies_id
 - `referrals`.referred_member_id → `members`.members_id
@@ -516,7 +527,7 @@
 **Triggers**
 - `trg_allies_updated_at` BEFORE UPDATE ON app.allies FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `allies`.(host_ally_id), `ally_agreements`.(ally_id), `ally_ally_types`.(ally_id), `ally_opening_hours`.(ally_id), `ally_patient_links`.(created_at_ally_id), `ally_products`.(ally_id), `ally_professions`.(ally_id), `ally_users`.(ally_id), `benefit_usages`.(ally_id), `medical_record_access_log`.(ally_id), `membership_promotions`.(code_owner_ally_id), `products`.(owner_ally_id), `terms_versions`.(ally_id)
+**Referenced by** `allies`.(host_ally_id), `ally_agreements`.(ally_id), `ally_ally_types`.(ally_id), `ally_opening_hours`.(ally_id), `ally_patient_links`.(created_at_ally_id), `ally_products`.(ally_id), `ally_professions`.(ally_id), `ally_users`.(ally_id), `benefit_usages`.(ally_id), `campaigns`.(ally_id), `medical_record_access_log`.(ally_id), `membership_benefit_grants`.(ally_id), `membership_promotions`.(code_owner_ally_id), `products`.(owner_ally_id), `promotions`.(ally_id), `terms_versions`.(ally_id)
 
 ## ally_agreements
 
@@ -726,7 +737,7 @@
 - `trg_ally_products_exclusive_owner` BEFORE INSERT OR UPDATE OF ally_id, product_id ON app.ally_products FOR EACH ROW EXECUTE FUNCTION enforce_exclusive_product_owner()
 - `trg_ally_products_updated_at` BEFORE UPDATE ON app.ally_products FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `ally_product_review_log`.(ally_product_id), `benefit_usages`.(ally_product_id)
+**Referenced by** `ally_product_review_log`.(ally_product_id), `benefit_usages`.(ally_product_id), `membership_benefit_grants`.(ally_product_id), `promotions`.(ally_product_id)
 
 ## ally_professions
 
@@ -967,6 +978,7 @@
 - `copay_amount_converted` numeric(14,2)
 - `copay_exchange_rate` numeric(18,8) — Unidades de la moneda convertida por 1 unidad de copay_currency, vigente en la fecha del consumo (V229).
 - `exchange_rate_date` date — Fecha valor (día de vigencia BCV) de la tasa usada en la conversión (V229, V246).
+- `benefit_grant_id` bigint
 
 **Constraints**
 - PK PRIMARY KEY (benefit_usages_id)
@@ -974,6 +986,7 @@
 - FK `benefit_usages_ally_product_id_fkey` FOREIGN KEY (ally_product_id) REFERENCES ally_products(ally_products_id)
 - FK `benefit_usages_ally_user_id_fkey` FOREIGN KEY (ally_user_id) REFERENCES ally_users(ally_users_id)
 - FK `benefit_usages_beneficiary_id_fkey` FOREIGN KEY (beneficiary_id) REFERENCES beneficiaries(beneficiaries_id)
+- FK `benefit_usages_benefit_grant_id_fkey` FOREIGN KEY (benefit_grant_id) REFERENCES membership_benefit_grants(membership_benefit_grants_id)
 - FK `benefit_usages_consumption_currency_id_fkey` FOREIGN KEY (consumption_currency_id) REFERENCES currencies(currencies_id)
 - FK `benefit_usages_converted_currency_id_fkey` FOREIGN KEY (converted_currency_id) REFERENCES currencies(currencies_id)
 - FK `benefit_usages_copay_currency_id_fkey` FOREIGN KEY (copay_currency_id) REFERENCES currencies(currencies_id)
@@ -1000,6 +1013,7 @@
 - `idx_benefit_usages_ally_product_rated` btree (ally_product_id) WHERE ((product_rating IS NOT NULL) AND is_active)
 - `idx_benefit_usages_ally_rated` btree (ally_id) WHERE ((ally_rating IS NOT NULL) AND is_active AND ((status)::text = 'REGISTERED'::text))
 - `idx_benefit_usages_beneficiary` btree (beneficiary_id, usage_date DESC) WHERE (beneficiary_id IS NOT NULL)
+- `idx_benefit_usages_benefit_grant` btree (benefit_grant_id) WHERE (benefit_grant_id IS NOT NULL)
 - `idx_benefit_usages_category_date` btree (product_category_id, usage_date DESC) WHERE is_active
 - `idx_benefit_usages_membership_date` btree (membership_id, usage_date DESC)
 - `idx_benefit_usages_usage_datetime` btree (usage_datetime DESC)
@@ -1141,9 +1155,12 @@
 - `pending_ttl_days` integer
 - `usage_window` character varying(30) NOT NULL DEFAULT 'CAMPAIGN_DATES'::character varying
 - `usage_window_days` integer
+- `ally_id` bigint
+- `allows_ally_partnership` boolean NOT NULL DEFAULT false
 
 **Constraints**
 - PK PRIMARY KEY (campaigns_id)
+- FK `campaigns_ally_id_fkey` FOREIGN KEY (ally_id) REFERENCES allies(allies_id)
 - FK `campaigns_closed_by_user_id_fkey` FOREIGN KEY (closed_by_user_id) REFERENCES users(users_id)
 - FK `campaigns_target_amount_currency_id_fkey` FOREIGN KEY (target_amount_currency_id) REFERENCES currencies(currencies_id)
 - UNIQUE `campaigns_uuid_key` UNIQUE (uuid)
@@ -1168,6 +1185,7 @@
 
 **Indexes**
 - `idx_campaigns_active_window` btree (is_active, starts_at, ends_at)
+- `idx_campaigns_ally` btree (ally_id) WHERE (ally_id IS NOT NULL)
 - `idx_campaigns_exclusivity_group` btree (exclusivity_group) WHERE (exclusivity_group IS NOT NULL)
 - `idx_campaigns_lifecycle_status` btree (lifecycle_status) WHERE is_active
 
@@ -2184,7 +2202,7 @@
 **Triggers**
 - `trg_currencies_updated_at` BEFORE UPDATE ON app.currencies FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `ally_products`.(price_currency_id), `benefit_usages`.(consumption_currency_id), `benefit_usages`.(converted_currency_id), `benefit_usages`.(copay_currency_id), `campaigns`.(target_amount_currency_id), `collection_commission_tiers`.(flat_amount_currency_id), `collection_commission_tiers`.(min_amount_currency_id), `commission_bonus_rules`.(reward_currency_id), `commission_bonus_rules`.(threshold_currency_id), `commission_retroactive_topup_cuts`.(currency_id), `commission_retroactive_topups`.(currency_id), `commission_tiers`.(flat_amount_currency_id), `commission_tiers`.(threshold_amount_currency_id), `commissions`.(currency_id), `company_bank_accounts`.(currency_id), `competitive_commission_award_settlements`.(currency_id), `competitive_commission_awards`.(currency_id), `competitive_commission_rule_positions`.(reward_currency_id), `competitive_commission_rules`.(threshold_currency_id), `countries`.(official_currency_id), `exchange_rates`.(base_currency_id), `exchange_rates`.(quote_currency_id), `hierarchy_override_tiers`.(flat_amount_currency_id), `hierarchy_override_tiers`.(threshold_amount_currency_id), `membership_charges`.(currency_id), `memberships`.(currency_id), `organizations`.(official_currency_id), `organizations`.(reference_currency_id), `payment_lines`.(currency_id), `payments`.(currency_id), `person_credit_entries`.(converted_currency_id), `person_credit_entries`.(currency_id), `plans`.(currency_id), `promoter_bonus_awards`.(reward_currency_id), `promoter_hierarchy_overrides`.(currency_id), `promoter_member_contacts`.(promised_currency_id), `promotions`.(discount_currency_id), `referrals`.(reward_currency_id)
+**Referenced by** `ally_products`.(price_currency_id), `benefit_usages`.(consumption_currency_id), `benefit_usages`.(converted_currency_id), `benefit_usages`.(copay_currency_id), `campaigns`.(target_amount_currency_id), `collection_commission_tiers`.(flat_amount_currency_id), `collection_commission_tiers`.(min_amount_currency_id), `commission_bonus_rules`.(reward_currency_id), `commission_bonus_rules`.(threshold_currency_id), `commission_retroactive_topup_cuts`.(currency_id), `commission_retroactive_topups`.(currency_id), `commission_tiers`.(flat_amount_currency_id), `commission_tiers`.(threshold_amount_currency_id), `commissions`.(currency_id), `company_bank_accounts`.(currency_id), `competitive_commission_award_settlements`.(currency_id), `competitive_commission_awards`.(currency_id), `competitive_commission_rule_positions`.(reward_currency_id), `competitive_commission_rules`.(threshold_currency_id), `countries`.(official_currency_id), `exchange_rates`.(base_currency_id), `exchange_rates`.(quote_currency_id), `hierarchy_override_tiers`.(flat_amount_currency_id), `hierarchy_override_tiers`.(threshold_amount_currency_id), `membership_benefit_grants`.(benefit_currency_id), `membership_charges`.(currency_id), `memberships`.(currency_id), `organizations`.(official_currency_id), `organizations`.(reference_currency_id), `payment_lines`.(currency_id), `payments`.(currency_id), `person_credit_entries`.(converted_currency_id), `person_credit_entries`.(currency_id), `plans`.(currency_id), `promoter_bonus_awards`.(reward_currency_id), `promoter_hierarchy_overrides`.(currency_id), `promoter_member_contacts`.(promised_currency_id), `promotions`.(benefit_currency_id), `promotions`.(discount_currency_id), `referrals`.(reward_currency_id)
 
 ## data_change_audit_log
 
@@ -2793,6 +2811,60 @@
 
 **Referenced by** `affiliation_requests`.(member_id), `ally_patient_links`.(member_id), `beneficiaries`.(member_id), `commissions`.(member_id), `medical_record_access_log`.(member_id), `member_documents`.(member_id), `member_promoter_assignments`.(member_id), `membership_promotions`.(code_owner_member_id), `memberships`.(member_id), `promoter_member_contacts`.(member_id), `referrals`.(referred_member_id), `referrals`.(referrer_member_id), `subsidies`.(member_id)
 
+## membership_benefit_grants
+
+> Vale de un aliado que recibe el afiliado al confirmarse su cupo en una campaña
+
+**Columns**
+- `membership_benefit_grants_id` bigint NOT NULL IDENTITY
+- `uuid` uuid NOT NULL
+- `membership_promotion_id` bigint NOT NULL
+- `membership_id` bigint NOT NULL
+- `promotion_id` bigint NOT NULL
+- `ally_id` bigint NOT NULL
+- `ally_product_id` bigint NOT NULL
+- `benefit_type` character varying(20) NOT NULL
+- `benefit_pct` numeric(5,2)
+- `benefit_amount` numeric(18,2)
+- `benefit_currency_id` bigint
+- `quantity` integer NOT NULL
+- `remaining_qty` integer NOT NULL
+- `grant_status` character varying(20) NOT NULL
+- `granted_at` timestamp with time zone NOT NULL
+- `expires_at` timestamp with time zone
+- `redeemed_at` timestamp with time zone
+- `is_active` boolean NOT NULL DEFAULT true
+- `status` character varying(50)
+- `created_at` timestamp with time zone NOT NULL DEFAULT now()
+- `updated_at` timestamp with time zone NOT NULL DEFAULT now()
+- `created_by` uuid
+- `updated_by` uuid
+
+**Constraints**
+- PK PRIMARY KEY (membership_benefit_grants_id)
+- FK `membership_benefit_grants_ally_id_fkey` FOREIGN KEY (ally_id) REFERENCES allies(allies_id)
+- FK `membership_benefit_grants_ally_product_id_fkey` FOREIGN KEY (ally_product_id) REFERENCES ally_products(ally_products_id)
+- FK `membership_benefit_grants_benefit_currency_id_fkey` FOREIGN KEY (benefit_currency_id) REFERENCES currencies(currencies_id)
+- FK `membership_benefit_grants_membership_id_fkey` FOREIGN KEY (membership_id) REFERENCES memberships(memberships_id)
+- FK `membership_benefit_grants_membership_promotion_id_fkey` FOREIGN KEY (membership_promotion_id) REFERENCES membership_promotions(membership_promotions_id)
+- FK `membership_benefit_grants_promotion_id_fkey` FOREIGN KEY (promotion_id) REFERENCES promotions(promotions_id)
+- UNIQUE `membership_benefit_grants_membership_promotion_id_key` UNIQUE (membership_promotion_id)
+- UNIQUE `membership_benefit_grants_uuid_key` UNIQUE (uuid)
+- CHECK `chk_membership_benefit_grants_qty` CHECK (((quantity >= 1) AND (remaining_qty >= 0) AND (remaining_qty <= quantity)))
+- CHECK `chk_membership_benefit_grants_redeemed` CHECK ((((grant_status)::text <> 'REDEEMED'::text) OR ((redeemed_at IS NOT NULL) AND (remaining_qty = 0))))
+- CHECK `chk_membership_benefit_grants_status` CHECK (((grant_status)::text = ANY ((ARRAY['AVAILABLE'::character varying, 'REDEEMED'::character varying, 'EXPIRED'::character varying, 'CANCELED'::character varying])::text[])))
+- CHECK `chk_membership_benefit_grants_type` CHECK (((benefit_type)::text = ANY ((ARRAY['FREE'::character varying, 'PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))
+
+**Indexes**
+- `idx_membership_benefit_grants_ally_status` btree (ally_id, grant_status)
+- `idx_membership_benefit_grants_membership_status` btree (membership_id, grant_status)
+- `idx_membership_benefit_grants_promotion` btree (promotion_id)
+
+**Triggers**
+- `trg_membership_benefit_grants_updated_at` BEFORE UPDATE ON app.membership_benefit_grants FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+**Referenced by** `benefit_usages`.(benefit_grant_id)
+
 ## membership_charges
 
 **Columns**
@@ -2863,6 +2935,7 @@
 - `updated_at` timestamp with time zone NOT NULL DEFAULT now()
 - `created_by` uuid
 - `updated_by` uuid
+- `benefit_kind` character varying(20) NOT NULL DEFAULT 'DISCOUNT'::character varying
 
 **Constraints**
 - PK PRIMARY KEY (membership_promotions_id)
@@ -2873,6 +2946,7 @@
 - FK `membership_promotions_membership_id_fkey` FOREIGN KEY (membership_id) REFERENCES memberships(memberships_id)
 - FK `membership_promotions_promotion_id_fkey` FOREIGN KEY (promotion_id) REFERENCES promotions(promotions_id)
 - UNIQUE `membership_promotions_uuid_key` UNIQUE (uuid)
+- CHECK `chk_membership_promotions_benefit_kind` CHECK (((benefit_kind)::text = ANY ((ARRAY['DISCOUNT'::character varying, 'ALLY_BENEFIT'::character varying])::text[])))
 - CHECK `chk_membership_promotions_cycles` CHECK (((cycles_remaining IS NULL) OR (cycles_remaining >= 0)))
 - CHECK `chk_membership_promotions_ended` CHECK ((((status)::text = 'ACTIVE'::text) OR (ended_at IS NOT NULL)))
 - CHECK `chk_membership_promotions_origin` CHECK (((origin)::text = ANY ((ARRAY['ENROLLMENT'::character varying, 'ADMIN'::character varying])::text[])))
@@ -2881,12 +2955,13 @@
 
 **Indexes**
 - `idx_membership_promotions_promotion` btree (promotion_id)
-- `uq_membership_promotions_one_active` UNIQUE btree (membership_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active)
+- `uq_membership_promotions_active_promotion` UNIQUE btree (membership_id, promotion_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active)
+- `uq_membership_promotions_one_active_discount` UNIQUE btree (membership_id) WHERE (((status)::text = 'ACTIVE'::text) AND is_active AND ((benefit_kind)::text = 'DISCOUNT'::text))
 
 **Triggers**
 - `trg_membership_promotions_updated_at` BEFORE UPDATE ON app.membership_promotions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `membership_charges`.(membership_promotion_id), `promotion_redemptions`.(membership_promotion_id)
+**Referenced by** `membership_benefit_grants`.(membership_promotion_id), `membership_charges`.(membership_promotion_id), `promotion_redemptions`.(membership_promotion_id)
 
 ## memberships
 
@@ -2958,7 +3033,7 @@
 - `trg_memberships_contract_number` BEFORE INSERT ON app.memberships FOR EACH ROW EXECUTE FUNCTION set_membership_contract_number()
 - `trg_memberships_updated_at` BEFORE UPDATE ON app.memberships FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `affiliation_requests`.(membership_id), `benefit_usages`.(membership_id), `campaign_transaction_exceptions`.(membership_id), `campaign_transaction_links`.(membership_id), `membership_charges`.(membership_id), `membership_promotions`.(membership_id), `payments`.(membership_id), `person_credit_entries`.(membership_id), `terms_acceptances`.(membership_id)
+**Referenced by** `affiliation_requests`.(membership_id), `benefit_usages`.(membership_id), `campaign_transaction_exceptions`.(membership_id), `campaign_transaction_links`.(membership_id), `membership_benefit_grants`.(membership_id), `membership_charges`.(membership_id), `membership_promotions`.(membership_id), `payments`.(membership_id), `person_credit_entries`.(membership_id), `terms_acceptances`.(membership_id)
 
 ## notifications
 
@@ -4263,7 +4338,7 @@
 - `description` text
 - `kind` character varying(20) NOT NULL
 - `discount_pct` numeric(5,2)
-- `applies_to` character varying(20) NOT NULL
+- `applies_to` character varying(20)
 - `cycles` integer
 - `covers_extra_beneficiaries` boolean NOT NULL DEFAULT false
 - `max_redemptions` integer
@@ -4285,17 +4360,32 @@
 - `discount_currency_id` bigint — Moneda del monto fijo; solo para FLAT
 - `own_quota` boolean NOT NULL DEFAULT false — La promoción cuenta su propio cupo (max_redemptions) además del cupo de la campaña
 - `confirmed_count` integer NOT NULL DEFAULT 0
+- `benefit_kind` character varying(20) NOT NULL DEFAULT 'DISCOUNT'::character varying — DISCOUNT (descuento sobre inscripción/mensualidad) o ALLY_BENEFIT (vale de un aliado)
+- `ally_id` bigint
+- `created_by_ally` boolean NOT NULL DEFAULT false — La línea la propuso el aliado desde su portal (campaña con alianza)
+- `ally_product_id` bigint
+- `benefit_type` character varying(20)
+- `benefit_pct` numeric(5,2)
+- `benefit_amount` numeric(18,2)
+- `benefit_currency_id` bigint
+- `benefit_quantity` integer NOT NULL DEFAULT 1
 
 **Constraints**
 - PK PRIMARY KEY (promotions_id)
+- FK `promotions_ally_id_fkey` FOREIGN KEY (ally_id) REFERENCES allies(allies_id)
+- FK `promotions_ally_product_id_fkey` FOREIGN KEY (ally_product_id) REFERENCES ally_products(ally_products_id)
+- FK `promotions_benefit_currency_id_fkey` FOREIGN KEY (benefit_currency_id) REFERENCES currencies(currencies_id)
 - FK `promotions_campaign_id_fkey` FOREIGN KEY (campaign_id) REFERENCES campaigns(campaigns_id)
 - FK `promotions_discount_currency_id_fkey` FOREIGN KEY (discount_currency_id) REFERENCES currencies(currencies_id)
 - UNIQUE `promotions_uuid_key` UNIQUE (uuid)
 - CHECK `chk_promotions_applies_to` CHECK (((applies_to)::text = ANY ((ARRAY['INSCRIPTION'::character varying, 'MONTHLY'::character varying, 'BOTH'::character varying])::text[])))
+- CHECK `chk_promotions_benefit_coherence` CHECK (((((benefit_kind)::text = 'DISCOUNT'::text) AND (applies_to IS NOT NULL) AND (ally_product_id IS NULL) AND (benefit_type IS NULL) AND (benefit_pct IS NULL) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL) AND ((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL)))) OR (((benefit_kind)::text = 'ALLY_BENEFIT'::text) AND ((kind)::text = 'ACQUISITION'::text) AND (ally_id IS NOT NULL) AND (ally_product_id IS NOT NULL) AND (benefit_type IS NOT NULL) AND (discount_pct IS NULL) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL) AND ((((benefit_type)::text = 'FREE'::text) AND (benefit_pct IS NULL) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL)) OR (((benefit_type)::text = 'PERCENTAGE'::text) AND (benefit_pct IS NOT NULL) AND (benefit_pct > (0)::numeric) AND (benefit_pct <= (100)::numeric) AND (benefit_amount IS NULL) AND (benefit_currency_id IS NULL)) OR (((benefit_type)::text = 'FLAT'::text) AND (benefit_amount IS NOT NULL) AND (benefit_amount > (0)::numeric) AND (benefit_currency_id IS NOT NULL) AND (benefit_pct IS NULL))))))
+- CHECK `chk_promotions_benefit_kind` CHECK (((benefit_kind)::text = ANY ((ARRAY['DISCOUNT'::character varying, 'ALLY_BENEFIT'::character varying])::text[])))
+- CHECK `chk_promotions_benefit_quantity` CHECK ((benefit_quantity >= 1))
+- CHECK `chk_promotions_benefit_type` CHECK (((benefit_type IS NULL) OR ((benefit_type)::text = ANY ((ARRAY['FREE'::character varying, 'PERCENTAGE'::character varying, 'FLAT'::character varying])::text[]))))
 - CHECK `chk_promotions_code_owner` CHECK (((NOT requires_code) OR accepts_promoter_code OR accepts_member_code OR accepts_ally_code))
 - CHECK `chk_promotions_confirmed_count` CHECK (((confirmed_count >= 0) AND (confirmed_count <= redemptions_count)))
 - CHECK `chk_promotions_cycles` CHECK (((cycles IS NULL) OR (cycles >= 1)))
-- CHECK `chk_promotions_discount_coherence` CHECK (((((discount_type)::text = 'PERCENTAGE'::text) AND (discount_pct IS NOT NULL) AND (discount_pct > (0)::numeric) AND (discount_pct <= (100)::numeric) AND (discount_amount IS NULL) AND (discount_currency_id IS NULL)) OR (((discount_type)::text = 'FLAT'::text) AND (discount_amount IS NOT NULL) AND (discount_amount > (0)::numeric) AND (discount_currency_id IS NOT NULL) AND (discount_pct IS NULL))))
 - CHECK `chk_promotions_discount_type` CHECK (((discount_type)::text = ANY ((ARRAY['PERCENTAGE'::character varying, 'FLAT'::character varying])::text[])))
 - CHECK `chk_promotions_kind` CHECK (((kind)::text = ANY ((ARRAY['ACQUISITION'::character varying, 'RECOVERY'::character varying])::text[])))
 - CHECK `chk_promotions_max_redemptions` CHECK (((max_redemptions IS NULL) OR (max_redemptions >= 1)))
@@ -4305,12 +4395,13 @@
 - CHECK `chk_promotions_referrer_reward` CHECK ((((referrer_reward_pct IS NULL) AND (referrer_reward_cycles IS NULL)) OR ((referrer_reward_pct > (0)::numeric) AND (referrer_reward_pct <= (100)::numeric) AND (referrer_reward_cycles >= 1) AND accepts_member_code)))
 
 **Indexes**
+- `idx_promotions_ally` btree (ally_id) WHERE (ally_id IS NOT NULL)
 - `idx_promotions_campaign` btree (campaign_id) WHERE is_active
 
 **Triggers**
 - `trg_promotions_updated_at` BEFORE UPDATE ON app.promotions FOR EACH ROW EXECUTE FUNCTION set_updated_at()
 
-**Referenced by** `membership_promotions`.(promotion_id), `promotion_plans`.(promotion_id), `promotion_redemptions`.(promotion_id)
+**Referenced by** `membership_benefit_grants`.(promotion_id), `membership_promotions`.(promotion_id), `promotion_plans`.(promotion_id), `promotion_redemptions`.(promotion_id)
 
 ## referrals
 

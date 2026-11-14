@@ -56,8 +56,22 @@ public record ValidationResultDto(
 
         // Diagnostic only — tells the ally portal whether this response
         // came from cache (true) or was a fresh DB roundtrip (false).
-        boolean cached
+        boolean cached,
+
+        // Campaign vouchers of this membership the calling ally can redeem
+        // (V257, hub ADR 0038 §7). Added per caller after the cache, never
+        // cached itself: the cached answer is shared by every ally.
+        List<com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto> benefitGrants
 ) {
+
+    /** This answer with the calling ally's AVAILABLE vouchers. */
+    public ValidationResultDto withBenefitGrants(
+            List<com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto> grants) {
+        return new ValidationResultDto(status, documentType, documentNumber, memberUuid, memberFullName,
+                planUuid, planCode, planName, membershipUuid, enrolledAt, nextDueDate, lastPaidThrough,
+                gracePeriodDays, beneficiaryUuid, beneficiaryFullName, beneficiaryRelationship, beneficiaries,
+                cached, grants);
+    }
 
     /** An active beneficiary of the validated membership. */
     public record CoveredPerson(UUID beneficiaryUuid, String fullName, String relationship) {}

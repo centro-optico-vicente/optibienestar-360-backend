@@ -193,6 +193,11 @@ public class BenefitUsage extends BaseEntity {
     @Column(name = "rated_at")
     private Instant ratedAt;
 
+    /** The campaign voucher this usage redeemed (V257); {@code null} for an ordinary usage. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "benefit_grant_id")
+    private com.fenixcore.optibienestar360.modules.promotion.entity.MembershipBenefitGrant benefitGrant;
+
     /** Workflow values that may land in {@link BaseEntity#getStatus()}. */
     public enum UsageStatus {
         REGISTERED, REVERSED, DISPUTED

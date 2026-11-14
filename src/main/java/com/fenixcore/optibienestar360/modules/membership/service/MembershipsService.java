@@ -233,6 +233,9 @@ public class MembershipsService {
             promotionAssignmentService.assign(saved, req.promotionUuid(), req.promotionCode(),
                     com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Origin.ENROLLMENT, actorUuid);
         }
+        if (req.allyBenefitPromotionUuids() != null && !req.allyBenefitPromotionUuids().isEmpty()) {
+            promotionAssignmentService.assignAllyBenefits(saved, req.allyBenefitPromotionUuids(), actorUuid);
+        }
         scheduleCreditApplication(saved.getId());
         return mapper.toDto(saved);
     }

@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.campaign.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
@@ -172,6 +173,17 @@ public class Campaign extends BaseEntity {
     @Column(name = "confirm_grace_days")
     private Integer confirmGraceDays;
 
+    // ─── Allies (V257, hub ADR 0038 §8) ──────────────────────────────────────
+
+    /** Set = campaign exclusive to this ally (every promotion line is its); {@code null} = several allies. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ally_id")
+    private Ally ally;
+
+    /** An ally may add its own ALLY_BENEFIT lines from its portal while the campaign is ACTIVE. */
+    @Column(name = "allows_ally_partnership", nullable = false)
+    private boolean allowsAllyPartnership;
+
     // ─── Slot lifecycle (V257, hub ADR 0038 §5) ──────────────────────────────
 
     /** When a reserved slot becomes CONFIRMED. */
@@ -195,7 +207,9 @@ public class Campaign extends BaseEntity {
      * The last instant a PENDING slot reserved with {@code ownDeadline} can
      * still be confirmed: its own deadline, shortened by the confirmation
      * grace once the campaign is CLOSED (a date, or N days after the close).
-     * {@code null} = no deadline.
+     * A CLOSED campaign without grace keeps the slot's own deadline, and a
+     * slot without one ends with the close itself (else it would stay PENDING
+     * forever, holding its discount). {@code null} = no deadline.
      */
     public java.time.Instant pendingDeadline(java.time.Instant ownDeadline) {
         if (lifecycleStatus != LifecycleStatus.CLOSED || closedAt == null) {
@@ -205,17 +219,22 @@ public class Campaign extends BaseEntity {
                 : confirmGraceDays != null ? closedAt.plusDays(confirmGraceDays).toInstant()
                 : null;
         if (grace == null) {
-            return ownDeadline;
+            return ownDeadline != null ? ownDeadline : closedAt.toInstant();
         }
         return ownDeadline == null || grace.isBefore(ownDeadline) ? grace : ownDeadline;
     }
 
-    /** When the benefit of a slot confirmed at {@code confirmedAt} stops; {@code null} = no limit. */
+    /**
+     * When the benefit of a slot confirmed at {@code confirmedAt} stops:
+     * N days later, or the campaign end (its close for an open-ended one
+     * already closed, see {@link #effectiveEndsAt()}); {@code null} = no limit.
+     */
     public java.time.Instant usageEndsAt(java.time.Instant confirmedAt) {
         if (usageWindow == UsageWindow.DAYS_AFTER_CONFIRMATION && usageWindowDays != null) {
             return confirmedAt.plus(java.time.Duration.ofDays(usageWindowDays));
         }
-        return endsAt != null ? endsAt.toInstant() : null;
+        OffsetDateTime end = effectiveEndsAt();
+        return end != null ? end.toInstant() : null;
     }
 
     /** {@link #endsAt}, or {@link #closedAt} for an open-ended campaign; {@code null} while an open-ended one runs. */

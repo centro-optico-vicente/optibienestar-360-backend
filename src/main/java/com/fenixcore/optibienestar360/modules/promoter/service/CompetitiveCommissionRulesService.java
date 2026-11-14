@@ -251,7 +251,30 @@ public class CompetitiveCommissionRulesService {
         validateMetricThreshold(rule);
         validatePositions(rule);
         validateCampaignWindow(rule);
+        validateEndDateAxes(rule);
         validateGroup(rule);
+    }
+
+    /**
+     * END_DATE on an axis (accrue or settle at the rule's end) needs an end
+     * date (DB CHECKs {@code chk_ccr_end_date_accrual} /
+     * {@code chk_ccr_end_date_settlement}). The rule inherits it from its
+     * campaign, so an open-ended campaign (hub ADR 0038) leaves it without
+     * one unless the rule sets its own: a readable 422 instead of the
+     * constraint violation. The retroactive axis is collapsed to the partial
+     * one afterwards, so it is not checked here.
+     */
+    private static void validateEndDateAxes(CompetitiveCommissionRule rule) {
+        boolean endDateAxis = rule.getAccrualPeriodStrategy() == PeriodAxisStrategy.END_DATE
+                || rule.getPartialSettlementPeriodStrategy() == PeriodAxisStrategy.END_DATE
+                || rule.getFinalSettlementPeriodStrategy() == PeriodAxisStrategy.END_DATE;
+        if (!endDateAxis || rule.getEndsAt() != null) {
+            return;
+        }
+        Campaign campaign = rule.getCampaign();
+        throw new IllegalArgumentException(campaign != null && campaign.getEndsAt() == null
+                ? "competitive_rule.end_date.requires_campaign_end"
+                : "settlement_axes.end_date_requires_ends_at");
     }
 
     /**

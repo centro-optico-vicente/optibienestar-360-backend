@@ -1,14 +1,20 @@
 package com.fenixcore.optibienestar360.modules.validator;
 
+import com.fenixcore.optibienestar360.modules.promotion.service.MembershipBenefitGrantService;
 import com.fenixcore.optibienestar360.modules.validator.dto.ValidationResultDto;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorService;
+import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 /**
  * Realtime ally validator. Single endpoint per the vertical-7 spec.
@@ -30,10 +36,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class AllyValidatorController {
 
     private final ValidatorService validatorService;
+    private final MembershipBenefitGrantService benefitGrantService;
 
+    /**
+     * The cached answer plus the caller ally's AVAILABLE campaign vouchers
+     * ({@code benefitGrants}, V257). {@code allyUuid} (optional) narrows the
+     * vouchers to the ally the portal operates as, for a user of several
+     * allies; an ally the caller does not operate gets none.
+     */
     @GetMapping("/{document}")
     @PreAuthorize("hasAuthority('ALLY_VALIDATE_MEMBER')")
-    public ResponseEntity<ValidationResultDto> validate(@PathVariable String document) {
-        return ResponseEntity.ok(validatorService.validate(document));
+    public ResponseEntity<ValidationResultDto> validate(@PathVariable String document,
+                                                        @RequestParam(required = false) UUID allyUuid,
+                                                        @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(benefitGrantService.withGrants(validatorService.validate(document),
+                actor != null ? actor.getUuid() : null, allyUuid));
     }
 }

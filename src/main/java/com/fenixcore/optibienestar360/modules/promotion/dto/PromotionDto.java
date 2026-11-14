@@ -3,6 +3,8 @@ package com.fenixcore.optibienestar360.modules.promotion.dto;
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitKind;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.BenefitType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
 
@@ -38,5 +40,15 @@ public record PromotionDto(
         Integer referrerRewardCycles,
         List<DisplayRef> plans,
         @Display(Display.Kind.BOOLEAN) boolean active,
-        @Display(Display.Kind.DATETIME) Instant createdAt
+        @Display(Display.Kind.DATETIME) Instant createdAt,
+        @Display(value = Display.Kind.ENUM, enumScope = "promotion.benefitKind") BenefitKind benefitKind,
+        @Display DisplayRef ally,
+        @Display DisplayRef allyProduct,
+        @Display(value = Display.Kind.ENUM, enumScope = "promotion.benefitType") BenefitType benefitType,
+        @Display(Display.Kind.PERCENT) BigDecimal benefitPct,
+        @Display(value = Display.Kind.MONEY, moneyCurrencyField = "benefitCurrency_Code") BigDecimal benefitAmount,
+        @Display DisplayRef benefitCurrency,
+        String benefitCurrency_Code,
+        int benefitQuantity,
+        boolean createdByAlly
 ) {}

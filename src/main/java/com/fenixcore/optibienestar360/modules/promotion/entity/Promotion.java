@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.promotion.entity;
 
 import com.fenixcore.optibienestar360.core.entity.BaseEntity;
+import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
+import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.membership.entity.Plan;
@@ -67,8 +69,9 @@ public class Promotion extends BaseEntity {
     @JoinColumn(name = "discount_currency_id")
     private Currency discountCurrency;
 
+    /** Which charges a DISCOUNT covers; {@code null} for an ALLY_BENEFIT (V257). */
     @Enumerated(EnumType.STRING)
-    @Column(name = "applies_to", length = 20, nullable = false)
+    @Column(name = "applies_to", length = 20)
     private AppliesTo appliesTo = AppliesTo.MONTHLY;
 
     /** Monthly charges discounted; {@code null} = every charge while the campaign runs. */
@@ -116,6 +119,49 @@ public class Promotion extends BaseEntity {
     @Column(name = "referrer_reward_cycles")
     private Integer referrerRewardCycles;
 
+    // ─── Ally benefit (V257, hub ADR 0038 §7-§8) ─────────────────────────────
+
+    /** DISCOUNT: a discount on the member's fees. ALLY_BENEFIT: a voucher for an ally's offer. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "benefit_kind", length = 20, nullable = false)
+    private BenefitKind benefitKind = BenefitKind.DISCOUNT;
+
+    /** The ally of the line: required for an ALLY_BENEFIT; forced to the campaign's ally in an exclusive campaign. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ally_id")
+    private Ally ally;
+
+    /** The line was proposed by the ally from its portal (campaign open to partnership). */
+    @Column(name = "created_by_ally", nullable = false)
+    private boolean createdByAlly;
+
+    /** The ally's offer the voucher is for (ALLY_BENEFIT only). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ally_product_id")
+    private AllyProduct allyProduct;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "benefit_type", length = 20)
+    private BenefitType benefitType;
+
+    @Column(name = "benefit_pct", precision = 5, scale = 2)
+    private BigDecimal benefitPct;
+
+    @Column(name = "benefit_amount", precision = 18, scale = 2)
+    private BigDecimal benefitAmount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "benefit_currency_id")
+    private Currency benefitCurrency;
+
+    /** Units of the offer each member gets. */
+    @Column(name = "benefit_quantity", nullable = false)
+    private int benefitQuantity = 1;
+
+    public boolean isAllyBenefit() {
+        return benefitKind == BenefitKind.ALLY_BENEFIT;
+    }
+
     /** Eligible plans; empty = every plan. */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -148,6 +194,15 @@ public class Promotion extends BaseEntity {
 
     public enum AppliesTo {
         INSCRIPTION, MONTHLY, BOTH
+    }
+
+    public enum BenefitKind {
+        DISCOUNT, ALLY_BENEFIT
+    }
+
+    /** What an ally voucher gives: the offer for free, a percentage off or a fixed amount off. */
+    public enum BenefitType {
+        FREE, PERCENTAGE, FLAT
     }
 
     /** PERCENTAGE: {@code discountPct} of each charge. FLAT: {@code discountAmount} (converted) off each charge. */

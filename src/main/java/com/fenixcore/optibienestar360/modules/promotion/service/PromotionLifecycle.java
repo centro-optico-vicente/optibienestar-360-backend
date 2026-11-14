@@ -34,5 +34,14 @@ public class PromotionLifecycle {
                 redemptionService.releaseIfUnused(mp);
             }
         });
+        // Ally vouchers (V257) are ACQUISITION benefits: lost on cancellation and on any delay too.
+        if (newStatus == LifecycleStatus.CANCELED || newStatus == LifecycleStatus.SUSPENDED
+                || newStatus == LifecycleStatus.EXPIRED) {
+            String reason = newStatus == LifecycleStatus.CANCELED ? "Membresía cancelada" : "Atraso en el pago";
+            for (var mp : membershipPromotionRepository.findOngoingAllyBenefits(membership.getId())) {
+                PromotionAssignmentService.end(mp, Status.CANCELED, reason);
+                redemptionService.releaseIfUnused(mp);
+            }
+        }
     }
 }

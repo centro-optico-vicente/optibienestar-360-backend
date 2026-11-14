@@ -33,6 +33,22 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long>, JpaSp
     @Query("SELECT c FROM Campaign c WHERE c.uuid = :uuid")
     Optional<Campaign> findForUpdateByUuid(@Param("uuid") UUID uuid);
 
+    /**
+     * Campaigns an ally may add its own benefits to (V257, hub ADR 0038 §8):
+     * live, in {@code status} (ACTIVE), open to partnership and either
+     * multi-ally or exclusive to that same ally.
+     */
+    @Query("""
+            SELECT c FROM Campaign c
+            WHERE c.active = true AND c.enabled = true
+              AND c.lifecycleStatus = :status
+              AND c.allowsAllyPartnership = true
+              AND (c.ally IS NULL OR c.ally.id = :allyId)
+            ORDER BY c.startsAt
+            """)
+    List<Campaign> findOpenToAllyPartnership(@Param("status") Campaign.LifecycleStatus status,
+                                             @Param("allyId") Long allyId);
+
     /** Campaigns the END_DATE condition closes now: not closed yet, END_DATE configured and the end already passed. */
     @Query("""
             SELECT c FROM Campaign c

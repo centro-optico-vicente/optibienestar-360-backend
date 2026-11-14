@@ -65,7 +65,7 @@ class AllyValidatorControllerIT {
     private ValidationResultDto notFound() {
         return new ValidationResultDto(ValidationStatus.NOT_FOUND, "V", "12345678",
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, false);
+                null, null, null, null, false, null);
     }
 
     @Test
@@ -87,6 +87,21 @@ class AllyValidatorControllerIT {
         mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678").with(principal("ALLY_VALIDATE_MEMBER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NOT_FOUND"));
+    }
+
+    @Test
+    void validate_acceptsAnOptionalAllyUuid() throws Exception {
+        when(validatorService.validate(anyString())).thenReturn(notFound());
+
+        mockMvc.perform(get("/v1/me/allies/validations/{d}", "V-12345678")
+                        .param("allyUuid", UUID.randomUUID().toString())
+                        .with(principal("ALLY_VALIDATE_MEMBER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NOT_FOUND"));
+        mockMvc.perform(get("/v1/allies/me/validations/{d}", "V-12345678")
+                        .param("allyUuid", UUID.randomUUID().toString())
+                        .with(principal("ALLY_VALIDATE_MEMBER")))
+                .andExpect(status().isOk());
     }
 
     // ─── Secondary path /v1/allies/me/validations (kept, not deprecated) ─────
