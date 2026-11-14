@@ -68,9 +68,7 @@ public class MemberPromoterService {
         Member member = memberRepository.findByUuid(memberUuid)
                 .orElseThrow(() -> new NoSuchElementException("member.not_found"));
         Promoter target = resolveTarget(promoterUuid, referralCode);
-        if (!target.isActive()) {
-            throw new IllegalArgumentException("promoter.inactive");
-        }
+        ensureAssignable(target);
         Promoter from = member.getPromoter();
         if (from != null && from.getId().equals(target.getId())) {
             // No-op reassignment — reject rather than write a noise audit row.
@@ -89,9 +87,7 @@ public class MemberPromoterService {
     public List<MemberPromoterAssignmentDto> bulkAssign(List<UUID> memberUuids, UUID promoterUuid,
                                                         String reason, UUID actorUserUuid) {
         Promoter target = resolveTarget(promoterUuid, null);
-        if (!target.isActive()) {
-            throw new IllegalArgumentException("promoter.inactive");
-        }
+        ensureAssignable(target);
         User actor = resolveActor(actorUserUuid);
         List<MemberPromoterAssignmentDto> result = new ArrayList<>();
         for (UUID memberUuid : memberUuids) {
@@ -181,6 +177,20 @@ public class MemberPromoterService {
 
     private User resolveActor(UUID actorUserUuid) {
         return actorUserUuid == null ? null : userRepository.findByUuid(actorUserUuid).orElse(null);
+    }
+
+    /**
+     * A manual assignment ({@code assign-advisor}, {@code bulk-assign}) needs an active, real advisor:
+     * the INSTITUCION system advisor is not a target (ADR LOC-0016) — a member nobody advises stays
+     * unassigned, and only the roll-up ({@link #reassignPortfolioToSupervisor}) falls back to it.
+     */
+    private static void ensureAssignable(Promoter target) {
+        if (!target.isActive()) {
+            throw new IllegalArgumentException("promoter.inactive");
+        }
+        if (target.isSystem()) {
+            throw new IllegalArgumentException("promoter.system_not_assignable");
+        }
     }
 
     private Promoter resolveTarget(UUID promoterUuid, String referralCode) {
