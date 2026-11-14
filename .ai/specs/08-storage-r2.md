@@ -342,6 +342,8 @@ Se agrega un mecanismo separado, desacoplado de `PresignedUrlPolicy`:
 
 ### 7. `INTERNAL`/`TEMPORARY` — solo andamiaje, sin consumidor todavía
 
+> **Actualización:** `TEMPORARY` ya tiene consumidor: los reportes generados (`ReportAuditService`, `temporary/report_audit_log/…`). Su limpieza es el job `GENERATED_REPORT_PURGE` (V252), que usa la retención `system_configs.generated_report_retention_days`. Ver `16-audit.md` §Reportes.
+
 El enum, el key builder y `file_type_policy` ya soportan ambos valores de forma uniforme. No se construye controller/entidad para ellos en este plan — quedan listos para que el motor de reportes (ADR 0012, otra vertical) los reutilice después (`TEMPORARY` con `expiresAt` para cleanup, `INTERNAL` para archivos autenticados sin dueño de negocio específico). No se crea permiso `FILE_VIEW_INTERNAL` todavía por no tener consumidor real (evita permisos huérfanos).
 
 ### Migraciones nuevas (revisar próximo `V{n}` libre en `db/migration/`)

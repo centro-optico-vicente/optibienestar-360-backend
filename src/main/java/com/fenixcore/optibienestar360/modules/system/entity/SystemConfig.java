@@ -96,6 +96,13 @@ public class SystemConfig extends BaseAuditEntity {
 	private int pdfRenderWaitSeconds = 10;
 
 	/**
+	 * Days a generated report stays stored in R2 (V252) before {@code GENERATED_REPORT_PURGE}
+	 * deletes the copy; the {@code report_audit_log} row stays. Read on every run.
+	 */
+	@Column(name = "generated_report_retention_days", nullable = false)
+	private int generatedReportRetentionDays = 30;
+
+	/**
 	 * Global fallback default sort (V82) — applied by a list endpoint when
 	 * the entity has no {@code entity_config} row (or none with its own
 	 * {@code default_sort}) at all. Restricted at the service layer to

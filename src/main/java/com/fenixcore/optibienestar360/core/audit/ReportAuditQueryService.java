@@ -101,7 +101,11 @@ public class ReportAuditQueryService {
         return reportAuditLogRepository.findAll(spec, pageable).map(this::toDto);
     }
 
-    /** Presigned URL for one report's stored file — 404 if the row has no {@code attachedFileId} (upload failed at generation time). */
+    /**
+     * Presigned URL for one report's stored file — 404 if the row has no {@code attachedFileId}
+     * (upload failed at generation time) or if the copy was already purged from R2 after the
+     * retention in {@code system_configs.generated_report_retention_days} (V252).
+     */
     @Transactional(readOnly = true)
     public String downloadUrl(UUID reportUuid) {
         ReportAuditLog entry = reportAuditLogRepository.findByUuid(reportUuid)
@@ -111,6 +115,9 @@ public class ReportAuditQueryService {
         }
         AttachedFile file = attachedFileRepository.findById(entry.getAttachedFileId())
                 .orElseThrow(() -> new NoSuchElementException("audit.report.file_not_found"));
+        if (!file.isActive()) {
+            throw new NoSuchElementException("audit.report.file_purged");
+        }
         StorageService storage = storageProvider.getIfAvailable();
         if (storage == null) {
             throw new IllegalStateException("file.storage_unavailable");
