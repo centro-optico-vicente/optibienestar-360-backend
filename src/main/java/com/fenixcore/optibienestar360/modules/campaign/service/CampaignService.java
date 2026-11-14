@@ -252,8 +252,19 @@ public class CampaignService {
     @Auditable(entity = "campaign", action = AuditAction.CREATE)
     public CampaignDto relaunch(UUID uuid, CampaignRelaunchRequest req) {
         Campaign source = findManaged(uuid);
-        if (!req.endsAt().isAfter(req.startsAt())) {
+        // endsAt is optional: no end = an open-ended edition (closes by quota or by hand).
+        boolean openEnded = req.endsAt() == null;
+        if (!openEnded && !req.endsAt().isAfter(req.startsAt())) {
             throw new IllegalArgumentException("campaign.dates.order");
+        }
+        if (openEnded && (source.isEvaluateOnlyAtEnd() || source.isPayOnlyAtEnd())) {
+            throw new IllegalArgumentException("campaign.at_end_rules.require_ends_at");
+        }
+        List<CommissionBonusRule> sourceBonusRules = bonusRuleRepository.findByCampaign(source);
+        if (openEnded && sourceBonusRules.stream()
+                .anyMatch(r -> r.getAccrualPeriodStrategy() == CommissionBonusRule.WindowStrategy.CAMPAIGN)) {
+            // chk_bonus_rule_campaign_dates: a CAMPAIGN-window bonus needs both campaign dates.
+            throw new IllegalArgumentException("campaign.relaunch.campaign_window_rules_require_ends_at");
         }
 
         Campaign clone = new Campaign();
@@ -272,7 +283,8 @@ public class CampaignService {
         clone.setExclusivityGroup(source.getExclusivityGroup());
         clone.setPriority(source.getPriority());
         // Lifecycle/quota config is copied; counters start at zero and the new edition is ACTIVE, not closed.
-        clone.setCloseOnEndDate(source.isCloseOnEndDate());
+        // Closing by date needs a date: an open-ended edition drops that condition.
+        clone.setCloseOnEndDate(source.isCloseOnEndDate() && !openEnded);
         clone.setCloseOnQuotaFilled(source.isCloseOnQuotaFilled());
         clone.setMaxRedemptions(source.getMaxRedemptions());
         clone.setConfirmGraceUntil(null);
@@ -314,7 +326,7 @@ public class CampaignService {
             commissionTierRepository.save(c);
         }
 
-        for (CommissionBonusRule r : bonusRuleRepository.findByCampaign(source)) {
+        for (CommissionBonusRule r : sourceBonusRules) {
             CommissionBonusRule c = new CommissionBonusRule();
             c.setName(r.getName());
             c.setDescription(r.getDescription());
@@ -329,8 +341,10 @@ public class CampaignService {
             c.setPartialSettlementPeriodAnchor(r.getPartialSettlementPeriodAnchor());
             c.setFinalSettlementPeriodAnchor(r.getFinalSettlementPeriodAnchor());
             c.setRetroactiveSettlementPeriodAnchor(r.getRetroactiveSettlementPeriodAnchor());
-            c.setCampaignStart(saved.getStartsAt());
-            c.setCampaignEnd(saved.getEndsAt());
+            // chk_bonus_rule_campaign_dates: the legacy campaign window is set only for a CAMPAIGN accrual.
+            boolean campaignWindow = r.getAccrualPeriodStrategy() == CommissionBonusRule.WindowStrategy.CAMPAIGN;
+            c.setCampaignStart(campaignWindow ? saved.getStartsAt() : null);
+            c.setCampaignEnd(campaignWindow ? saved.getEndsAt() : null);
             c.setCampaign(saved);
             c.setStartsAt(saved.getStartsAt());
             c.setEndsAt(saved.getEndsAt());
