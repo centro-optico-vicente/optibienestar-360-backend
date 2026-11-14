@@ -768,7 +768,7 @@ ALTER TABLE app.banks ENABLE TRIGGER ALL;
 
 ALTER TABLE app.campaigns DISABLE TRIGGER ALL;
 
-COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id, lifecycle_status, close_on_end_date, close_on_quota_filled, max_redemptions, redemptions_count, confirmed_count, closed_at, closed_reason, closed_by_user_id, closed_note, confirm_grace_until, confirm_grace_days) FROM stdin;
+COPY app.campaigns (campaigns_id, uuid, name, description, starts_at, ends_at, enabled, scope, mode, evaluate_only_at_end, pay_only_at_end, target_amount, target_count, exclusivity_group, priority, is_active, status, created_at, updated_at, created_by, updated_by, target_amount_currency_id, lifecycle_status, close_on_end_date, close_on_quota_filled, max_redemptions, redemptions_count, confirmed_count, closed_at, closed_reason, closed_by_user_id, closed_note, confirm_grace_until, confirm_grace_days, quota_trigger, pending_ttl_days, usage_window, usage_window_days) FROM stdin;
 \.
 
 ALTER TABLE app.campaigns ENABLE TRIGGER ALL;
@@ -1838,6 +1838,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 245	253	operator reviews affiliation requests	SQL	V253__operator_reviews_affiliation_requests.sql	1580565186	snapshot	2026-01-01 00:00:00	0	t
 246	254	promotion flat discount	SQL	V254__promotion_flat_discount.sql	1073705325	snapshot	2026-01-01 00:00:00	0	t
 247	255	campaign lifecycle and quota	SQL	V255__campaign_lifecycle_and_quota.sql	-1255733395	snapshot	2026-01-01 00:00:00	0	t
+248	256	promotion redemptions	SQL	V256__promotion_redemptions.sql	-828639989	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2650,6 +2651,17 @@ COPY app.promotion_plans (promotion_id, plan_id) FROM stdin;
 \.
 
 ALTER TABLE app.promotion_plans ENABLE TRIGGER ALL;
+
+--
+-- Data for Name: promotion_redemptions; Type: TABLE DATA; Schema: app; Owner: -
+--
+
+ALTER TABLE app.promotion_redemptions DISABLE TRIGGER ALL;
+
+COPY app.promotion_redemptions (promotion_redemptions_id, uuid, membership_promotion_id, promotion_id, campaign_id, redemption_status, reserved_at, confirmed_at, expires_at, usage_ends_at, released_at, confirmed_by_payment_id, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+\.
+
+ALTER TABLE app.promotion_redemptions ENABLE TRIGGER ALL;
 
 --
 -- Data for Name: referrals; Type: TABLE DATA; Schema: app; Owner: -
@@ -3833,7 +3845,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 22	256ddf28-6faf-0ef1-a203-188404848324	GENERATED_REPORT_PURGE	Depuración de reportes generados	Borra de R2 los reportes y fichas generados (archivos temporales) con más días que la retención configurada en el sistema, y los marca como depurados. La auditoría de reportes se conserva; solo se elimina la copia del archivo.	0 30 4 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
-23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó (si la fecha es una condición de cierre) y mantiene al día el estado de sus cupos.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó, vence los cupos pendientes sin confirmar (liberando cupo y reactivando campañas agotadas) y termina las promociones cuya ventana de uso acabó.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4494,6 +4506,12 @@ SELECT pg_catalog.setval('app.promoter_types_promoter_types_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('app.promoters_promoters_id_seq', 1, true);
+
+--
+-- Name: promotion_redemptions_promotion_redemptions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
+--
+
+SELECT pg_catalog.setval('app.promotion_redemptions_promotion_redemptions_id_seq', 1, false);
 
 --
 -- Name: promotions_promotions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

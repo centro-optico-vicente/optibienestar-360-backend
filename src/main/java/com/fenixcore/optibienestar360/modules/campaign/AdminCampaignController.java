@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignEffectivenessDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignExceptionRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignReopenRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
@@ -159,6 +160,13 @@ public class AdminCampaignController {
                 .buildAndExpand(created.uuid())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+    }
+
+    /** Quota counters of the campaign and each promotion: confirmed, pending, free, expired, released (V257). */
+    @GetMapping("/{uuid}/quota")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<CampaignQuotaDto> quota(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(campaignService.quota(uuid));
     }
 
     @GetMapping("/{uuid}/effectiveness")

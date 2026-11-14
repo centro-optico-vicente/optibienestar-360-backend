@@ -5,6 +5,7 @@ import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.DiscountType;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
+import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption.RedemptionStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -31,5 +32,10 @@ public record MembershipPromotionDto(
         @Display(Display.Kind.ENUM) String status,
         @Display(Display.Kind.DATETIME) Instant assignedAt,
         @Display(Display.Kind.DATETIME) Instant endedAt,
-        String endedReason
+        String endedReason,
+        /** The slot of the campaign quota (V257); {@code null} only for rows without one. */
+        @Display(value = Display.Kind.ENUM, enumScope = "promotion.redemptionStatus") RedemptionStatus redemptionStatus,
+        /** Effective deadline of a PENDING slot (own deadline cut by the post-close grace); {@code null} otherwise. */
+        @Display(Display.Kind.DATETIME) Instant redemptionExpiresAt,
+        @Display(Display.Kind.DATETIME) Instant usageEndsAt
 ) {}

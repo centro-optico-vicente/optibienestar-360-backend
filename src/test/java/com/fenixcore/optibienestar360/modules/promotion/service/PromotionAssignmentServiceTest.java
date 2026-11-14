@@ -15,7 +15,10 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromoti
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.AppliesTo;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
+import com.fenixcore.optibienestar360.modules.payment.repository.PaymentRepository;
+import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption;
 import com.fenixcore.optibienestar360.modules.promotion.repository.MembershipPromotionRepository;
+import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRedemptionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionCodeResolver.CodeOwner;
 import org.junit.jupiter.api.Test;
@@ -51,13 +54,22 @@ class PromotionAssignmentServiceTest {
     @Mock private ReferrerRewardService referrerRewardService;
     @Mock private com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
     @Mock private CampaignRepository campaignRepository;
+    @Mock private PromotionRedemptionRepository redemptionRepository;
+    @Mock private PaymentRepository paymentRepository;
 
     private final AtomicLong ids = new AtomicLong(100);
 
+    @org.junit.jupiter.api.BeforeEach
+    void stubRedemptionSave() {
+        lenient().when(redemptionRepository.save(any(PromotionRedemption.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
     private PromotionAssignmentService service() {
+        PromotionRedemptionService redemptions = new PromotionRedemptionService(
+                redemptionRepository, campaignRepository, promotionRepository, paymentRepository);
         return new PromotionAssignmentService(promotionRepository, membershipPromotionRepository,
                 membershipRepository, planRepository, userRepository, codeResolver, chargeService, referrerRewardService,
-                memberRepository, campaignRepository);
+                memberRepository, campaignRepository, redemptions);
     }
 
     private Plan plan(long id) {

@@ -172,6 +172,52 @@ public class Campaign extends BaseEntity {
     @Column(name = "confirm_grace_days")
     private Integer confirmGraceDays;
 
+    // ─── Slot lifecycle (V257, hub ADR 0038 §5) ──────────────────────────────
+
+    /** When a reserved slot becomes CONFIRMED. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quota_trigger", length = 30, nullable = false)
+    private QuotaTrigger quotaTrigger = QuotaTrigger.ON_ENROLLMENT;
+
+    /** Days a PENDING slot waits for its confirmation; {@code null} = never expires by itself. */
+    @Column(name = "pending_ttl_days")
+    private Integer pendingTtlDays;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "usage_window", length = 30, nullable = false)
+    private UsageWindow usageWindow = UsageWindow.CAMPAIGN_DATES;
+
+    /** Days the benefit lasts after the confirmation; only for {@link UsageWindow#DAYS_AFTER_CONFIRMATION}. */
+    @Column(name = "usage_window_days")
+    private Integer usageWindowDays;
+
+    /**
+     * The last instant a PENDING slot reserved with {@code ownDeadline} can
+     * still be confirmed: its own deadline, shortened by the confirmation
+     * grace once the campaign is CLOSED (a date, or N days after the close).
+     * {@code null} = no deadline.
+     */
+    public java.time.Instant pendingDeadline(java.time.Instant ownDeadline) {
+        if (lifecycleStatus != LifecycleStatus.CLOSED || closedAt == null) {
+            return ownDeadline;
+        }
+        java.time.Instant grace = confirmGraceUntil != null ? confirmGraceUntil.toInstant()
+                : confirmGraceDays != null ? closedAt.plusDays(confirmGraceDays).toInstant()
+                : null;
+        if (grace == null) {
+            return ownDeadline;
+        }
+        return ownDeadline == null || grace.isBefore(ownDeadline) ? grace : ownDeadline;
+    }
+
+    /** When the benefit of a slot confirmed at {@code confirmedAt} stops; {@code null} = no limit. */
+    public java.time.Instant usageEndsAt(java.time.Instant confirmedAt) {
+        if (usageWindow == UsageWindow.DAYS_AFTER_CONFIRMATION && usageWindowDays != null) {
+            return confirmedAt.plus(java.time.Duration.ofDays(usageWindowDays));
+        }
+        return endsAt != null ? endsAt.toInstant() : null;
+    }
+
     /** {@link #endsAt}, or {@link #closedAt} for an open-ended campaign; {@code null} while an open-ended one runs. */
     public OffsetDateTime effectiveEndsAt() {
         return endsAt != null ? endsAt : closedAt;
@@ -257,6 +303,16 @@ public class Campaign extends BaseEntity {
 
     public enum CloseReason {
         END_DATE, QUOTA_FILLED, MANUAL
+    }
+
+    /** When a reserved slot is confirmed (hub ADR 0038 §5). */
+    public enum QuotaTrigger {
+        ON_ENROLLMENT, ON_PAYMENT_REGISTERED, ON_PAYMENT_CONFIRMED
+    }
+
+    /** How long a confirmed slot keeps its benefit. */
+    public enum UsageWindow {
+        CAMPAIGN_DATES, DAYS_AFTER_CONFIRMATION
     }
 
     /** Which promoters a campaign applies to. {@code ALL} ignores {@link CampaignPromoter}. */

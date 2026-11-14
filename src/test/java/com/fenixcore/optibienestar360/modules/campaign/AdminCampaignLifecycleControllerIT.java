@@ -1,6 +1,8 @@
 package com.fenixcore.optibienestar360.modules.campaign;
 
+import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignQuotaDto;
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.campaign.service.CampaignService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,7 +69,8 @@ class AdminCampaignLifecycleControllerIT {
                 null, null, null, null, null, null, true, List.of(),
                 status, List.of(Campaign.CloseCondition.QUOTA_FILLED), max, occupied, occupied,
                 max == null ? null : max - occupied,
-                reason == null ? null : now, reason, null, null, null, null);
+                reason == null ? null : now, reason, null, null, null, null,
+                Campaign.QuotaTrigger.ON_ENROLLMENT, null, Campaign.UsageWindow.CAMPAIGN_DATES, null, 0);
     }
 
     @Test
@@ -137,5 +141,28 @@ class AdminCampaignLifecycleControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
                 .andExpect(jsonPath("$.freeSlots").value(5));
+    }
+
+    @Test
+    void quota_requiresViewAll_andExposesTheCounters() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        mockMvc.perform(get("/v1/admin/campaigns/{uuid}/quota", uuid).with(principal("CAMPAIGN_CLOSE")))
+                .andExpect(status().isForbidden());
+
+        UUID promotionUuid = UUID.randomUUID();
+        when(campaignService.quota(uuid)).thenReturn(new CampaignQuotaDto(10, 3, 2, 5, 1, 0, List.of(
+                new CampaignQuotaDto.PromotionQuota(new DisplayRef(promotionUuid, null, "Navidad 20%"),
+                        true, 4, 2, 1, 1, 1, 0))));
+
+        mockMvc.perform(get("/v1/admin/campaigns/{uuid}/quota", uuid).with(principal("CAMPAIGN_VIEW_ALL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxRedemptions").value(10))
+                .andExpect(jsonPath("$.confirmed").value(3))
+                .andExpect(jsonPath("$.pending").value(2))
+                .andExpect(jsonPath("$.free").value(5))
+                .andExpect(jsonPath("$.expired").value(1))
+                .andExpect(jsonPath("$.promotions[0].promotion_Uuid").value(promotionUuid.toString()))
+                .andExpect(jsonPath("$.promotions[0].ownQuota").value(true))
+                .andExpect(jsonPath("$.promotions[0].free").value(1));
     }
 }

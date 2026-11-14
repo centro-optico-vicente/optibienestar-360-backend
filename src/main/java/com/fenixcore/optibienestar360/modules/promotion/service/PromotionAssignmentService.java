@@ -19,6 +19,7 @@ import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromoti
 import com.fenixcore.optibienestar360.modules.promotion.entity.MembershipPromotion.Status;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion.Kind;
+import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption;
 import com.fenixcore.optibienestar360.modules.promotion.repository.MembershipPromotionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.repository.PromotionRepository;
 import com.fenixcore.optibienestar360.modules.promotion.service.PromotionCodeResolver.CodeOwner;
@@ -52,13 +53,14 @@ public class PromotionAssignmentService {
     private final ReferrerRewardService referrerRewardService;
     private final com.fenixcore.optibienestar360.modules.member.repository.MemberRepository memberRepository;
     private final CampaignRepository campaignRepository;
+    private final PromotionRedemptionService redemptionService;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
     public MembershipPromotionStatusDto current(UUID membershipUuid) {
         Membership membership = findMembership(membershipUuid);
         return membershipPromotionRepository.findOngoing(membership.getId())
-                .map(mp -> new MembershipPromotionStatusDto(true, toDto(mp)))
+                .map(mp -> new MembershipPromotionStatusDto(true, dto(mp)))
                 .orElseGet(() -> new MembershipPromotionStatusDto(false, null));
     }
 
@@ -67,7 +69,7 @@ public class PromotionAssignmentService {
         return memberRepository.findByUserUuid(userUuid)
                 .flatMap(member -> membershipRepository.findFirstByMemberIdAndActiveTrue(member.getId()))
                 .flatMap(membership -> membershipPromotionRepository.findOngoing(membership.getId()))
-                .map(mp -> new MembershipPromotionStatusDto(true, toDto(mp)))
+                .map(mp -> new MembershipPromotionStatusDto(true, dto(mp)))
                 .orElseGet(() -> new MembershipPromotionStatusDto(false, null));
     }
 
@@ -96,7 +98,7 @@ public class PromotionAssignmentService {
     @Transactional
     public MembershipPromotionDto assignToExisting(UUID membershipUuid, UUID promotionUuid, String code, UUID actorUuid) {
         Membership membership = findMembership(membershipUuid);
-        return toDto(assign(membership, promotionUuid, code, Origin.ADMIN, actorUuid));
+        return dto(assign(membership, promotionUuid, code, Origin.ADMIN, actorUuid));
     }
 
     /**
@@ -107,7 +109,9 @@ public class PromotionAssignmentService {
      * <p>Quota (hub ADR 0038 §4): the campaign row and then the promotion row
      * are locked ({@code SELECT ... FOR UPDATE}) before checking for room, in
      * the same transaction that increments both counters, so two simultaneous
-     * assignments can't take the same last slot.</p>
+     * assignments can't take the same last slot. The slot itself is a
+     * {@code promotion_redemptions} row (V257): CONFIRMED at once with the
+     * ON_ENROLLMENT trigger, otherwise PENDING until the payment.</p>
      */
     @Transactional
     public MembershipPromotion assign(Membership membership, UUID promotionUuid, String code,
@@ -170,8 +174,8 @@ public class PromotionAssignmentService {
             mp.setCodeOwnerMember(owner.member());
             mp.setCodeOwnerAlly(owner.ally());
         }
-        occupySlot(campaign, promotion, now);
         MembershipPromotion saved = membershipPromotionRepository.save(mp);
+        redemptionService.reserve(campaign, promotion, saved, now.toInstant());
         if (owner != null && owner.member() != null) {
             referrerRewardService.registerReferral(saved);
         }
@@ -188,7 +192,8 @@ public class PromotionAssignmentService {
         MembershipPromotion mp = membershipPromotionRepository.findOngoing(membership.getId())
                 .orElseThrow(() -> new NoSuchElementException("promotion.membership.none_active"));
         end(mp, Status.CANCELED, reason);
-        return toDto(mp);
+        redemptionService.releaseIfUnused(mp);
+        return dto(mp);
     }
 
     /** Closes an ongoing promotion (cancelled, or consumed when its cycles run out). */
@@ -196,19 +201,6 @@ public class PromotionAssignmentService {
         mp.setStatus(status.name());
         mp.setEndedAt(Instant.now());
         mp.setEndedReason(reason);
-    }
-
-    /**
-     * Takes one slot of the promotion and of its campaign (both rows already
-     * locked). Every slot is confirmed on assignment here; the campaign then
-     * re-derives SOLD_OUT / CLOSED(QUOTA_FILLED).
-     */
-    private static void occupySlot(Campaign campaign, Promotion promotion, OffsetDateTime now) {
-        promotion.setRedemptionsCount(promotion.getRedemptionsCount() + 1);
-        promotion.setConfirmedCount(promotion.getConfirmedCount() + 1);
-        campaign.setRedemptionsCount(campaign.getRedemptionsCount() + 1);
-        campaign.setConfirmedCount(campaign.getConfirmedCount() + 1);
-        campaign.recomputeQuotaStatus(now);
     }
 
     // ─── Rules ──────────────────────────────────────────────────────────────
@@ -236,7 +228,11 @@ public class PromotionAssignmentService {
                 .orElseThrow(() -> new NoSuchElementException("membership.not_found"));
     }
 
-    static MembershipPromotionDto toDto(MembershipPromotion mp) {
+    private MembershipPromotionDto dto(MembershipPromotion mp) {
+        return toDto(mp, redemptionService.findFor(mp));
+    }
+
+    static MembershipPromotionDto toDto(MembershipPromotion mp, PromotionRedemption redemption) {
         Promotion p = mp.getPromotion();
         String ownerType = null;
         DisplayRef owner = null;
@@ -270,6 +266,10 @@ public class PromotionAssignmentService {
                 mp.getStatus(),
                 mp.getAssignedAt(),
                 mp.getEndedAt(),
-                mp.getEndedReason());
+                mp.getEndedReason(),
+                redemption != null ? redemption.getRedemptionStatus() : null,
+                redemption != null && redemption.isPending()
+                        ? redemption.getCampaign().pendingDeadline(redemption.getExpiresAt()) : null,
+                redemption != null ? redemption.getUsageEndsAt() : null);
     }
 }

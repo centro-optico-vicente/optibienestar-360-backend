@@ -868,6 +868,10 @@ public class PaymentsService {
             dispatchNotification(saved, "payment-received", "email.payment.received.subject");
             notifySubmissionToPromoterAndAdmin(saved);
         }
+        if (!draft) {
+            // Confirms a campaign slot waiting for ON_PAYMENT_REGISTERED (hub ADR 0038 §5), after commit.
+            eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.payment.event.PaymentRegisteredEvent(saved.getId()));
+        }
         return mapper.toDto(saved);
     }
 
@@ -1227,6 +1231,7 @@ public class PaymentsService {
         }
         dispatchNotification(payment, "payment-received", "email.payment.received.subject");
         notifySubmissionToPromoterAndAdmin(payment);
+        eventPublisher.publishEvent(new com.fenixcore.optibienestar360.modules.payment.event.PaymentRegisteredEvent(payment.getId()));
         return mapper.toDto(payment);
     }
 
