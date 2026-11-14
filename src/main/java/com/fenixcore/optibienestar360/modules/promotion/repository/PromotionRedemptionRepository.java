@@ -2,14 +2,19 @@ package com.fenixcore.optibienestar360.modules.promotion.repository;
 
 import com.fenixcore.optibienestar360.modules.campaign.entity.Campaign;
 import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption;
+import com.fenixcore.optibienestar360.modules.promotion.entity.Promotion;
 import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption.RedemptionStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface PromotionRedemptionRepository extends JpaRepository<PromotionRedemption, Long> {
 
@@ -88,4 +93,98 @@ public interface PromotionRedemptionRepository extends JpaRepository<PromotionRe
             where c.membershipPromotion.id = :membershipPromotionId and c.discountAmount > 0
             """)
     boolean anyDiscountedCharge(@Param("membershipPromotionId") Long membershipPromotionId);
+
+    // ─── Reconciliation with the payments (V260, hub ADR 0038 §9) ───────────
+
+    Optional<PromotionRedemption> findByUuid(UUID uuid);
+
+    /** The slots of a campaign, any status (admin slot list). */
+    Page<PromotionRedemption> findByCampaign(Campaign campaign, Pageable pageable);
+
+    /** The slots of a campaign in one status (admin slot list filtered by status). */
+    Page<PromotionRedemption> findByCampaignAndRedemptionStatus(Campaign campaign, RedemptionStatus status,
+                                                               Pageable pageable);
+
+    /** Every slot of a campaign, newest reservation first (payments section, issue report). */
+    @Query("""
+            select r from PromotionRedemption r
+              join fetch r.membershipPromotion mp
+            where r.campaign = :campaign
+            order by r.reservedAt desc
+            """)
+    List<PromotionRedemption> findAllOfCampaign(@Param("campaign") Campaign campaign);
+
+    /** The slot a payment confirmed, if any (payment detail). */
+    Optional<PromotionRedemption> findFirstByConfirmedByPayment_IdOrderByConfirmedAtDesc(Long paymentId);
+
+    /** Every PENDING slot (hourly reconciliation): the caller locks campaign and slot before touching them. */
+    @Query("""
+            select r from PromotionRedemption r
+              join fetch r.membershipPromotion mp
+            where r.redemptionStatus = :pending
+            order by r.reservedAt
+            """)
+    List<PromotionRedemption> findAllInStatus(@Param("pending") RedemptionStatus pending);
+
+    /**
+     * PENDING slots not warned yet whose deadline may fall before
+     * {@code horizon}: their own {@code expires_at} does, or their campaign
+     * is CLOSED (the grace may cut it). The caller applies
+     * {@code Campaign#pendingDeadline} and skips the frozen ones.
+     */
+    @Query("""
+            select r from PromotionRedemption r
+              join fetch r.membershipPromotion mp
+              join r.campaign c
+            where r.redemptionStatus = :pending
+              and r.expiryNoticeSentAt is null
+              and ((r.expiresAt is not null and r.expiresAt <= :horizon) or c.lifecycleStatus = :closed)
+            """)
+    List<PromotionRedemption> findExpiryNoticeCandidates(@Param("horizon") Instant horizon,
+                                                         @Param("pending") RedemptionStatus pending,
+                                                         @Param("closed") Campaign.LifecycleStatus closed);
+
+    default List<PromotionRedemption> findExpiryNoticeCandidates(Instant horizon) {
+        return findExpiryNoticeCandidates(horizon, RedemptionStatus.PENDING, Campaign.LifecycleStatus.CLOSED);
+    }
+
+    /** PENDING ally-benefit slots of a membership with one of {@code allyIds} (validator, info only). */
+    @Query("""
+            select r from PromotionRedemption r
+              join fetch r.membershipPromotion mp
+              join fetch r.promotion p
+              join fetch r.campaign c
+            where mp.membership.id = :membershipId
+              and r.redemptionStatus = :pending
+              and p.benefitKind = :allyBenefit
+              and p.ally.id in :allyIds
+            order by r.reservedAt
+            """)
+    List<PromotionRedemption> findPendingAllyBenefits(@Param("membershipId") Long membershipId,
+                                                      @Param("allyIds") Collection<Long> allyIds,
+                                                      @Param("pending") RedemptionStatus pending,
+                                                      @Param("allyBenefit") Promotion.BenefitKind allyBenefit);
+
+    default List<PromotionRedemption> findPendingAllyBenefits(Long membershipId, Collection<Long> allyIds) {
+        return findPendingAllyBenefits(membershipId, allyIds, RedemptionStatus.PENDING, Promotion.BenefitKind.ALLY_BENEFIT);
+    }
+
+    /** PENDING ally-benefit slots of a membership, any ally (member portal, {@code includePending}). */
+    @Query("""
+            select r from PromotionRedemption r
+              join fetch r.membershipPromotion mp
+              join fetch r.promotion p
+              join fetch r.campaign c
+            where mp.membership.id = :membershipId
+              and r.redemptionStatus = :pending
+              and p.benefitKind = :allyBenefit
+            order by r.reservedAt desc
+            """)
+    List<PromotionRedemption> findPendingAllyBenefitsOfMembership(@Param("membershipId") Long membershipId,
+                                                                  @Param("pending") RedemptionStatus pending,
+                                                                  @Param("allyBenefit") Promotion.BenefitKind allyBenefit);
+
+    default List<PromotionRedemption> findPendingAllyBenefitsOfMembership(Long membershipId) {
+        return findPendingAllyBenefitsOfMembership(membershipId, RedemptionStatus.PENDING, Promotion.BenefitKind.ALLY_BENEFIT);
+    }
 }

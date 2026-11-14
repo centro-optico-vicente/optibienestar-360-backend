@@ -13,12 +13,20 @@ import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRelaunchReque
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignReopenRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignRequest;
 import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignTransactionLinkDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignPaymentRemindRequest;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignPaymentRemindResultDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignPaymentsDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignSlotDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.CampaignSlotIssueDto;
+import com.fenixcore.optibienestar360.modules.campaign.dto.PromotionSlotNoteRequest;
+import com.fenixcore.optibienestar360.modules.promotion.entity.PromotionRedemption;
 import com.fenixcore.optibienestar360.modules.campaign.service.CampaignService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,7 +56,11 @@ import java.util.List;
  * {@code /effectiveness} by view (read-only report). Lifecycle (V256, hub
  * ADR 0038): {@code /activate} by update, {@code /pause}+{@code /resume} by
  * {@code CAMPAIGN_PAUSE}, {@code /close} by {@code CAMPAIGN_CLOSE},
- * {@code /reopen} by {@code CAMPAIGN_REOPEN}.
+ * {@code /reopen} by {@code CAMPAIGN_REOPEN}. Slots against their payments
+ * (V260, hub ADR 0038 §9): {@code /slots} and {@code /slot-issues} by view,
+ * manual {@code /confirm} by {@code PROMOTION_SLOT_CONFIRM} and
+ * {@code /release} by {@code PROMOTION_SLOT_RELEASE}; the "Pagos" section by
+ * {@code CAMPAIGN_PAYMENT_VIEW}, its reminders by {@code CAMPAIGN_PAYMENT_REMIND}.
  */
 @RestController
 @RequestMapping("/v1/admin/campaigns")
@@ -56,6 +68,7 @@ import java.util.List;
 public class AdminCampaignController {
 
     private final CampaignService campaignService;
+    private final com.fenixcore.optibienestar360.modules.promotion.service.CampaignSlotService slotService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
@@ -175,6 +188,78 @@ public class AdminCampaignController {
     @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
     public ResponseEntity<CampaignQuotaDto> quota(@PathVariable UUID uuid) {
         return ResponseEntity.ok(campaignService.quota(uuid));
+    }
+
+    // ─── Slots against their payments (V260, hub ADR 0038 §9) ────────────────
+
+    /** The campaign's slots, optionally of one status, newest reservation first. */
+    @GetMapping("/{uuid}/slots")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<Page<CampaignSlotDto>> slots(
+            @PathVariable UUID uuid,
+            @RequestParam(required = false) PromotionRedemption.RedemptionStatus status,
+            @PageableDefault(size = 20, sort = "reservedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(slotService.slots(uuid, status, pageable));
+    }
+
+    /** PENDING → CONFIRMED by hand, with a required note; 422 when the slot is not PENDING. */
+    @PostMapping("/{uuid}/slots/{slotUuid}/confirm")
+    @PreAuthorize("hasAuthority('PROMOTION_SLOT_CONFIRM')")
+    public ResponseEntity<CampaignSlotDto> confirmSlot(@PathVariable UUID uuid, @PathVariable UUID slotUuid,
+                                                       @Valid @RequestBody PromotionSlotNoteRequest request,
+                                                       @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(slotService.confirm(uuid, slotUuid, request.note(),
+                actor != null ? actor.getUuid() : null));
+    }
+
+    /** Releases a PENDING or never-used CONFIRMED slot by hand, with a required note; 422 otherwise. */
+    @PostMapping("/{uuid}/slots/{slotUuid}/release")
+    @PreAuthorize("hasAuthority('PROMOTION_SLOT_RELEASE')")
+    public ResponseEntity<CampaignSlotDto> releaseSlot(@PathVariable UUID uuid, @PathVariable UUID slotUuid,
+                                                       @Valid @RequestBody PromotionSlotNoteRequest request,
+                                                       @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(slotService.release(uuid, slotUuid, request.note(),
+                actor != null ? actor.getUuid() : null));
+    }
+
+    /** Inconsistencies between the slots and their payments. */
+    @GetMapping("/{uuid}/slot-issues")
+    @PreAuthorize("hasAuthority('CAMPAIGN_VIEW_ALL')")
+    public ResponseEntity<List<CampaignSlotIssueDto>> slotIssues(@PathVariable UUID uuid) {
+        return ResponseEntity.ok(slotService.issues(uuid));
+    }
+
+    /** The "Pagos" section: totals plus one row per slot with its payment. */
+    @GetMapping("/{uuid}/payments")
+    @PreAuthorize("hasAuthority('CAMPAIGN_PAYMENT_VIEW')")
+    public ResponseEntity<CampaignPaymentsDto> payments(
+            @PathVariable UUID uuid,
+            @RequestParam(required = false) PromotionRedemption.RedemptionStatus slotStatus,
+            @RequestParam(required = false) String paymentStatus,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(slotService.payments(uuid, slotStatus, paymentStatus, pageable));
+    }
+
+    /** Internal reminder about one payment in review; 422 {@code campaign_payment.remind.too_soon} within the hour. */
+    @PostMapping("/{uuid}/payments/{paymentUuid}/remind")
+    @PreAuthorize("hasAuthority('CAMPAIGN_PAYMENT_REMIND')")
+    public ResponseEntity<Void> remindPayment(@PathVariable UUID uuid, @PathVariable UUID paymentUuid,
+                                              @Valid @RequestBody(required = false) CampaignPaymentRemindRequest request,
+                                              @AuthenticationPrincipal CustomUserDetails actor) {
+        slotService.remind(uuid, paymentUuid, request != null ? request.note() : null,
+                actor != null ? actor.getUuid() : null);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Internal reminders for every PENDING slot with a payment in review (those reminded within the hour are skipped). */
+    @PostMapping("/{uuid}/payments/remind-pending")
+    @PreAuthorize("hasAuthority('CAMPAIGN_PAYMENT_REMIND')")
+    public ResponseEntity<CampaignPaymentRemindResultDto> remindPendingPayments(
+            @PathVariable UUID uuid,
+            @Valid @RequestBody(required = false) CampaignPaymentRemindRequest request,
+            @AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(slotService.remindPending(uuid, request != null ? request.note() : null,
+                actor != null ? actor.getUuid() : null));
     }
 
     @GetMapping("/{uuid}/effectiveness")

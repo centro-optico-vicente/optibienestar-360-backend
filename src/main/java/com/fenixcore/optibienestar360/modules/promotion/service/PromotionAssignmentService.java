@@ -256,10 +256,11 @@ public class PromotionAssignmentService {
     }
 
     private MembershipPromotionDto dto(MembershipPromotion mp) {
-        return toDto(mp, redemptionService.findFor(mp));
+        PromotionRedemption redemption = redemptionService.findFor(mp);
+        return toDto(mp, redemption, redemptionService.isDeadlineFrozen(redemption));
     }
 
-    static MembershipPromotionDto toDto(MembershipPromotion mp, PromotionRedemption redemption) {
+    static MembershipPromotionDto toDto(MembershipPromotion mp, PromotionRedemption redemption, boolean deadlineFrozen) {
         Promotion p = mp.getPromotion();
         String ownerType = null;
         DisplayRef owner = null;
@@ -297,6 +298,8 @@ public class PromotionAssignmentService {
                 redemption != null ? redemption.getRedemptionStatus() : null,
                 redemption != null && redemption.isPending()
                         ? redemption.getCampaign().pendingDeadline(redemption.getExpiresAt()) : null,
-                redemption != null ? redemption.getUsageEndsAt() : null);
+                redemption != null ? redemption.getUsageEndsAt() : null,
+                deadlineFrozen,
+                p.getCampaign() != null ? p.getCampaign().getQuotaTrigger() : null);
     }
 }

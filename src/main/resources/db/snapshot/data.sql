@@ -1575,6 +1575,7 @@ COPY app.entity_config (entity_config_id, uuid, entity_key, display_name, table_
 57	c2183dcb-3766-ef2e-8928-c585a633d1cf	licensing_body	Entes emisores de colegiaturas	licensing_bodies	t	t	t	t	t	t	\N	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N
 58	058ae149-a654-4aae-8e2c-1a8b7b676cef	person_professional_license	Colegiaturas	person_professional_licenses	t	t	t	t	t	t	\N	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N
 59	ec3fc6cb-e3c0-e047-b755-10c5de3eaee9	onboarding_policy	Política de registro	onboarding_policies	t	t	t	t	t	t	\N	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N
+60	62741d38-4b3f-1ce9-6e84-553402aff009	promotion_redemption	Cupo de campaña	promotion_redemptions	t	t	t	t	t	t	\N	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N
 \.
 
 ALTER TABLE app.entity_config ENABLE TRIGGER ALL;
@@ -1875,6 +1876,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 249	257	campaign ally benefits	SQL	V257__campaign_ally_benefits.sql	1805520810	snapshot	2026-01-01 00:00:00	0	t
 250	258	digital card view monthly fee	SQL	V258__digital_card_view_monthly_fee.sql	-1905277104	snapshot	2026-01-01 00:00:00	0	t
 251	259	user notifications	SQL	V259__user_notifications.sql	-1605888821	snapshot	2026-01-01 00:00:00	0	t
+252	260	promotion slot reconciliation	SQL	V260__promotion_slot_reconciliation.sql	1851065903	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2567,6 +2569,10 @@ COPY app.permissions (permissions_id, uuid, name, domain_id, description, is_act
 449	56b0f11a-3f03-327f-7d12-e4009b4d7737	ALLY_CAMPAIGN_PROMOTION_CREATE	3	Agregar beneficios propios a una campaña abierta a alianza	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 450	0134d151-ee11-ec77-be38-b7a627c356e4	ALLY_CAMPAIGN_PROMOTION_UPDATE	3	Editar los beneficios propios en una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 451	f33473fe-cee8-42bd-e226-32e58287086f	ALLY_CAMPAIGN_PROMOTION_DELETE	3	Eliminar los beneficios propios de una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+452	88ead823-1663-ad25-ece6-72daa7eaec4a	PROMOTION_SLOT_CONFIRM	31	Confirmar a mano un cupo pendiente de una campaña, con nota	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+453	20636b4f-12b8-3849-9741-8948e1a0d739	PROMOTION_SLOT_RELEASE	31	Liberar a mano un cupo de una campaña que no se ha usado, con nota	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+454	f967918a-b224-cd5a-92bb-a09d7d1cfc86	CAMPAIGN_PAYMENT_VIEW	31	Ver la sección Pagos de una campaña: qué pagos confirmaron su cupo	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+455	1f8dc1d2-6745-e1c5-c0af-2101d46523d9	CAMPAIGN_PAYMENT_REMIND	31	Enviar recordatorios internos sobre los pagos que confirman cupos de una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.permissions ENABLE TRIGGER ALL;
@@ -2676,7 +2682,7 @@ ALTER TABLE app.promotion_plans ENABLE TRIGGER ALL;
 
 ALTER TABLE app.promotion_redemptions DISABLE TRIGGER ALL;
 
-COPY app.promotion_redemptions (promotion_redemptions_id, uuid, membership_promotion_id, promotion_id, campaign_id, redemption_status, reserved_at, confirmed_at, expires_at, usage_ends_at, released_at, confirmed_by_payment_id, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+COPY app.promotion_redemptions (promotion_redemptions_id, uuid, membership_promotion_id, promotion_id, campaign_id, redemption_status, reserved_at, confirmed_at, expires_at, usage_ends_at, released_at, confirmed_by_payment_id, is_active, status, created_at, updated_at, created_by, updated_by, manual_note, manual_by_user_id, expiry_notice_sent_at, last_reminded_at, last_reminded_by_user_id) FROM stdin;
 \.
 
 ALTER TABLE app.promotion_redemptions ENABLE TRIGGER ALL;
@@ -3838,6 +3844,14 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1539	5	449	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1541	5	450	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1543	5	451	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1544	1	452	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1545	1	453	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1546	1	454	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1547	1	455	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1549	2	452	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1551	2	453	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1553	2	454	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1555	2	455	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -3871,7 +3885,7 @@ COPY app.scheduled_jobs (scheduled_jobs_id, uuid, code, display_name, descriptio
 20	6850ca16-3ae5-c5c6-86e4-6ee21fd88f84	OPERATIONAL_LOG_RETENTION	Retención de logs operativos	Borra filas antiguas de logs operativos: notificaciones ya enviadas o descartadas, historial de ejecuciones de jobs y enlaces de descarga vencidos o revocados. No toca la auditoría. Días de retención por tabla en los parámetros (mínimo 7).	0 45 3 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{"jobRunsDays": 90, "downloadLinksDays": 30, "notificationsDays": 90}	5	10
 21	050236c8-4154-9e47-a87a-b13ad6edc518	LINK_EXPIRY_SWEEP	Marcado de enlaces vencidos	Marca como vencidos (EXPIRED) los enlaces de descarga y de reportes compartidos cuya vigencia ya pasó. No borra nada: el enlace se rechaza al usarlo aunque este job aún no lo haya marcado.	0 5 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 22	256ddf28-6faf-0ef1-a203-188404848324	GENERATED_REPORT_PURGE	Depuración de reportes generados	Borra de R2 los reportes y fichas generados (archivos temporales) con más días que la retención configurada en el sistema, y los marca como depurados. La auditoría de reportes se conserva; solo se elimina la copia del archivo.	0 30 4 * * *	America/Caracas	f	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
-23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó, vence los cupos pendientes sin confirmar (liberando cupo y reactivando campañas agotadas), termina las promociones cuya ventana de uso acabó y vence los vales de aliados sin canjear.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
+23	be67ef26-b7a8-6996-069b-ca83a492eb15	CAMPAIGN_LIFECYCLE	Ciclo de vida de campañas	Cierra las campañas cuya fecha de fin ya pasó, confirma los cupos pendientes que ya tienen su pago, vence los pendientes sin confirmar (salvo los que tienen un pago en revisión), avisa 48 horas antes del vencimiento, termina las promociones cuya ventana de uso acabó y vence los vales de aliados sin canjear.	0 10 * * * *	America/Caracas	t	f	30	f	\N	\N	\N	t	ENABLED	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	{}	5	10
 \.
 
 ALTER TABLE app.scheduled_jobs ENABLE TRIGGER ALL;
@@ -4080,7 +4094,7 @@ SELECT pg_catalog.setval('app.attached_files_attached_files_id_seq', 1, false);
 -- Name: audit_entity_config_audit_entity_config_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.audit_entity_config_audit_entity_config_id_seq', 59, true);
+SELECT pg_catalog.setval('app.audit_entity_config_audit_entity_config_id_seq', 60, true);
 
 --
 -- Name: banks_banks_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4458,7 +4472,7 @@ SELECT pg_catalog.setval('app.permission_domains_permission_domains_id_seq', 39,
 -- Name: permissions_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 451, true);
+SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 455, true);
 
 --
 -- Name: person_credit_entries_person_credit_entries_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4584,7 +4598,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1543, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1555, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

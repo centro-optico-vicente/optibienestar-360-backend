@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #7a5cc9; border-bottom: 2px solid #7a5cc9; padding-bottom: 8px; }
+        .info-box { background: #f2eefa; padding: 14px; border-left: 4px solid #7a5cc9; margin: 12px 0; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2 th:if="${!expired}">A promotion slot is about to expire</h2>
+    <h2 th:if="${expired}">A promotion slot expired</h2>
+
+    <p th:if="${!forAdvisor}">Hello <span th:text="${memberName}"></span>,</p>
+    <p th:if="${forAdvisor}">Hello,</p>
+
+    <div class="info-box" th:if="${!expired and !forAdvisor}">
+        <p>
+            Your slot in the promotion <strong th:text="${promotionName}"></strong>
+            is not confirmed yet and expires on <strong th:text="${deadline}"></strong>.
+            Register or complete your payment before then to keep it.
+        </p>
+    </div>
+    <div class="info-box" th:if="${!expired and forAdvisor}">
+        <p>
+            The slot of <strong th:text="${memberName}"></strong> in the promotion
+            <strong th:text="${promotionName}"></strong> is not confirmed yet and expires on
+            <strong th:text="${deadline}"></strong>. Help them register their payment before then.
+        </p>
+    </div>
+    <div class="info-box" th:if="${expired and !forAdvisor}">
+        <p>
+            Your slot in the promotion <strong th:text="${promotionName}"></strong> expired without
+            being confirmed, so the promotion no longer applies to your membership.
+        </p>
+    </div>
+    <div class="info-box" th:if="${expired and forAdvisor}">
+        <p>
+            The slot of <strong th:text="${memberName}"></strong> in the promotion
+            <strong th:text="${promotionName}"></strong> expired without being confirmed and was released.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Campaign:</span>
+        <span th:text="${campaignName}"></span>
+    </div>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        This is an automatic message. No reply is needed.
+    </div>
+</body>
+</html>

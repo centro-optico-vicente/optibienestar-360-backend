@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body  { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; }
+        h2    { color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 8px; }
+        .field { margin: 10px 0; }
+        .label { font-weight: bold; color: #555; display: inline-block; min-width: 130px; }
+        .info-box { background: #eef7f1; padding: 14px; border-left: 4px solid #1f7a4d; }
+        .footer { margin-top: 24px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h2>Pago pendiente de revisión que confirma un cupo</h2>
+
+    <p>Hola,</p>
+
+    <div class="info-box">
+        <p>
+            El pago de <strong th:text="${memberName}"></strong> está en revisión y, al aprobarlo,
+            confirma su cupo en la promoción <strong th:text="${promotionName}"></strong>
+            de la campaña <strong th:text="${campaignName}"></strong>.
+        </p>
+        <p th:if="${deadline != null}">
+            Plazo del cupo: <strong th:text="${deadline}"></strong>. Mientras el pago esté en revisión,
+            el plazo no corre.
+        </p>
+    </div>
+
+    <div class="field">
+        <span class="label">Monto:</span>
+        <span th:text="${amount} + ' ' + ${currency}"></span>
+    </div>
+    <div class="field" th:if="${reference != null}">
+        <span class="label">Referencia:</span>
+        <span th:text="${reference}"></span>
+    </div>
+    <div class="field" th:if="${note != null}">
+        <span class="label">Nota:</span>
+        <span th:text="${note}"></span>
+    </div>
+
+    <div class="footer">
+        Centro Óptico Vicente — OptiBienestar 360<br>
+        Recordatorio interno. No es necesario responderlo.
+    </div>
+</body>
+</html>

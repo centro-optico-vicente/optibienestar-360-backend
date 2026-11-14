@@ -57,6 +57,8 @@ import com.fenixcore.optibienestar360.modules.promoter.service.PromoterResolver;
 import com.fenixcore.optibienestar360.modules.payment.dto.DiscountAuthorityDto;
 import com.fenixcore.optibienestar360.modules.validator.service.ValidatorCacheService;
 import io.github.perplexhub.rsql.RSQLJPASupport;
+import com.fenixcore.optibienestar360.modules.promotion.dto.PaymentPromotionSlotDto;
+import com.fenixcore.optibienestar360.modules.promotion.service.PromotionSlotStatusService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -191,6 +193,8 @@ public class PaymentsService {
     private final PayerBankAccountService payerBankAccountService;
     private final PaymentCreditClaimService paymentCreditClaimService;
     private final com.fenixcore.optibienestar360.modules.promoter.repository.PromoterPayoutAccountRepository payoutAccountRepository;
+    /** Campaign slot of a payment (V260); a provider so the payment module never needs the slot lifecycle at startup. */
+    private final ObjectProvider<PromotionSlotStatusService> promotionSlotStatusProvider;
 
     /** {@code administración} recipient for the new-payment and review-decision promoter/admin notices (V153). */
     @Value("${mail.admin}")
@@ -208,11 +212,34 @@ public class PaymentsService {
      */
     private PaymentDto toDtoWithCredit(Payment payment) {
         PaymentDto dto = mapper.toDto(payment);
-        if (dto == null || payment.getId() == null || !personCreditService.hasLedger(payment)) {
+        if (dto == null) {
+            return null;
+        }
+        dto = withPromotionSlot(dto, payment);
+        if (payment.getId() == null || !personCreditService.hasLedger(payment)) {
             return dto;
         }
         return dto.withCredit(paymentCreditClaimService.openClaimOf(payment).orElse(null),
                 personCreditService.remaining(payment));
+    }
+
+    /**
+     * Adds the campaign slot the payment confirmed or may confirm (V260, hub
+     * ADR 0038 §9): reviewers see whether approving it confirms the slot.
+     * Best-effort — a lookup failure never breaks the payment read.
+     */
+    private PaymentDto withPromotionSlot(PaymentDto dto, Payment payment) {
+        PromotionSlotStatusService slotStatus = promotionSlotStatusProvider.getIfAvailable();
+        if (slotStatus == null || !"IN".equals(payment.getDirection()) || payment.getMembership() == null) {
+            return dto;
+        }
+        try {
+            PaymentPromotionSlotDto slot = slotStatus.slotFor(payment);
+            return slot == null ? dto : dto.withPromotionSlot(slot);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to resolve the campaign slot of payment {}", payment.getUuid(), ex);
+            return dto;
+        }
     }
 
     /**

@@ -98,6 +98,13 @@ public class MembershipBenefitGrant extends BaseEntity {
     }
 
     public enum GrantStatus {
-        AVAILABLE, REDEEMED, EXPIRED, CANCELED
+        AVAILABLE, REDEEMED, EXPIRED, CANCELED,
+        /**
+         * Never stored: the member portal ({@code includePending=true}) lists
+         * the ally benefits whose slot is still PENDING under this status
+         * (V260, hub ADR 0038 §9). They are not vouchers yet and cannot be
+         * redeemed.
+         */
+        PENDING_CONFIRMATION
     }
 }

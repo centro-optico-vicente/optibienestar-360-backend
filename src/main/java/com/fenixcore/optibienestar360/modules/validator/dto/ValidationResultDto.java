@@ -61,7 +61,12 @@ public record ValidationResultDto(
         // Campaign vouchers of this membership the calling ally can redeem
         // (V257, hub ADR 0038 §7). Added per caller after the cache, never
         // cached itself: the cached answer is shared by every ally.
-        List<com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto> benefitGrants
+        List<com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto> benefitGrants,
+
+        // Ally benefits of this membership whose campaign slot is still
+        // PENDING (V260, hub ADR 0038 §9): information only, not redeemable.
+        // Added per caller with benefitGrants, never cached.
+        List<com.fenixcore.optibienestar360.modules.promotion.dto.PendingBenefitDto> pendingBenefits
 ) {
 
     /** This answer with the calling ally's AVAILABLE vouchers. */
@@ -70,7 +75,17 @@ public record ValidationResultDto(
         return new ValidationResultDto(status, documentType, documentNumber, memberUuid, memberFullName,
                 planUuid, planCode, planName, membershipUuid, enrolledAt, nextDueDate, lastPaidThrough,
                 gracePeriodDays, beneficiaryUuid, beneficiaryFullName, beneficiaryRelationship, beneficiaries,
-                cached, grants);
+                cached, grants, pendingBenefits);
+    }
+
+    /** This answer with the calling ally's vouchers and its benefits still pending confirmation (V260). */
+    public ValidationResultDto withBenefits(
+            List<com.fenixcore.optibienestar360.modules.promotion.dto.MembershipBenefitGrantDto> grants,
+            List<com.fenixcore.optibienestar360.modules.promotion.dto.PendingBenefitDto> pending) {
+        return new ValidationResultDto(status, documentType, documentNumber, memberUuid, memberFullName,
+                planUuid, planCode, planName, membershipUuid, enrolledAt, nextDueDate, lastPaidThrough,
+                gracePeriodDays, beneficiaryUuid, beneficiaryFullName, beneficiaryRelationship, beneficiaries,
+                cached, grants, pending);
     }
 
     /** An active beneficiary of the validated membership. */
