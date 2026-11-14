@@ -39,7 +39,7 @@ products                                             8
 professions                                         21
 promoter_ranks                                       3
 promoters                                            1
-role_permissions                                  1096
+role_permissions                                  1100
 roles                                                9
 scheduled_jobs                                      22
 security_policies                                    1
