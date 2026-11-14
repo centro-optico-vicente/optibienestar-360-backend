@@ -135,13 +135,14 @@ WHERE r.name IN ('SYSTEM', 'ADMINISTRADOR', 'OPERADOR')
   AND p.name IN ('CAMPAIGN_CLOSE', 'CAMPAIGN_REOPEN', 'CAMPAIGN_PAUSE')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- ─── 5. CAMPAIGN_LIFECYCLE daily job ───────────────────────────────────────
+-- ─── 5. CAMPAIGN_LIFECYCLE hourly job ──────────────────────────────────────
+-- Hourly so an expired pending slot is offered again within the hour.
 INSERT INTO scheduled_jobs (code, display_name, description, cron_expression, timezone, parameters)
 VALUES (
     'CAMPAIGN_LIFECYCLE',
     'Ciclo de vida de campañas',
     'Cierra las campañas cuya fecha de fin ya pasó (si la fecha es una condición de cierre) y mantiene al día el estado de sus cupos.',
-    '0 10 0 * * *',
+    '0 10 * * * *',
     'America/Caracas',
     '{}'::jsonb
 )
