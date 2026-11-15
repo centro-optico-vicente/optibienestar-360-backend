@@ -22,7 +22,8 @@ Código: `src/main/java/com/fenixcore/optibienestar360/{core,security,common,mod
 | Qué tablas/columnas/FKs existen | `scripts/db/table.sh <tabla>` · `--find txt` · `--column col` · `--refs tabla` · `--columns tabla` |
 | Datos sembrados / catálogos | `src/main/resources/db/snapshot/seed-catalog.md` (buscar con `grep`) |
 | Última migración | `ls src/main/resources/db/migration \| sort -V \| tail -1` |
-| Nueva migración / entidad / endpoint | skills `new-migration`, `new-entity`, `new-endpoint` |
+| Nueva migración / entidad / endpoint / rol | skills `new-migration`, `new-entity`, `new-endpoint`, `new-role` |
+| PR con conflicto de migraciones o snapshot | skill `migration-conflict` |
 | Convención de un área | `.ai/specs/NN-*.md` (índice en `.ai/specs/00-overview.md`): seguridad 04, roles 05, REST 06, R2 08, i18n 14, reportes 15, auditoría 16, filtros 19 |
 | ¿Ya está decidido? | `.ai/decisions/README.md` (ADR locales) y el índice del hub `../centro-optico-vicente/.ai/decisions/README.md` |
 | Regla de negocio | `../centro-optico-vicente/.ai/context/business-rules.md` (buscar la sección, no leer entero) |

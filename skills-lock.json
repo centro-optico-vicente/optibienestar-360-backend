@@ -31,12 +31,6 @@
       "skillPath": "skills/rest-api-design/SKILL.md",
       "computedHash": "e249c58df5d9d59407fc4de70b0d75bb336d917bbe0a75695d6ec8cf13cfaf35"
     },
-    "spring-boot-engineer": {
-      "source": "jeffallan/claude-skills",
-      "sourceType": "github",
-      "skillPath": "skills/spring-boot-engineer/SKILL.md",
-      "computedHash": "ed065f5db45afe9dc2739cff713927d0b6b6ad3e667bdf7b40340d1a5543bb0f"
-    },
     "spring-data-jpa": {
       "source": "giuseppe-trisciuoglio/developer-kit",
       "sourceType": "github",
