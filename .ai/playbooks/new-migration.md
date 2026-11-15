@@ -22,7 +22,7 @@ Verificar la última migración existente:
 
 ```bash
 ls -1 src/main/resources/db/migration/ | sort -V | tail
-# Devuelve la última migración real del repo (a esta fecha, V176+) — no asumir
+# Devuelve la última migración real del repo — no asumir
 # un número fijo, siempre correr el comando.
 
 # Próximo: el que sigue a la última que devolvió el comando de arriba.

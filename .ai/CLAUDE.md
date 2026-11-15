@@ -1,107 +1,15 @@
-# `.ai/` — Brief para asistencia IA (backend)
+# `.ai/` del backend — mapa de la carpeta
 
-> Brief específico del repo `optibienestar-360-backend`. Para visión cross-stack y decisiones globales, ver el hub maestro en [`../../centro-optico-vicente/.ai/`](https://github.com/centro-optico-vicente/centro-optico-vicente/tree/main/.ai/).
+> Se carga solo cuando la IA abre algo dentro de `.ai/`; por eso es corto ([ADR 0040 del hub](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0040-ai-context-token-budget.md)). Reglas y ruteo por tarea: [`CLAUDE.md` raíz](../CLAUDE.md).
 
-## Qué es este repo
+| Carpeta / archivo | Contiene | Cuándo abrirlo |
+|---|---|---|
+| `decisions/README.md` | Índice de ADR locales (`LOC-`) | Antes de proponer un diseño |
+| `specs/NN-*.md` | Convenciones por área (índice en `specs/00-overview.md`) | Solo la del área que se toca |
+| `playbooks/` | Pasos para entidad, migración, endpoint, rol, build local | Vía las skills `new-*` |
+| `context/current-state.md` | Lo que existe HOY | Antes de asumir que algo existe |
+| `checklist.md` → `checklists/vertical-*.md` | Tabla resumen → tareas por vertical | Para elegir o marcar trabajo |
+| `notes/`, `scope-additions-*.md`, `tools/` | Auditorías y alcances históricos | Solo si la tarea los nombra |
+| `skills.md` | Catálogo de skills externos | Al instalar skills |
 
-Backend REST API del ecosistema OptiBienestar 360. Implementa lógica de negocio, persistencia, auth, jobs scheduleados, comunicaciones email para las fases del producto (FASE 1 bootstrap + FASE 5 afiliaciones/membresías).
-
-## Stack confirmado
-
-Ver `CLAUDE.md` root del repo.
-
-## Estructura de paquetes (objetivo)
-
-```
-com.fenixcore.optibienestar360/
-├── OptiBienestar360Application.java
-├── core/                 # Cross-cutting (config, exceptions, auditing)
-├── security/             # Auth, JWT, filters
-├── common/               # Servicios compartidos (storage, email)
-└── modules/              # Módulos de negocio
-    ├── users/
-    ├── allies/
-    ├── members/
-    ├── memberships/
-    ├── payments/
-    ├── promoters/
-    ├── validator/
-    └── notifications/
-```
-
-Detalle en [`specs/01-package-structure.md`](specs/01-package-structure.md).
-
-## Reglas de oro (locales)
-
-1. **Cada migración Flyway sigue convención**: `V{N}__{snake_case_descripcion}.sql`. Una vez aplicada en prod, es inmutable. Para corregir, crear `V{N+1}__fix_X.sql`.
-2. **JPA en `validate` mode SIEMPRE**. Nunca `update`/`create`/`create-drop`.
-3. **Toda tabla extiende `BaseEntity`** (PK dual `BIGINT` interno `{tabla}_id` + `uuid` externo, audit columns, is_active, status — **no** PK UUID simple). Ver [ADR 0006 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md) y [ADR LOC-0005 local](decisions/loc-0005-table-id-convention.md).
-4. **Soft delete**: nunca `repository.delete()` en datos sensibles — usar `setIsActive(false)`.
-5. **Datos médicos**: `MedicalRecord` con `@PreAuthorize` y audit log obligatorio en cada acceso.
-6. **Pagos siempre manuales** (no integrar Stripe). Ver [ADR 0008 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md).
-7. **Idioma**: **código en inglés** — identificadores (clases, métodos, variables, paquetes, constantes), **comentarios** (Javadoc, inline, headers SQL), logs y mensajes de excepción técnicos. Solo van en español los **datos visibles al usuario**: textos UI (en el frontend, no acá), plantillas email, y valores del dominio que terminan en la BD como datos (ej. `permission_domains.label = 'Afiliados'`, descripciones de roles). Detalle en [ADR LOC-0009 local (espejo)](decisions/loc-0009-code-conventions.md) y [ADR LOC-0007 naming Java](decisions/loc-0007-java-naming-conventions.md).
-8. **Endpoints**: `/v1/{group}/...` con `kebab-case`. JSON keys en **`camelCase`** (no `snake_case` — ver [ADR 0019 cross-stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0019-api-json-casing-contract.md)). Errores RFC 7807.
-9. **Mensajes user-facing van vía MessageSource code, nunca string literal.** Excepciones de negocio extienden `LocalizedBusinessException` o reusan JDK/Spring exceptions con el code en `getMessage()`. Validación Jakarta Bean usa `@Pattern(message="{validation.x.y}")`. Texto en español o inglés vive únicamente en `messages_*.properties` / `ValidationMessages_*.properties` y plantillas email `<name>_<lang>.html`. Detalle, naming y patrones en [`specs/14-i18n.md`](specs/14-i18n.md).
-10. **BD actual = [`../src/main/resources/db/snapshot/`](../src/main/resources/db/snapshot/README.md)** (`schema-map.md`, `schema.sql`, `data.sql`, `seed-catalog.md`): es el estado final tras todas las migraciones (un `RENAME` aparece ya con el nombre nuevo). Para saber qué tablas, columnas, FKs, índices o datos sembrados existen, **leer esos archivos, no reconstruir el esquema migración por migración**. **Al crear o modificar una migración, regenerar con `scripts/db/snapshot.sh --fresh` (o `./gradlew dbSnapshot`) y commitear `src/main/resources/db/snapshot/` en el mismo PR**; nunca editarlos a mano (el job `db-snapshot` de CI lo commitea si se olvida).
-
-## Convenciones de trabajo con IA
-
-Reglas que aplican a cualquier sesión/agente IA en este repo (Claude Code, Cursor, Copilot, etc.):
-
-- **Commits sin trailer `Co-Authored-By`**. El autor humano firma el commit; no agregar `Co-Authored-By: Claude <…>` ni similares.
-- **Invocar skills proactivamente** al iniciar trabajo relevante, no después. Catálogo en [`skills.md`](skills.md). Ejemplos: `spring-boot-engineer` para nuevos endpoints, `postgresql-table-design` para nuevas tablas, `owasp-security` antes de tocar auth.
-- **Verificar `current-state.md` antes de asumir** qué existe — los checklists describen lo planeado, no lo construido.
-- **No re-discutir decisiones** ya congeladas en `decisions/` o en el hub salvo que se escriba un ADR nuevo que las supersede.
-- **Nunca commits directos a `main`** — todo cambio entra vía PR desde una rama `<tipo>/<descripción>` (`feature/`, `fix/`, `hotfix/`, `chore/`, `refactor/`). Sin excepciones, ni siquiera para hotfixes o cambios "obvios". Ver [ADR LOC-0004](decisions/loc-0004-pr-and-branch-conventions.md) (regla cero).
-- **Crear ramas con `--no-track`** desde `origin/main`: `git switch -c <tipo>/<descripcion> --no-track origin/main`. **Nunca** `git checkout origin/main -b <name>` porque configura automáticamente el upstream de la rama nueva a `origin/main` y dispara pushes accidentales a `main` (el bug que provocó la creación de la regla cero).
-- **Hook pre-push activado** — el repo trae [`.githooks/pre-push`](../.githooks/pre-push) que bloquea cualquier `git push` hacia `refs/heads/main`. Activar una vez por clone con `git config core.hooksPath .githooks` (también está en el [README root](../README.md#local-clone-setup-one-time)). Es la red de seguridad porque Branch Protection de GitHub es paid-only en repos privados.
-- **PR/branch siguen Conventional Commits** + Gitflow simplificado. La primera línea del cuerpo repite el título.
-
-## Orden de lectura recomendado para una IA
-
-1. Este `CLAUDE.md`
-2. [`README.md`](README.md) — estructura local detallada
-3. [`context/current-state.md`](context/current-state.md) — qué existe HOY
-4. [`checklist.md`](checklist.md) — qué hacer
-5. Hub: [`../../centro-optico-vicente/.ai/context/business-rules.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/context/business-rules.md)
-6. Hub: [`../../centro-optico-vicente/.ai/specs/05-domain-model.md`](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/specs/05-domain-model.md)
-7. [`../src/main/resources/db/snapshot/schema-map.md`](../src/main/resources/db/snapshot/schema-map.md) — BD actual generada (tablas, relaciones, índices); [`specs/02-database.md`](specs/02-database.md) — diseño y convenciones (manual)
-8. [`specs/04-security.md`](specs/04-security.md) — Spring Security config
-
-## Para tareas comunes
-
-| Tarea | Playbook |
-|---|---|
-| Correr el backend en local (primera vez) | [`playbooks/local-build.md`](playbooks/local-build.md) |
-| Crear nueva entidad + CRUD completo | [`playbooks/new-entity.md`](playbooks/new-entity.md) |
-| Crear nueva migración Flyway | [`playbooks/new-migration.md`](playbooks/new-migration.md) |
-| Crear nuevo endpoint REST | [`playbooks/new-endpoint.md`](playbooks/new-endpoint.md) |
-| Agregar nuevo rol/permiso | [`playbooks/new-role.md`](playbooks/new-role.md) |
-
-## Decisiones congeladas relevantes
-
-**Cross-stack (en el hub):**
-- [ADR 0001 Stack](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0001-stack.md)
-- [ADR 0004 Only free tools](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0004-only-free-tools.md)
-- [ADR 0005 Flyway + JPA validate](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0005-flyway-jpa.md)
-- [ADR 0006 Table conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0006-table-conventions.md)
-- [ADR 0007 R2 as S3](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0007-r2-as-s3.md)
-- [ADR 0008 Manual payments](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0008-manual-payments.md)
-- [ADR 0009 Code conventions](https://github.com/centro-optico-vicente/centro-optico-vicente/blob/main/.ai/decisions/0009-code-conventions.md)
-
-**Locales (en este repo, prefijo `LOC-` desde 2026-10-10 para no confundirlas con las del hub):**
-- [ADR LOC-0001 Jetty over Tomcat](decisions/loc-0001-jetty-over-tomcat.md)
-- [ADR LOC-0002 Soft delete pattern](decisions/loc-0002-soft-delete.md)
-- [ADR LOC-0003 Audit columns](decisions/loc-0003-audit-columns.md)
-- [ADR LOC-0004 PR & branch conventions](decisions/loc-0004-pr-and-branch-conventions.md)
-- [ADR LOC-0005 Table ID convention](decisions/loc-0005-table-id-convention.md)
-- [ADR LOC-0006 Repository search conventions](decisions/loc-0006-repository-search-conventions.md)
-- [ADR LOC-0007 Java naming conventions](decisions/loc-0007-java-naming-conventions.md)
-- [ADR LOC-0009 Code conventions (espejo del hub)](decisions/loc-0009-code-conventions.md)
-- [ADR LOC-0010 Localización Venezuela (espejo del hub)](decisions/loc-0010-localization-venezuela.md)
-- [ADR LOC-0011 Persons como hub central de identidad](decisions/loc-0011-persons-identity-hub.md)
-- [ADR LOC-0012 Convenciones HTTP para estado vacío](decisions/loc-0012-empty-state-http-conventions.md)
-- [ADR LOC-0013 Convención `?q=` + endpoint `/options`](decisions/loc-0013-options-endpoint-conventions.md)
-- [ADR LOC-0014 Service complexity refactor bajo demanda](decisions/loc-0014-service-complexity-refactor-on-demand.md)
-- [ADR LOC-0015 Contrato OpenAPI publicado por release](decisions/loc-0015-openapi-contract-per-release.md) (Propuesto)
-- [ADR LOC-0016 Distribución de cartera y filtro "Sin asesor"](decisions/loc-0016-portfolio-distribution.md)
+La BD actual **no** está aquí: `scripts/db/table.sh` sobre `src/main/resources/db/snapshot/`. Al marcar tareas, recalcular totales con `../centro-optico-vicente/scripts/ai/ai_audit.sh checklists .ai`.
