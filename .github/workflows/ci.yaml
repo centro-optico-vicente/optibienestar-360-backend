@@ -15,9 +15,25 @@ on:
       - main
     paths-ignore:
       - '**/*.md'
+      - '.ai/**'
+      - '.claude/**'
+      - '.agents/**'
+      - 'skills-lock.json'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'scripts/db/table.py'
+      - 'scripts/db/table.sh'
   pull_request:
     paths-ignore:
       - '**/*.md'
+      - '.ai/**'
+      - '.claude/**'
+      - '.agents/**'
+      - 'skills-lock.json'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'scripts/db/table.py'
+      - 'scripts/db/table.sh'
 
 # Cancel in-progress runs for the same branch when a new push arrives
 concurrency:
