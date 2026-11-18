@@ -314,21 +314,39 @@ public class AlliesService {
             spec = spec.and(PublicCatalogSearch.allyCityMatches(search.city()));
         }
 
-        UUID professionUuid = search.professionUuid();
-        if (professionUuid != null) {
+        List<UUID> professionUuids = search.professionUuid();
+        if (!professionUuids.isEmpty()) {
             spec = spec.and((root, query, cb) -> {
                 if (query != null) {
                     query.distinct(true);
                 }
                 Join<Object, Object> professions = root.join("professions");
-                return cb.equal(professions.get("uuid"), professionUuid);
+                return professions.get("uuid").in(professionUuids);
+            });
+        }
+
+        if (!search.allyTypeUuid().isEmpty() || !search.allyType().isEmpty()) {
+            List<UUID> allyTypeUuids = search.allyTypeUuid();
+            List<String> allyTypes = search.allyType();
+            spec = spec.and((root, query, cb) -> {
+                if (query != null) {
+                    query.distinct(true);
+                }
+                Join<Ally, AllyType> types = root.join("allyTypes");
+                List<Predicate> any = new ArrayList<>();
+                if (!allyTypeUuids.isEmpty()) {
+                    any.add(types.get("uuid").in(allyTypeUuids));
+                }
+                if (!allyTypes.isEmpty()) {
+                    any.add(PublicCatalogSearch.allyTypeMatchesAny(cb, types, allyTypes));
+                }
+                return cb.or(any.toArray(Predicate[]::new));
             });
         }
 
         ProductType type = PublicCatalogSearch.parseType(search.type());
-        String category = PublicCatalogSearch.hasText(search.category()) ? search.category() : null;
-        if (search.categoryUuid() != null || category != null || type != null) {
-            spec = spec.and(offersPublicly(search.categoryUuid(), category, type));
+        if (!search.categoryUuid().isEmpty() || !search.category().isEmpty() || type != null) {
+            spec = spec.and(offersPublicly(search.categoryUuid(), search.category(), type));
         }
 
         if (PublicCatalogSearch.hasText(search.q())) {
@@ -347,7 +365,7 @@ public class AlliesService {
      * 0026) — an EXISTS over {@code ally_products} with the same visibility rule
      * as the public catalog, so an ally never matches through a hidden offer.
      */
-    private static Specification<Ally> offersPublicly(UUID categoryUuid, String category, ProductType type) {
+    private static Specification<Ally> offersPublicly(List<UUID> categoryUuids, List<String> categories, ProductType type) {
         return (root, query, cb) -> {
             Subquery<Long> sub = query.subquery(Long.class);
             Root<AllyProduct> offer = sub.from(AllyProduct.class);
@@ -357,12 +375,17 @@ public class AlliesService {
                     cb.isTrue(offer.get("published")),
                     cb.equal(offer.get("reviewStatus"), AllyProduct.ReviewStatus.APPROVED),
                     cb.isTrue(offer.get("product").get("active"))));
-            if (categoryUuid != null) {
-                predicates.add(cb.equal(offer.get("product").get("productCategory").get("uuid"), categoryUuid));
-            }
-            if (category != null) {
-                predicates.add(PublicCatalogSearch.categoryMatches(cb,
-                        offer.join("product").join("productCategory"), category));
+            if (!categoryUuids.isEmpty() || !categories.isEmpty()) {
+                // Same category dimension: an offer in ANY of the chosen categories (by id or by name/code).
+                List<Predicate> anyCategory = new ArrayList<>();
+                if (!categoryUuids.isEmpty()) {
+                    anyCategory.add(offer.get("product").get("productCategory").get("uuid").in(categoryUuids));
+                }
+                if (!categories.isEmpty()) {
+                    anyCategory.add(PublicCatalogSearch.categoryMatchesAny(cb,
+                            offer.join("product").join("productCategory"), categories));
+                }
+                predicates.add(cb.or(anyCategory.toArray(Predicate[]::new)));
             }
             if (type != null) {
                 predicates.add(cb.equal(offer.get("product").get("productType"), type));

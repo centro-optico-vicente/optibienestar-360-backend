@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /**
@@ -92,11 +93,8 @@ public class PublicProductsService {
      */
     public Page<PublicProductListItemDto> search(PublicProductSearch search, Pageable pageable) {
         Specification<AllyProduct> spec = listedInCatalog();
-        if (search.categoryUuid() != null) {
-            spec = spec.and(categoryEquals(search.categoryUuid()));
-        }
-        if (PublicCatalogSearch.hasText(search.category())) {
-            spec = spec.and(PublicCatalogSearch.offerCategoryMatches(search.category()));
+        if (!search.categoryUuid().isEmpty() || !search.category().isEmpty()) {
+            spec = spec.and(categoryAny(search.categoryUuid(), search.category()));
         }
         if (search.cityUuid() != null) {
             spec = spec.and(allyCityEquals(search.cityUuid()));
@@ -104,11 +102,8 @@ public class PublicProductsService {
         if (PublicCatalogSearch.hasText(search.city())) {
             spec = spec.and(PublicCatalogSearch.offerCityMatches(search.city()));
         }
-        if (search.allyUuid() != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("ally").get("uuid"), search.allyUuid()));
-        }
-        if (PublicCatalogSearch.hasText(search.ally())) {
-            spec = spec.and(PublicCatalogSearch.offerAllyMatches(search.ally()));
+        if (!search.allyUuid().isEmpty() || !search.ally().isEmpty()) {
+            spec = spec.and(allyAny(search.allyUuid(), search.ally()));
         }
         ProductType type = PublicCatalogSearch.parseType(search.type());
         if (type != null) {
@@ -253,6 +248,30 @@ public class PublicProductsService {
         return pageable.isPaged()
                 ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort)
                 : Pageable.unpaged(sort);
+    }
+
+    /** An offer in ANY of the chosen categories, by id or by name/code. */
+    private static Specification<AllyProduct> categoryAny(List<UUID> uuids, List<String> texts) {
+        List<Specification<AllyProduct>> any = new ArrayList<>();
+        if (!uuids.isEmpty()) {
+            any.add((root, query, cb) -> root.get("product").get("productCategory").get("uuid").in(uuids));
+        }
+        if (!texts.isEmpty()) {
+            any.add(PublicCatalogSearch.offerCategoryMatchesAny(texts));
+        }
+        return any.stream().reduce(Specification::or).orElseThrow();
+    }
+
+    /** An offer by ANY of the chosen allies, by id or by name / RIF / number. */
+    private static Specification<AllyProduct> allyAny(List<UUID> uuids, List<String> texts) {
+        List<Specification<AllyProduct>> any = new ArrayList<>();
+        if (!uuids.isEmpty()) {
+            any.add((root, query, cb) -> root.get("ally").get("uuid").in(uuids));
+        }
+        if (!texts.isEmpty()) {
+            any.add(PublicCatalogSearch.offerAllyMatchesAny(texts));
+        }
+        return any.stream().reduce(Specification::or).orElseThrow();
     }
 
     private static Specification<AllyProduct> categoryEquals(UUID categoryUuid) {

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -36,6 +37,9 @@ import java.util.UUID;
  *   <li>{@code city} — the ally's city or state;</li>
  *   <li>{@code ally} — the ally's name, RIF ({@code J-12345678-9}) or ally number.</li>
  * </ul>
+ * <p>{@code category}, {@code categoryUuid}, {@code ally} and {@code allyUuid}
+ * accept several values ({@code ?category=a&category=b}); an offer matches
+ * when it fits ANY value of the same filter.</p>
  * <p>{@code categoryUuid} / {@code cityUuid} / {@code allyUuid} remain for
  * clients that already hold ids. Default order is product name ascending.
  * The detail shows one product with every ally that offers it and its own
@@ -53,12 +57,12 @@ public class PublicProductController {
     public ResponseEntity<Page<PublicProductListItemDto>> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) List<String> category,
+            @RequestParam(required = false) List<UUID> categoryUuid,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) UUID cityUuid,
-            @RequestParam(required = false) String ally,
-            @RequestParam(required = false) UUID allyUuid,
+            @RequestParam(required = false) List<String> ally,
+            @RequestParam(required = false) List<UUID> allyUuid,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         PublicProductSearch search = new PublicProductSearch(q, type, category, categoryUuid, city, cityUuid, ally, allyUuid);
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
