@@ -85,9 +85,18 @@ public class DynamicScheduledJobsRegistry {
      * fire here, so its data isn't stale until whenever the cron next lands.
      * That catch-up is async and one-off; the {@link #register} call just
      * above it is what keeps the job running on schedule afterwards.</p>
+     *
+     * <p>Before arming anything, runs left {@code RUNNING} by a previous
+     * process are closed ({@link JobExecutionService#failOrphanedRuns}) so a
+     * crash mid-run cannot block its job's concurrency gate forever.</p>
      */
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void onApplicationReady() {
+        try {
+            executionService.failOrphanedRuns();
+        } catch (RuntimeException ex) {
+            log.error("Failed to close orphaned scheduled job runs", ex);
+        }
         log.info("Loading scheduled jobs from database");
         int count = 0;
         for (ScheduledJob job : jobRepository.findAllByActiveTrueAndEnabledTrue()) {

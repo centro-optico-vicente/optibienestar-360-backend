@@ -196,6 +196,33 @@ class DynamicScheduledJobsRegistryTest {
         assertThat(captor.getValue().nextExecution(new EmptyTriggerContext())).isNull();
     }
 
+    @Test
+    void onApplicationReady_closesOrphanedRuns_beforeArmingAnyTrigger() {
+        ScheduledJob job = jobFixture("FETCH_EXCHANGE_RATES", "0 0 * * * *", true, true);
+        job.setLastRunAt(java.time.Instant.now());
+        when(jobRepository.findAllByActiveTrueAndEnabledTrue()).thenReturn(java.util.List.of(job));
+        when(taskScheduler.schedule(any(Runnable.class), any(Trigger.class))).thenAnswer(inv -> firstFuture);
+
+        registry.onApplicationReady();
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(executionService, taskScheduler);
+        inOrder.verify(executionService).failOrphanedRuns();
+        inOrder.verify(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
+    }
+
+    @Test
+    void onApplicationReady_stillRegistersJobs_whenOrphanCleanupFails() {
+        ScheduledJob job = jobFixture("FETCH_EXCHANGE_RATES", "0 0 * * * *", true, true);
+        job.setLastRunAt(java.time.Instant.now());
+        when(executionService.failOrphanedRuns()).thenThrow(new IllegalStateException("db down"));
+        when(jobRepository.findAllByActiveTrueAndEnabledTrue()).thenReturn(java.util.List.of(job));
+        when(taskScheduler.schedule(any(Runnable.class), any(Trigger.class))).thenAnswer(inv -> firstFuture);
+
+        registry.onApplicationReady();
+
+        assertThat(registry.isRegistered("FETCH_EXCHANGE_RATES")).isTrue();
+    }
+
     // ─── helpers ───────────────────────────────────────────────────────────
 
     private static ScheduledJob jobFixture(String code, String cron, boolean enabled, boolean active) {
