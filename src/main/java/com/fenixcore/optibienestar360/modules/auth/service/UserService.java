@@ -243,6 +243,13 @@ public class UserService {
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException("user.email.exists");
         }
+        // One account per person (uniq_users_person): a cédula that already has a
+        // user gets a clear message instead of the generic constraint conflict.
+        personService.findByDocument(request.documentType(), request.documentNumber())
+                .filter(existing -> userRepository.existsByPersonId(existing.getId()))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("user.document.has_account");
+                });
 
         // Only a SYSTEM actor may create a user carrying the SYSTEM role.
         if (requestsSystemRole(request.roleIds()) && !isSystemActor(actorUuid)) {
