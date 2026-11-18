@@ -33,5 +33,6 @@ public record OrganizationDto(
         String signatoryName,
         String signatoryDocumentType,
         String signatoryDocumentNumber,
-        String signatoryPosition
+        String signatoryPosition,
+        @Display(Display.Kind.BOOLEAN) boolean publicIdentityVisible
 ) {}

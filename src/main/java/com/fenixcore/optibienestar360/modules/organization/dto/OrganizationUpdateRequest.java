@@ -36,5 +36,6 @@ public record OrganizationUpdateRequest(
         @Pattern(regexp = "^$|^[JVEGP]$", message = "{validation.tax_document_type.format}")
         String signatoryDocumentType,
         @Size(max = 20) String signatoryDocumentNumber,
-        @Size(max = 100) String signatoryPosition
+        @Size(max = 100) String signatoryPosition,
+        boolean publicIdentityVisible
 ) {}

@@ -2,8 +2,9 @@ package com.fenixcore.optibienestar360.modules.organization.dto;
 
 /**
  * Public projection of the organization for {@code GET /v1/public/organization}
- * (no authentication): who the company is and how to reach it. Only data meant
- * for the website — never the signatory, registry or commission settings that
+ * (no authentication). The identity fields are {@code null} unless the admin
+ * ticked "public identity" ({@code publicIdentityVisible}); {@code contact} is
+ * always filled. Never the signatory, registry or commission settings that
  * {@link OrganizationDto} carries for admins.
  *
  * @param name          commercial name (nombre comercial)
@@ -14,10 +15,5 @@ public record PublicOrganizationDto(
         String name,
         String legalName,
         String taxIdentifier,
-        String address,
-        String email,
-        String phones,
-        String whatsapp,
-        String instagram,
-        String facebook
+        PublicOrganizationContactDto contact
 ) {}
