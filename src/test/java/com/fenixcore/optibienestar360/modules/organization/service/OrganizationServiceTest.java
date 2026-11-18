@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyRepository;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
+import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import org.junit.jupiter.api.Test;
@@ -192,5 +193,33 @@ class OrganizationServiceTest {
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
+    }
+
+    @Test
+    void getPublicExposesIdentityAndContactOnly() {
+        Organization org = organization(null, null);
+        org.setName("OptiBienestar 360");
+        org.setLegalName("Centro Óptico Vicente, C.A.");
+        org.setTaxIdentifier("J-12345678-9");
+        org.setAddress("Av. Principal, Caracas");
+        org.setEmail("info@example.com");
+        org.setPhones("0212-5551234");
+        org.setWhatsapp("0412-2925608");
+        org.setInstagram("@optibienestar");
+        org.setFacebook("optibienestar");
+        org.setSignatoryName("Private Signatory");
+        when(repository.findSingleton()).thenReturn(org);
+
+        PublicOrganizationDto result = service().getPublic();
+
+        assertThat(result.name()).isEqualTo("OptiBienestar 360");
+        assertThat(result.legalName()).isEqualTo("Centro Óptico Vicente, C.A.");
+        assertThat(result.taxIdentifier()).isEqualTo("J-12345678-9");
+        assertThat(result.address()).isEqualTo("Av. Principal, Caracas");
+        assertThat(result.email()).isEqualTo("info@example.com");
+        assertThat(result.phones()).isEqualTo("0212-5551234");
+        assertThat(result.whatsapp()).isEqualTo("0412-2925608");
+        assertThat(result.instagram()).isEqualTo("@optibienestar");
+        assertThat(result.facebook()).isEqualTo("optibienestar");
     }
 }

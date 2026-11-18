@@ -8,6 +8,7 @@ import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyReposi
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationCurrenciesDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
+import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,21 @@ public class OrganizationService {
 
     public OrganizationDto getMine() {
         return toDto(repository.findSingleton());
+    }
+
+    /** Backs {@code GET /v1/public/organization}: identity and contact data only, no authentication. */
+    public PublicOrganizationDto getPublic() {
+        Organization org = repository.findSingleton();
+        return new PublicOrganizationDto(
+                org.getName(),
+                org.getLegalName(),
+                org.getTaxIdentifier(),
+                org.getAddress(),
+                org.getEmail(),
+                org.getPhones(),
+                org.getWhatsapp(),
+                org.getInstagram(),
+                org.getFacebook());
     }
 
     /**
