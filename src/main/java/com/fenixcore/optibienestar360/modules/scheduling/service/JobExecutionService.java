@@ -88,6 +88,28 @@ public class JobExecutionService {
         return Optional.ofNullable(runner).map(r -> r.getClass().getName());
     }
 
+    /**
+     * Closes run rows left {@code RUNNING} by a previous process that died
+     * mid-run (OOM kill, SIGKILL, host reboot). Such a row never gets its
+     * {@code finalizeRun} and, for {@code allow_concurrent=false} jobs, makes
+     * every later fire a {@code SKIPPED_CONCURRENT} forever.
+     *
+     * <p>Must only be called by the scheduler replica at startup, before it
+     * arms any trigger: at that point no run of this JVM exists yet, so every
+     * {@code RUNNING} row is an orphan. Correct only while the deployment
+     * runs a single scheduler replica; with several, this needs a heartbeat
+     * or lease per run instead.</p>
+     *
+     * @return number of orphaned runs closed
+     */
+    public int failOrphanedRuns() {
+        int closed = runRepository.failAllRunning(Instant.now(), "Interrupted by application restart");
+        if (closed > 0) {
+            log.warn("Closed {} orphaned scheduled job run(s) left RUNNING by a previous process", closed);
+        }
+        return closed;
+    }
+
     // ─── Manual trigger (hybrid sync/async) ────────────────────────────────
 
     public ManualRunResult runNow(UUID jobUuid, UUID actorUserUuid) {

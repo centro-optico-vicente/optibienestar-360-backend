@@ -34,8 +34,12 @@ COPY --from=builder /app/build/libs /tmp/libs
 RUN find /tmp/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar \; \
     && rm -rf /tmp/libs
 
-# Container-aware JVM: respects cgroup memory/CPU limits
-ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+# Container-aware JVM: respects cgroup memory/CPU limits. Heap is capped at 60%
+# and every non-heap pool is bounded, so heap + metaspace + code cache + direct
+# buffers stay under the container limit: at 75% with unbounded non-heap the JVM
+# crossed a 1152M limit and was OOM-killed by the kernel with no Java log.
+# ExitOnOutOfMemoryError + heap dump make a real exhaustion visible instead.
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=96m -XX:MaxDirectMemorySize=64m -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp -Djava.security.egd=file:/dev/./urandom"
 
 # Release metadata injected at build time from the GitHub release that triggered
 # the workflow (BUILD_VERSION = tag_name, BUILD_DATE = published_at, ISO-8601).
@@ -64,7 +68,7 @@ COPY --from=prebuilt-src . /tmp/libs/
 RUN find /tmp/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} /app/app.jar \; \
     && rm -rf /tmp/libs
 
-ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=96m -XX:MaxDirectMemorySize=64m -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp -Djava.security.egd=file:/dev/./urandom"
 
 ARG BUILD_VERSION="dev-0.0.1"
 ARG BUILD_DATE=""
