@@ -35,7 +35,9 @@ public record PublicAllySearch(
         /** Only allies with an opening-hours range covering "now" in the business zone (ADR 0031 §7). */
         boolean openNow,
         /** Only allies with at least one opening-hours range today in the business zone. */
-        boolean openToday
+        boolean openToday,
+        /** Only allies with an opening-hours range on ANY of these ISO days (1 = Monday … 7 = Sunday). */
+        List<Integer> day
 ) {
     public PublicAllySearch {
         professionUuid = PublicCatalogSearch.uuids(professionUuid);
@@ -43,9 +45,10 @@ public record PublicAllySearch(
         categoryUuid = PublicCatalogSearch.uuids(categoryUuid);
         allyType = PublicCatalogSearch.texts(allyType);
         allyTypeUuid = PublicCatalogSearch.uuids(allyTypeUuid);
+        day = day == null ? List.of() : day.stream().filter(d -> d != null && d >= 1 && d <= 7).distinct().toList();
     }
 
     public static PublicAllySearch none() {
-        return new PublicAllySearch(null, null, null, null, null, null, null, null, null, null, false, false);
+        return new PublicAllySearch(null, null, null, null, null, null, null, null, null, null, false, false, null);
     }
 }

@@ -357,6 +357,10 @@ public class AlliesService {
             spec = spec.and(openAt(LocalDateTime.now(clock), search.openNow()));
         }
 
+        if (!search.day().isEmpty()) {
+            spec = spec.and(openOnAnyDay(search.day()));
+        }
+
         return repository.findAll(spec, pageable).map(mapper::toPublicListItem);
     }
 
@@ -400,6 +404,19 @@ public class AlliesService {
      * one that covers {@code now} ({@code opensAt <= time < closesAt}). {@code now}
      * is the wall clock of the business zone (the injected {@link Clock}).
      */
+    /** "Allies that open on any of these ISO days" (1 = Monday … 7 = Sunday), whatever the hour. */
+    static Specification<Ally> openOnAnyDay(List<Integer> isoDays) {
+        List<Short> days = isoDays.stream().map(Integer::shortValue).toList();
+        return (root, query, cb) -> {
+            Subquery<Long> sub = query.subquery(Long.class);
+            Root<AllyOpeningHour> hour = sub.from(AllyOpeningHour.class);
+            sub.select(cb.literal(1L)).where(
+                    cb.equal(hour.get("ally"), root),
+                    hour.get("dayOfWeek").in(days));
+            return cb.exists(sub);
+        };
+    }
+
     static Specification<Ally> openAt(LocalDateTime now, boolean atThisTime) {
         return (root, query, cb) -> {
             Subquery<Long> sub = query.subquery(Long.class);
