@@ -8,6 +8,8 @@ import com.fenixcore.optibienestar360.modules.currency.repository.CurrencyReposi
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationCurrenciesDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
+import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationContactDto;
+import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,36 @@ public class OrganizationService {
 
     public OrganizationDto getMine() {
         return toDto(repository.findSingleton());
+    }
+
+    /**
+     * Backs {@code GET /v1/public/organization}: the identity (nombre comercial,
+     * razón social, RIF) only while {@code publicIdentityVisible} is ticked,
+     * plus the always-public contact block.
+     */
+    public PublicOrganizationDto getPublic() {
+        Organization org = repository.findSingleton();
+        boolean visible = org.isPublicIdentityVisible();
+        return new PublicOrganizationDto(
+                visible ? org.getName() : null,
+                visible ? org.getLegalName() : null,
+                visible ? org.getTaxIdentifier() : null,
+                toContact(org));
+    }
+
+    /** Backs {@code GET /v1/public/organization/contact}. */
+    public PublicOrganizationContactDto getPublicContact() {
+        return toContact(repository.findSingleton());
+    }
+
+    private static PublicOrganizationContactDto toContact(Organization org) {
+        return new PublicOrganizationContactDto(
+                org.getAddress(),
+                org.getEmail(),
+                org.getPhones(),
+                org.getWhatsapp(),
+                org.getInstagram(),
+                org.getFacebook());
     }
 
     /**
@@ -75,6 +107,7 @@ public class OrganizationService {
         org.setAddress(blankToNull(req.address()));
         org.setEmail(blankToNull(req.email()));
         org.setPhones(blankToNull(req.phones()));
+        org.setPublicIdentityVisible(req.publicIdentityVisible());
         applySignatory(org, req);
         return toDto(repository.save(org));
     }
@@ -111,7 +144,8 @@ public class OrganizationService {
                 o.getSignatoryName(),
                 o.getSignatoryDocumentType(),
                 o.getSignatoryDocumentNumber(),
-                o.getSignatoryPosition());
+                o.getSignatoryPosition(),
+                o.isPublicIdentityVisible());
     }
 
     /**

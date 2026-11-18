@@ -125,4 +125,12 @@ public class Organization extends BaseEntity {
      */
     @Column(name = "auto_approve_commissions", nullable = false)
     private boolean autoApproveCommissions;
+
+    /**
+     * When {@code true}, {@code GET /v1/public/organization} includes the
+     * commercial name, legal name and RIF; otherwise they are returned empty.
+     * Contact data is public either way (V261).
+     */
+    @Column(name = "public_identity_visible", nullable = false)
+    private boolean publicIdentityVisible;
 }

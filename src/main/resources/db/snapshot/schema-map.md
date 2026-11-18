@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V260. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V261. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 119 tables.
 
@@ -3180,6 +3180,7 @@
 - `signatory_document_type` character varying(1) — Tipo de documento del firmante: J, V, E, G o P
 - `signatory_document_number` character varying(20) — Número de documento del firmante; con el tipo forma {{org.signatoryDocument}}
 - `signatory_position` character varying(100) — Cargo del firmante autorizado ({{org.signatoryPosition}})
+- `public_identity_visible` boolean NOT NULL DEFAULT false
 
 **Constraints**
 - PK PRIMARY KEY (organizations_id)

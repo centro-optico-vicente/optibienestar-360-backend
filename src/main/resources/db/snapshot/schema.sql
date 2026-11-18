@@ -4144,6 +4144,7 @@ CREATE TABLE app.organizations (
     signatory_document_type character varying(1),
     signatory_document_number character varying(20),
     signatory_position character varying(100),
+    public_identity_visible boolean DEFAULT false NOT NULL,
     CONSTRAINT chk_organizations_currencies_distinct CHECK ((official_currency_id <> reference_currency_id)),
     CONSTRAINT chk_organizations_signatory_document CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL)))),
     CONSTRAINT chk_organizations_signatory_document_type CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[]))))
