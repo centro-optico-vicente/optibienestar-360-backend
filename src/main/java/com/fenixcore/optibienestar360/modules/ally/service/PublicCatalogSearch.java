@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * and {@code products.name} apply). City and state are LEFT-joined: an ally
  * without a city still matches by any other field.</p>
  */
-final class PublicCatalogSearch {
+public final class PublicCatalogSearch {
 
     /** A Venezuelan RIF / cédula as typed: optional letter, digits, any dashes or spaces. */
     private static final Pattern DOCUMENT = Pattern.compile("^([VEJGPC])?(\\d{5,10})$");
@@ -51,6 +51,34 @@ final class PublicCatalogSearch {
     static List<String> texts(List<String> values) {
         return values == null ? List.of()
                 : values.stream().filter(PublicCatalogSearch::hasText).map(String::trim).distinct().toList();
+    }
+
+    private static final List<String> DAY_NAMES =
+            List.of("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo");
+    private static final List<String> DAY_NAMES_EN =
+            List.of("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday");
+
+    /**
+     * Days as a visitor writes them — {@code lunes}, {@code miércoles}, {@code monday}
+     * or the ISO number {@code 1}…{@code 7} — to ISO numbers (1 = Monday).
+     * Anything else is dropped rather than a 400: a typo must never break a public page.
+     */
+    public static List<Integer> days(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        List<Integer> days = new ArrayList<>();
+        for (String raw : texts(values)) {
+            String value = fold(raw);
+            int index = value.matches("[1-7]") ? Integer.parseInt(value) - 1 : DAY_NAMES.indexOf(value);
+            if (index < 0) {
+                index = DAY_NAMES_EN.indexOf(value);
+            }
+            if (index >= 0 && !days.contains(index + 1)) {
+                days.add(index + 1);
+            }
+        }
+        return days;
     }
 
     /** A multi-value id filter without nulls; {@code null} becomes empty ("no filter"). */

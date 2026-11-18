@@ -110,7 +110,7 @@ class PublicAllyControllerIT {
         UUID professionA = UUID.randomUUID();
         UUID professionB = UUID.randomUUID();
         PublicAllySearch expected = new PublicAllySearch(null, null, null, List.of(professionA, professionB),
-                List.of("consulta", "lentes"), null, List.of("hotel", "ferreteria"), null, null, null, false, false);
+                List.of("consulta", "lentes"), null, List.of("hotel", "ferreteria"), null, null, null, false, false, null);
         when(alliesService.publicDirectory(eq(expected), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(clinicDto())));
 
@@ -127,9 +127,9 @@ class PublicAllyControllerIT {
         UUID typeA = UUID.randomUUID();
         UUID typeB = UUID.randomUUID();
         PublicAllySearch single = new PublicAllySearch("clinica", null, null, null, null, null, null,
-                List.of(typeA), null, null, false, false);
+                List.of(typeA), null, null, false, false, null);
         PublicAllySearch several = new PublicAllySearch("clinica", null, null, null, null, null, null,
-                List.of(typeA, typeB), null, null, false, false);
+                List.of(typeA, typeB), null, null, false, false, null);
         when(alliesService.publicDirectory(eq(single), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(clinicDto())));
         when(alliesService.publicDirectory(eq(several), any(Pageable.class)))
@@ -140,6 +140,18 @@ class PublicAllyControllerIT {
                 .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
         mockMvc.perform(get("/v1/public/allies").param("q", "clinica")
                         .param("allyTypeUuid", typeA + "," + typeB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
+    }
+
+    @Test
+    void directory_takesDaysAsWords_orIsoNumbers_andDropsTheRest() throws Exception {
+        PublicAllySearch expected = new PublicAllySearch(null, null, null, null, null, null, null, null, null, null,
+                false, false, List.of(1, 3, 7));
+        when(alliesService.publicDirectory(eq(expected), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(clinicDto())));
+
+        mockMvc.perform(get("/v1/public/allies").param("day", "lunes", "Miércoles", "7", "feriado"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
     }

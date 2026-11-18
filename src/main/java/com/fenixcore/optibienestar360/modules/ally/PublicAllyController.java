@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyListItemDto;
 import com.fenixcore.optibienestar360.modules.ally.dto.PublicAllyProductDto;
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicAllySearch;
+import com.fenixcore.optibienestar360.modules.ally.service.PublicCatalogSearch;
 import com.fenixcore.optibienestar360.modules.ally.service.PublicProductsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -41,7 +42,9 @@ import java.util.UUID;
  * clients that hold ids. {@code segment} ({@code B2B} / {@code B2P}, hub ADR
  * 0031) keeps only commercial or only professional allies. {@code openNow} /
  * {@code openToday} keep allies whose weekly opening hours cover the current
- * time / day in the business zone (ADR 0031 §7).</p>
+ * time / day in the business zone (ADR 0031 §7). {@code day} — one or several
+ * days as {@code lunes}…{@code domingo} or ISO {@code 1}…{@code 7} — keeps allies
+ * that open on ANY of them.</p>
  */
 @RestController
 @RequestMapping("/v1/public/allies")
@@ -65,9 +68,10 @@ public class PublicAllyController {
             @RequestParam(required = false) String segment,
             @RequestParam(defaultValue = "false") boolean openNow,
             @RequestParam(defaultValue = "false") boolean openToday,
+            @RequestParam(required = false) List<String> day,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, allyType, allyTypeUuid, type, segment,
-                openNow, openToday);
+                openNow, openToday, PublicCatalogSearch.days(day));
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
                 .body(alliesService.publicDirectory(search, pageable));
     }
