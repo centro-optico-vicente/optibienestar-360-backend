@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.patientaccess.repository;
 
+import com.fenixcore.optibienestar360.core.util.InstantBounds;
 import com.fenixcore.optibienestar360.modules.patientaccess.entity.AllyPatientLink;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,18 +30,24 @@ public interface AllyPatientLinkRepository extends JpaRepository<AllyPatientLink
                    "AND (:q IS NULL OR :q = '' OR " +
                    "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
                    "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
-                   "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo) " +
+                   "AND l.createdAt >= :dateFrom AND l.createdAt < :dateTo " +
                    "ORDER BY l.createdAt DESC",
            countQuery = "SELECT COUNT(l) FROM AllyPatientLink l JOIN l.member m JOIN m.person p " +
                         "WHERE l.doctorPerson.id = :doctorPersonId AND l.status = 'ACTIVE' " +
                         "AND (:q IS NULL OR :q = '' OR " +
                         "cast(function('immutable_unaccent', lower(p.fullName)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) OR " +
                         "cast(function('immutable_unaccent', lower(p.documentNumber)) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)) " +
-                        "AND (:dateFrom IS NULL OR l.createdAt >= :dateFrom) AND (:dateTo IS NULL OR l.createdAt < :dateTo)")
-    Page<AllyPatientLink> findActiveByDoctor(@Param("doctorPersonId") Long doctorPersonId,
-                                             @Param("q") String q,
-                                             @Param("dateFrom") java.time.Instant dateFrom,
-                                             @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+                        "AND l.createdAt >= :dateFrom AND l.createdAt < :dateTo")
+    Page<AllyPatientLink> findActiveByDoctorBetween(@Param("doctorPersonId") Long doctorPersonId,
+                                                    @Param("q") String q,
+                                                    @Param("dateFrom") java.time.Instant dateFrom,
+                                                    @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /** Null bounds mean open-ended; see {@link InstantBounds} for why they are not checked in the JPQL. */
+    default Page<AllyPatientLink> findActiveByDoctor(Long doctorPersonId, String q, java.time.Instant dateFrom,
+                                                     java.time.Instant dateTo, Pageable pageable) {
+        return findActiveByDoctorBetween(doctorPersonId, q, InstantBounds.from(dateFrom), InstantBounds.to(dateTo), pageable);
+    }
 
     /** Unbounded variant. */
     default Page<AllyPatientLink> findActiveByDoctor(Long doctorPersonId, String q, Pageable pageable) {

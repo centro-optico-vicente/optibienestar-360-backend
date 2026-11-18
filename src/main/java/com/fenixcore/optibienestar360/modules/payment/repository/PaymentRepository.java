@@ -1,6 +1,7 @@
 package com.fenixcore.optibienestar360.modules.payment.repository;
 
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
+import com.fenixcore.optibienestar360.core.util.InstantBounds;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -32,11 +33,20 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "  AND (p.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
            "    OR p.beneficiaryPerson.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid) " +
            "    OR mm.person.id = (SELECT u.person.id FROM User u WHERE u.uuid = :userUuid)) " +
-           "  AND (:dateFrom IS NULL OR p.paymentDate >= :dateFrom) " +
-           "  AND (:dateTo IS NULL OR p.paymentDate < :dateTo)")
-    Page<Payment> findOwnByUserUuid(@Param("userUuid") UUID userUuid,
-                                    @Param("dateFrom") java.time.Instant dateFrom,
-                                    @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+           "  AND p.paymentDate >= :dateFrom AND p.paymentDate < :dateTo")
+    Page<Payment> findOwnByUserUuidBetween(@Param("userUuid") UUID userUuid,
+                                           @Param("dateFrom") java.time.Instant dateFrom,
+                                           @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /**
+     * Null bounds mean open-ended. They are replaced with {@link InstantBounds} values instead of
+     * {@code :x IS NULL} in the JPQL: PostgreSQL cannot type a null {@code Instant} parameter and
+     * fails with "could not determine data type of parameter".
+     */
+    default Page<Payment> findOwnByUserUuid(UUID userUuid, java.time.Instant dateFrom,
+                                            java.time.Instant dateTo, Pageable pageable) {
+        return findOwnByUserUuidBetween(userUuid, InstantBounds.from(dateFrom), InstantBounds.to(dateTo), pageable);
+    }
 
     /** Unbounded variant. */
     default Page<Payment> findOwnByUserUuid(UUID userUuid, Pageable pageable) {
@@ -64,11 +74,16 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>,
            "    OR EXISTS (SELECT 1 FROM PaymentLine l WHERE l.payment = p AND l.active = true " +
            "         AND (cast(function('immutable_unaccent', lower(coalesce(l.referenceNumber, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string) " +
            "           OR cast(function('immutable_unaccent', lower(coalesce(l.identification, ''))) as string) LIKE cast(function('immutable_unaccent', lower(concat('%', :q, '%'))) as string)))) " +
-           "  AND (:dateFrom IS NULL OR p.paymentDate >= :dateFrom) " +
-           "  AND (:dateTo IS NULL OR p.paymentDate < :dateTo)")
-    Page<Payment> findOwnByUserUuidAndSearch(@Param("userUuid") UUID userUuid, @Param("q") String q,
-                                             @Param("dateFrom") java.time.Instant dateFrom,
-                                             @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+           "  AND p.paymentDate >= :dateFrom AND p.paymentDate < :dateTo")
+    Page<Payment> findOwnByUserUuidAndSearchBetween(@Param("userUuid") UUID userUuid, @Param("q") String q,
+                                                    @Param("dateFrom") java.time.Instant dateFrom,
+                                                    @Param("dateTo") java.time.Instant dateTo, Pageable pageable);
+
+    /** Null bounds mean open-ended, see {@link #findOwnByUserUuid(UUID, java.time.Instant, java.time.Instant, Pageable)}. */
+    default Page<Payment> findOwnByUserUuidAndSearch(UUID userUuid, String q, java.time.Instant dateFrom,
+                                                     java.time.Instant dateTo, Pageable pageable) {
+        return findOwnByUserUuidAndSearchBetween(userUuid, q, InstantBounds.from(dateFrom), InstantBounds.to(dateTo), pageable);
+    }
 
     /** Unbounded variant. */
     default Page<Payment> findOwnByUserUuidAndSearch(UUID userUuid, String q, Pageable pageable) {
