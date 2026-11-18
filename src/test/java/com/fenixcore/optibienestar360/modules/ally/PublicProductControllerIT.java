@@ -140,7 +140,38 @@ class PublicProductControllerIT {
         ArgumentCaptor<PublicProductSearch> captor = ArgumentCaptor.forClass(PublicProductSearch.class);
         verify(publicProductsService).search(captor.capture(), any(Pageable.class));
         assertThat(captor.getValue()).isEqualTo(new PublicProductSearch(
-                "lentes", "servicio", "consulta", null, "Acarigua", null, "J-12345678-9", null));
+                "lentes", "servicio", List.of("consulta"), null, "Acarigua", null, List.of("J-12345678-9"), null));
+    }
+
+    @Test
+    void search_acceptsSeveralValuesPerFilter() throws Exception {
+        when(publicProductsService.search(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
+        UUID allyA = UUID.randomUUID();
+        UUID allyB = UUID.randomUUID();
+
+        mockMvc.perform(get("/v1/public/products")
+                        .param("category", "consulta", "lentes")
+                        .param("allyUuid", allyA.toString(), allyB.toString()))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PublicProductSearch> captor = ArgumentCaptor.forClass(PublicProductSearch.class);
+        verify(publicProductsService).search(captor.capture(), any(Pageable.class));
+        assertThat(captor.getValue()).isEqualTo(new PublicProductSearch(
+                null, null, List.of("consulta", "lentes"), null, null, null, null, List.of(allyA, allyB)));
+    }
+
+    @Test
+    void search_dropsBlankValues_asNoFilter() throws Exception {
+        when(publicProductsService.search(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
+
+        mockMvc.perform(get("/v1/public/products").param("category", " "))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PublicProductSearch> captor = ArgumentCaptor.forClass(PublicProductSearch.class);
+        verify(publicProductsService).search(captor.capture(), any(Pageable.class));
+        assertThat(captor.getValue()).isEqualTo(PublicProductSearch.none());
     }
 
     @Test

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -55,15 +56,17 @@ public class PublicAllyController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) UUID cityUuid,
-            @RequestParam(required = false) UUID professionUuid,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) List<UUID> professionUuid,
+            @RequestParam(required = false) List<String> category,
+            @RequestParam(required = false) List<UUID> categoryUuid,
+            @RequestParam(required = false) List<String> allyType,
+            @RequestParam(required = false) List<UUID> allyTypeUuid,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String segment,
             @RequestParam(defaultValue = "false") boolean openNow,
             @RequestParam(defaultValue = "false") boolean openToday,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, type, segment,
+        PublicAllySearch search = new PublicAllySearch(q, city, cityUuid, professionUuid, category, categoryUuid, allyType, allyTypeUuid, type, segment,
                 openNow, openToday);
         return ResponseEntity.ok().cacheControl(PublicHttpCacheConfig.publicCatalog())
                 .body(alliesService.publicDirectory(search, pageable));

@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.ally.service;
 
 import com.fenixcore.optibienestar360.modules.ally.entity.Ally;
 import com.fenixcore.optibienestar360.modules.ally.entity.AllyProduct;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType;
 import com.fenixcore.optibienestar360.modules.catalog.entity.City;
 import com.fenixcore.optibienestar360.modules.catalog.entity.ProductCategory;
 import com.fenixcore.optibienestar360.modules.catalog.entity.State;
@@ -19,6 +20,8 @@ import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -42,6 +45,17 @@ final class PublicCatalogSearch {
 
     static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /** A multi-value text filter without blanks; {@code null} becomes empty ("no filter"). */
+    static List<String> texts(List<String> values) {
+        return values == null ? List.of()
+                : values.stream().filter(PublicCatalogSearch::hasText).map(String::trim).distinct().toList();
+    }
+
+    /** A multi-value id filter without nulls; {@code null} becomes empty ("no filter"). */
+    static List<UUID> uuids(List<UUID> values) {
+        return values == null ? List.of() : values.stream().filter(Objects::nonNull).distinct().toList();
     }
 
     /**
@@ -86,7 +100,12 @@ final class PublicCatalogSearch {
 
     /** Category by name ("lentes") or code ("LENTES_Y_MONTURAS"). */
     static Specification<AllyProduct> offerCategoryMatches(String text) {
-        return (root, query, cb) -> categoryMatches(cb, root.join("product").join("productCategory"), text);
+        return offerCategoryMatchesAny(List.of(text));
+    }
+
+    /** Any of several categories by name or code. */
+    static Specification<AllyProduct> offerCategoryMatchesAny(List<String> texts) {
+        return (root, query, cb) -> categoryMatchesAny(cb, root.join("product").join("productCategory"), texts);
     }
 
     /** The ally's city or state by name ("acarigua", "portuguesa"). */
@@ -99,7 +118,15 @@ final class PublicCatalogSearch {
 
     /** The ally by name, RIF or ally number. */
     static Specification<AllyProduct> offerAllyMatches(String text) {
-        return (root, query, cb) -> allyMatches(cb, root.join("ally"), text);
+        return offerAllyMatchesAny(List.of(text));
+    }
+
+    /** Any of several allies by name, RIF or ally number. */
+    static Specification<AllyProduct> offerAllyMatchesAny(List<String> texts) {
+        return (root, query, cb) -> {
+            Join<AllyProduct, Ally> ally = root.join("ally");
+            return cb.or(texts.stream().map(t -> allyMatches(cb, ally, t)).toArray(Predicate[]::new));
+        };
     }
 
     // ─── Allies ──────────────────────────────────────────────────────────────
@@ -127,6 +154,18 @@ final class PublicCatalogSearch {
         return cb.or(
                 contains(cb, category.get("name"), text),
                 contains(cb, category.get("code"), text.trim().replace(' ', '_')));
+    }
+
+    /** Any of several categories (name or code). */
+    static Predicate categoryMatchesAny(CriteriaBuilder cb, From<?, ProductCategory> category, List<String> texts) {
+        return cb.or(texts.stream().map(t -> categoryMatches(cb, category, t)).toArray(Predicate[]::new));
+    }
+
+    /** Any of several ally types (name or code). */
+    static Predicate allyTypeMatchesAny(CriteriaBuilder cb, From<?, AllyType> type, List<String> texts) {
+        return cb.or(texts.stream().map(t -> cb.or(
+                contains(cb, type.get("name"), t),
+                contains(cb, type.get("code"), t.trim().replace(' ', '_')))).toArray(Predicate[]::new));
     }
 
     private static Predicate cityMatches(CriteriaBuilder cb, Join<?, City> city, String text) {

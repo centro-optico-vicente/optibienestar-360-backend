@@ -106,6 +106,23 @@ class PublicAllyControllerIT {
     }
 
     @Test
+    void directory_acceptsSeveralValuesPerFilter() throws Exception {
+        UUID professionA = UUID.randomUUID();
+        UUID professionB = UUID.randomUUID();
+        PublicAllySearch expected = new PublicAllySearch(null, null, null, List.of(professionA, professionB),
+                List.of("consulta", "lentes"), null, List.of("hotel", "ferreteria"), null, null, null, false, false);
+        when(alliesService.publicDirectory(eq(expected), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(clinicDto())));
+
+        mockMvc.perform(get("/v1/public/allies")
+                        .param("professionUuid", professionA.toString(), professionB.toString())
+                        .param("category", "consulta", "lentes")
+                        .param("allyType", "hotel", "ferreteria"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
+    }
+
+    @Test
     void detail_returns404_withoutCacheHeaders_whenAllyIsNotPubliclyVisible() throws Exception {
         when(alliesService.publicGetByUuid(any(UUID.class)))
                 .thenThrow(new NoSuchElementException("ally.not_found"));
