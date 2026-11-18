@@ -123,6 +123,28 @@ class PublicAllyControllerIT {
     }
 
     @Test
+    void directory_takesOneValue_orCommaSeparated_alongsideQ() throws Exception {
+        UUID typeA = UUID.randomUUID();
+        UUID typeB = UUID.randomUUID();
+        PublicAllySearch single = new PublicAllySearch("clinica", null, null, null, null, null, null,
+                List.of(typeA), null, null, false, false);
+        PublicAllySearch several = new PublicAllySearch("clinica", null, null, null, null, null, null,
+                List.of(typeA, typeB), null, null, false, false);
+        when(alliesService.publicDirectory(eq(single), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(clinicDto())));
+        when(alliesService.publicDirectory(eq(several), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(clinicDto())));
+
+        mockMvc.perform(get("/v1/public/allies").param("q", "clinica").param("allyTypeUuid", typeA.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
+        mockMvc.perform(get("/v1/public/allies").param("q", "clinica")
+                        .param("allyTypeUuid", typeA + "," + typeB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Clínica Demo"));
+    }
+
+    @Test
     void detail_returns404_withoutCacheHeaders_whenAllyIsNotPubliclyVisible() throws Exception {
         when(alliesService.publicGetByUuid(any(UUID.class)))
                 .thenThrow(new NoSuchElementException("ally.not_found"));
