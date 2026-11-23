@@ -5,13 +5,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Validates an upload's extension and size against the DB-configurable
- * policy for its {@link FileVisibility} scope — spec §2.1, migration V55.
+ * policy for its {@link FileVisibility} scope — spec §2.1, migration V55 —
+ * and, for the formats we know, that the bytes really are that format
+ * (magic-number check): a renamed {@code .exe} or HTML page uploaded as
+ * {@code comprobante.pdf} is rejected instead of being stored.
  */
 @Service
 @RequiredArgsConstructor
@@ -23,6 +31,7 @@ public class FileValidationService {
     public void validate(FileVisibility visibility, MultipartFile file) {
         if (file == null || file.isEmpty()) return;
         validate(visibility, file.getOriginalFilename(), file.getSize());
+        verifyContent(file);
     }
 
     public void validate(FileVisibility visibility, String fileName, long sizeBytes) {
@@ -70,6 +79,85 @@ public class FileValidationService {
         String extension = extensionOf(fileName);
         return extension == null ? "application/octet-stream"
                 : CONTENT_TYPES.getOrDefault(extension, "application/octet-stream");
+    }
+
+    /** Bytes read from the start of the upload to check its signature. */
+    private static final int HEAD_BYTES = 1024;
+
+    private static final byte[] PDF = ascii("%PDF-");
+    private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+    private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    private static final byte[] GIF87A = ascii("GIF87a");
+    private static final byte[] GIF89A = ascii("GIF89a");
+    private static final byte[] RIFF = ascii("RIFF");
+    private static final byte[] WEBP = ascii("WEBP");
+    /** ZIP container: OOXML ({@code .xlsx}, {@code .docx}). */
+    private static final byte[] ZIP = {'P', 'K', 0x03, 0x04};
+    /** OLE2 compound file: legacy Office ({@code .xls}, {@code .doc}). */
+    private static final byte[] OLE2 = {(byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0,
+            (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1};
+
+    private static final Set<String> TEXT_EXTENSIONS = Set.of("csv", "txt");
+
+    /**
+     * Expected content per extension. Extensions not listed here (anything a
+     * {@code DENYLIST} scope lets through) are not sniffed — there is no
+     * signature to compare against.
+     */
+    private static final Map<String, Predicate<byte[]>> SIGNATURES = Map.ofEntries(
+            // The PDF header may follow a few junk bytes; readers accept it within the first 1 KB.
+            Map.entry("pdf", head -> indexOf(head, PDF) >= 0),
+            Map.entry("jpg", head -> startsWith(head, JPEG, 0)),
+            Map.entry("jpeg", head -> startsWith(head, JPEG, 0)),
+            Map.entry("png", head -> startsWith(head, PNG, 0)),
+            Map.entry("gif", head -> startsWith(head, GIF87A, 0) || startsWith(head, GIF89A, 0)),
+            Map.entry("webp", head -> startsWith(head, RIFF, 0) && startsWith(head, WEBP, 8)),
+            Map.entry("xlsx", head -> startsWith(head, ZIP, 0)),
+            Map.entry("docx", head -> startsWith(head, ZIP, 0)),
+            Map.entry("xls", head -> startsWith(head, OLE2, 0)),
+            Map.entry("doc", head -> startsWith(head, OLE2, 0)));
+
+    /**
+     * Rejects an upload whose first bytes do not match its extension. Text
+     * formats have no signature: they only must not contain NUL bytes, which
+     * no CSV or plain-text file has but every binary does.
+     */
+    void verifyContent(MultipartFile file) {
+        String extension = extensionOf(file.getOriginalFilename());
+        if (extension == null) return;
+        Predicate<byte[]> signature = SIGNATURES.get(extension);
+        boolean text = TEXT_EXTENSIONS.contains(extension);
+        if (signature == null && !text) return;
+
+        byte[] head;
+        try (InputStream in = file.getInputStream()) {
+            head = in.readNBytes(HEAD_BYTES);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("file.validation.content_mismatch", e);
+        }
+        boolean matches = text ? indexOf(head, new byte[]{0}) < 0 : signature.test(head);
+        if (!matches) {
+            throw new IllegalArgumentException("file.validation.content_mismatch");
+        }
+    }
+
+    private static boolean startsWith(byte[] data, byte[] prefix, int offset) {
+        if (data.length < offset + prefix.length) return false;
+        for (int i = 0; i < prefix.length; i++) {
+            if (data[offset + i] != prefix[i]) return false;
+        }
+        return true;
+    }
+
+    private static int indexOf(byte[] data, byte[] needle) {
+        for (int i = 0; i + needle.length <= data.length; i++) {
+            if (startsWith(data, needle, i)) return i;
+        }
+        return -1;
+    }
+
+    private static byte[] ascii(String value) {
+        return value.getBytes(StandardCharsets.US_ASCII);
     }
 
     private static String extensionOf(String fileName) {
