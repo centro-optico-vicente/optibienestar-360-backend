@@ -31,7 +31,9 @@ public record SubsidyDto(
         @Display(value = Display.Kind.ENUM, enumScope = "subsidy.status") String status,
         @Display(Display.Kind.DATETIME) Instant createdAt,
         @Display(Display.Kind.DATETIME) Instant updatedAt,
-        List<SubsidyBeneficiaryDto> beneficiaries
+        List<SubsidyBeneficiaryDto> beneficiaries,
+        /** MANUAL | REFERRAL_REWARD (hub ADR 0041 §2). */
+        @Display(value = Display.Kind.ENUM, enumScope = "subsidy.origin") String origin
 ) {
     public static SubsidyDto from(Subsidy s) {
         var member = s.getMember();
@@ -58,6 +60,7 @@ public record SubsidyDto(
                 s.getStatus(),
                 s.getCreatedAt(),
                 s.getUpdatedAt(),
-                lines);
+                lines,
+                s.getOrigin() != null ? s.getOrigin().name() : null);
     }
 }

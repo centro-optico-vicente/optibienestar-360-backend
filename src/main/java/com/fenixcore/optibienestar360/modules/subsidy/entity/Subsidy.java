@@ -7,6 +7,8 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -85,12 +87,33 @@ public class Subsidy extends BaseEntity {
     @Column(name = "valid_until")
     private LocalDate validUntil;
 
+    /**
+     * Who created the subsidy (V262, hub ADR 0041 §2). The organization's
+     * subsidy mode only governs {@link Origin#MANUAL}; referral rewards always apply.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin", length = 20, nullable = false)
+    private Origin origin = Origin.MANUAL;
+
     @OneToMany(mappedBy = "subsidy", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<SubsidyBeneficiary> beneficiaries = new ArrayList<>();
+
+    /** True when the organization's subsidy mode governs this subsidy (hub ADR 0041 §2). */
+    public boolean isManual() {
+        return origin == null || origin == Origin.MANUAL;
+    }
 
     /** Adds a child exoneration and keeps both sides of the association consistent. */
     public void addBeneficiary(SubsidyBeneficiary row) {
         row.setSubsidy(this);
         this.beneficiaries.add(row);
+    }
+
+    /** {@code subsidies.origin} values (V262 CHECK {@code chk_subsidies_origin}). */
+    public enum Origin {
+        /** Granted by a person through the admin screen. */
+        MANUAL,
+        /** Created by {@code ReferrerRewardService} (hub ADR 0018 §7). */
+        REFERRAL_REWARD
     }
 }

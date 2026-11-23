@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.subsidy;
 
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyDto;
+import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidySettingsDto;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidiesService;
 import com.fenixcore.optibienestar360.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,7 @@ class AdminSubsidyControllerIT {
         return new SubsidyDto(UUID.randomUUID(),
                 new DisplayRef(UUID.randomUUID(), null, "Ana Pérez"),
                 new BigDecimal("100"), null, null, "Fundación X", UUID.randomUUID(),
-                LocalDate.of(2026, 1, 1), null, true, null, null, null, List.of());
+                LocalDate.of(2026, 1, 1), null, true, null, null, null, List.of(), "MANUAL");
     }
 
     private static final String VALID_CREATE_JSON = """
@@ -149,6 +150,35 @@ class AdminSubsidyControllerIT {
                         .with(principal("SUBSIDY_VIEW_ALL")))
                 .andExpect(status().isForbidden());
         verify(service, never()).revoke(any(), any());
+    }
+
+    // ─── settings (hub ADR 0041 §6) ───────────────────────────────────────────
+
+    @Test
+    void settings_withCreatePermission_is200() throws Exception {
+        when(service.settings(any())).thenReturn(
+                new SubsidySettingsDto("MONTHLY", true, false, null, false));
+
+        mockMvc.perform(get("/v1/admin/subsidies/settings").with(principal("SUBSIDY_CREATE")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode").value("MONTHLY"))
+                .andExpect(jsonPath("$.monthlyEnabled").value(true))
+                .andExpect(jsonPath("$.inscriptionEnabled").value(false));
+    }
+
+    @Test
+    void settings_withViewPermission_is200() throws Exception {
+        when(service.settings(any())).thenReturn(
+                new SubsidySettingsDto("DISABLED", false, false, null, false));
+
+        mockMvc.perform(get("/v1/admin/subsidies/settings").with(principal("SUBSIDY_VIEW_ALL")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void settings_withoutPermission_is403() throws Exception {
+        mockMvc.perform(get("/v1/admin/subsidies/settings").with(principal("SUBSIDY_UPDATE")))
+                .andExpect(status().isForbidden());
     }
 
     // ─── audit log (read, VIEW_ALL) ──────────────────────────────────────────

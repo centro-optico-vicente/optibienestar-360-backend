@@ -3,6 +3,7 @@ package com.fenixcore.optibienestar360.modules.subsidy;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyAuditLogDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyDto;
+import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidySettingsDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.service.SubsidiesService;
 import com.fenixcore.optibienestar360.core.util.AppliedSortPage;
@@ -65,6 +66,16 @@ public class AdminSubsidyController {
             @RequestParam(required = false, defaultValue = "50") int limit,
             @RequestParam(required = false) List<UUID> currentValues) {
         return ResponseEntity.ok(service.listOptions(q, limit, currentValues));
+    }
+
+    /**
+     * The organization's subsidy mode and the caller's discount authority
+     * (hub ADR 0041 §6) — drives which percentages the subsidy form shows.
+     */
+    @GetMapping("/settings")
+    @PreAuthorize("hasAnyAuthority('SUBSIDY_VIEW_ALL', 'SUBSIDY_CREATE')")
+    public ResponseEntity<SubsidySettingsDto> settings(@AuthenticationPrincipal CustomUserDetails actor) {
+        return ResponseEntity.ok(service.settings(actor.getUuid()));
     }
 
     @GetMapping("/{uuid}")

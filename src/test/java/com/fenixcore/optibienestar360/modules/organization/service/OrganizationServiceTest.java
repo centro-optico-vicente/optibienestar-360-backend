@@ -7,6 +7,7 @@ import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdat
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationContactDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -84,7 +85,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, null));
 
         assertThat(result.name()).isEqualTo("Nuevo nombre");
         assertThat(result.legalName()).isEqualTo("Nuevo nombre legal");
@@ -102,7 +103,7 @@ class OrganizationServiceTest {
 
         OrganizationDto filled = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, " Ana Gómez ", "V", " 12345678 ", " Gerente general ", false));
+                        null, null, null, null, null, null, " Ana Gómez ", "V", " 12345678 ", " Gerente general ", false, null));
 
         assertThat(filled.signatoryName()).isEqualTo("Ana Gómez");
         assertThat(filled.signatoryDocumentType()).isEqualTo("V");
@@ -111,7 +112,7 @@ class OrganizationServiceTest {
 
         OrganizationDto cleared = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, "  ", " ", "", " ", false));
+                        null, null, null, null, null, null, "  ", " ", "", " ", false, null));
 
         assertThat(cleared.signatoryName()).isNull();
         assertThat(cleared.signatoryDocumentType()).isNull();
@@ -127,7 +128,7 @@ class OrganizationServiceTest {
 
         assertThatThrownBy(() -> service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, null, "V", null, null, false)))
+                        null, null, null, null, null, null, null, "V", null, null, false, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.signatory_document.incomplete");
     }
@@ -142,7 +143,7 @@ class OrganizationServiceTest {
         OrganizationDto result = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
                         null, null, null, " Av. 30 con Calle 21, Acarigua ", "planoptibienestar360@gmail.com", "  ",
-                        null, null, null, null, false));
+                        null, null, null, null, false, null));
 
         assertThat(result.address()).isEqualTo("Av. 30 con Calle 21, Acarigua");
         assertThat(result.email()).isEqualTo("planoptibienestar360@gmail.com");
@@ -157,7 +158,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null, null, null, null, null, false, null));
 
         assertThat(result.autoApproveCommissions()).isTrue();
     }
@@ -175,7 +176,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null, null, null, null, null, false, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -191,7 +192,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null, false)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null, false, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
@@ -249,12 +250,45 @@ class OrganizationServiceTest {
     }
 
     @Test
+    void updateMineSetsTheSubsidyModeAndKeepsItWhenOmitted() {
+        Organization org = organization(null, null);
+        when(repository.findSingleton()).thenReturn(org);
+        when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizationDto set = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, "MONTHLY_AND_INSCRIPTION"));
+        assertThat(set.subsidyMode()).isEqualTo("MONTHLY_AND_INSCRIPTION");
+        assertThat(org.getSubsidyMode()).isEqualTo(SubsidyMode.MONTHLY_AND_INSCRIPTION);
+
+        OrganizationDto kept = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, null));
+        assertThat(kept.subsidyMode()).isEqualTo("MONTHLY_AND_INSCRIPTION");
+    }
+
+    @Test
+    void updateMineRejectsAnUnknownSubsidyMode() {
+        when(repository.findSingleton()).thenReturn(organization(null, null));
+
+        assertThatThrownBy(() -> service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, "SOMETIMES")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("organization.subsidy_mode.invalid");
+    }
+
+    @Test
+    void newOrganizationDefaultsToDisabledSubsidies() {
+        when(repository.findSingleton()).thenReturn(organization(null, null));
+
+        assertThat(service().getMine().subsidyMode()).isEqualTo("DISABLED");
+    }
+
+    @Test
     void updateMineStoresThePublicIdentityFlag() {
         when(repository.findSingleton()).thenReturn(organization(null, null));
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, true));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, true, null));
 
         assertThat(result.publicIdentityVisible()).isTrue();
     }

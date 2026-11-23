@@ -1,5 +1,8 @@
 package com.fenixcore.optibienestar360.modules.subsidy.service;
 
+import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
+import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.Subsidy;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.SubsidyBeneficiary;
 import com.fenixcore.optibienestar360.modules.subsidy.repository.SubsidyBeneficiaryRepository;
@@ -12,6 +15,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +34,11 @@ import java.util.Set;
  * date, the <b>highest</b> percentage wins for each fee — subsidies never
  * accumulate (vertical-12 business rule).</p>
  *
+ * <p>Organization subsidy mode (hub ADR 0041 §1-§2): a {@code MANUAL} subsidy
+ * only counts for a fee type the organization's {@link SubsidyMode} enables;
+ * stored subsidies of a disabled fee type are ignored, not deleted. Referral
+ * rewards ({@code REFERRAL_REWARD}) always count.</p>
+ *
  * <p>No class-level {@code @Transactional}: every method is a read delegated to
  * repositories that already run read-only transactions, plus in-memory
  * computation — so this bean needs no proxy of its own.</p>
@@ -42,6 +51,22 @@ public class SubsidyResolver {
 
     private final SubsidyRepository repository;
     private final SubsidyBeneficiaryRepository beneficiaryRepository;
+    private final OrganizationRepository organizationRepository;
+
+    /**
+     * The organization's current subsidy mode (hub ADR 0041 §1). Read through
+     * the per-transaction memoized {@link OrganizationRepository#findSingleton()}.
+     */
+    public SubsidyMode currentMode() {
+        Organization org = organizationRepository.findSingleton();
+        SubsidyMode mode = org != null ? org.getSubsidyMode() : null;
+        return mode != null ? mode : SubsidyMode.DISABLED;
+    }
+
+    /** True when {@code s} discounts the monthly fee under {@code mode}. */
+    private static boolean countsForMonthly(Subsidy s, SubsidyMode mode) {
+        return !s.isManual() || mode.monthlyEnabled();
+    }
 
     /**
      * True when {@code memberId} has an active subsidy on {@code on} that fully
@@ -50,7 +75,9 @@ public class SubsidyResolver {
      * payment row (vertical-5 #1 / PDF #1.b).
      */
     public boolean fullMonthlyExoneration(Long memberId, LocalDate on) {
+        SubsidyMode mode = currentMode();
         return repository.findActiveForMember(memberId, on).stream()
+                .filter(s -> countsForMonthly(s, mode))
                 .map(Subsidy::getMonthlyPercentage)
                 .filter(Objects::nonNull)
                 .anyMatch(p -> p.compareTo(HUNDRED) >= 0);
@@ -58,7 +85,9 @@ public class SubsidyResolver {
 
     /** The best (highest) active monthly subsidy percentage for the member on {@code on}. */
     public Optional<BigDecimal> monthlyPercentage(Long memberId, LocalDate on) {
+        SubsidyMode mode = currentMode();
         return repository.findActiveForMember(memberId, on).stream()
+                .filter(s -> countsForMonthly(s, mode))
                 .map(Subsidy::getMonthlyPercentage)
                 .filter(Objects::nonNull)
                 .max(Comparator.naturalOrder());
@@ -82,9 +111,12 @@ public class SubsidyResolver {
     /**
      * True when a specific beneficiary's extra inscription is fully exonerated by
      * an active subsidy on {@code on}. Read at beneficiary reactivation time to
-     * skip re-charging an already-exonerated beneficiary.
+     * skip re-charging an already-exonerated beneficiary. Beneficiary lines only
+     * exist on manual subsidies, so they count only while the organization's mode
+     * enables the inscription fee (hub ADR 0041 §1).
      */
     public boolean beneficiaryInscriptionExonerated(Long beneficiaryId, LocalDate on) {
+        if (!currentMode().inscriptionEnabled()) return false;
         return beneficiaryRepository.findActiveForBeneficiary(beneficiaryId, on).stream()
                 .map(SubsidyBeneficiary::getInscriptionPercentage)
                 .filter(Objects::nonNull)
@@ -94,9 +126,13 @@ public class SubsidyResolver {
     /**
      * Batch variant of {@link #fullMonthlyExoneration} for the daily status
      * sweep — one query for all candidate members (vertical-5 #3, no N+1).
+     * Manual subsidies are included only while the mode enables the monthly fee.
      */
     public Set<Long> memberIdsWithFullMonthlyExoneration(Collection<Long> memberIds, LocalDate on) {
         if (memberIds == null || memberIds.isEmpty()) return Set.of();
-        return repository.memberIdsWithFullMonthlyExoneration(memberIds, on);
+        Set<Subsidy.Origin> origins = currentMode().monthlyEnabled()
+                ? EnumSet.allOf(Subsidy.Origin.class)
+                : EnumSet.of(Subsidy.Origin.REFERRAL_REWARD);
+        return repository.memberIdsWithFullMonthlyExoneration(memberIds, on, origins);
     }
 }
