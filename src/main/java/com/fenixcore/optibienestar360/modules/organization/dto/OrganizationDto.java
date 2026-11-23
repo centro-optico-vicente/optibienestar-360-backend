@@ -34,5 +34,7 @@ public record OrganizationDto(
         String signatoryDocumentType,
         String signatoryDocumentNumber,
         String signatoryPosition,
-        @Display(Display.Kind.BOOLEAN) boolean publicIdentityVisible
+        @Display(Display.Kind.BOOLEAN) boolean publicIdentityVisible,
+        /** Manual-subsidy mode (hub ADR 0041 §1): DISABLED | MONTHLY | INSCRIPTION | MONTHLY_AND_INSCRIPTION. */
+        @Display(value = Display.Kind.ENUM, enumScope = "organization.subsidy_mode") String subsidyMode
 ) {}

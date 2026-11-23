@@ -45,6 +45,8 @@ public interface SubsidyRepository extends JpaRepository<Subsidy, Long>,
      * Solvency sweep helper (vertical-5 #3): of the given candidate members,
      * which ones have a full monthly exoneration active on {@code on}. One query
      * for the whole batch — avoids an N+1 in {@code applyDueTransitions}.
+     * {@code origins} narrows which subsidies count — the organization's subsidy
+     * mode excludes {@code MANUAL} ones when it disables the monthly fee (hub ADR 0041).
      */
     @Query("""
             SELECT DISTINCT s.member.id FROM Subsidy s
@@ -53,7 +55,9 @@ public interface SubsidyRepository extends JpaRepository<Subsidy, Long>,
               AND s.validFrom <= :on
               AND (s.validUntil IS NULL OR s.validUntil >= :on)
               AND s.member.id IN :memberIds
+              AND s.origin IN :origins
             """)
     Set<Long> memberIdsWithFullMonthlyExoneration(@Param("memberIds") Collection<Long> memberIds,
-                                                  @Param("on") LocalDate on);
+                                                  @Param("on") LocalDate on,
+                                                  @Param("origins") Collection<Subsidy.Origin> origins);
 }

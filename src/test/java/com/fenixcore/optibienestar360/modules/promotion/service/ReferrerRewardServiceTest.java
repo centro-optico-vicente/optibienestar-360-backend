@@ -88,6 +88,7 @@ class ReferrerRewardServiceTest {
         LocalDate nextMonth = LocalDate.now().withDayOfMonth(1).plusMonths(1);
         assertThat(reward.getMember()).isSameAs(mp.getCodeOwnerMember());
         assertThat(reward.getMonthlyPercentage()).isEqualByComparingTo("100.00");
+        assertThat(reward.getOrigin()).isEqualTo(Subsidy.Origin.REFERRAL_REWARD);
         assertThat(reward.getValidFrom()).isEqualTo(nextMonth);
         assertThat(reward.getValidUntil()).isEqualTo(nextMonth.plusMonths(1).minusDays(1));
         assertThat(mp.isReferrerRewardGranted()).isTrue();

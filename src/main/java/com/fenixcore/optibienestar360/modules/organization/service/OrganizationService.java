@@ -11,6 +11,7 @@ import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdat
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationContactDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
+import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -108,6 +109,10 @@ public class OrganizationService {
         org.setEmail(blankToNull(req.email()));
         org.setPhones(blankToNull(req.phones()));
         org.setPublicIdentityVisible(req.publicIdentityVisible());
+        SubsidyMode subsidyMode = SubsidyMode.parse(req.subsidyMode());
+        if (subsidyMode != null) {
+            org.setSubsidyMode(subsidyMode);
+        }
         applySignatory(org, req);
         return toDto(repository.save(org));
     }
@@ -145,7 +150,8 @@ public class OrganizationService {
                 o.getSignatoryDocumentType(),
                 o.getSignatoryDocumentNumber(),
                 o.getSignatoryPosition(),
-                o.isPublicIdentityVisible());
+                o.isPublicIdentityVisible(),
+                o.getSubsidyMode() != null ? o.getSubsidyMode().name() : null);
     }
 
     /**

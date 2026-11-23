@@ -78,6 +78,8 @@ public class ReferrerRewardService {
         LocalDate validFrom = LocalDate.now().withDayOfMonth(1).plusMonths(1);
         Subsidy reward = new Subsidy();
         reward.setMember(referrer);
+        // Not governed by the organization's subsidy mode (hub ADR 0041 §2).
+        reward.setOrigin(Subsidy.Origin.REFERRAL_REWARD);
         reward.setMonthlyPercentage(promotion.getReferrerRewardPct());
         reward.setValidFrom(validFrom);
         reward.setValidUntil(validFrom.plusMonths(promotion.getReferrerRewardCycles()).minusDays(1));

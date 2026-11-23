@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.subsidy.service;
 
 import com.fenixcore.optibienestar360.core.audit.AuditAction;
 import com.fenixcore.optibienestar360.core.audit.Auditable;
+import com.fenixcore.optibienestar360.core.exception.UnprocessableDetailsException;
 import com.fenixcore.optibienestar360.core.util.DefaultSortResolver;
 import com.fenixcore.optibienestar360.core.util.RsqlFieldValidator;
 import com.fenixcore.optibienestar360.core.util.SearchSpecifications;
@@ -14,10 +15,12 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyAuditLogDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyBeneficiaryRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyDto;
+import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidySettingsDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.Subsidy;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.SubsidyAuditLog;
@@ -58,6 +61,12 @@ import com.fenixcore.optibienestar360.core.util.OptionsSupport;
  * belonging to the member ({@code subsidy.beneficiary.not_in_member}), and the
  * beneficiary count within {@code max_exonerated_beneficiaries} — or, when unset,
  * the plan's own {@code max_beneficiaries} ({@code subsidy.beneficiaries.cap_exceeded}).</p>
+ *
+ * <p>Organization subsidy mode (hub ADR 0041 §1, §6): a manual subsidy cannot be
+ * created or edited while the mode is {@code DISABLED}
+ * ({@code subsidy.disabled_for_organization}), and a percentage for a fee type
+ * the mode switches off is rejected ({@code subsidy.fee_type_disabled}).
+ * Referral rewards are not governed by the mode.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -88,6 +97,7 @@ public class SubsidiesService {
     private final BeneficiaryRepository beneficiaryRepository;
     private final UserRepository userRepository;
     private final DefaultSortResolver defaultSortResolver;
+    private final SubsidyResolver subsidyResolver;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -142,11 +152,22 @@ public class SubsidiesService {
                 .toList();
     }
 
+    /**
+     * {@code GET /v1/admin/subsidies/settings} (hub ADR 0041 §6): the organization's
+     * mode and which fee types it enables. The discount cap fields are filled by
+     * the cap enforcement (ADR 0041 §5); until then the caller is uncapped.
+     */
+    public SubsidySettingsDto settings(UUID actorUuid) {
+        SubsidyMode mode = subsidyResolver.currentMode();
+        return new SubsidySettingsDto(mode.name(), mode.monthlyEnabled(), mode.inscriptionEnabled(), null, false);
+    }
+
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
     @Auditable(entity = "subsidy", action = AuditAction.CREATE)
     public SubsidyDto create(SubsidyCreateRequest req, UUID actorUuid) {
+        requireModeAllows(req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
         Member member = resolveMember(req.memberUuid());
         User actor = resolveUser(actorUuid);
 
@@ -175,6 +196,9 @@ public class SubsidiesService {
     @Auditable(entity = "subsidy", action = AuditAction.UPDATE, uuidArgIndex = 0)
     public SubsidyDto update(UUID uuid, SubsidyUpdateRequest req, UUID actorUuid) {
         Subsidy subsidy = findManaged(uuid);
+        if (subsidy.isManual()) {
+            requireModeAllows(req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
+        }
         User actor = resolveUser(actorUuid);
         Map<String, Object> before = snapshot(subsidy);
 
@@ -269,6 +293,42 @@ public class SubsidiesService {
         if (cap != null && rowCount > cap) {
             throw new IllegalArgumentException("subsidy.beneficiaries.cap_exceeded");
         }
+    }
+
+    /**
+     * Organization subsidy mode gate (hub ADR 0041 §1, §6) for a manual subsidy
+     * being created or edited: nothing goes while the mode is {@code DISABLED},
+     * and each supplied percentage — the titular's and the beneficiary lines' —
+     * must belong to a fee type the mode enables.
+     */
+    private void requireModeAllows(BigDecimal monthly, BigDecimal inscription,
+                                   List<SubsidyBeneficiaryRequest> lines) {
+        SubsidyMode mode = subsidyResolver.currentMode();
+        if (mode == SubsidyMode.DISABLED) {
+            throw unprocessable("subsidy.disabled_for_organization", Map.of("mode", mode.name()));
+        }
+        boolean monthlyRequested = monthly != null;
+        boolean inscriptionRequested = inscription != null;
+        if (lines != null) {
+            for (SubsidyBeneficiaryRequest line : lines) {
+                monthlyRequested |= line.monthlyPercentage() != null;
+                inscriptionRequested |= line.inscriptionPercentage() != null;
+            }
+        }
+        if (monthlyRequested && !mode.monthlyEnabled()) {
+            throw unprocessable("subsidy.fee_type_disabled", Map.of("mode", mode.name(), "feeType", "MONTHLY"));
+        }
+        if (inscriptionRequested && !mode.inscriptionEnabled()) {
+            throw unprocessable("subsidy.fee_type_disabled", Map.of("mode", mode.name(), "feeType", "INSCRIPTION"));
+        }
+    }
+
+    /** 422 carrying the machine-readable {@code code} plus extra problem properties. */
+    private static UnprocessableDetailsException unprocessable(String code, Map<String, Object> properties,
+                                                               Object... args) {
+        Map<String, Object> props = new HashMap<>(properties);
+        props.put("code", code);
+        return new UnprocessableDetailsException(code, args, props);
     }
 
     private static void requireCoverage(Subsidy s) {

@@ -8,12 +8,16 @@ import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepository;
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
+import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyBeneficiaryRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
+import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidySettingsDto;
+import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyUpdateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.Subsidy;
 import com.fenixcore.optibienestar360.modules.subsidy.entity.SubsidyAuditLog;
 import com.fenixcore.optibienestar360.modules.subsidy.repository.SubsidyAuditLogRepository;
 import com.fenixcore.optibienestar360.modules.subsidy.repository.SubsidyRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,10 +53,17 @@ class SubsidiesServiceTest {
     @Mock private BeneficiaryRepository beneficiaryRepository;
     @Mock private UserRepository userRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
+    @Mock private SubsidyResolver subsidyResolver;
 
     private SubsidiesService sut() {
         return new SubsidiesService(repository, auditLogRepository, memberRepository,
-                membershipRepository, beneficiaryRepository, userRepository, defaultSortResolver);
+                membershipRepository, beneficiaryRepository, userRepository, defaultSortResolver,
+                subsidyResolver);
+    }
+
+    @BeforeEach
+    void modeEnablesBothFees() {
+        lenient().when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.MONTHLY_AND_INSCRIPTION);
     }
 
     private static final UUID ACTOR = UUID.randomUUID();
@@ -149,7 +160,99 @@ class SubsidiesServiceTest {
         assertThat(captor.getValue().getAction()).isEqualTo(SubsidyAuditLog.Action.REVOKED);
     }
 
+    // ─── Organization subsidy mode (hub ADR 0041) ─────────────────────────────
+
+    @Test
+    void create_rejected_whenModeIsDisabled() {
+        when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", null, null, null, List.of()), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("subsidy.disabled_for_organization");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_rejectsInscriptionPercentage_whenModeIsMonthlyOnly() {
+        when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.MONTHLY);
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", "100", null, null, List.of()), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("subsidy.fee_type_disabled");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_rejectsBeneficiaryMonthlyLine_whenModeIsInscriptionOnly() {
+        when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.INSCRIPTION);
+        List<SubsidyBeneficiaryRequest> lines =
+                List.of(new SubsidyBeneficiaryRequest(UUID.randomUUID(), new BigDecimal("50"), null));
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), null, "100", null, null, lines), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("subsidy.fee_type_disabled");
+    }
+
+    @Test
+    void create_marksTheSubsidyManual() {
+        Member member = member(1L);
+        stubMemberAndActor(member);
+        when(repository.save(any(Subsidy.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        sut().create(req(member.getUuid(), "50", null, null, null, List.of()), ACTOR);
+
+        ArgumentCaptor<Subsidy> captor = ArgumentCaptor.forClass(Subsidy.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getOrigin()).isEqualTo(Subsidy.Origin.MANUAL);
+    }
+
+    @Test
+    void update_rejected_whenModeIsDisabled() {
+        Subsidy subsidy = new Subsidy();
+        subsidy.setUuid(UUID.randomUUID());
+        subsidy.setMember(member(1L));
+        when(repository.findByUuid(subsidy.getUuid())).thenReturn(Optional.of(subsidy));
+        when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
+
+        assertThatThrownBy(() -> sut().update(subsidy.getUuid(), updateReq("60"), ACTOR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("subsidy.disabled_for_organization");
+    }
+
+    @Test
+    void update_ofReferralReward_isNotGovernedByTheMode() {
+        Subsidy reward = new Subsidy();
+        reward.setUuid(UUID.randomUUID());
+        reward.setMember(member(1L));
+        reward.setOrigin(Subsidy.Origin.REFERRAL_REWARD);
+        reward.setMonthlyPercentage(new BigDecimal("100"));
+        reward.setMaxExoneratedBeneficiaries(0);
+        reward.setValidFrom(LocalDate.of(2026, 1, 1));
+        when(repository.findByUuid(reward.getUuid())).thenReturn(Optional.of(reward));
+        when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
+        lenient().when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
+
+        sut().update(reward.getUuid(), updateReq("50"), ACTOR);
+
+        assertThat(reward.getMonthlyPercentage()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    void settings_reflectTheOrganizationMode() {
+        when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.INSCRIPTION);
+
+        SubsidySettingsDto settings = sut().settings(ACTOR);
+
+        assertThat(settings.mode()).isEqualTo("INSCRIPTION");
+        assertThat(settings.monthlyEnabled()).isFalse();
+        assertThat(settings.inscriptionEnabled()).isTrue();
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
+
+    private static SubsidyUpdateRequest updateReq(String monthly) {
+        return new SubsidyUpdateRequest(new BigDecimal(monthly), null, null, null, null, null, null, null);
+    }
 
     private void stubMemberAndActor(Member member) {
         when(memberRepository.findByUuid(member.getUuid())).thenReturn(Optional.of(member));

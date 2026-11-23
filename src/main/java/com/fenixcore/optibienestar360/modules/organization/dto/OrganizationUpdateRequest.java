@@ -37,5 +37,11 @@ public record OrganizationUpdateRequest(
         String signatoryDocumentType,
         @Size(max = 20) String signatoryDocumentNumber,
         @Size(max = 100) String signatoryPosition,
-        boolean publicIdentityVisible
+        boolean publicIdentityVisible,
+        /**
+         * Manual-subsidy mode (hub ADR 0041 §1): DISABLED | MONTHLY | INSCRIPTION |
+         * MONTHLY_AND_INSCRIPTION. Omitted (null) leaves it unchanged; an unknown
+         * value is a 422 ({@code organization.subsidy_mode.invalid}).
+         */
+        String subsidyMode
 ) {}

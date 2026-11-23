@@ -6,6 +6,8 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -133,4 +135,12 @@ public class Organization extends BaseEntity {
      */
     @Column(name = "public_identity_visible", nullable = false)
     private boolean publicIdentityVisible;
+
+    /**
+     * Which fee types manual subsidies discount (V262, hub ADR 0041 §1).
+     * Referral-reward subsidies ignore it. Defaults {@code DISABLED}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subsidy_mode", length = 30, nullable = false)
+    private SubsidyMode subsidyMode = SubsidyMode.DISABLED;
 }
