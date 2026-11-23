@@ -27,6 +27,9 @@ public interface PaymentMapper {
     @Mapping(target = "openClaim",               ignore = true)
     @Mapping(target = "creditRemaining",         ignore = true)
     @Mapping(target = "promotionSlot",           ignore = true)
+    // MapStruct reads the one-arg copy method PaymentDto.withPromotionSlot(..) as a fluent setter;
+    // the slot is filled by PaymentsService after mapping, so there is nothing to map here.
+    @Mapping(target = "withPromotionSlot",       ignore = true)
     @Mapping(target = "membership",              source = "membership")
     @Mapping(target = "member",                  source = "membership.member")
     @Mapping(target = "plan",                   source = "membership.plan")
