@@ -34,7 +34,7 @@ public class PublicMediaEnricher {
                 detail.address(), detail.cityName(), detail.logoUrl(), detail.description(), detail.website(),
                 detail.phone(), detail.whatsapp(), detail.instagram(), detail.facebook(), detail.googleMapsUrl(),
                 detail.ratingAvg(), detail.ratingCount(), detail.openingHours(), detail.openingHoursLabel(),
-                detail.professionNames(), products, products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
+                detail.professionNames(), products, media.forOwner(MediaTables.ALLIES, detail.uuid()));
     }
 
     /** Offers of one ally (its detail or {@code /allies/{uuid}/products}). */

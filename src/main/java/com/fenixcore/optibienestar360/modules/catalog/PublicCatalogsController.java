@@ -175,8 +175,7 @@ public class PublicCatalogsController {
     }
 
     // ─── product-categories ─────────────────────────────────────────────────
-    // /service-categories is a deprecated alias kept while clients move over (ADR 0026).
-    @GetMapping({"/product-categories", "/service-categories"})
+    @GetMapping("/product-categories")
     public ResponseEntity<Page<ProductCategoryDto>> listProductCategories(
             @PageableDefault(size = 50, sort = "name") Pageable pageable,
             @RequestParam(required = false) String filter,
@@ -184,7 +183,7 @@ public class PublicCatalogsController {
         return ResponseEntity.ok(productCategoryService.list(pageable, filter, q, false));
     }
 
-    @GetMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @GetMapping("/product-categories/{uuid}")
     public ResponseEntity<ProductCategoryDto> getProductCategory(@PathVariable UUID uuid) {
         return ResponseEntity.ok(productCategoryService.get(uuid));
     }

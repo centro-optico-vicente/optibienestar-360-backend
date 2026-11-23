@@ -35,8 +35,7 @@ import java.util.UUID;
  * organized around the workflow, not the parent ally.
  */
 @RestController
-// /v1/admin/ally-services is a deprecated alias kept while the frontend moves to ally-products.
-@RequestMapping({"/v1/admin/ally-products", "/v1/admin/ally-services"})
+@RequestMapping("/v1/admin/ally-products")
 @RequiredArgsConstructor
 public class AdminAllyProductReviewController {
 

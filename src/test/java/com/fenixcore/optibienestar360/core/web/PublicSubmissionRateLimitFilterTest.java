@@ -5,6 +5,7 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 
@@ -71,6 +72,44 @@ class PublicSubmissionRateLimitFilterTest {
         assertThat(post("/v1/public/affiliation-requests", "10.0.0.6").getStatus()).isEqualTo(200);
         // Consuming a link is not throttled by this filter.
         assertThat(post("/v1/auth/magic-link/consume", "10.0.0.6").getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void theContactForm_hasItsOwnBudget_andNeverEatsTheSubmissionOne() throws Exception {
+        // Default of 10 per hour for contact messages; the submission budget here is 3.
+        for (int i = 0; i < 10; i++) {
+            assertThat(post("/v1/public/contact-messages", "10.0.0.7").getStatus()).isEqualTo(200);
+        }
+        MockHttpServletResponse throttled = post("/v1/public/contact-messages", "10.0.0.7");
+        assertThat(throttled.getStatus()).isEqualTo(429);
+        assertThat(throttled.getHeader("Retry-After")).isEqualTo("3600");
+        assertThat(post("/v1/public/affiliation-requests", "10.0.0.7").getStatus()).isEqualTo(200);
+        // Another client is unaffected.
+        assertThat(post("/v1/public/contact-messages", "10.0.0.8").getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void aZeroOrNegativeContactBudget_fallsBackToTheDefault() {
+        ReflectionTestUtils.setField(filter, "contactMessagesPerHour", 0);
+        assertThat(filter.contactBudget()).isEqualTo(PublicSubmissionRateLimitFilter.DEFAULT_CONTACT_MESSAGES_PER_HOUR);
+        ReflectionTestUtils.setField(filter, "contactMessagesPerHour", -1);
+        assertThat(filter.contactBudget()).isEqualTo(PublicSubmissionRateLimitFilter.DEFAULT_CONTACT_MESSAGES_PER_HOUR);
+        ReflectionTestUtils.setField(filter, "contactMessagesPerHour", 20);
+        assertThat(filter.contactBudget()).isEqualTo(20);
+    }
+
+    @Test
+    void anOversizedContactMessage_is413() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/v1/public/contact-messages");
+        request.setContentType("application/json");
+        request.setContent(new byte[70 * 1024]);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(chain.getRequest()).isNull();
     }
 
     @Test

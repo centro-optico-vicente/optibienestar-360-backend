@@ -674,8 +674,7 @@ public class AdminCatalogsController {
     }
 
     // ═══════════════ product-categories ═══════════════
-    // /service-categories is a deprecated alias kept while clients move over (ADR 0026).
-    @GetMapping({"/product-categories", "/service-categories"})
+    @GetMapping("/product-categories")
     @PreAuthorize(PRODUCT_CATEGORY_VIEW)
     public ResponseEntity<AppliedSortPage<ProductCategoryDto>> listProductCategories(
             @PageableDefault(size = 50) Pageable pageable,
@@ -686,7 +685,7 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(new AppliedSortPage<>(page, productCategoryService.effectiveSort(pageable)));
     }
 
-    @GetMapping({"/product-categories/options", "/service-categories/options"})
+    @GetMapping("/product-categories/options")
     @PreAuthorize(LOOKUP)
     public ResponseEntity<List<OptionDto>> productCategoryOptions(
             @RequestParam(required = false) String q,
@@ -695,34 +694,34 @@ public class AdminCatalogsController {
         return ResponseEntity.ok(productCategoryService.listOptions(q, limit, currentValues));
     }
 
-    @GetMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @GetMapping("/product-categories/{uuid}")
     @PreAuthorize(PRODUCT_CATEGORY_VIEW)
     public ResponseEntity<ProductCategoryDto> getProductCategory(@PathVariable UUID uuid) {
         return ResponseEntity.ok(productCategoryService.get(uuid));
     }
 
-    @PostMapping({"/product-categories", "/service-categories"})
+    @PostMapping("/product-categories")
     @PreAuthorize(PRODUCT_CATEGORY_CREATE)
     public ResponseEntity<ProductCategoryDto> createProductCategory(@Valid @RequestBody ProductCategoryCreateRequest req) {
         ProductCategoryDto created = productCategoryService.create(req);
         return ResponseEntity.created(locationFor(created.uuid())).body(created);
     }
 
-    @PutMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @PutMapping("/product-categories/{uuid}")
     @PreAuthorize(PRODUCT_CATEGORY_UPDATE)
     public ResponseEntity<ProductCategoryDto> updateProductCategory(@PathVariable UUID uuid,
                                                                     @Valid @RequestBody ProductCategoryUpdateRequest req) {
         return ResponseEntity.ok(productCategoryService.update(uuid, req));
     }
 
-    @GetMapping({"/product-categories/{uuid}/usage", "/service-categories/{uuid}/usage"})
+    @GetMapping("/product-categories/{uuid}/usage")
     @PreAuthorize(PRODUCT_CATEGORY_VIEW)
     public ResponseEntity<UsageDto> productCategoryUsage(@PathVariable UUID uuid) {
         long count = productCategoryService.countUsages(uuid);
         return ResponseEntity.ok(new UsageDto(count > 0, count));
     }
 
-    @DeleteMapping({"/product-categories/{uuid}", "/service-categories/{uuid}"})
+    @DeleteMapping("/product-categories/{uuid}")
     @PreAuthorize(PRODUCT_CATEGORY_DELETE)
     public ResponseEntity<Void> deleteProductCategory(@PathVariable UUID uuid,
                                                       @RequestParam(defaultValue = "false") boolean physical) {
