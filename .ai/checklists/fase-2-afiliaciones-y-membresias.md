@@ -63,7 +63,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P0/C2] `/v1/admin/allies/{id}/specialties|services|agreements|users` — 4 sub-resource controllers + 3 nuevos services. Invariantes service-side: dedupe AllyUser, primary requires OWNER, único primary activo per ally. Scope-check en cada find anti URL-tampering. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [x] [P0/C2] `GET /v1/public/allies` (directorio público) — `PublicAllyController` sin auth, filtros `cityUuid/specialtyUuid/q` combinados con AND, `PublicAllyListItemDto` sanitizado (sin RIF/email/audit/manager). Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
 - [x] [P0/C2] `GET /v1/public/allies/{id}` — `PublicAllyDetailDto` sanitizado + filtro v2 `active AND published AND reviewStatus=APPROVED` sobre services expuestos. Ver detalle en [vertical-3-aliados.md](vertical-3-aliados.md).
-- [ ] [P0/C2] Upload logo aliado vía StorageService → R2
+- [x] [P0/C2] Upload logo aliado vía StorageService → R2 — ver [vertical-3](vertical-3-aliados.md).
 
 ## Tarea 2.4 — Afiliados + Familia
 
@@ -72,7 +72,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [x] [P0/C3] `/v1/admin/members` CRUD + RSQL — `AdminMemberController` (5 endpoints guardados por perms MEMBER_*) + `MembersService` que orquesta `PersonService.findOrCreate` para dedupe por cédula. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C2] `/v1/admin/members/{id}/beneficiaries` CRUD — `AdminMemberBeneficiariesController` + `BeneficiariesService` (reutiliza `PersonService.findOrCreate` + readmission flow vía UNIQUE V18). Cap del plan diferido hasta V20. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `/v1/admin/members/{id}/medical-record` (`@PreAuthorize`) _(hecho — `AdminMemberMedicalRecordController` GET/PUT/DELETE (`MEDICAL_RECORD_VIEW`/`_UPDATE`); ver [vertical-4](vertical-4-afiliados-y-familia.md))_
-- [ ] [P0/C2] `POST /v1/admin/members/{id}/upload-document`
+- [x] [P0/C2] `POST /v1/admin/members/{id}/upload-document` — ver [vertical-4](vertical-4-afiliados-y-familia.md).
 - [x] [P0/C3] `/v1/me/member` — self-service del afiliado logueado. `MyMemberController.GET` guardado por `MEMBER_VIEW_OWN`; resuelve via `MemberRepository.findByUserUuid` (JPQL una sola query). 404 si no enrolled. Ver detalle en [vertical-4-afiliados-y-familia.md](vertical-4-afiliados-y-familia.md).
 - [ ] [P0/C2] Anonimización en queries de aliados (no expone MedicalRecord)
 
@@ -153,7 +153,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 
 - [x] [P0/C3] OWASP Top 10 audit con skill _(ejecutado en Vertical 1 — auth module; pendiente re-ejecutar al cierre de cada vertical)_
 - [ ] [P0/C2] CSP estricto
-- [ ] [P0/C2] Validación uploads (MIME real, tamaño max)
+- [x] [P0/C2] Validación uploads (MIME real, tamaño max) — ver [vertical-10](vertical-10-optimizacion-reportes-hardening.md) (#473).
 - [ ] [P0/C2] Audit logs acciones sensibles
 - [ ] [P1/C3] Tests integrales: 70% coverage services críticos
 - [ ] [P1/C3] Tests E2E con Testcontainers
