@@ -21,6 +21,10 @@ import java.util.UUID;
  * enforced service-side ({@code subsidy.coverage.required}). {@code validUntil}
  * is optional ({@code null} = indefinite). {@code beneficiaries} is optional and
  * bounded by {@code maxExoneratedBeneficiaries} (or the plan's own cap).</p>
+ *
+ * <p>An advisor's percentages (titular and beneficiary lines) are bounded by
+ * their discount cap (hub ADR 0041 §5); {@code acknowledgeCapExceeded} confirms
+ * going past it when the caller may.</p>
  */
 public record SubsidyCreateRequest(
         @NotNull UUID memberUuid,
@@ -30,5 +34,10 @@ public record SubsidyCreateRequest(
         @NotBlank String reason,
         @NotNull LocalDate validFrom,
         LocalDate validUntil,
-        @Valid List<SubsidyBeneficiaryRequest> beneficiaries
+        @Valid List<SubsidyBeneficiaryRequest> beneficiaries,
+        /**
+         * Explicit confirmation to go past the caller's discount cap — only
+         * honored with {@code SUBSIDY_EXCEED_DISCOUNT_CAP} (hub ADR 0041 §5).
+         */
+        Boolean acknowledgeCapExceeded
 ) {}

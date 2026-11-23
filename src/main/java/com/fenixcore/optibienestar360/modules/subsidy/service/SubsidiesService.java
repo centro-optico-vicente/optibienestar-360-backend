@@ -16,6 +16,8 @@ import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepos
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
+import com.fenixcore.optibienestar360.modules.promoter.service.DiscountAuthority;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyAuditLogDto;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyBeneficiaryRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
@@ -67,6 +69,15 @@ import com.fenixcore.optibienestar360.core.util.OptionsSupport;
  * ({@code subsidy.disabled_for_organization}), and a percentage for a fee type
  * the mode switches off is rejected ({@code subsidy.fee_type_disabled}).
  * Referral rewards are not governed by the mode.</p>
+ *
+ * <p>Discount cap (hub ADR 0041 §5): when the acting user is an active promoter
+ * (advisor), every percentage supplied — titular monthly / inscription and each
+ * beneficiary line — must be within their {@link DiscountAuthority} cap.
+ * Back-office users who are not promoters are uncapped. Going past the cap needs
+ * {@code SUBSIDY_EXCEED_DISCOUNT_CAP} ({@code subsidy.exceeds_discount_cap}
+ * otherwise) and an explicit {@code acknowledgeCapExceeded}
+ * ({@code subsidy.exceeds_discount_cap_ack_required} otherwise); the audit entry
+ * then records the cap and that it was exceeded.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -98,6 +109,7 @@ public class SubsidiesService {
     private final UserRepository userRepository;
     private final DefaultSortResolver defaultSortResolver;
     private final SubsidyResolver subsidyResolver;
+    private final PromoterRepository promoterRepository;
 
     // ─── Read ───────────────────────────────────────────────────────────────
 
@@ -154,20 +166,23 @@ public class SubsidiesService {
 
     /**
      * {@code GET /v1/admin/subsidies/settings} (hub ADR 0041 §6): the organization's
-     * mode and which fee types it enables. The discount cap fields are filled by
-     * the cap enforcement (ADR 0041 §5); until then the caller is uncapped.
+     * mode, which fee types it enables, and the caller's discount cap
+     * ({@code null} = uncapped) and whether they may exceed it.
      */
-    public SubsidySettingsDto settings(UUID actorUuid) {
+    public SubsidySettingsDto settings(UUID actorUuid, boolean canExceedCap) {
         SubsidyMode mode = subsidyResolver.currentMode();
-        return new SubsidySettingsDto(mode.name(), mode.monthlyEnabled(), mode.inscriptionEnabled(), null, false);
+        return new SubsidySettingsDto(mode.name(), mode.monthlyEnabled(), mode.inscriptionEnabled(),
+                discountCapOf(actorUuid), canExceedCap);
     }
 
     // ─── Create ─────────────────────────────────────────────────────────────
 
     @Transactional
     @Auditable(entity = "subsidy", action = AuditAction.CREATE)
-    public SubsidyDto create(SubsidyCreateRequest req, UUID actorUuid) {
+    public SubsidyDto create(SubsidyCreateRequest req, UUID actorUuid, boolean canExceedCap) {
         requireModeAllows(req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
+        BigDecimal exceededCap = requireWithinDiscountCap(actorUuid, canExceedCap, req.acknowledgeCapExceeded(),
+                req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
         Member member = resolveMember(req.memberUuid());
         User actor = resolveUser(actorUuid);
 
@@ -186,7 +201,8 @@ public class SubsidiesService {
         applyBeneficiaryLines(subsidy, member, req.beneficiaries());
 
         Subsidy saved = repository.save(subsidy);
-        writeAudit(saved, SubsidyAuditLog.Action.CREATED, actor, null, snapshot(saved), req.reason());
+        writeAudit(saved, SubsidyAuditLog.Action.CREATED, actor, null,
+                withCapOverride(snapshot(saved), exceededCap), req.reason());
         return SubsidyDto.from(saved);
     }
 
@@ -194,11 +210,13 @@ public class SubsidiesService {
 
     @Transactional
     @Auditable(entity = "subsidy", action = AuditAction.UPDATE, uuidArgIndex = 0)
-    public SubsidyDto update(UUID uuid, SubsidyUpdateRequest req, UUID actorUuid) {
+    public SubsidyDto update(UUID uuid, SubsidyUpdateRequest req, UUID actorUuid, boolean canExceedCap) {
         Subsidy subsidy = findManaged(uuid);
         if (subsidy.isManual()) {
             requireModeAllows(req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
         }
+        BigDecimal exceededCap = requireWithinDiscountCap(actorUuid, canExceedCap, req.acknowledgeCapExceeded(),
+                req.monthlyPercentage(), req.inscriptionPercentage(), req.beneficiaries());
         User actor = resolveUser(actorUuid);
         Map<String, Object> before = snapshot(subsidy);
 
@@ -220,7 +238,8 @@ public class SubsidiesService {
         requireCoherentWindow(subsidy);
         requireWithinCap(subsidy, subsidy.getBeneficiaries().size());
 
-        writeAudit(subsidy, SubsidyAuditLog.Action.MODIFIED, actor, before, snapshot(subsidy), req.reason());
+        writeAudit(subsidy, SubsidyAuditLog.Action.MODIFIED, actor, before,
+                withCapOverride(snapshot(subsidy), exceededCap), req.reason());
         return SubsidyDto.from(subsidy);   // managed → dirty-check on commit
     }
 
@@ -321,6 +340,59 @@ public class SubsidiesService {
         if (inscriptionRequested && !mode.inscriptionEnabled()) {
             throw unprocessable("subsidy.fee_type_disabled", Map.of("mode", mode.name(), "feeType", "INSCRIPTION"));
         }
+    }
+
+    /**
+     * Discount-cap gate (hub ADR 0041 §5). Returns the cap when the caller
+     * legitimately went past it (permission + acknowledgement) so the audit
+     * entry can record it; {@code null} when within the cap or uncapped.
+     * Only the percentages supplied in the request are checked — an edit that
+     * leaves a stored percentage untouched does not re-check it.
+     */
+    private BigDecimal requireWithinDiscountCap(UUID actorUuid, boolean canExceedCap, Boolean acknowledged,
+                                                BigDecimal monthly, BigDecimal inscription,
+                                                List<SubsidyBeneficiaryRequest> lines) {
+        BigDecimal requested = maxOf(monthly, inscription);
+        if (lines != null) {
+            for (SubsidyBeneficiaryRequest line : lines) {
+                requested = maxOf(requested, maxOf(line.monthlyPercentage(), line.inscriptionPercentage()));
+            }
+        }
+        if (requested == null) return null;
+        BigDecimal cap = discountCapOf(actorUuid);
+        if (cap == null || requested.compareTo(cap) <= 0) return null;
+
+        String capText = cap.stripTrailingZeros().toPlainString();
+        Map<String, Object> props = Map.of("discountCapPct", cap, "requestedPct", requested);
+        if (!canExceedCap) {
+            throw unprocessable("subsidy.exceeds_discount_cap", props, capText);
+        }
+        if (!Boolean.TRUE.equals(acknowledged)) {
+            throw unprocessable("subsidy.exceeds_discount_cap_ack_required", props, capText);
+        }
+        return cap;
+    }
+
+    /** The caller's discount cap ({@link DiscountAuthority}); {@code null} = not a promoter, uncapped. */
+    private BigDecimal discountCapOf(UUID actorUuid) {
+        return promoterRepository.findActiveByUserUuid(actorUuid)
+                .map(DiscountAuthority::maxDiscountPct)
+                .orElse(null);
+    }
+
+    private static BigDecimal maxOf(BigDecimal a, BigDecimal b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.max(b);
+    }
+
+    /** Adds the cap override to the audit "after" snapshot (hub ADR 0041 §5). */
+    private static Map<String, Object> withCapOverride(Map<String, Object> after, BigDecimal exceededCap) {
+        if (exceededCap != null) {
+            after.put("discountCapPct", exceededCap);
+            after.put("discountCapExceeded", true);
+        }
+        return after;
     }
 
     /** 422 carrying the machine-readable {@code code} plus extra problem properties. */

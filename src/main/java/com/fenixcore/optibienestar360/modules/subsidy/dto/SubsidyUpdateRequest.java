@@ -30,5 +30,10 @@ public record SubsidyUpdateRequest(
         LocalDate validFrom,
         LocalDate validUntil,
         Boolean active,
-        @Valid List<SubsidyBeneficiaryRequest> beneficiaries
+        @Valid List<SubsidyBeneficiaryRequest> beneficiaries,
+        /**
+         * Explicit confirmation to go past the caller's discount cap — only
+         * honored with {@code SUBSIDY_EXCEED_DISCOUNT_CAP} (hub ADR 0041 §5).
+         */
+        Boolean acknowledgeCapExceeded
 ) {}
