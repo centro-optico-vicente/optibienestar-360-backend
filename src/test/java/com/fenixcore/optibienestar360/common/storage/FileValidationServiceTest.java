@@ -47,7 +47,7 @@ class FileValidationServiceTest {
         when(policyRepository.findByVisibility(FileVisibility.CONFIDENTIAL))
                 .thenReturn(Optional.of(policy(FileVisibility.CONFIDENTIAL, FileTypePolicy.Mode.ALLOWLIST,
                         List.of("pdf", "jpg", "jpeg", "png", "doc", "docx", "odt", "rtf",
-                                "xls", "xlsx", "ods", "csv", "tsv", "txt", "heic"), 10L * 1024 * 1024)));
+                                "xls", "xlsx", "ods", "csv", "tsv", "txt", "md", "heic"), 10L * 1024 * 1024)));
         when(policyRepository.findByVisibility(FileVisibility.TEMPORARY))
                 .thenReturn(Optional.of(policy(FileVisibility.TEMPORARY, FileTypePolicy.Mode.ALLOWLIST,
                         List.of("pdf", "xlsx", "csv"), 20L * 1024 * 1024)));
@@ -91,6 +91,9 @@ class FileValidationServiceTest {
         assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL,
                 file("nota.txt", "Pago del mes".getBytes(StandardCharsets.UTF_8))))
                 .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL,
+                file("notas.md", "# Informe\n\n- Pago del mes\n".getBytes(StandardCharsets.UTF_8))))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -104,7 +107,10 @@ class FileValidationServiceTest {
     }
 
     @Test
-    void rejectsABinaryNamedAsTsvOrRtf() {
+    void rejectsABinaryNamedAsTsvRtfOrMarkdown() {
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("notas.md", EXE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_mismatch");
         assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("datos.tsv", EXE)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("file.validation.content_mismatch");
@@ -162,7 +168,7 @@ class FileValidationServiceTest {
 
     @Test
     void doesNotSniffExtensionsWithoutAKnownSignature() {
-        assertThatCode(() -> service.validate(FileVisibility.INTERNAL, file("notas.md", EXE)))
+        assertThatCode(() -> service.validate(FileVisibility.INTERNAL, file("registro.log", EXE)))
                 .doesNotThrowAnyException();
     }
 

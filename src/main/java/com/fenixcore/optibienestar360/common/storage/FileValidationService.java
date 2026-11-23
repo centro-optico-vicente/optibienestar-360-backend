@@ -75,6 +75,7 @@ public class FileValidationService {
             Map.entry("doc", "application/msword"),
             Map.entry("txt", "text/plain"),
             Map.entry("tsv", "text/tab-separated-values"),
+            Map.entry("md", "text/markdown"),
             Map.entry("rtf", "application/rtf"),
             Map.entry("odt", "application/vnd.oasis.opendocument.text"),
             Map.entry("ods", "application/vnd.oasis.opendocument.spreadsheet"),
@@ -116,7 +117,7 @@ public class FileValidationService {
      */
     private static final String ODF_MIMETYPE = "mimetypeapplication/vnd.oasis.opendocument.";
 
-    private static final Set<String> TEXT_EXTENSIONS = Set.of("csv", "tsv", "txt");
+    private static final Set<String> TEXT_EXTENSIONS = Set.of("csv", "tsv", "txt", "md");
 
     /**
      * Expected content per extension. Extensions not listed here are not
