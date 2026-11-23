@@ -60,8 +60,11 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
     @Value("${app.public-rate-limit.magic-links-per-hour:10}")
     private int magicLinksPerHour = 10;
 
-    @Value("${app.public-rate-limit.contact-messages-per-hour:5}")
-    private int contactMessagesPerHour = 5;
+    /** Fallback when the contact budget is unset, zero or negative. */
+    static final int DEFAULT_CONTACT_MESSAGES_PER_HOUR = 10;
+
+    @Value("${app.public-rate-limit.contact-messages-per-hour:" + DEFAULT_CONTACT_MESSAGES_PER_HOUR + "}")
+    private int contactMessagesPerHour = DEFAULT_CONTACT_MESSAGES_PER_HOUR;
 
     public PublicSubmissionRateLimitFilter(MessageSource messageSource,
                                            @Value("${app.public-rate-limit.affiliation-requests-per-hour:10}") int maxPerHour) {
@@ -94,7 +97,7 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
         long now = System.currentTimeMillis();
         boolean allowed = ip == null || switch (uri) {
             case MAGIC_LINK_PATH -> tryAcquire(magicLinkHits, ip, now, magicLinksPerHour);
-            case CONTACT_PATH -> tryAcquire(contactHits, ip, now, contactMessagesPerHour);
+            case CONTACT_PATH -> tryAcquire(contactHits, ip, now, contactBudget());
             default -> tryAcquire(ip, now);
         };
         if (!allowed) {
@@ -106,6 +109,11 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
     }
 
     /** Records the hit if the IP is under its hourly budget; false when over it. */
+    /** A zero or negative configured budget means "use the default", never "block everything". */
+    int contactBudget() {
+        return contactMessagesPerHour > 0 ? contactMessagesPerHour : DEFAULT_CONTACT_MESSAGES_PER_HOUR;
+    }
+
     boolean tryAcquire(String ip, long now) {
         return tryAcquire(hits, ip, now, maxPerHour);
     }
