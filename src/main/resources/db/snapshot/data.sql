@@ -1878,6 +1878,8 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 251	259	user notifications	SQL	V259__user_notifications.sql	-1605888821	snapshot	2026-01-01 00:00:00	0	t
 252	260	promotion slot reconciliation	SQL	V260__promotion_slot_reconciliation.sql	1851065903	snapshot	2026-01-01 00:00:00	0	t
 253	261	organization public identity visible	SQL	V261__organization_public_identity_visible.sql	1011328585	snapshot	2026-01-01 00:00:00	0	t
+254	262	organization subsidy mode	SQL	V262__organization_subsidy_mode.sql	-1897777494	snapshot	2026-01-01 00:00:00	0	t
+255	263	subsidy exceed discount cap permission	SQL	V263__subsidy_exceed_discount_cap_permission.sql	271778038	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2030,8 +2032,8 @@ ALTER TABLE app.onboarding_policies ENABLE TRIGGER ALL;
 
 ALTER TABLE app.organizations DISABLE TRIGGER ALL;
 
-COPY app.organizations (organizations_id, uuid, name, legal_name, tax_identifier, logo_key, official_currency_id, reference_currency_id, is_active, status, created_at, updated_at, created_by, updated_by, whatsapp, instagram, facebook, auto_approve_commissions, registry_state, signing_city, service_area, address, email, phones, signatory_name, signatory_document_type, signatory_document_number, signatory_position, public_identity_visible) FROM stdin;
-1	9b43c770-6820-1de6-9cce-0f4c0f86f0c9	OptiBienestar 360	Centro Óptico Vicente	\N	\N	2	1	t	ACTIVE	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N	\N	\N	f	Portuguesa	Acarigua	eje Acarigua-Araure	Av. 30 con Calle 21, C.C. Ciudad Cristal, Planta Baja, Local N° 23, Acarigua, Edo. Portuguesa	planoptibienestar360@gmail.com	(+58)414-5738530, (+58)424-5984590	\N	\N	\N	\N	f
+COPY app.organizations (organizations_id, uuid, name, legal_name, tax_identifier, logo_key, official_currency_id, reference_currency_id, is_active, status, created_at, updated_at, created_by, updated_by, whatsapp, instagram, facebook, auto_approve_commissions, registry_state, signing_city, service_area, address, email, phones, signatory_name, signatory_document_type, signatory_document_number, signatory_position, public_identity_visible, subsidy_mode) FROM stdin;
+1	9b43c770-6820-1de6-9cce-0f4c0f86f0c9	OptiBienestar 360	Centro Óptico Vicente	\N	\N	2	1	t	ACTIVE	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N	\N	\N	f	Portuguesa	Acarigua	eje Acarigua-Araure	Av. 30 con Calle 21, C.C. Ciudad Cristal, Planta Baja, Local N° 23, Acarigua, Edo. Portuguesa	planoptibienestar360@gmail.com	(+58)414-5738530, (+58)424-5984590	\N	\N	\N	\N	f	DISABLED
 \.
 
 ALTER TABLE app.organizations ENABLE TRIGGER ALL;
@@ -2574,6 +2576,7 @@ COPY app.permissions (permissions_id, uuid, name, domain_id, description, is_act
 453	20636b4f-12b8-3849-9741-8948e1a0d739	PROMOTION_SLOT_RELEASE	31	Liberar a mano un cupo de una campaña que no se ha usado, con nota	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 454	f967918a-b224-cd5a-92bb-a09d7d1cfc86	CAMPAIGN_PAYMENT_VIEW	31	Ver la sección Pagos de una campaña: qué pagos confirmaron su cupo	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 455	1f8dc1d2-6745-e1c5-c0af-2101d46523d9	CAMPAIGN_PAYMENT_REMIND	31	Enviar recordatorios internos sobre los pagos que confirman cupos de una campaña	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+456	00f02a98-f301-fcca-b506-24d0f932e89e	SUBSIDY_EXCEED_DISCOUNT_CAP	14	Otorgar subsidios por encima del tope de descuento del asesor (hasta 100 %), con confirmación	t	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.permissions ENABLE TRIGGER ALL;
@@ -3853,6 +3856,8 @@ COPY app.role_permissions (role_permissions_id, role_id, permission_id, created_
 1551	2	453	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1553	2	454	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 1555	2	455	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1556	1	456	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
+1558	2	456	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N
 \.
 
 ALTER TABLE app.role_permissions ENABLE TRIGGER ALL;
@@ -3920,7 +3925,7 @@ ALTER TABLE app.security_policies ENABLE TRIGGER ALL;
 
 ALTER TABLE app.subsidies DISABLE TRIGGER ALL;
 
-COPY app.subsidies (subsidies_id, uuid, member_id, monthly_percentage, inscription_percentage, max_exonerated_beneficiaries, reason, authorized_by, valid_from, valid_until, is_active, status, created_at, updated_at, created_by, updated_by) FROM stdin;
+COPY app.subsidies (subsidies_id, uuid, member_id, monthly_percentage, inscription_percentage, max_exonerated_beneficiaries, reason, authorized_by, valid_from, valid_until, is_active, status, created_at, updated_at, created_by, updated_by, origin) FROM stdin;
 \.
 
 ALTER TABLE app.subsidies ENABLE TRIGGER ALL;
@@ -4473,7 +4478,7 @@ SELECT pg_catalog.setval('app.permission_domains_permission_domains_id_seq', 39,
 -- Name: permissions_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 455, true);
+SELECT pg_catalog.setval('app.permissions_permissions_id_seq', 456, true);
 
 --
 -- Name: person_credit_entries_person_credit_entries_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
@@ -4599,7 +4604,7 @@ SELECT pg_catalog.setval('app.report_share_report_share_id_seq', 1, false);
 -- Name: role_permissions_role_permissions_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -
 --
 
-SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1555, true);
+SELECT pg_catalog.setval('app.role_permissions_role_permissions_id_seq', 1558, true);
 
 --
 -- Name: roles_roles_id_seq; Type: SEQUENCE SET; Schema: app; Owner: -

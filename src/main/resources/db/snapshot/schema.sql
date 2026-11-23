@@ -4145,9 +4145,11 @@ CREATE TABLE app.organizations (
     signatory_document_number character varying(20),
     signatory_position character varying(100),
     public_identity_visible boolean DEFAULT false NOT NULL,
+    subsidy_mode character varying(30) DEFAULT 'DISABLED'::character varying NOT NULL,
     CONSTRAINT chk_organizations_currencies_distinct CHECK ((official_currency_id <> reference_currency_id)),
     CONSTRAINT chk_organizations_signatory_document CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL)))),
-    CONSTRAINT chk_organizations_signatory_document_type CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[]))))
+    CONSTRAINT chk_organizations_signatory_document_type CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[])))),
+    CONSTRAINT chk_organizations_subsidy_mode CHECK (((subsidy_mode)::text = ANY ((ARRAY['DISABLED'::character varying, 'MONTHLY'::character varying, 'INSCRIPTION'::character varying, 'MONTHLY_AND_INSCRIPTION'::character varying])::text[])))
 );
 
 --
@@ -4209,6 +4211,12 @@ COMMENT ON COLUMN app.organizations.signatory_document_number IS 'Número de doc
 --
 
 COMMENT ON COLUMN app.organizations.signatory_position IS 'Cargo del firmante autorizado ({{org.signatoryPosition}})';
+
+--
+-- Name: COLUMN organizations.subsidy_mode; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.organizations.subsidy_mode IS 'Modo de subsidios manuales: DISABLED (inactivo), MONTHLY (mensualidad), INSCRIPTION (inscripción) o MONTHLY_AND_INSCRIPTION (ambas). Las recompensas por referido no dependen de este modo (ADR 0041)';
 
 --
 -- Name: organizations_organizations_id_seq; Type: SEQUENCE; Schema: app; Owner: -
@@ -5868,12 +5876,20 @@ CREATE TABLE app.subsidies (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
     updated_by uuid,
+    origin character varying(20) DEFAULT 'MANUAL'::character varying NOT NULL,
     CONSTRAINT chk_subsidies_covers_something CHECK (((monthly_percentage IS NOT NULL) OR (inscription_percentage IS NOT NULL))),
     CONSTRAINT chk_subsidies_inscription_pct CHECK (((inscription_percentage IS NULL) OR ((inscription_percentage >= (0)::numeric) AND (inscription_percentage <= (100)::numeric)))),
     CONSTRAINT chk_subsidies_max_exon CHECK (((max_exonerated_beneficiaries IS NULL) OR (max_exonerated_beneficiaries >= 0))),
     CONSTRAINT chk_subsidies_monthly_pct CHECK (((monthly_percentage IS NULL) OR ((monthly_percentage >= (0)::numeric) AND (monthly_percentage <= (100)::numeric)))),
+    CONSTRAINT chk_subsidies_origin CHECK (((origin)::text = ANY ((ARRAY['MANUAL'::character varying, 'REFERRAL_REWARD'::character varying])::text[]))),
     CONSTRAINT chk_subsidies_valid_window CHECK (((valid_until IS NULL) OR (valid_until >= valid_from)))
 );
+
+--
+-- Name: COLUMN subsidies.origin; Type: COMMENT; Schema: app; Owner: -
+--
+
+COMMENT ON COLUMN app.subsidies.origin IS 'Origen del subsidio: MANUAL (lo carga una persona) o REFERRAL_REWARD (recompensa por referido creada por el sistema). El modo de subsidios de la organización solo gobierna los MANUAL (ADR 0041)';
 
 --
 -- Name: subsidies_subsidies_id_seq; Type: SEQUENCE; Schema: app; Owner: -
