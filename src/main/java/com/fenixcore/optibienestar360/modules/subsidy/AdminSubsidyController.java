@@ -44,6 +44,8 @@ import com.fenixcore.optibienestar360.core.dto.OptionDto;
 @RequiredArgsConstructor
 public class AdminSubsidyController {
 
+    private static final String EXCEED_DISCOUNT_CAP = "SUBSIDY_EXCEED_DISCOUNT_CAP";
+
     private final SubsidiesService service;
 
     @GetMapping
@@ -75,7 +77,13 @@ public class AdminSubsidyController {
     @GetMapping("/settings")
     @PreAuthorize("hasAnyAuthority('SUBSIDY_VIEW_ALL', 'SUBSIDY_CREATE')")
     public ResponseEntity<SubsidySettingsDto> settings(@AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(service.settings(actor.getUuid()));
+        return ResponseEntity.ok(service.settings(actor.getUuid(), canExceedCap(actor)));
+    }
+
+    /** Whether the caller holds {@code SUBSIDY_EXCEED_DISCOUNT_CAP} (hub ADR 0041 §5). */
+    private static boolean canExceedCap(CustomUserDetails actor) {
+        return actor.getAuthorities().stream()
+                .anyMatch(a -> EXCEED_DISCOUNT_CAP.equals(a.getAuthority()));
     }
 
     @GetMapping("/{uuid}")
@@ -89,7 +97,7 @@ public class AdminSubsidyController {
     public ResponseEntity<SubsidyDto> create(
             @Valid @RequestBody SubsidyCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        SubsidyDto created = service.create(request, actor.getUuid());
+        SubsidyDto created = service.create(request, actor.getUuid(), canExceedCap(actor));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(created.uuid())
@@ -103,7 +111,7 @@ public class AdminSubsidyController {
             @PathVariable UUID uuid,
             @Valid @RequestBody SubsidyUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails actor) {
-        return ResponseEntity.ok(service.update(uuid, request, actor.getUuid()));
+        return ResponseEntity.ok(service.update(uuid, request, actor.getUuid(), canExceedCap(actor)));
     }
 
     @DeleteMapping("/{uuid}")

@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -107,12 +109,12 @@ class AdminSubsidyControllerIT {
                         .with(principal("SUBSIDY_VIEW_ALL"))
                         .contentType(MediaType.APPLICATION_JSON).content(VALID_CREATE_JSON))
                 .andExpect(status().isForbidden());
-        verify(service, never()).create(any(), any());
+        verify(service, never()).create(any(), any(), anyBoolean());
     }
 
     @Test
     void create_withPermission_is201() throws Exception {
-        when(service.create(any(), any())).thenReturn(dto());
+        when(service.create(any(), any(), anyBoolean())).thenReturn(dto());
 
         mockMvc.perform(post("/v1/admin/subsidies")
                         .with(principal("SUBSIDY_CREATE"))
@@ -131,7 +133,7 @@ class AdminSubsidyControllerIT {
                         .with(principal("SUBSIDY_CREATE"))
                         .contentType(MediaType.APPLICATION_JSON).content(badJson))
                 .andExpect(status().isBadRequest());
-        verify(service, never()).create(any(), any());
+        verify(service, never()).create(any(), any(), anyBoolean());
     }
 
     // ─── revoke (write, DELETE) ──────────────────────────────────────────────
@@ -156,7 +158,7 @@ class AdminSubsidyControllerIT {
 
     @Test
     void settings_withCreatePermission_is200() throws Exception {
-        when(service.settings(any())).thenReturn(
+        when(service.settings(any(), anyBoolean())).thenReturn(
                 new SubsidySettingsDto("MONTHLY", true, false, null, false));
 
         mockMvc.perform(get("/v1/admin/subsidies/settings").with(principal("SUBSIDY_CREATE")))
@@ -168,11 +170,22 @@ class AdminSubsidyControllerIT {
 
     @Test
     void settings_withViewPermission_is200() throws Exception {
-        when(service.settings(any())).thenReturn(
+        when(service.settings(any(), anyBoolean())).thenReturn(
                 new SubsidySettingsDto("DISABLED", false, false, null, false));
 
         mockMvc.perform(get("/v1/admin/subsidies/settings").with(principal("SUBSIDY_VIEW_ALL")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void create_passesTheExceedCapPermission() throws Exception {
+        when(service.create(any(), any(), anyBoolean())).thenReturn(dto());
+
+        mockMvc.perform(post("/v1/admin/subsidies")
+                        .with(principal("SUBSIDY_CREATE", "SUBSIDY_EXCEED_DISCOUNT_CAP"))
+                        .contentType(MediaType.APPLICATION_JSON).content(VALID_CREATE_JSON))
+                .andExpect(status().isCreated());
+        verify(service).create(any(), any(), eq(true));
     }
 
     @Test

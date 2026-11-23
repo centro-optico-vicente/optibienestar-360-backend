@@ -9,6 +9,10 @@ import com.fenixcore.optibienestar360.modules.member.repository.BeneficiaryRepos
 import com.fenixcore.optibienestar360.modules.member.repository.MemberRepository;
 import com.fenixcore.optibienestar360.modules.membership.repository.MembershipRepository;
 import com.fenixcore.optibienestar360.modules.organization.entity.SubsidyMode;
+import com.fenixcore.optibienestar360.core.exception.UnprocessableDetailsException;
+import com.fenixcore.optibienestar360.modules.promoter.entity.Promoter;
+import com.fenixcore.optibienestar360.modules.promoter.entity.PromoterRank;
+import com.fenixcore.optibienestar360.modules.promoter.repository.PromoterRepository;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyBeneficiaryRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidyCreateRequest;
 import com.fenixcore.optibienestar360.modules.subsidy.dto.SubsidySettingsDto;
@@ -54,11 +58,12 @@ class SubsidiesServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private DefaultSortResolver defaultSortResolver;
     @Mock private SubsidyResolver subsidyResolver;
+    @Mock private PromoterRepository promoterRepository;
 
     private SubsidiesService sut() {
         return new SubsidiesService(repository, auditLogRepository, memberRepository,
                 membershipRepository, beneficiaryRepository, userRepository, defaultSortResolver,
-                subsidyResolver);
+                subsidyResolver, promoterRepository);
     }
 
     @BeforeEach
@@ -74,7 +79,7 @@ class SubsidiesServiceTest {
         stubMemberAndActor(member);
         when(repository.save(any(Subsidy.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        sut().create(req(member.getUuid(), "100", null, null, null, List.of()), ACTOR);
+        sut().create(req(member.getUuid(), "100", null, null, null, List.of()), ACTOR, false);
 
         verify(repository).save(any(Subsidy.class));
         ArgumentCaptor<SubsidyAuditLog> captor = ArgumentCaptor.forClass(SubsidyAuditLog.class);
@@ -87,7 +92,7 @@ class SubsidiesServiceTest {
         Member member = member(1L);
         stubMemberAndActor(member);
 
-        assertThatThrownBy(() -> sut().create(req(member.getUuid(), null, null, null, null, List.of()), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(member.getUuid(), null, null, null, null, List.of()), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.coverage.required");
         verify(repository, never()).save(any());
@@ -99,9 +104,9 @@ class SubsidiesServiceTest {
         stubMemberAndActor(member);
 
         SubsidyCreateRequest req = new SubsidyCreateRequest(member.getUuid(), new BigDecimal("100"), null,
-                null, "Fundación X", LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 1), List.of());
+                null, "Fundación X", LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 1), List.of(), null);
 
-        assertThatThrownBy(() -> sut().create(req, ACTOR))
+        assertThatThrownBy(() -> sut().create(req, ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.valid_until.before_from");
         verify(repository, never()).save(any());
@@ -116,7 +121,7 @@ class SubsidiesServiceTest {
                 new SubsidyBeneficiaryRequest(UUID.randomUUID(), null, new BigDecimal("100")));
 
         // cap = 1 but two beneficiary lines supplied.
-        assertThatThrownBy(() -> sut().create(req(member.getUuid(), "100", null, 1, null, lines), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(member.getUuid(), "100", null, 1, null, lines), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.beneficiaries.cap_exceeded");
         verify(repository, never()).save(any());
@@ -137,7 +142,7 @@ class SubsidiesServiceTest {
         List<SubsidyBeneficiaryRequest> lines =
                 List.of(new SubsidyBeneficiaryRequest(benUuid, null, new BigDecimal("100")));
 
-        assertThatThrownBy(() -> sut().create(req(member.getUuid(), "100", null, null, null, lines), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(member.getUuid(), "100", null, null, null, lines), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.beneficiary.not_in_member");
         verify(repository, never()).save(any());
@@ -166,7 +171,7 @@ class SubsidiesServiceTest {
     void create_rejected_whenModeIsDisabled() {
         when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
 
-        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", null, null, null, List.of()), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", null, null, null, List.of()), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.disabled_for_organization");
         verify(repository, never()).save(any());
@@ -176,7 +181,7 @@ class SubsidiesServiceTest {
     void create_rejectsInscriptionPercentage_whenModeIsMonthlyOnly() {
         when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.MONTHLY);
 
-        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", "100", null, null, List.of()), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", "100", null, null, List.of()), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.fee_type_disabled");
         verify(repository, never()).save(any());
@@ -188,7 +193,7 @@ class SubsidiesServiceTest {
         List<SubsidyBeneficiaryRequest> lines =
                 List.of(new SubsidyBeneficiaryRequest(UUID.randomUUID(), new BigDecimal("50"), null));
 
-        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), null, "100", null, null, lines), ACTOR))
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), null, "100", null, null, lines), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.fee_type_disabled");
     }
@@ -199,7 +204,7 @@ class SubsidiesServiceTest {
         stubMemberAndActor(member);
         when(repository.save(any(Subsidy.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        sut().create(req(member.getUuid(), "50", null, null, null, List.of()), ACTOR);
+        sut().create(req(member.getUuid(), "50", null, null, null, List.of()), ACTOR, false);
 
         ArgumentCaptor<Subsidy> captor = ArgumentCaptor.forClass(Subsidy.class);
         verify(repository).save(captor.capture());
@@ -214,7 +219,7 @@ class SubsidiesServiceTest {
         when(repository.findByUuid(subsidy.getUuid())).thenReturn(Optional.of(subsidy));
         when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
 
-        assertThatThrownBy(() -> sut().update(subsidy.getUuid(), updateReq("60"), ACTOR))
+        assertThatThrownBy(() -> sut().update(subsidy.getUuid(), updateReq("60"), ACTOR, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("subsidy.disabled_for_organization");
     }
@@ -232,7 +237,7 @@ class SubsidiesServiceTest {
         when(userRepository.findByUuid(ACTOR)).thenReturn(Optional.of(user()));
         lenient().when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.DISABLED);
 
-        sut().update(reward.getUuid(), updateReq("50"), ACTOR);
+        sut().update(reward.getUuid(), updateReq("50"), ACTOR, false);
 
         assertThat(reward.getMonthlyPercentage()).isEqualByComparingTo("50");
     }
@@ -241,17 +246,111 @@ class SubsidiesServiceTest {
     void settings_reflectTheOrganizationMode() {
         when(subsidyResolver.currentMode()).thenReturn(SubsidyMode.INSCRIPTION);
 
-        SubsidySettingsDto settings = sut().settings(ACTOR);
+        SubsidySettingsDto settings = sut().settings(ACTOR, false);
 
         assertThat(settings.mode()).isEqualTo("INSCRIPTION");
         assertThat(settings.monthlyEnabled()).isFalse();
         assertThat(settings.inscriptionEnabled()).isTrue();
     }
 
+    // ─── Discount cap (hub ADR 0041 §5) ───────────────────────────────────────
+
+    @Test
+    void create_advisorAboveCap_withoutPermission_isRejectedWithTheCap() {
+        advisorWithCap("30");
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", null, null, null, List.of()), ACTOR, false))
+                .isInstanceOf(UnprocessableDetailsException.class)
+                .hasMessage("subsidy.exceeds_discount_cap")
+                .satisfies(ex -> {
+                    UnprocessableDetailsException u = (UnprocessableDetailsException) ex;
+                    assertThat(u.getArgs()).containsExactly("30");
+                    assertThat(u.getProperties()).containsEntry("code", "subsidy.exceeds_discount_cap");
+                    assertThat((BigDecimal) u.getProperties().get("discountCapPct")).isEqualByComparingTo("30");
+                });
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_advisorAboveCap_onABeneficiaryLine_isRejected() {
+        advisorWithCap("30");
+        List<SubsidyBeneficiaryRequest> lines =
+                List.of(new SubsidyBeneficiaryRequest(UUID.randomUUID(), null, new BigDecimal("100")));
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "10", null, null, null, lines), ACTOR, false))
+                .hasMessage("subsidy.exceeds_discount_cap");
+    }
+
+    @Test
+    void create_advisorAboveCap_withPermission_needsAcknowledgement() {
+        advisorWithCap("30");
+
+        assertThatThrownBy(() -> sut().create(req(UUID.randomUUID(), "50", null, null, null, List.of()), ACTOR, true))
+                .isInstanceOf(UnprocessableDetailsException.class)
+                .hasMessage("subsidy.exceeds_discount_cap_ack_required");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_advisorAboveCap_withPermissionAndAcknowledgement_isAudited() {
+        advisorWithCap("30");
+        Member member = member(1L);
+        stubMemberAndActor(member);
+        when(repository.save(any(Subsidy.class))).thenAnswer(inv -> inv.getArgument(0));
+        SubsidyCreateRequest acknowledged = new SubsidyCreateRequest(member.getUuid(), new BigDecimal("50"), null,
+                null, "Fundación X", LocalDate.of(2026, 1, 1), null, List.of(), true);
+
+        sut().create(acknowledged, ACTOR, true);
+
+        ArgumentCaptor<SubsidyAuditLog> captor = ArgumentCaptor.forClass(SubsidyAuditLog.class);
+        verify(auditLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getAfter()).containsEntry("discountCapExceeded", true);
+        assertThat((BigDecimal) captor.getValue().getAfter().get("discountCapPct")).isEqualByComparingTo("30");
+    }
+
+    @Test
+    void create_advisorWithinCap_isAccepted() {
+        advisorWithCap("50");
+        Member member = member(1L);
+        stubMemberAndActor(member);
+        when(repository.save(any(Subsidy.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        sut().create(req(member.getUuid(), "50", null, null, null, List.of()), ACTOR, false);
+
+        ArgumentCaptor<SubsidyAuditLog> captor = ArgumentCaptor.forClass(SubsidyAuditLog.class);
+        verify(auditLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getAfter()).doesNotContainKey("discountCapExceeded");
+    }
+
+    @Test
+    void settings_exposeTheCallersCap() {
+        advisorWithCap("25");
+
+        SubsidySettingsDto settings = sut().settings(ACTOR, true);
+
+        assertThat(settings.discountCapPct()).isEqualByComparingTo("25");
+        assertThat(settings.canExceedCap()).isTrue();
+    }
+
+    @Test
+    void settings_backOfficeUser_isUncapped() {
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.empty());
+
+        assertThat(sut().settings(ACTOR, false).discountCapPct()).isNull();
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
+    private void advisorWithCap(String pct) {
+        PromoterRank rank = new PromoterRank();
+        rank.setMaxDiscountPct(new BigDecimal(pct));
+        Promoter promoter = new Promoter();
+        promoter.setRank(rank);
+        when(promoterRepository.findActiveByUserUuid(ACTOR)).thenReturn(Optional.of(promoter));
+    }
+
     private static SubsidyUpdateRequest updateReq(String monthly) {
-        return new SubsidyUpdateRequest(new BigDecimal(monthly), null, null, null, null, null, null, null);
+        return new SubsidyUpdateRequest(new BigDecimal(monthly), null, null, null, null, null, null, null, null);
     }
 
     private void stubMemberAndActor(Member member) {
@@ -264,7 +363,7 @@ class SubsidiesServiceTest {
         return new SubsidyCreateRequest(memberUuid,
                 monthly != null ? new BigDecimal(monthly) : null,
                 inscription != null ? new BigDecimal(inscription) : null,
-                cap, "Fundación X", LocalDate.of(2026, 1, 1), until, lines);
+                cap, "Fundación X", LocalDate.of(2026, 1, 1), until, lines, null);
     }
 
     private static Member member(long id) {
