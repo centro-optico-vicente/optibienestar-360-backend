@@ -21,6 +21,9 @@ public interface MembershipMapper {
     @Mapping(target = "exchangeRateUsed", ignore = true)
     @Mapping(target = "exchangeRateDate", ignore = true)
     @Mapping(target = "inscriptionPaymentMethod", ignore = true)
+    // MapStruct reads the one-arg copy method MembershipDto.withInscriptionPaymentMethod(..) as a
+    // fluent setter; MembershipsService fills the value after mapping, so there is nothing to map here.
+    @Mapping(target = "withInscriptionPaymentMethod", ignore = true)
     @Mapping(target = "inscriptionDue", expression = "java(membership.getInscriptionDueSince() != null)")
     MembershipDto toDto(Membership membership);
 }
