@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V261. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V262. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 119 tables.
 
@@ -3181,6 +3181,7 @@
 - `signatory_document_number` character varying(20) — Número de documento del firmante; con el tipo forma {{org.signatoryDocument}}
 - `signatory_position` character varying(100) — Cargo del firmante autorizado ({{org.signatoryPosition}})
 - `public_identity_visible` boolean NOT NULL DEFAULT false
+- `subsidy_mode` character varying(30) NOT NULL DEFAULT 'DISABLED'::character varying — Modo de subsidios manuales: DISABLED (inactivo), MONTHLY (mensualidad), INSCRIPTION (inscripción) o MONTHLY_AND_INSCRIPTION (ambas). Las recompensas por referido no dependen de este modo (ADR 0041)
 
 **Constraints**
 - PK PRIMARY KEY (organizations_id)
@@ -3190,6 +3191,7 @@
 - CHECK `chk_organizations_currencies_distinct` CHECK ((official_currency_id <> reference_currency_id))
 - CHECK `chk_organizations_signatory_document` CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL))))
 - CHECK `chk_organizations_signatory_document_type` CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[]))))
+- CHECK `chk_organizations_subsidy_mode` CHECK (((subsidy_mode)::text = ANY ((ARRAY['DISABLED'::character varying, 'MONTHLY'::character varying, 'INSCRIPTION'::character varying, 'MONTHLY_AND_INSCRIPTION'::character varying])::text[])))
 
 **Indexes**
 - `idx_organizations_is_active` btree (is_active) WHERE is_active
@@ -4744,6 +4746,7 @@
 - `updated_at` timestamp with time zone NOT NULL DEFAULT now()
 - `created_by` uuid
 - `updated_by` uuid
+- `origin` character varying(20) NOT NULL DEFAULT 'MANUAL'::character varying — Origen del subsidio: MANUAL (lo carga una persona) o REFERRAL_REWARD (recompensa por referido creada por el sistema). El modo de subsidios de la organización solo gobierna los MANUAL (ADR 0041)
 
 **Constraints**
 - PK PRIMARY KEY (subsidies_id)
@@ -4754,6 +4757,7 @@
 - CHECK `chk_subsidies_inscription_pct` CHECK (((inscription_percentage IS NULL) OR ((inscription_percentage >= (0)::numeric) AND (inscription_percentage <= (100)::numeric))))
 - CHECK `chk_subsidies_max_exon` CHECK (((max_exonerated_beneficiaries IS NULL) OR (max_exonerated_beneficiaries >= 0)))
 - CHECK `chk_subsidies_monthly_pct` CHECK (((monthly_percentage IS NULL) OR ((monthly_percentage >= (0)::numeric) AND (monthly_percentage <= (100)::numeric))))
+- CHECK `chk_subsidies_origin` CHECK (((origin)::text = ANY ((ARRAY['MANUAL'::character varying, 'REFERRAL_REWARD'::character varying])::text[])))
 - CHECK `chk_subsidies_valid_window` CHECK (((valid_until IS NULL) OR (valid_until >= valid_from)))
 
 **Indexes**
