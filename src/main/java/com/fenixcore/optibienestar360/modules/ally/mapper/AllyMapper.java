@@ -182,6 +182,9 @@ public interface AllyMapper {
      * the parent ally (the portal already knows who the caller is), while
      * {@code allyRole} / {@code primary} / {@code joinedAt} stay on the pivot.
      * {@code uuid} is deliberately the ally's — see {@link MyAllyDto}.
+     * {@code hasApprovedOffers} is not a column: the service computes it and
+     * passes it in, so the record needs no copy-with method (MapStruct reads a
+     * {@code withX(..)} returning the record as a fluent setter and warns).
      */
     @Mapping(target = "uuid",          source = "ally.uuid")
     @Mapping(target = "name",         source = "ally.name")
@@ -191,8 +194,8 @@ public interface AllyMapper {
     @Mapping(target = "segment",            source = "ally.segment")
     @Mapping(target = "registrationStatus", source = "ally.registrationStatus")
     @Mapping(target = "rejectionReason",    source = "ally.rejectionReason")
-    @Mapping(target = "hasApprovedOffers",  ignore = true)
-    MyAllyDto toMyAllyDto(AllyUser allyUser);
+    @Mapping(target = "hasApprovedOffers",  source = "hasApprovedOffers")
+    MyAllyDto toMyAllyDto(AllyUser allyUser, boolean hasApprovedOffers);
 
     /**
      * Admin reverse-lookup projection for {@code GET

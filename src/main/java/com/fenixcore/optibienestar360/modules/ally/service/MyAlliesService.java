@@ -57,7 +57,7 @@ public class MyAlliesService {
         return allyUserRepository.findActiveByUserUuid(userUuid).stream()
                 .sorted(Comparator.comparing(AllyUser::isPrimary).reversed()
                         .thenComparing(au -> au.getAlly().getName(), String.CASE_INSENSITIVE_ORDER))
-                .map(au -> mapper.toMyAllyDto(au).withHasApprovedOffers(
+                .map(au -> mapper.toMyAllyDto(au,
                         allyProductRepository.existsByAllyIdAndReviewStatusAndActiveTrue(
                                 au.getAlly().getId(), AllyProduct.ReviewStatus.APPROVED)))
                 .toList();

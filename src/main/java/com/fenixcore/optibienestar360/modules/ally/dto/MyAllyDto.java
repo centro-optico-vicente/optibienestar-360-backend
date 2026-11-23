@@ -53,10 +53,4 @@ public record MyAllyDto(
         @Display(Display.Kind.BOOLEAN) boolean primary,
         @Display(Display.Kind.DATE) LocalDate joinedAt
 ) {
-
-    /** Copy with the onboarding flag, computed by the service (not a column). */
-    public MyAllyDto withHasApprovedOffers(boolean value) {
-        return new MyAllyDto(uuid, name, allyTypeNames, logoUrl, phone, segment, registrationStatus, rejectionReason,
-                value, allyRole, primary, joinedAt);
-    }
 }
