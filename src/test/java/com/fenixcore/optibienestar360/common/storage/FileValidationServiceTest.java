@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 /**
- * Extension/size policy (V55) plus the magic-number check: the declared
+ * Extension/size policy (V55, widened in V264) plus the magic-number check: the declared
  * extension must match the real bytes for the formats we can recognise.
  */
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +30,11 @@ class FileValidationServiceTest {
     private static final byte[] PDF = "%PDF-1.7\n%âãÏÓ\n".getBytes(StandardCharsets.ISO_8859_1);
     private static final byte[] ZIP = {'P', 'K', 0x03, 0x04, 0x14, 0, 0x06, 0};
     private static final byte[] EXE = {'M', 'Z', (byte) 0x90, 0, 0x03, 0, 0, 0};
+    private static final byte[] OLE2 = {(byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0,
+            (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1, 0, 0};
+    private static final byte[] RTF = "{\\rtf1\\ansi Hola}".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] ODS = openDocument("spreadsheet");
+    private static final byte[] ODT = openDocument("text");
     private static final byte[] HTML = "<html><script>alert(1)</script></html>".getBytes(StandardCharsets.UTF_8);
 
     @Mock private FileTypePolicyRepository policyRepository;
@@ -41,7 +46,8 @@ class FileValidationServiceTest {
         service = new FileValidationService(policyRepository);
         when(policyRepository.findByVisibility(FileVisibility.CONFIDENTIAL))
                 .thenReturn(Optional.of(policy(FileVisibility.CONFIDENTIAL, FileTypePolicy.Mode.ALLOWLIST,
-                        List.of("pdf", "jpg", "jpeg", "png"), 10L * 1024 * 1024)));
+                        List.of("pdf", "jpg", "jpeg", "png", "doc", "docx", "odt", "rtf",
+                                "xls", "xlsx", "ods", "csv", "tsv", "txt", "heic"), 10L * 1024 * 1024)));
         when(policyRepository.findByVisibility(FileVisibility.TEMPORARY))
                 .thenReturn(Optional.of(policy(FileVisibility.TEMPORARY, FileTypePolicy.Mode.ALLOWLIST,
                         List.of("pdf", "xlsx", "csv"), 20L * 1024 * 1024)));
@@ -63,6 +69,55 @@ class FileValidationServiceTest {
         assertThatCode(() -> service.validate(FileVisibility.TEMPORARY,
                 file("aliados.csv", "rif;nombre\nJ-123;Óptica\n".getBytes(StandardCharsets.UTF_8))))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void acceptsOfficeAndTextDocuments() {
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("informe.docx", ZIP)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("informe.doc", OLE2)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("cuentas.xls", OLE2)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("cuentas.ods", ODS)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("informe.odt", ODT)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("carta.rtf", RTF)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL,
+                file("datos.tsv", "rif\tnombre\nJ-123\tÓptica\n".getBytes(StandardCharsets.UTF_8))))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL,
+                file("nota.txt", "Pago del mes".getBytes(StandardCharsets.UTF_8))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsAnOpenDocumentOfTheWrongKind() {
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("cuentas.ods", ODT)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_mismatch");
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("informe.odt", ZIP)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_mismatch");
+    }
+
+    @Test
+    void rejectsABinaryNamedAsTsvOrRtf() {
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("datos.tsv", EXE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_mismatch");
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("carta.rtf", HTML)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_mismatch");
+    }
+
+    @Test
+    void refusesAnAllowlistedExtensionWithoutAKnownSignature() {
+        assertThatThrownBy(() -> service.validate(FileVisibility.CONFIDENTIAL, file("foto.heic", PNG)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("file.validation.content_unverifiable");
     }
 
     @Test
@@ -135,6 +190,21 @@ class FileValidationServiceTest {
                 .doesNotThrowAnyException();
         assertThatCode(() -> service.validate(FileVisibility.CONFIDENTIAL, file("vacio.pdf", new byte[0])))
                 .doesNotThrowAnyException();
+    }
+
+    /** ZIP local header followed by the stored {@code mimetype} entry, as LibreOffice writes it. */
+    private static byte[] openDocument(String kind) {
+        byte[] header = new byte[30];
+        header[0] = 'P';
+        header[1] = 'K';
+        header[2] = 0x03;
+        header[3] = 0x04;
+        byte[] entry = ("mimetypeapplication/vnd.oasis.opendocument." + kind)
+                .getBytes(StandardCharsets.US_ASCII);
+        byte[] content = new byte[header.length + entry.length];
+        System.arraycopy(header, 0, content, 0, header.length);
+        System.arraycopy(entry, 0, content, header.length, entry.length);
+        return content;
     }
 
     private static MockMultipartFile file(String name, byte[] content) {

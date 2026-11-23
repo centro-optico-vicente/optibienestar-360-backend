@@ -1610,8 +1610,8 @@ ALTER TABLE app.file_type_policies DISABLE TRIGGER ALL;
 
 COPY app.file_type_policies (file_type_policies_id, visibility, mode, extensions, max_size_bytes, created_at, updated_at, updated_by) FROM stdin;
 1	PUBLIC	ALLOWLIST	{jpg,jpeg,png,webp}	5242880	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
-2	CONFIDENTIAL	ALLOWLIST	{pdf,jpg,jpeg,png}	10485760	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
-3	TEMPORARY	ALLOWLIST	{pdf,xlsx,csv}	20971520	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
+2	CONFIDENTIAL	ALLOWLIST	{pdf,jpg,jpeg,png,doc,docx,odt,rtf,xls,xlsx,ods,csv,tsv,txt}	10485760	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
+3	TEMPORARY	ALLOWLIST	{pdf,doc,docx,odt,rtf,xls,xlsx,ods,csv,tsv,txt}	20971520	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
 4	INTERNAL	DENYLIST	{exe,sh,py,bat,dll,jar}	20971520	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N
 \.
 
@@ -1878,6 +1878,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 251	259	user notifications	SQL	V259__user_notifications.sql	-1605888821	snapshot	2026-01-01 00:00:00	0	t
 252	260	promotion slot reconciliation	SQL	V260__promotion_slot_reconciliation.sql	1851065903	snapshot	2026-01-01 00:00:00	0	t
 253	261	organization public identity visible	SQL	V261__organization_public_identity_visible.sql	1011328585	snapshot	2026-01-01 00:00:00	0	t
+254	264	file type policies office documents	SQL	V264__file_type_policies_office_documents.sql	183921813	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
