@@ -74,6 +74,34 @@ class PublicSubmissionRateLimitFilterTest {
     }
 
     @Test
+    void theContactForm_hasItsOwnBudget_andNeverEatsTheSubmissionOne() throws Exception {
+        // Default of 5 per hour for contact messages; the submission budget here is 3.
+        for (int i = 0; i < 5; i++) {
+            assertThat(post("/v1/public/contact-messages", "10.0.0.7").getStatus()).isEqualTo(200);
+        }
+        MockHttpServletResponse throttled = post("/v1/public/contact-messages", "10.0.0.7");
+        assertThat(throttled.getStatus()).isEqualTo(429);
+        assertThat(throttled.getHeader("Retry-After")).isEqualTo("3600");
+        assertThat(post("/v1/public/affiliation-requests", "10.0.0.7").getStatus()).isEqualTo(200);
+        // Another client is unaffected.
+        assertThat(post("/v1/public/contact-messages", "10.0.0.8").getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void anOversizedContactMessage_is413() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/v1/public/contact-messages");
+        request.setContentType("application/json");
+        request.setContent(new byte[70 * 1024]);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
     void otherPaths_areNotThrottled() throws Exception {
         for (int i = 0; i < 5; i++) {
             assertThat(post("/v1/public/terms/AFILIADO/preview", "10.0.0.3").getStatus()).isEqualTo(200);

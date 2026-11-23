@@ -30,7 +30,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * restart, which is enough to stop a script from flooding the review queue
  * and the bucket. The access-link request ({@code POST /v1/auth/magic-link},
  * hub ADR 0037 §4) is throttled the same way but with its own window and
- * budget, so retrying a login link never eats into the submission budget. The client IP is the container-resolved one
+ * budget, so retrying a login link never eats into the submission budget. The landing's contact
+ * form ({@code POST /v1/public/contact-messages}), which emails the staff inbox, also has its own
+ * window and budget, so a spam script cannot flood the inbox and a visitor who writes to us keeps
+ * the submission budget for the affiliation form. The client IP is the container-resolved one
  * ({@code server.forward-headers-strategy=NATIVE}), as in
  * {@link ClientRequestMetadata}.
  */
@@ -41,6 +44,7 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
     private static final String AFFILIATION_PATH = "/v1/public/affiliation-requests";
     private static final String ALLY_REQUEST_PATH = "/v1/public/ally-requests";
     private static final String MAGIC_LINK_PATH = "/v1/auth/magic-link";
+    private static final String CONTACT_PATH = "/v1/public/contact-messages";
     private static final long WINDOW_MILLIS = Duration.ofHours(1).toMillis();
     /** Ceiling for the JSON variant of the form (multipart has its own servlet limits). */
     private static final long MAX_JSON_BYTES = 64 * 1024;
@@ -49,11 +53,15 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
 
     private final Map<String, Deque<Long>> hits = new ConcurrentHashMap<>();
     private final Map<String, Deque<Long>> magicLinkHits = new ConcurrentHashMap<>();
+    private final Map<String, Deque<Long>> contactHits = new ConcurrentHashMap<>();
     private final MessageSource messageSource;
     private final int maxPerHour;
 
     @Value("${app.public-rate-limit.magic-links-per-hour:10}")
     private int magicLinksPerHour = 10;
+
+    @Value("${app.public-rate-limit.contact-messages-per-hour:5}")
+    private int contactMessagesPerHour = 5;
 
     public PublicSubmissionRateLimitFilter(MessageSource messageSource,
                                            @Value("${app.public-rate-limit.affiliation-requests-per-hour:10}") int maxPerHour) {
@@ -65,7 +73,8 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return !("POST".equalsIgnoreCase(request.getMethod())
-                && (AFFILIATION_PATH.equals(uri) || ALLY_REQUEST_PATH.equals(uri) || MAGIC_LINK_PATH.equals(uri)));
+                && (AFFILIATION_PATH.equals(uri) || ALLY_REQUEST_PATH.equals(uri)
+                        || MAGIC_LINK_PATH.equals(uri) || CONTACT_PATH.equals(uri)));
     }
 
     @Override
@@ -81,10 +90,13 @@ public class PublicSubmissionRateLimitFilter extends OncePerRequestFilter {
             return;
         }
         String ip = ClientRequestMetadata.from(request).ipAddress();
-        boolean magicLink = MAGIC_LINK_PATH.equals(request.getRequestURI());
+        String uri = request.getRequestURI();
         long now = System.currentTimeMillis();
-        boolean allowed = ip == null
-                || (magicLink ? tryAcquire(magicLinkHits, ip, now, magicLinksPerHour) : tryAcquire(ip, now));
+        boolean allowed = ip == null || switch (uri) {
+            case MAGIC_LINK_PATH -> tryAcquire(magicLinkHits, ip, now, magicLinksPerHour);
+            case CONTACT_PATH -> tryAcquire(contactHits, ip, now, contactMessagesPerHour);
+            default -> tryAcquire(ip, now);
+        };
         if (!allowed) {
             log.warn("Public submissions throttled for {} ({})", ip, request.getRequestURI());
             reject(response);
