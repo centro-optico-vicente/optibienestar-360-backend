@@ -116,11 +116,37 @@ public class SubsidyResolver {
      * enables the inscription fee (hub ADR 0041 §1).
      */
     public boolean beneficiaryInscriptionExonerated(Long beneficiaryId, LocalDate on) {
-        if (!currentMode().inscriptionEnabled()) return false;
+        return beneficiaryInscriptionPercentage(beneficiaryId, on)
+                .map(p -> p.compareTo(HUNDRED) >= 0)
+                .orElse(false);
+    }
+
+    /**
+     * The best (highest) active inscription percentage of a beneficiary's own
+     * subsidy line on {@code on} — partial or 100 % (hub ADR 0041 §3). The
+     * titular's percentage never extends to beneficiaries. Empty while the
+     * organization's mode does not enable the inscription fee.
+     */
+    public Optional<BigDecimal> beneficiaryInscriptionPercentage(Long beneficiaryId, LocalDate on) {
+        if (beneficiaryId == null || !currentMode().inscriptionEnabled()) return Optional.empty();
         return beneficiaryRepository.findActiveForBeneficiary(beneficiaryId, on).stream()
                 .map(SubsidyBeneficiary::getInscriptionPercentage)
                 .filter(Objects::nonNull)
-                .anyMatch(p -> p.compareTo(HUNDRED) >= 0);
+                .max(Comparator.naturalOrder());
+    }
+
+    /**
+     * The best (highest) active inscription percentage of the titular on
+     * {@code on} (hub ADR 0041 §3). Manual subsidies count only while the
+     * organization's mode enables the inscription fee.
+     */
+    public Optional<BigDecimal> inscriptionPercentage(Long memberId, LocalDate on) {
+        SubsidyMode mode = currentMode();
+        return repository.findActiveForMember(memberId, on).stream()
+                .filter(s -> !s.isManual() || mode.inscriptionEnabled())
+                .map(Subsidy::getInscriptionPercentage)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder());
     }
 
     /**

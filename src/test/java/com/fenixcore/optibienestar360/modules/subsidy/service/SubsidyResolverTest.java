@@ -160,6 +160,31 @@ class SubsidyResolverTest {
                 EnumSet.allOf(Subsidy.Origin.class));
     }
 
+    @Test
+    void inscriptionPercentage_highestWins_whenModeEnablesInscription() {
+        when(repository.findActiveForMember(1L, ON))
+                .thenReturn(List.of(subsidy(null, "30"), subsidy("100", "60")));
+
+        assertThat(resolver.inscriptionPercentage(1L, ON)).contains(new BigDecimal("60"));
+    }
+
+    @Test
+    void inscriptionPercentage_ignoresManualSubsidies_whenModeIsMonthlyOnly() {
+        organization.setSubsidyMode(SubsidyMode.MONTHLY);
+        when(repository.findActiveForMember(1L, ON)).thenReturn(List.of(subsidy(null, "60")));
+
+        assertThat(resolver.inscriptionPercentage(1L, ON)).isEmpty();
+    }
+
+    @Test
+    void beneficiaryInscriptionPercentage_returnsPartialLines() {
+        SubsidyBeneficiary row = new SubsidyBeneficiary();
+        row.setInscriptionPercentage(new BigDecimal("40"));
+        when(beneficiaryRepository.findActiveForBeneficiary(eq(9L), any())).thenReturn(List.of(row));
+
+        assertThat(resolver.beneficiaryInscriptionPercentage(9L, ON)).contains(new BigDecimal("40"));
+    }
+
     private static Subsidy subsidy(String monthlyPct, String inscriptionPct) {
         Subsidy s = new Subsidy();
         s.setMonthlyPercentage(monthlyPct != null ? new BigDecimal(monthlyPct) : null);

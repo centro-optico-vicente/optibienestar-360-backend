@@ -48,9 +48,11 @@ public class BeneficiaryInscriptionBiller {
     /**
      * Registers a PENDING extra-beneficiary inscription payment against the
      * titular's active membership and returns its id (to link from the
-     * beneficiary row).
+     * beneficiary row). {@code subsidyPct} is the beneficiary's own partial
+     * inscription subsidy ({@code null} = none, hub ADR 0041 §3); it competes
+     * with the promotion — the larger discount wins.
      */
-    public Long chargeExtraInscription(Membership membership, BigDecimal fee) {
+    public Long chargeExtraInscription(Membership membership, BigDecimal fee, BigDecimal subsidyPct) {
         Payment payment = new Payment();
         payment.setMembership(membership);
         payment.setAmount(fee);
@@ -81,7 +83,7 @@ public class BeneficiaryInscriptionBiller {
         line.setCurrency(usd);
         line.setStatus(Payment.PaymentStatus.PENDING.name());
         payment.getLines().add(line);
-        promotionPricing.applyExtraBeneficiaryDiscount(payment);
+        promotionPricing.applyExtraBeneficiaryDiscount(payment, subsidyPct);
 
         return paymentRepository.save(payment).getId();
     }
