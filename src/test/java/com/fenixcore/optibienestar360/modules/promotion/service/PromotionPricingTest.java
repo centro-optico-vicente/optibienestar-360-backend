@@ -190,11 +190,11 @@ class PromotionPricingTest {
         payment.setInscription(true);
         payment.setAmount(new BigDecimal("5.00"));
 
-        pricing().applyExtraBeneficiaryDiscount(payment);
+        pricing().applyExtraBeneficiaryDiscount(payment, null);
         assertThat(payment.getDiscountAmount()).isNull();
 
         mp.getPromotion().setCoversExtraBeneficiaries(true);
-        pricing().applyExtraBeneficiaryDiscount(payment);
+        pricing().applyExtraBeneficiaryDiscount(payment, null);
         assertThat(payment.getDiscountAmount()).isEqualByComparingTo("2.50");
     }
 
@@ -290,5 +290,85 @@ class PromotionPricingTest {
         assertThat(payment.getDiscountAmount()).isEqualByComparingTo("200.00");
         assertThat(payment.getDiscountReason()).isEqualTo("Promoción: Octubre 20% (5 USD)");
         assertThat(mp.isInscriptionApplied()).isTrue();
+    }
+
+    // ─── Inscription subsidy (hub ADR 0041 §3) ───────────────────────────────
+
+    private Payment inscriptionPayment(String amount) {
+        Payment payment = new Payment();
+        payment.setMembership(membership());
+        payment.setInscription(true);
+        payment.setAmount(new BigDecimal(amount));
+        return payment;
+    }
+
+    private void inscriptionSubsidy(String pct) {
+        when(subsidyResolver.inscriptionPercentage(eq(5L), any())).thenReturn(Optional.of(new BigDecimal(pct)));
+    }
+
+    @Test
+    void titularInscriptionSubsidy_appliesWithoutPromotion() {
+        inscriptionSubsidy("50.00");
+        Payment payment = inscriptionPayment("10.00");
+
+        pricing().applyInscriptionDiscount(payment, null);
+
+        assertThat(payment.getDiscountAmount()).isEqualByComparingTo("5.00");
+        assertThat(payment.getDiscountReason()).isEqualTo("Subsidio: inscripción (50%)");
+        assertThat(payment.getDiscountedAt()).isNotNull();
+    }
+
+    @Test
+    void titularInscriptionSubsidy_winsWhenLarger_andThePromotionStaysUnapplied() {
+        MembershipPromotion mp = ongoing("20.00", AppliesTo.BOTH, 3);
+        inscriptionSubsidy("50.00");
+        Payment payment = inscriptionPayment("10.00");
+
+        pricing().applyInscriptionDiscount(payment, null);
+
+        assertThat(payment.getDiscountAmount()).isEqualByComparingTo("5.00");
+        assertThat(payment.getDiscountReason()).startsWith("Subsidio: ");
+        assertThat(mp.isInscriptionApplied()).isFalse();
+    }
+
+    @Test
+    void titularInscription_tieGoesToThePromotion() {
+        MembershipPromotion mp = ongoing("50.00", AppliesTo.BOTH, 3);
+        inscriptionSubsidy("50.00");
+        Payment payment = inscriptionPayment("10.00");
+
+        pricing().applyInscriptionDiscount(payment, null);
+
+        assertThat(payment.getDiscountAmount()).isEqualByComparingTo("5.00");
+        assertThat(payment.getDiscountReason()).isEqualTo("Promoción: Octubre 20% (50%)");
+        assertThat(mp.isInscriptionApplied()).isTrue();
+    }
+
+    @Test
+    void extraBeneficiary_usesItsOwnLinePercentage_partialOrFull() {
+        Payment partial = inscriptionPayment("5.00");
+        pricing().applyExtraBeneficiaryDiscount(partial, new BigDecimal("40"));
+        assertThat(partial.getDiscountAmount()).isEqualByComparingTo("2.00");
+        assertThat(partial.getDiscountReason()).isEqualTo("Subsidio: inscripción (40%)");
+
+        Payment full = inscriptionPayment("5.00");
+        pricing().applyExtraBeneficiaryDiscount(full, new BigDecimal("100.00"));
+        assertThat(full.getDiscountAmount()).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void extraBeneficiary_largerOfPromotionAndLine_wins() {
+        MembershipPromotion mp = ongoing("50.00", AppliesTo.INSCRIPTION, null);
+        mp.getPromotion().setCoversExtraBeneficiaries(true);
+
+        Payment lineWins = inscriptionPayment("5.00");
+        pricing().applyExtraBeneficiaryDiscount(lineWins, new BigDecimal("80"));
+        assertThat(lineWins.getDiscountAmount()).isEqualByComparingTo("4.00");
+        assertThat(lineWins.getDiscountReason()).startsWith("Subsidio: ");
+
+        Payment promotionWins = inscriptionPayment("5.00");
+        pricing().applyExtraBeneficiaryDiscount(promotionWins, new BigDecimal("20"));
+        assertThat(promotionWins.getDiscountAmount()).isEqualByComparingTo("2.50");
+        assertThat(promotionWins.getDiscountReason()).startsWith("Promoción: ");
     }
 }

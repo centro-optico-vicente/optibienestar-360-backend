@@ -204,12 +204,17 @@ public class BeneficiariesService {
         }
         beneficiary.setActive(true);
 
-        // A subsidy may fully exonerate this beneficiary's extra inscription
-        // (v2 subsidies, V41). Only meaningful on reactivation of an existing
-        // beneficiary already listed under an active subsidy — a brand-new row
-        // has no id yet, so no subsidy line can reference it (returns false).
-        boolean inscriptionExonerated = beneficiary.getId() != null
-                && subsidyResolver.beneficiaryInscriptionExonerated(beneficiary.getId(), LocalDate.now());
+        // A subsidy line may fully exonerate (100 %) or partially discount this
+        // beneficiary's extra inscription (V41, hub ADR 0041 §3) while the
+        // organization's subsidy mode enables the inscription fee. Only
+        // meaningful on reactivation of an existing beneficiary already listed
+        // under an active subsidy — a brand-new row has no id yet, so no subsidy
+        // line can reference it (empty).
+        BigDecimal inscriptionSubsidyPct = beneficiary.getId() != null
+                ? subsidyResolver.beneficiaryInscriptionPercentage(beneficiary.getId(), LocalDate.now()).orElse(null)
+                : null;
+        boolean inscriptionExonerated = inscriptionSubsidyPct != null
+                && inscriptionSubsidyPct.compareTo(BigDecimal.valueOf(100)) >= 0;
 
         // Extra inscription: charged once when this new slot lands beyond the
         // plan's included cap and it hasn't been settled already (admin marked
@@ -222,7 +227,8 @@ public class BeneficiariesService {
             beneficiary.setExtraInscriptionPaid(true);   // covered by the subsidy, no charge
         } else if (consumesNewSlot && beyondIncluded && !alreadySettled
                 && fee != null && fee.signum() > 0) {
-            beneficiary.setInscriptionPaymentId(inscriptionBiller.chargeExtraInscription(membership, fee));
+            beneficiary.setInscriptionPaymentId(
+                    inscriptionBiller.chargeExtraInscription(membership, fee, inscriptionSubsidyPct));
             beneficiary.setExtraInscriptionPaid(false);   // PENDING until the charge is approved
         }
 

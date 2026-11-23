@@ -4,6 +4,7 @@ import com.fenixcore.optibienestar360.modules.auth.entity.User;
 import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import com.fenixcore.optibienestar360.modules.currency.exception.NoExchangeRateAvailableException;
 import com.fenixcore.optibienestar360.modules.currency.service.CurrencyConversionService;
+import com.fenixcore.optibienestar360.modules.member.entity.Member;
 import com.fenixcore.optibienestar360.modules.membership.entity.Membership;
 import com.fenixcore.optibienestar360.modules.membership.entity.MembershipCharge.DiscountSource;
 import com.fenixcore.optibienestar360.modules.payment.entity.Payment;
@@ -23,7 +24,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
- * Prices what a member owes under their promotion or subsidy (hub ADR 0018).
+ * Prices what a member owes under their promotion or subsidy (hub ADR 0018),
+ * for the monthly fee and for inscriptions (hub ADR 0041 §3).
  * The two never stack: per charge, the larger discount AMOUNT wins (a tie
  * goes to the promotion, hub ADR 0038). A promotion cycle is consumed only
  * when the promotion is the one applied.
@@ -74,27 +76,66 @@ public class PromotionPricing {
     }
 
     /**
-     * Titular inscription: discounts the not-yet-saved inscription payment of a
-     * membership whose promotion covers the inscription, once.
+     * Titular inscription: discounts the not-yet-saved inscription payment with
+     * the membership's promotion (once) or the titular's inscription subsidy
+     * (hub ADR 0041 §3) — never both: the larger amount wins, a tie goes to the
+     * promotion. The subsidy counts only while the organization's subsidy mode
+     * enables the inscription fee ({@link SubsidyResolver#inscriptionPercentage}).
      */
     public void applyInscriptionDiscount(Payment payment, User actor) {
         if (!eligibleInscriptionPayment(payment)) return;
-        membershipPromotionRepository.findOngoing(payment.getMembership().getId())
-                .filter(mp -> mp.getPromotion().discountsInscription() && !mp.isInscriptionApplied())
-                .ifPresent(mp -> {
-                    if (setDiscount(payment, mp.getPromotion(), actor)) {
-                        mp.setInscriptionApplied(true);
-                    }
-                });
+        MembershipPromotion mp = membershipPromotionRepository.findOngoing(payment.getMembership().getId())
+                .filter(m -> m.getPromotion().discountsInscription() && !m.isInscriptionApplied())
+                .orElse(null);
+        Member member = payment.getMembership().getMember();
+        BigDecimal subsidyPct = member != null && member.getId() != null
+                ? subsidyResolver.inscriptionPercentage(member.getId(), LocalDate.now()).orElse(null)
+                : null;
+        if (applyBestInscriptionDiscount(payment, mp != null ? mp.getPromotion() : null, subsidyPct, actor)) {
+            mp.setInscriptionApplied(true);
+        }
     }
 
-    /** Extra-beneficiary inscription fee, when the promotion opts in ({@code covers_extra_beneficiaries}). */
-    public void applyExtraBeneficiaryDiscount(Payment payment) {
+    /**
+     * Extra-beneficiary inscription fee: the promotion when it opts in
+     * ({@code covers_extra_beneficiaries}), or the beneficiary's own subsidy line
+     * {@code subsidyPct} (hub ADR 0041 §3; {@code null} = none) — the larger
+     * amount wins, a tie goes to the promotion.
+     */
+    public void applyExtraBeneficiaryDiscount(Payment payment, BigDecimal subsidyPct) {
         if (!eligibleInscriptionPayment(payment)) return;
-        membershipPromotionRepository.findOngoing(payment.getMembership().getId())
+        Promotion promotion = membershipPromotionRepository.findOngoing(payment.getMembership().getId())
                 .map(MembershipPromotion::getPromotion)
                 .filter(p -> p.discountsInscription() && p.isCoversExtraBeneficiaries())
-                .ifPresent(p -> setDiscount(payment, p, null));
+                .orElse(null);
+        applyBestInscriptionDiscount(payment, promotion, subsidyPct, null);
+    }
+
+    /**
+     * Puts the larger of the promotion and subsidy discounts on an inscription
+     * payment (tie → promotion, hub ADR 0038 / 0041 §3).
+     *
+     * @return whether the promotion was the one applied
+     */
+    private boolean applyBestInscriptionDiscount(Payment payment, Promotion promotion, BigDecimal subsidyPct,
+                                                 User actor) {
+        Instant asOf = payment.getPaymentDate() != null ? payment.getPaymentDate() : Instant.now();
+        BigDecimal promotionDiscount = promotion != null
+                ? discountFor(promotion, payment.getAmount(), payment.getCurrency(), asOf)
+                : null;
+        BigDecimal subsidyDiscount = subsidyPct != null && subsidyPct.signum() > 0
+                ? discount(payment.getAmount(), subsidyPct)
+                : null;
+        if (promotionDiscount != null
+                && (subsidyDiscount == null || promotionDiscount.compareTo(subsidyDiscount) >= 0)) {
+            setDiscount(payment, promotionDiscount,
+                    discountReasonPrefix(promotion) + discountLabel(promotion) + ")", actor);
+            return true;
+        }
+        if (subsidyDiscount != null) {
+            setDiscount(payment, subsidyDiscount, subsidyDiscountReason(subsidyPct), actor);
+        }
+        return false;
     }
 
     private static boolean eligibleInscriptionPayment(Payment payment) {
@@ -105,21 +146,24 @@ public class PromotionPricing {
                 && payment.getMembership().getId() != null;
     }
 
-    /** Sets the promotion discount on {@code payment}; {@code false} when a FLAT amount could not be converted. */
-    private boolean setDiscount(Payment payment, Promotion promotion, User actor) {
-        Instant asOf = payment.getPaymentDate() != null ? payment.getPaymentDate() : Instant.now();
-        BigDecimal amount = discountFor(promotion, payment.getAmount(), payment.getCurrency(), asOf);
-        if (amount == null) return false;
+    private static void setDiscount(Payment payment, BigDecimal amount, String reason, User actor) {
         payment.setDiscountAmount(amount);
-        payment.setDiscountReason(discountReasonPrefix(promotion) + discountLabel(promotion) + ")");
+        payment.setDiscountReason(reason);
         payment.setDiscountedBy(actor);
         payment.setDiscountedAt(Instant.now());
-        return true;
     }
 
     /** Start of the {@code discount_reason} the system writes for {@code promotion}: "Promoción: <name> (". */
     static String discountReasonPrefix(Promotion promotion) {
         return "Promoción: " + promotion.getName() + " (";
+    }
+
+    /** Start of the {@code discount_reason} the system writes for an inscription subsidy. */
+    static final String SUBSIDY_REASON_PREFIX = "Subsidio: ";
+
+    /** {@code discount_reason} of an inscription subsidy: "Subsidio: inscripción (50%)". */
+    static String subsidyDiscountReason(BigDecimal pct) {
+        return SUBSIDY_REASON_PREFIX + "inscripción (" + pct.stripTrailingZeros().toPlainString() + "%)";
     }
 
     /**

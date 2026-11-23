@@ -88,14 +88,14 @@ class BeneficiariesServiceTest {
         assertThat(saved.isExtraInscriptionPaid()).isFalse();
         assertThat(saved.getInscriptionPaymentId()).isNull();
         assertThat(saved.getSlotType()).isEqualTo(SlotType.BASE);
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
     }
 
     @Test
     void add_beyondIncludedCap_generatesCharge() {
         Member member = member();
         Membership ms = stubEnrollment(member, plan(3, 5, FEE), 3L);   // 3 included already used
-        when(inscriptionBiller.chargeExtraInscription(ms, FEE)).thenReturn(77L);
+        when(inscriptionBiller.chargeExtraInscription(ms, FEE, null)).thenReturn(77L);
 
         sut().add(member.getUuid(), req(null));
 
@@ -103,7 +103,7 @@ class BeneficiariesServiceTest {
         assertThat(saved.getInscriptionPaymentId()).isEqualTo(77L);
         assertThat(saved.isExtraInscriptionPaid()).isFalse();   // PENDING until approved
         assertThat(saved.getSlotType()).isEqualTo(SlotType.EXTRA);
-        verify(inscriptionBiller).chargeExtraInscription(ms, FEE);
+        verify(inscriptionBiller).chargeExtraInscription(ms, FEE, null);
     }
 
     @Test
@@ -115,19 +115,19 @@ class BeneficiariesServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("member.beneficiary.cap_exceeded");
         verify(beneficiaryRepository, never()).save(any());
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
     }
 
     @Test
     void add_noCap_whenMaxNull() {
         Member member = member();
         Membership ms = stubEnrollment(member, plan(0, null, FEE), 50L);   // Corporativo: no hard cap
-        when(inscriptionBiller.chargeExtraInscription(ms, FEE)).thenReturn(9L);
+        when(inscriptionBiller.chargeExtraInscription(ms, FEE, null)).thenReturn(9L);
 
         sut().add(member.getUuid(), req(null));   // no throw despite 50 existing
 
         verify(beneficiaryRepository).save(any());
-        verify(inscriptionBiller).chargeExtraInscription(ms, FEE);   // included=0 → always beyond
+        verify(inscriptionBiller).chargeExtraInscription(ms, FEE, null);   // included=0 → always beyond
     }
 
     @Test
@@ -145,7 +145,7 @@ class BeneficiariesServiceTest {
 
         assertThat(existing.isActive()).isTrue();
         assertThat(existing.getInscriptionPaymentId()).isEqualTo(42L);   // untouched
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
     }
 
     @Test
@@ -156,12 +156,32 @@ class BeneficiariesServiceTest {
         existing.setUuid(UUID.randomUUID());
         existing.setActive(false);   // soft-deleted → reactivation would consume a slot + charge
         stubEnrollment(member, plan(0, 5, FEE), 0L, person(), Optional.of(existing));
-        when(subsidyResolver.beneficiaryInscriptionExonerated(eq(99L), any())).thenReturn(true);
+        when(subsidyResolver.beneficiaryInscriptionPercentage(eq(99L), any()))
+                .thenReturn(Optional.of(new BigDecimal("100")));
 
         sut().add(member.getUuid(), req(null));
 
         assertThat(existing.isExtraInscriptionPaid()).isTrue();   // covered by the subsidy
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
+    }
+
+    @Test
+    void add_beneficiaryWithPartialInscriptionSubsidy_isChargedWithItsLinePercentage() {
+        Member member = member();
+        Beneficiary existing = new Beneficiary();
+        existing.setId(99L);
+        existing.setUuid(UUID.randomUUID());
+        existing.setActive(false);
+        Membership ms = stubEnrollment(member, plan(0, 5, FEE), 0L, person(), Optional.of(existing));
+        BigDecimal pct = new BigDecimal("40");
+        when(subsidyResolver.beneficiaryInscriptionPercentage(eq(99L), any())).thenReturn(Optional.of(pct));
+        when(inscriptionBiller.chargeExtraInscription(ms, FEE, pct)).thenReturn(78L);
+
+        sut().add(member.getUuid(), req(null));
+
+        assertThat(existing.getInscriptionPaymentId()).isEqualTo(78L);
+        assertThat(existing.isExtraInscriptionPaid()).isFalse();   // PENDING with the partial discount
+        verify(inscriptionBiller).chargeExtraInscription(ms, FEE, pct);
     }
 
     @Test
@@ -174,7 +194,7 @@ class BeneficiariesServiceTest {
         Beneficiary saved = captureSaved();
         assertThat(saved.isExtraInscriptionPaid()).isTrue();
         assertThat(saved.getInscriptionPaymentId()).isNull();
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
     }
 
     // ─── family-nucleus slots (V178) ──────────────────────────────────────────
@@ -247,7 +267,7 @@ class BeneficiariesServiceTest {
         sut().delete(member.getUuid(), b.getUuid());
 
         assertThat(b.isActive()).isFalse();
-        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any());
+        verify(inscriptionBiller, never()).chargeExtraInscription(any(), any(), any());
     }
 
     // ─── self-service (/v1/me/family) ─────────────────────────────────────────

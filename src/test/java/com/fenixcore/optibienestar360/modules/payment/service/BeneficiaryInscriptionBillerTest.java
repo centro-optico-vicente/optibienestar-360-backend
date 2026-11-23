@@ -57,7 +57,7 @@ class BeneficiaryInscriptionBillerTest {
         when(paymentCategoryRepository.findByCode("INSCRIPTION_FEE")).thenReturn(Optional.of(inscriptionFee()));
         when(paymentMethodRepository.findByCode("OTHER")).thenReturn(Optional.of(otherMethod()));
 
-        Long id = biller.chargeExtraInscription(membership, new BigDecimal("5.00"));
+        Long id = biller.chargeExtraInscription(membership, new BigDecimal("5.00"), new BigDecimal("40"));
 
         assertThat(id).isEqualTo(55L);
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
@@ -74,6 +74,8 @@ class BeneficiaryInscriptionBillerTest {
         assertThat(saved.getAppliedPeriod()).isNull();   // V23 CHECK: inscription rows carry no period
         assertThat(saved.getStatus()).isEqualTo(Payment.PaymentStatus.PENDING.name());
         assertThat(saved.getPaymentDate()).isNotNull();
+        // The beneficiary's own subsidy line competes with the promotion (hub ADR 0041 §3).
+        verify(promotionPricing).applyExtraBeneficiaryDiscount(saved, new BigDecimal("40"));
     }
 
     @Test
