@@ -175,19 +175,6 @@ class AllyProductsRemovalControllerIT {
                 .andExpect(status().isForbidden());
     }
 
-    // ─── Deprecated .../services alias (ADR 0026 transition) ─────────────────
-
-    @Test
-    void deprecatedServicesAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(reviewService.allyRemove(any(), any(), any())).thenReturn(removedDto());
-
-        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/v1/me/allies/services/{u}", UUID.randomUUID()).with(principal()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reviewStatus").value("REMOVED"));
-    }
-
     // ─── Secondary path /v1/allies/me/products (kept, not deprecated) ────────
 
     @Test

@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Sanitized projection for the <b>cross-ally</b> public service catalog
- * ({@code GET /v1/public/services}) — the "who offers X?" search. Unlike
+ * ({@code GET /v1/public/products}) — the "who offers X?" search. Unlike
  * {@link PublicAllyProductDto} (used inside a single ally's context, where the
  * ally is already known), each row here carries a compact slice of its parent
  * ally's public identity so a search result is actionable on its own.

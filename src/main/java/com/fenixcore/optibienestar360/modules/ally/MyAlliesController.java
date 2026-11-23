@@ -27,12 +27,12 @@ import java.util.UUID;
  * {@code /v1/me/*} family alongside {@code /v1/me/member} and
  * {@code /v1/me/payments}. {@code /v1/me/*} is the primary prefix for the
  * caller's own data; {@code /v1/allies/me} is a secondary path next to the
- * ally-portal family ({@code /v1/me/allies/services},
+ * ally-portal family ({@code /v1/me/allies/products},
  * {@code /v1/me/allies/validations}…), hub spec 12.
  *
  * <p>This is the entry point of the counter flow: the portal calls it once
  * on load to resolve the caller's {@code allyUuid}, then feeds that UUID to
- * {@code POST /v1/me/allies/benefit-usages} (and {@code POST /v1/me/allies/services}),
+ * {@code POST /v1/me/allies/benefit-usages} (and {@code POST /v1/me/allies/products}),
  * both of which require it in the body. Before this endpoint existed the
  * portal had no way to obtain it and asked the operator to type it.</p>
  *

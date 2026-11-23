@@ -28,7 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The pre-rename API aliases ({@code /v1/promoter/me/**}, {@code /v1/admin/promoters/**},
  * {@code promoter-ranks}, {@code promoter-types}, {@code assign-promoter},
  * {@code promoter-history}, {@code members/promoter/*}, {@code /v1/aliado/services},
- * {@code /v1/ally/*}, {@code /v1/public/contact}, {@code /v1/public/affiliations})
+ * {@code /v1/ally/*}, {@code /v1/public/contact}, {@code /v1/public/affiliations}) and the
+ * ADR 0026 product aliases ({@code .../services}, {@code ally-services}, {@code service-categories})
  * were removed once every client moved to the new paths: they must answer 404,
  * even for a caller holding every permission the old handler required.
  */
@@ -52,7 +53,8 @@ class RemovedApiAliasesIT {
         CustomUserDetails p = CustomUserDetails.fromJwt(UUID.randomUUID(), "jti", "es",
                 List.of("PROMOTER_VIEW_OWN", "PROMOTER_CONTACT_OWN", "PROMOTER_PAYOUT_ACCOUNT_VIEW_OWN",
                         "BONUS_VIEW_OWN", "PROMOTER_VIEW_ALL", "PROMOTER_RANK_VIEW", "PROMOTER_TYPE_VIEW",
-                        "MEMBER_ASSIGN_PROMOTER", "ALLY_VIEW_OWN", "ALLY_VALIDATE_MEMBER", "ALLY_REGISTER_USAGE")
+                        "MEMBER_ASSIGN_PROMOTER", "ALLY_VIEW_OWN", "ALLY_VALIDATE_MEMBER", "ALLY_REGISTER_USAGE",
+                        "ALLY_VIEW_ALL", "ALLY_PRODUCT_VIEW_ALL", "ALLY_PRODUCT_APPROVE", "PRODUCT_CATEGORY_VIEW")
                         .stream().map(SimpleGrantedAuthority::new).toList());
         return authentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
     }
@@ -73,6 +75,9 @@ class RemovedApiAliasesIT {
             "/v1/admin/members/" + MEMBER + "/promoter-history",
             "/v1/ally/validate/V-12345678",
             "/v1/ally/usage-history",
+            "/v1/admin/ally-services/pending",
+            "/v1/admin/allies/" + MEMBER + "/services",
+            "/v1/admin/catalogs/service-categories",
     })
     void removedGetAlias_is404(String path) throws Exception {
         mockMvc.perform(get(path).with(allPermissions()))
@@ -97,6 +102,17 @@ class RemovedApiAliasesIT {
     @ValueSource(strings = {"/v1/public/contact", "/v1/public/affiliations"})
     void removedPublicAlias_anonymous_is404(String path) throws Exception {
         mockMvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/v1/public/services",
+            "/v1/public/allies/" + MEMBER + "/services",
+            "/v1/public/catalogs/service-categories",
+    })
+    void removedPublicGetAlias_anonymous_is404(String path) throws Exception {
+        mockMvc.perform(get(path))
                 .andExpect(status().isNotFound());
     }
 }

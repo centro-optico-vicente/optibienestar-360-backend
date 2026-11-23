@@ -46,8 +46,7 @@ import java.util.UUID;
  * price and discount.</p>
  */
 @RestController
-// /v1/public/services is a deprecated alias kept while the landing moves to /products.
-@RequestMapping({"/v1/public/products", "/v1/public/services"})
+@RequestMapping("/v1/public/products")
 @RequiredArgsConstructor
 public class PublicProductController {
 

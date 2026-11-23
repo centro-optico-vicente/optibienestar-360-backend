@@ -96,9 +96,8 @@ public class PublicAllyController {
      * pre-filtered to active + published + APPROVED over an active product.
      * Optional filters: {@code category} (name or code) / {@code categoryUuid},
      * {@code type} ({@code servicio}/{@code producto}), free-text {@code q}.
-     * {@code /services} is a deprecated alias kept while the landing moves over.
      */
-    @GetMapping({"/{uuid}/products", "/{uuid}/services"})
+    @GetMapping("/{uuid}/products")
     public ResponseEntity<Page<PublicAllyProductDto>> products(
             @PathVariable UUID uuid,
             @RequestParam(required = false) String category,
