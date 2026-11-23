@@ -17,8 +17,8 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
 - [ ] [P1/C2] Índices adicionales según EXPLAIN
 - [ ] [P1/C3] Tuning HikariCP (pool size, timeout, keepalive)
 - [ ] [P1/C3] Paginación obligatoria (default 20, max 100) en todos los listados — incluye: ~~`findRecentByUserId` (sin LIMIT actual)~~ ✅ 2026-10-24 (#340) — ahora recibe `Pageable` y `AuthService.hashNewPassword` pide solo `PageRequest.of(0, passwordHistoryCount)` (LIMIT en SQL; `0` omite la consulta), test `AuthServicePasswordHistoryTest`; `findAllByActiveTrue` en roles/permissions (spring-data-jpa) sigue pendiente
-- [ ] [P1/C1] `user_sessions_log.jti` — cambiar índice B-tree → HASH (`USING HASH`) para lookups de igualdad pura (jti equality-only) — migración V(N) (postgresql-expert)
-- [ ] [P1/C2] `findByPasswordResetToken` en `UserRepository` — cambiar return type a proyección `UserPasswordResetView` (uuid + passwordResetTokenExpiresAt) — evita cargar entidad completa con roles en flujo de reset (spring-data-jpa)
+- [x] [P1/C1] `user_sessions_log.jti` — cambiar índice B-tree → HASH (`USING HASH`) para lookups de igualdad pura (jti equality-only) — migración V(N) (postgresql-expert) — _obsoleto 2026-11-22: `V248` retiró `user_sessions_log` (las sesiones viven en `login_audit_log`, cuyo índice de `jti` se eliminó en `V240` por no consultarse)._
+- [x] [P1/C2] `findByPasswordResetToken` en `UserRepository` — cambiar return type a proyección `UserPasswordResetView` (uuid + passwordResetTokenExpiresAt) — evita cargar entidad completa con roles en flujo de reset (spring-data-jpa) — _obsoleto 2026-11-22: `User.userRoles` y `UserRole.role` ya son `LAZY` y este finder no tiene `@EntityGraph`, así que no carga roles; `AuthService.resetPassword` necesita la entidad porque la modifica (hash, token, bloqueo), una proyección obligaría a una segunda lectura._
 - [ ] [P1/C2] Lazy loading + `@EntityGraph` / JOIN FETCH (evitar N+1) — incluye: `UserRole.role` EAGER→LAZY (postgresql-expert), revisar cualquier listado RSQL que no use EntityGraph
 - [ ] [P2/C3] Vista materializada `member_metrics_mv` refresh 1h
 - [ ] [P2/C3] Tests k6: 1 000 validaciones concurrentes, p95 < 200ms
@@ -91,7 +91,7 @@ _Snapshot — recontar con `grep -c '^- \[x\]'`. Panorama global: [checklist.md]
     Parametrizar las contraseñas via Flyway placeholder + env vars (`PUBLIC_DB_PASSWORD_FILE` con file-secrets pattern). Documentar el nuevo DataSource en `02-database.md` + `06-rest-api.md`. ADR opcional sobre el patrón "split pool por sensibilidad".
 
 - [ ] [P0/C2] CSP estricto
-- [ ] [P0/C2] Validación uploads (MIME real, tamaño máximo)
+- [x] [P0/C2] Validación uploads (MIME real, tamaño máximo) — 2026-11-22: tamaño y extensión por `file_type_policies` (V55) + verificación del contenido real (firma/magic number) en `FileValidationService` y mensajes i18n de los códigos de validación — PR #473.
 - [ ] [P0/C2] Audit logs para acciones sensibles (aprobación pagos, acceso a MedicalRecord)
 - [ ] [P1/C3] Tests integrales: 70% coverage servicios críticos
 - [ ] [P1/C3] Tests E2E con Testcontainers
