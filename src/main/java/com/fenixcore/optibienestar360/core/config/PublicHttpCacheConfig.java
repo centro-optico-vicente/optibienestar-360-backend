@@ -56,7 +56,7 @@ public class PublicHttpCacheConfig {
                 new FilterRegistrationBean<>(new ShallowEtagHeaderFilter());
         // Servlet prefix patterns: each also matches the bare collection path.
         registration.addUrlPatterns("/v1/public/plans/*", "/v1/public/allies/*",
-                "/v1/public/products/*", "/v1/public/services/*");
+                "/v1/public/products/*");
         registration.setName("publicCatalogEtagFilter");
         return registration;
     }

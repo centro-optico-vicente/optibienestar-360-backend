@@ -171,16 +171,4 @@ class AdminAllyProductReviewControllerIT {
                 .andExpect(status().isForbidden());
         verify(reviewService, never()).adminLog(any());
     }
-
-    // ─── Deprecated /v1/admin/ally-services alias (ADR 0026 transition) ─────
-
-    @Test
-    void deprecatedAllyServicesAlias_stillAnswers_withSameSecurity() throws Exception {
-        when(reviewService.pendingQueue(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
-
-        mockMvc.perform(get("/v1/admin/ally-services/pending").with(principal("ALLY_VIEW_ALL")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/v1/admin/ally-services/pending").with(principal("ALLY_PRODUCT_APPROVE")))
-                .andExpect(status().isOk());
-    }
 }

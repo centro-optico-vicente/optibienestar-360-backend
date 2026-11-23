@@ -95,8 +95,8 @@ class OpenApiWireFidelityIT {
         String name = WireSamples.PUBLIC_ALLY_DETAIL;
         assertMatchesWire(name);
 
-        assertTrue(isNullable(property(name, "services")));
-        assertTrue(required(name).contains("services"));
+        assertTrue(isNullable(property(name, "products")));
+        assertTrue(required(name).contains("products"));
     }
 
     @Test

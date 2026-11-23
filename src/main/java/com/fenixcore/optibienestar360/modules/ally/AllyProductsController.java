@@ -38,9 +38,7 @@ import java.util.UUID;
  */
 @RestController
 // Primary /v1/me/...; /v1/<collection>/me/... is the secondary path (not deprecated).
-// The .../services pair is a deprecated alias kept while the portal moves to .../products.
-@RequestMapping({"/v1/me/allies/products", "/v1/allies/me/products",
-        "/v1/me/allies/services", "/v1/allies/me/services"})
+@RequestMapping({"/v1/me/allies/products", "/v1/allies/me/products"})
 @RequiredArgsConstructor
 public class AllyProductsController {
 

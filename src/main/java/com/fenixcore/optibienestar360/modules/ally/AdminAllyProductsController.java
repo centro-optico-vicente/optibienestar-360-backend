@@ -34,8 +34,7 @@ import java.util.UUID;
  * {@code ally_product_review_log} captures the actor + reason of every transition.
  */
 @RestController
-// .../services is a deprecated alias kept while the frontend moves to .../products (ADR 0026).
-@RequestMapping({"/v1/admin/allies/{allyUuid}/products", "/v1/admin/allies/{allyUuid}/services"})
+@RequestMapping("/v1/admin/allies/{allyUuid}/products")
 @RequiredArgsConstructor
 public class AdminAllyProductsController {
 

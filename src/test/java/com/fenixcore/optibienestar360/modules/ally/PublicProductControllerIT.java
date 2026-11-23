@@ -174,16 +174,6 @@ class PublicProductControllerIT {
         assertThat(captor.getValue()).isEqualTo(PublicProductSearch.none());
     }
 
-    @Test
-    void deprecatedServicesAlias_stillAnswers() throws Exception {
-        when(publicProductsService.search(any(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(crossAllyRow())));
-
-        mockMvc.perform(get("/v1/public/services"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1));
-    }
-
     // ─── /v1/public/products/{uuid} (product detail + ally comparison) ───────
 
     @Test
@@ -226,10 +216,6 @@ class PublicProductControllerIT {
                 .andExpect(jsonPath("$.content[0].name").value("Examen de la vista"))
                 // Lean per-ally DTO carries no ally identity (the ally is the path).
                 .andExpect(jsonPath("$.content[0].allyName").doesNotExist());
-
-        // Deprecated alias, same handler.
-        mockMvc.perform(get("/v1/public/allies/{uuid}/services", UUID.randomUUID()))
-                .andExpect(status().isOk());
     }
 
     @Test

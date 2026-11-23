@@ -70,10 +70,6 @@ public record PublicAllyDetailDto(
         // Public offerings (already filtered to APPROVED + published + active)
         List<PublicAllyProductDto> products,
 
-        /** Same list as {@code products} — deprecated, kept while the landing moves over (ADR 0026). */
-        @Deprecated
-        List<PublicAllyProductDto> services,
-
         /** The ally's gallery in display order; {@code logoUrl}'s image is the primary one. */
         List<PublicImageDto> images
 ) {}
