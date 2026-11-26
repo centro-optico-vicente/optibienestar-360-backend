@@ -3181,7 +3181,7 @@
 - `signatory_document_number` character varying(20) — Número de documento del firmante; con el tipo forma {{org.signatoryDocument}}
 - `signatory_position` character varying(100) — Cargo del firmante autorizado ({{org.signatoryPosition}})
 - `public_identity_visible` boolean NOT NULL DEFAULT false
-- `allies_counter_visible` boolean NOT NULL DEFAULT true — Muestra la tarjeta de aliados en el login (ADR 0042)
+- `allies_counter_mode` character varying(32) NOT NULL DEFAULT 'COMMERCIAL_AND_PROFESSIONAL'::character varying — Tarjeta de aliados en el login (ADR 0042): HIDDEN (oculta), PROFESSIONAL (segmento B2P), COMMERCIAL (segmento B2B) o COMMERCIAL_AND_PROFESSIONAL (ambos)
 - `allies_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de aliados publicados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
 - `members_counter_mode` character varying(32) NOT NULL DEFAULT 'HIDDEN'::character varying — Tarjeta de afiliados en el login: HIDDEN (oculta), MEMBERS (titulares activos) o MEMBERS_AND_BENEFICIARIES (titulares + beneficiarios activos)
 - `members_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de afiliados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
@@ -3195,6 +3195,7 @@
 - CHECK `chk_organizations_signatory_document` CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL))))
 - CHECK `chk_organizations_signatory_document_type` CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[]))))
 - CHECK `ck_organizations_allies_counter_min` CHECK ((allies_counter_min >= 0))
+- CHECK `ck_organizations_allies_counter_mode` CHECK (((allies_counter_mode)::text = ANY ((ARRAY['HIDDEN'::character varying, 'PROFESSIONAL'::character varying, 'COMMERCIAL'::character varying, 'COMMERCIAL_AND_PROFESSIONAL'::character varying])::text[])))
 - CHECK `ck_organizations_members_counter_min` CHECK ((members_counter_min >= 0))
 - CHECK `ck_organizations_members_counter_mode` CHECK (((members_counter_mode)::text = ANY ((ARRAY['HIDDEN'::character varying, 'MEMBERS'::character varying, 'MEMBERS_AND_BENEFICIARIES'::character varying])::text[])))
 

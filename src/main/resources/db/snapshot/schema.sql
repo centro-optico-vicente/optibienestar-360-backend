@@ -4145,7 +4145,7 @@ CREATE TABLE app.organizations (
     signatory_document_number character varying(20),
     signatory_position character varying(100),
     public_identity_visible boolean DEFAULT false NOT NULL,
-    allies_counter_visible boolean DEFAULT true NOT NULL,
+    allies_counter_mode character varying(32) DEFAULT 'COMMERCIAL_AND_PROFESSIONAL'::character varying NOT NULL,
     allies_counter_min integer DEFAULT 20 NOT NULL,
     members_counter_mode character varying(32) DEFAULT 'HIDDEN'::character varying NOT NULL,
     members_counter_min integer DEFAULT 20 NOT NULL,
@@ -4153,6 +4153,7 @@ CREATE TABLE app.organizations (
     CONSTRAINT chk_organizations_signatory_document CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL)))),
     CONSTRAINT chk_organizations_signatory_document_type CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[])))),
     CONSTRAINT ck_organizations_allies_counter_min CHECK ((allies_counter_min >= 0)),
+    CONSTRAINT ck_organizations_allies_counter_mode CHECK (((allies_counter_mode)::text = ANY ((ARRAY['HIDDEN'::character varying, 'PROFESSIONAL'::character varying, 'COMMERCIAL'::character varying, 'COMMERCIAL_AND_PROFESSIONAL'::character varying])::text[]))),
     CONSTRAINT ck_organizations_members_counter_min CHECK ((members_counter_min >= 0)),
     CONSTRAINT ck_organizations_members_counter_mode CHECK (((members_counter_mode)::text = ANY ((ARRAY['HIDDEN'::character varying, 'MEMBERS'::character varying, 'MEMBERS_AND_BENEFICIARIES'::character varying])::text[])))
 );
@@ -4218,10 +4219,10 @@ COMMENT ON COLUMN app.organizations.signatory_document_number IS 'Número de doc
 COMMENT ON COLUMN app.organizations.signatory_position IS 'Cargo del firmante autorizado ({{org.signatoryPosition}})';
 
 --
--- Name: COLUMN organizations.allies_counter_visible; Type: COMMENT; Schema: app; Owner: -
+-- Name: COLUMN organizations.allies_counter_mode; Type: COMMENT; Schema: app; Owner: -
 --
 
-COMMENT ON COLUMN app.organizations.allies_counter_visible IS 'Muestra la tarjeta de aliados en el login (ADR 0042)';
+COMMENT ON COLUMN app.organizations.allies_counter_mode IS 'Tarjeta de aliados en el login (ADR 0042): HIDDEN (oculta), PROFESSIONAL (segmento B2P), COMMERCIAL (segmento B2B) o COMMERCIAL_AND_PROFESSIONAL (ambos)';
 
 --
 -- Name: COLUMN organizations.allies_counter_min; Type: COMMENT; Schema: app; Owner: -
