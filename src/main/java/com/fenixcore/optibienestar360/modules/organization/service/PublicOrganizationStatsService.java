@@ -1,10 +1,12 @@
 package com.fenixcore.optibienestar360.modules.organization.service;
 
 import com.fenixcore.optibienestar360.modules.ally.service.AlliesService;
+import com.fenixcore.optibienestar360.modules.catalog.entity.AllyType.Segment;
 import com.fenixcore.optibienestar360.modules.dashboard.repository.DashboardQueries;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationStatsDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationStatsDto.AlliesCounter;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationStatsDto.MembersCounter;
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
@@ -35,11 +37,21 @@ public class PublicOrganizationStatsService {
     }
 
     private AlliesCounter alliesCounter(Organization org) {
-        if (!org.isAlliesCounterVisible()) {
-            return new AlliesCounter(false, null);
+        AlliesCounterMode mode = org.getAlliesCounterMode();
+        if (mode == null || mode == AlliesCounterMode.HIDDEN) {
+            return new AlliesCounter(false, null, null);
         }
-        long count = alliesService.countPubliclyVisible();
-        return new AlliesCounter(true, aboveMinimum(count, org.getAlliesCounterMin()));
+        long count = alliesService.countPubliclyVisible(segmentOf(mode));
+        return new AlliesCounter(true, aboveMinimum(count, org.getAlliesCounterMin()), mode);
+    }
+
+    /** Ally segment a counter mode counts; {@code null} = every segment. */
+    static Segment segmentOf(AlliesCounterMode mode) {
+        return switch (mode) {
+            case PROFESSIONAL -> Segment.B2P;
+            case COMMERCIAL -> Segment.B2B;
+            case COMMERCIAL_AND_PROFESSIONAL, HIDDEN -> null;
+        };
     }
 
     private MembersCounter membersCounter(Organization org) {

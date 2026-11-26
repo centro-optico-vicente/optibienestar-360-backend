@@ -999,11 +999,16 @@ public class AlliesService {
 
     /**
      * Number of allies in the public directory — the same set
-     * {@link #publicDirectory} lists without filters. Backs the allies counter
-     * of {@code GET /v1/public/organization/stats} (hub ADR 0042).
+     * {@link #publicDirectory} lists, optionally narrowed to one segment
+     * ({@code null} = all). Backs the allies counter of
+     * {@code GET /v1/public/organization/stats} (hub ADR 0042).
      */
-    public long countPubliclyVisible() {
-        return repository.count(publiclyVisible());
+    public long countPubliclyVisible(Segment segment) {
+        Specification<Ally> spec = publiclyVisible();
+        if (segment != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("segment"), segment));
+        }
+        return repository.count(spec);
     }
 
     /**

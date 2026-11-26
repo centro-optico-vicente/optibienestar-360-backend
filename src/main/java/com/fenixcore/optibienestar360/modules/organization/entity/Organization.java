@@ -138,9 +138,10 @@ public class Organization extends BaseEntity {
 
     // ─── Public login counters (V265, hub ADR 0042) ─────────────────────────
 
-    /** Shows the allies card on the login screen. */
-    @Column(name = "allies_counter_visible", nullable = false)
-    private boolean alliesCounterVisible = true;
+    /** Which allies the allies card counts (by segment), or {@link AlliesCounterMode#HIDDEN} to not show it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "allies_counter_mode", length = 32, nullable = false)
+    private AlliesCounterMode alliesCounterMode = AlliesCounterMode.COMMERCIAL_AND_PROFESSIONAL;
 
     /** Minimum published allies before the number is shown; below it the card shows a generic text. */
     @Column(name = "allies_counter_min", nullable = false)

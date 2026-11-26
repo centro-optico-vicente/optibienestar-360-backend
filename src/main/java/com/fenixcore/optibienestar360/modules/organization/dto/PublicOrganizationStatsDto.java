@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.organization.dto;
 
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 
 /**
@@ -16,8 +17,8 @@ import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounter
  */
 public record PublicOrganizationStatsDto(AlliesCounter allies, MembersCounter members) {
 
-    /** Allies in the public directory (active, published, approved). */
-    public record AlliesCounter(boolean visible, Long count) {}
+    /** Allies in the public directory (active, published, approved) of the segment(s) {@code mode} names. */
+    public record AlliesCounter(boolean visible, Long count, AlliesCounterMode mode) {}
 
     /** Members with an ACTIVE membership, plus their active beneficiaries when {@code mode} says so. */
     public record MembersCounter(boolean visible, Long count, MembersCounterMode mode) {}

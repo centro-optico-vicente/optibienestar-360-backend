@@ -1,5 +1,6 @@
 package com.fenixcore.optibienestar360.modules.organization.dto;
 
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -44,7 +45,7 @@ public record OrganizationUpdateRequest(
         @Size(max = 20) String signatoryDocumentNumber,
         @Size(max = 100) String signatoryPosition,
         boolean publicIdentityVisible,
-        Boolean alliesCounterVisible,
+        AlliesCounterMode alliesCounterMode,
         @Min(0) Integer alliesCounterMin,
         MembersCounterMode membersCounterMode,
         @Min(0) Integer membersCounterMin

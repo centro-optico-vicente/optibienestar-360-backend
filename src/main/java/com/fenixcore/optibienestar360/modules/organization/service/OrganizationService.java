@@ -147,7 +147,7 @@ public class OrganizationService {
                 o.getSignatoryDocumentNumber(),
                 o.getSignatoryPosition(),
                 o.isPublicIdentityVisible(),
-                o.isAlliesCounterVisible(),
+                o.getAlliesCounterMode(),
                 o.getAlliesCounterMin(),
                 o.getMembersCounterMode(),
                 o.getMembersCounterMin());
@@ -155,8 +155,8 @@ public class OrganizationService {
 
     /** Public login counters (V265, hub ADR 0042): {@code null} leaves each setting unchanged. */
     private static void applyPublicCounters(Organization org, OrganizationUpdateRequest req) {
-        if (req.alliesCounterVisible() != null) {
-            org.setAlliesCounterVisible(req.alliesCounterVisible());
+        if (req.alliesCounterMode() != null) {
+            org.setAlliesCounterMode(req.alliesCounterMode());
         }
         if (req.alliesCounterMin() != null) {
             org.setAlliesCounterMin(req.alliesCounterMin());

@@ -6,6 +6,7 @@ import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationContactDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
@@ -267,9 +268,9 @@ class OrganizationServiceTest {
 
         OrganizationDto result = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false,
-                        false, 5, MembersCounterMode.MEMBERS_AND_BENEFICIARIES, 50));
+                        AlliesCounterMode.PROFESSIONAL, 5, MembersCounterMode.MEMBERS_AND_BENEFICIARIES, 50));
 
-        assertThat(result.alliesCounterVisible()).isFalse();
+        assertThat(result.alliesCounterMode()).isEqualTo(AlliesCounterMode.PROFESSIONAL);
         assertThat(result.alliesCounterMin()).isEqualTo(5);
         assertThat(result.membersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS_AND_BENEFICIARIES);
         assertThat(result.membersCounterMin()).isEqualTo(50);
@@ -278,7 +279,7 @@ class OrganizationServiceTest {
     @Test
     void updateMineKeepsThePublicLoginCountersWhenOmitted() {
         Organization existing = organization(null, null);
-        existing.setAlliesCounterVisible(false);
+        existing.setAlliesCounterMode(AlliesCounterMode.HIDDEN);
         existing.setAlliesCounterMin(7);
         existing.setMembersCounterMode(MembersCounterMode.MEMBERS);
         existing.setMembersCounterMin(30);
@@ -288,7 +289,7 @@ class OrganizationServiceTest {
         OrganizationDto result = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null));
 
-        assertThat(result.alliesCounterVisible()).isFalse();
+        assertThat(result.alliesCounterMode()).isEqualTo(AlliesCounterMode.HIDDEN);
         assertThat(result.alliesCounterMin()).isEqualTo(7);
         assertThat(result.membersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS);
         assertThat(result.membersCounterMin()).isEqualTo(30);
@@ -298,7 +299,7 @@ class OrganizationServiceTest {
     void newOrganizationDefaultsReproduceTheCurrentLoginBehavior() {
         Organization org = new Organization();
 
-        assertThat(org.isAlliesCounterVisible()).isTrue();
+        assertThat(org.getAlliesCounterMode()).isEqualTo(AlliesCounterMode.COMMERCIAL_AND_PROFESSIONAL);
         assertThat(org.getAlliesCounterMin()).isEqualTo(20);
         assertThat(org.getMembersCounterMode()).isEqualTo(MembersCounterMode.HIDDEN);
         assertThat(org.getMembersCounterMin()).isEqualTo(20);
