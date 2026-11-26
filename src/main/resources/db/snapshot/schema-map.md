@@ -1,6 +1,6 @@
 # Schema map — `app`
 
-> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V264. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
+> **GENERATED — do not edit.** Final database after every migration, regenerated with `scripts/db/snapshot.sh --fresh` in the same PR as each new migration (the CI bot commits it if forgotten). Latest migration: V265. Read this instead of replaying migrations. Full DDL: [`schema.sql`](schema.sql); seeded rows: [`data.sql`](data.sql).
 
 119 tables.
 
@@ -3181,6 +3181,10 @@
 - `signatory_document_number` character varying(20) — Número de documento del firmante; con el tipo forma {{org.signatoryDocument}}
 - `signatory_position` character varying(100) — Cargo del firmante autorizado ({{org.signatoryPosition}})
 - `public_identity_visible` boolean NOT NULL DEFAULT false
+- `allies_counter_visible` boolean NOT NULL DEFAULT true — Muestra la tarjeta de aliados en el login (ADR 0042)
+- `allies_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de aliados publicados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
+- `members_counter_mode` character varying(32) NOT NULL DEFAULT 'HIDDEN'::character varying — Tarjeta de afiliados en el login: HIDDEN (oculta), MEMBERS (titulares activos) o MEMBERS_AND_BENEFICIARIES (titulares + beneficiarios activos)
+- `members_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de afiliados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
 
 **Constraints**
 - PK PRIMARY KEY (organizations_id)
@@ -3190,6 +3194,9 @@
 - CHECK `chk_organizations_currencies_distinct` CHECK ((official_currency_id <> reference_currency_id))
 - CHECK `chk_organizations_signatory_document` CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL))))
 - CHECK `chk_organizations_signatory_document_type` CHECK (((signatory_document_type IS NULL) OR ((signatory_document_type)::text = ANY ((ARRAY['J'::character varying, 'V'::character varying, 'E'::character varying, 'G'::character varying, 'P'::character varying])::text[]))))
+- CHECK `ck_organizations_allies_counter_min` CHECK ((allies_counter_min >= 0))
+- CHECK `ck_organizations_members_counter_min` CHECK ((members_counter_min >= 0))
+- CHECK `ck_organizations_members_counter_mode` CHECK (((members_counter_mode)::text = ANY ((ARRAY['HIDDEN'::character varying, 'MEMBERS'::character varying, 'MEMBERS_AND_BENEFICIARIES'::character varying])::text[])))
 
 **Indexes**
 - `idx_organizations_is_active` btree (is_active) WHERE is_active
