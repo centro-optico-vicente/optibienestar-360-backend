@@ -998,6 +998,15 @@ public class AlliesService {
     }
 
     /**
+     * Number of allies in the public directory — the same set
+     * {@link #publicDirectory} lists without filters. Backs the allies counter
+     * of {@code GET /v1/public/organization/stats} (hub ADR 0042).
+     */
+    public long countPubliclyVisible() {
+        return repository.count(publiclyVisible());
+    }
+
+    /**
      * Public visibility (hub ADR 0036): active + published + APPROVED. The DB
      * CHECK {@code chk_allies_published_requires_approval} already makes
      * "published but not approved" impossible; the explicit condition keeps

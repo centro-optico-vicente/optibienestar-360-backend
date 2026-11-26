@@ -2,6 +2,7 @@ package com.fenixcore.optibienestar360.modules.organization.dto;
 
 import com.fenixcore.optibienestar360.core.display.Display;
 import com.fenixcore.optibienestar360.core.display.DisplayRef;
+import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 
 import java.util.UUID;
 
@@ -34,5 +35,9 @@ public record OrganizationDto(
         String signatoryDocumentType,
         String signatoryDocumentNumber,
         String signatoryPosition,
-        @Display(Display.Kind.BOOLEAN) boolean publicIdentityVisible
+        @Display(Display.Kind.BOOLEAN) boolean publicIdentityVisible,
+        boolean alliesCounterVisible,
+        int alliesCounterMin,
+        @Display(Display.Kind.ENUM) MembersCounterMode membersCounterMode,
+        int membersCounterMin
 ) {}
