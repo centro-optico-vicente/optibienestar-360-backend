@@ -998,6 +998,20 @@ public class AlliesService {
     }
 
     /**
+     * Number of allies in the public directory — the same set
+     * {@link #publicDirectory} lists, optionally narrowed to one segment
+     * ({@code null} = all). Backs the allies counter of
+     * {@code GET /v1/public/organization/stats} (hub ADR 0042).
+     */
+    public long countPubliclyVisible(Segment segment) {
+        Specification<Ally> spec = publiclyVisible();
+        if (segment != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("segment"), segment));
+        }
+        return repository.count(spec);
+    }
+
+    /**
      * Public visibility (hub ADR 0036): active + published + APPROVED. The DB
      * CHECK {@code chk_allies_published_requires_approval} already makes
      * "published but not approved" impossible; the explicit condition keeps

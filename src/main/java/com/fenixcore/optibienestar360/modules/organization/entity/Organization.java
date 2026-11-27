@@ -6,6 +6,8 @@ import com.fenixcore.optibienestar360.modules.currency.entity.Currency;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -133,4 +135,24 @@ public class Organization extends BaseEntity {
      */
     @Column(name = "public_identity_visible", nullable = false)
     private boolean publicIdentityVisible;
+
+    // ─── Public login counters (V265, hub ADR 0042) ─────────────────────────
+
+    /** Which allies the allies card counts (by segment), or {@link AlliesCounterMode#HIDDEN} to not show it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "allies_counter_mode", length = 32, nullable = false)
+    private AlliesCounterMode alliesCounterMode = AlliesCounterMode.COMMERCIAL_AND_PROFESSIONAL;
+
+    /** Minimum published allies before the number is shown; below it the card shows a generic text. */
+    @Column(name = "allies_counter_min", nullable = false)
+    private int alliesCounterMin = 20;
+
+    /** What the members card counts, or {@link MembersCounterMode#HIDDEN} to not show it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "members_counter_mode", length = 32, nullable = false)
+    private MembersCounterMode membersCounterMode = MembersCounterMode.MEMBERS_AND_BENEFICIARIES;
+
+    /** Minimum members before the number is shown; below it the card shows a generic text. */
+    @Column(name = "members_counter_min", nullable = false)
+    private int membersCounterMin = 20;
 }

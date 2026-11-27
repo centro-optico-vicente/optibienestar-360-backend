@@ -108,6 +108,7 @@ public class OrganizationService {
         org.setEmail(blankToNull(req.email()));
         org.setPhones(blankToNull(req.phones()));
         org.setPublicIdentityVisible(req.publicIdentityVisible());
+        applyPublicCounters(org, req);
         applySignatory(org, req);
         return toDto(repository.save(org));
     }
@@ -145,7 +146,27 @@ public class OrganizationService {
                 o.getSignatoryDocumentType(),
                 o.getSignatoryDocumentNumber(),
                 o.getSignatoryPosition(),
-                o.isPublicIdentityVisible());
+                o.isPublicIdentityVisible(),
+                o.getAlliesCounterMode(),
+                o.getAlliesCounterMin(),
+                o.getMembersCounterMode(),
+                o.getMembersCounterMin());
+    }
+
+    /** Public login counters (V265, hub ADR 0042): {@code null} leaves each setting unchanged. */
+    private static void applyPublicCounters(Organization org, OrganizationUpdateRequest req) {
+        if (req.alliesCounterMode() != null) {
+            org.setAlliesCounterMode(req.alliesCounterMode());
+        }
+        if (req.alliesCounterMin() != null) {
+            org.setAlliesCounterMin(req.alliesCounterMin());
+        }
+        if (req.membersCounterMode() != null) {
+            org.setMembersCounterMode(req.membersCounterMode());
+        }
+        if (req.membersCounterMin() != null) {
+            org.setMembersCounterMin(req.membersCounterMin());
+        }
     }
 
     /**

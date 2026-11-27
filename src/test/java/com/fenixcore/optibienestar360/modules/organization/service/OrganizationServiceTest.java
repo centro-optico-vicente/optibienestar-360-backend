@@ -6,6 +6,8 @@ import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.OrganizationUpdateRequest;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationContactDto;
 import com.fenixcore.optibienestar360.modules.organization.dto.PublicOrganizationDto;
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
+import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 import com.fenixcore.optibienestar360.modules.organization.entity.Organization;
 import com.fenixcore.optibienestar360.modules.organization.repository.OrganizationRepository;
 import org.junit.jupiter.api.Test;
@@ -84,7 +86,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("Nuevo nombre", "Nuevo nombre legal", "J-99999999-0", "logo.png", null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null));
 
         assertThat(result.name()).isEqualTo("Nuevo nombre");
         assertThat(result.legalName()).isEqualTo("Nuevo nombre legal");
@@ -102,7 +104,7 @@ class OrganizationServiceTest {
 
         OrganizationDto filled = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, " Ana Gómez ", "V", " 12345678 ", " Gerente general ", false));
+                        null, null, null, null, null, null, " Ana Gómez ", "V", " 12345678 ", " Gerente general ", false, null, null, null, null));
 
         assertThat(filled.signatoryName()).isEqualTo("Ana Gómez");
         assertThat(filled.signatoryDocumentType()).isEqualTo("V");
@@ -111,7 +113,7 @@ class OrganizationServiceTest {
 
         OrganizationDto cleared = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, "  ", " ", "", " ", false));
+                        null, null, null, null, null, null, "  ", " ", "", " ", false, null, null, null, null));
 
         assertThat(cleared.signatoryName()).isNull();
         assertThat(cleared.signatoryDocumentType()).isNull();
@@ -127,7 +129,7 @@ class OrganizationServiceTest {
 
         assertThatThrownBy(() -> service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
-                        null, null, null, null, null, null, null, "V", null, null, false)))
+                        null, null, null, null, null, null, null, "V", null, null, false, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.signatory_document.incomplete");
     }
@@ -142,7 +144,7 @@ class OrganizationServiceTest {
         OrganizationDto result = service().updateMine(
                 new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false,
                         null, null, null, " Av. 30 con Calle 21, Acarigua ", "planoptibienestar360@gmail.com", "  ",
-                        null, null, null, null, false));
+                        null, null, null, null, false, null, null, null, null));
 
         assertThat(result.address()).isEqualTo("Av. 30 con Calle 21, Acarigua");
         assertThat(result.email()).isEqualTo("planoptibienestar360@gmail.com");
@@ -157,7 +159,7 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, true, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null));
 
         assertThat(result.autoApproveCommissions()).isTrue();
     }
@@ -175,7 +177,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(eurUuid)).thenReturn(Optional.of(eur));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null, null, null, null, null, false));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, eurUuid, null, false, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null));
 
         assertThat(result.officialCurrency().code()).isEqualTo("EUR");
         assertThat(result.referenceCurrency().code()).isEqualTo("USD"); // untouched
@@ -191,7 +193,7 @@ class OrganizationServiceTest {
         when(currencyRepository.findByUuid(bogus)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null, false)))
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, bogus, null, false, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("organization.currency.not_found");
     }
@@ -254,8 +256,52 @@ class OrganizationServiceTest {
         when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OrganizationDto result = service().updateMine(
-                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, true));
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, true, null, null, null, null));
 
         assertThat(result.publicIdentityVisible()).isTrue();
+    }
+
+    @Test
+    void updateMineStoresThePublicLoginCounters() {
+        when(repository.findSingleton()).thenReturn(organization(null, null));
+        when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizationDto result = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false,
+                        AlliesCounterMode.PROFESSIONAL, 5, MembersCounterMode.MEMBERS_AND_BENEFICIARIES, 50));
+
+        assertThat(result.alliesCounterMode()).isEqualTo(AlliesCounterMode.PROFESSIONAL);
+        assertThat(result.alliesCounterMin()).isEqualTo(5);
+        assertThat(result.membersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS_AND_BENEFICIARIES);
+        assertThat(result.membersCounterMin()).isEqualTo(50);
+    }
+
+    @Test
+    void updateMineKeepsThePublicLoginCountersWhenOmitted() {
+        Organization existing = organization(null, null);
+        existing.setAlliesCounterMode(AlliesCounterMode.HIDDEN);
+        existing.setAlliesCounterMin(7);
+        existing.setMembersCounterMode(MembersCounterMode.MEMBERS);
+        existing.setMembersCounterMin(30);
+        when(repository.findSingleton()).thenReturn(existing);
+        when(repository.save(any(Organization.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizationDto result = service().updateMine(
+                new OrganizationUpdateRequest("OptiBienestar 360", null, null, null, null, null, null, null, null, false, null, null, null, null, null, null, null, null, null, null, false, null, null, null, null));
+
+        assertThat(result.alliesCounterMode()).isEqualTo(AlliesCounterMode.HIDDEN);
+        assertThat(result.alliesCounterMin()).isEqualTo(7);
+        assertThat(result.membersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS);
+        assertThat(result.membersCounterMin()).isEqualTo(30);
+    }
+
+    @Test
+    void newOrganizationDefaultsShowAlliesAndMembersWithBeneficiaries() {
+        Organization org = new Organization();
+
+        assertThat(org.getAlliesCounterMode()).isEqualTo(AlliesCounterMode.COMMERCIAL_AND_PROFESSIONAL);
+        assertThat(org.getAlliesCounterMin()).isEqualTo(20);
+        assertThat(org.getMembersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS_AND_BENEFICIARIES);
+        assertThat(org.getMembersCounterMin()).isEqualTo(20);
     }
 }

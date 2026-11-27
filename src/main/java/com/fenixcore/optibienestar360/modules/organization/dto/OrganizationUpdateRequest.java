@@ -1,6 +1,9 @@
 package com.fenixcore.optibienestar360.modules.organization.dto;
 
+import com.fenixcore.optibienestar360.modules.organization.entity.AlliesCounterMode;
+import com.fenixcore.optibienestar360.modules.organization.entity.MembersCounterMode;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,6 +17,10 @@ import java.util.UUID;
  * {@code Country}, both FKs are {@code optional = false} on the entity, so
  * an explicit unresolvable UUID is a validation error, never a way to null
  * the field out.
+ *
+ * <p>The public login counters (V265, hub ADR 0042) follow the same rule:
+ * {@code null} leaves the stored value unchanged, so a client that predates
+ * them keeps the current settings on save.</p>
  */
 public record OrganizationUpdateRequest(
         @NotBlank @Size(max = 150) String name,
@@ -37,5 +44,9 @@ public record OrganizationUpdateRequest(
         String signatoryDocumentType,
         @Size(max = 20) String signatoryDocumentNumber,
         @Size(max = 100) String signatoryPosition,
-        boolean publicIdentityVisible
+        boolean publicIdentityVisible,
+        AlliesCounterMode alliesCounterMode,
+        @Min(0) Integer alliesCounterMin,
+        MembersCounterMode membersCounterMode,
+        @Min(0) Integer membersCounterMin
 ) {}

@@ -117,6 +117,25 @@ public class DashboardQueries {
     }
 
     /**
+     * Active beneficiaries of the members counted by
+     * {@link #countMembersWithActiveMembership()} (active member with an
+     * active {@code ACTIVE} membership). Added to that figure by the public
+     * {@code MEMBERS_AND_BENEFICIARIES} counter (hub ADR 0042).
+     */
+    public long countActiveBeneficiariesOfMembersWithActiveMembership() {
+        Long n = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM beneficiaries b
+                JOIN members mb ON mb.members_id = b.member_id
+                WHERE b.is_active AND mb.is_active
+                  AND EXISTS (SELECT 1 FROM memberships ms
+                              WHERE ms.member_id = mb.members_id
+                                AND ms.is_active AND ms.status = 'ACTIVE')
+                """, new MapSqlParameterSource(), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    /**
      * Members by the status of their latest membership (the current one when
      * present, else the most recent) — one row per member, so a member that
      * was canceled and re-enrolled is counted once.

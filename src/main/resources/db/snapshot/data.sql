@@ -1879,6 +1879,7 @@ COPY app.flyway_schema_history (installed_rank, version, description, type, scri
 252	260	promotion slot reconciliation	SQL	V260__promotion_slot_reconciliation.sql	1851065903	snapshot	2026-01-01 00:00:00	0	t
 253	261	organization public identity visible	SQL	V261__organization_public_identity_visible.sql	1011328585	snapshot	2026-01-01 00:00:00	0	t
 254	264	file type policies office documents	SQL	V264__file_type_policies_office_documents.sql	417047414	snapshot	2026-01-01 00:00:00	0	t
+255	265	organization public login counters	SQL	V265__organization_public_login_counters.sql	-1411540337	snapshot	2026-01-01 00:00:00	0	t
 \.
 
 ALTER TABLE app.flyway_schema_history ENABLE TRIGGER ALL;
@@ -2031,8 +2032,8 @@ ALTER TABLE app.onboarding_policies ENABLE TRIGGER ALL;
 
 ALTER TABLE app.organizations DISABLE TRIGGER ALL;
 
-COPY app.organizations (organizations_id, uuid, name, legal_name, tax_identifier, logo_key, official_currency_id, reference_currency_id, is_active, status, created_at, updated_at, created_by, updated_by, whatsapp, instagram, facebook, auto_approve_commissions, registry_state, signing_city, service_area, address, email, phones, signatory_name, signatory_document_type, signatory_document_number, signatory_position, public_identity_visible) FROM stdin;
-1	9b43c770-6820-1de6-9cce-0f4c0f86f0c9	OptiBienestar 360	Centro Óptico Vicente	\N	\N	2	1	t	ACTIVE	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N	\N	\N	f	Portuguesa	Acarigua	eje Acarigua-Araure	Av. 30 con Calle 21, C.C. Ciudad Cristal, Planta Baja, Local N° 23, Acarigua, Edo. Portuguesa	planoptibienestar360@gmail.com	(+58)414-5738530, (+58)424-5984590	\N	\N	\N	\N	f
+COPY app.organizations (organizations_id, uuid, name, legal_name, tax_identifier, logo_key, official_currency_id, reference_currency_id, is_active, status, created_at, updated_at, created_by, updated_by, whatsapp, instagram, facebook, auto_approve_commissions, registry_state, signing_city, service_area, address, email, phones, signatory_name, signatory_document_type, signatory_document_number, signatory_position, public_identity_visible, allies_counter_mode, allies_counter_min, members_counter_mode, members_counter_min) FROM stdin;
+1	9b43c770-6820-1de6-9cce-0f4c0f86f0c9	OptiBienestar 360	Centro Óptico Vicente	\N	\N	2	1	t	ACTIVE	2026-01-01 00:00:00+00	2026-01-01 00:00:00+00	\N	\N	\N	\N	\N	f	Portuguesa	Acarigua	eje Acarigua-Araure	Av. 30 con Calle 21, C.C. Ciudad Cristal, Planta Baja, Local N° 23, Acarigua, Edo. Portuguesa	planoptibienestar360@gmail.com	(+58)414-5738530, (+58)424-5984590	\N	\N	\N	\N	f	COMMERCIAL_AND_PROFESSIONAL	20	MEMBERS_AND_BENEFICIARIES	20
 \.
 
 ALTER TABLE app.organizations ENABLE TRIGGER ALL;
