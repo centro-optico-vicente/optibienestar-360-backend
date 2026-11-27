@@ -4147,7 +4147,7 @@ CREATE TABLE app.organizations (
     public_identity_visible boolean DEFAULT false NOT NULL,
     allies_counter_mode character varying(32) DEFAULT 'COMMERCIAL_AND_PROFESSIONAL'::character varying NOT NULL,
     allies_counter_min integer DEFAULT 20 NOT NULL,
-    members_counter_mode character varying(32) DEFAULT 'HIDDEN'::character varying NOT NULL,
+    members_counter_mode character varying(32) DEFAULT 'MEMBERS_AND_BENEFICIARIES'::character varying NOT NULL,
     members_counter_min integer DEFAULT 20 NOT NULL,
     CONSTRAINT chk_organizations_currencies_distinct CHECK ((official_currency_id <> reference_currency_id)),
     CONSTRAINT chk_organizations_signatory_document CHECK ((((signatory_document_type IS NULL) AND (signatory_document_number IS NULL)) OR ((signatory_document_type IS NOT NULL) AND (signatory_document_number IS NOT NULL)))),

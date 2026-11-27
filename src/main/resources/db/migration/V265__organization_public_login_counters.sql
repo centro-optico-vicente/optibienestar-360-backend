@@ -9,15 +9,15 @@ SET search_path TO app, public;
 --   * members card: HIDDEN, MEMBERS (holders with an ACTIVE membership) or
 --     MEMBERS_AND_BENEFICIARIES (plus their active beneficiaries), with its
 --     own minimum.
--- Defaults reproduce the current behavior: all allies shown from 20, members
--- hidden. The threshold is enforced server-side, so a count below the
+-- Defaults: all allies shown from 20 (current behavior); members card shown
+-- with holders + beneficiaries from 20. The threshold is enforced server-side, so a count below the
 -- minimum never reaches the browser.
 -- ============================================================================
 
 ALTER TABLE organizations
     ADD COLUMN allies_counter_mode VARCHAR(32) NOT NULL DEFAULT 'COMMERCIAL_AND_PROFESSIONAL',
     ADD COLUMN allies_counter_min INTEGER NOT NULL DEFAULT 20,
-    ADD COLUMN members_counter_mode VARCHAR(32) NOT NULL DEFAULT 'HIDDEN',
+    ADD COLUMN members_counter_mode VARCHAR(32) NOT NULL DEFAULT 'MEMBERS_AND_BENEFICIARIES',
     ADD COLUMN members_counter_min INTEGER NOT NULL DEFAULT 20,
     ADD CONSTRAINT ck_organizations_allies_counter_mode
         CHECK (allies_counter_mode IN ('HIDDEN', 'PROFESSIONAL', 'COMMERCIAL', 'COMMERCIAL_AND_PROFESSIONAL')),

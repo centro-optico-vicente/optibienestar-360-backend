@@ -296,12 +296,12 @@ class OrganizationServiceTest {
     }
 
     @Test
-    void newOrganizationDefaultsReproduceTheCurrentLoginBehavior() {
+    void newOrganizationDefaultsShowAlliesAndMembersWithBeneficiaries() {
         Organization org = new Organization();
 
         assertThat(org.getAlliesCounterMode()).isEqualTo(AlliesCounterMode.COMMERCIAL_AND_PROFESSIONAL);
         assertThat(org.getAlliesCounterMin()).isEqualTo(20);
-        assertThat(org.getMembersCounterMode()).isEqualTo(MembersCounterMode.HIDDEN);
+        assertThat(org.getMembersCounterMode()).isEqualTo(MembersCounterMode.MEMBERS_AND_BENEFICIARIES);
         assertThat(org.getMembersCounterMin()).isEqualTo(20);
     }
 }

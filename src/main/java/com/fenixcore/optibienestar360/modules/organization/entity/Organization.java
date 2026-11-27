@@ -150,7 +150,7 @@ public class Organization extends BaseEntity {
     /** What the members card counts, or {@link MembersCounterMode#HIDDEN} to not show it. */
     @Enumerated(EnumType.STRING)
     @Column(name = "members_counter_mode", length = 32, nullable = false)
-    private MembersCounterMode membersCounterMode = MembersCounterMode.HIDDEN;
+    private MembersCounterMode membersCounterMode = MembersCounterMode.MEMBERS_AND_BENEFICIARIES;
 
     /** Minimum members before the number is shown; below it the card shows a generic text. */
     @Column(name = "members_counter_min", nullable = false)
