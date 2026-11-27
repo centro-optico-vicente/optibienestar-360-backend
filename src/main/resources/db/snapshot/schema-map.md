@@ -3183,7 +3183,7 @@
 - `public_identity_visible` boolean NOT NULL DEFAULT false
 - `allies_counter_mode` character varying(32) NOT NULL DEFAULT 'COMMERCIAL_AND_PROFESSIONAL'::character varying — Tarjeta de aliados en el login (ADR 0042): HIDDEN (oculta), PROFESSIONAL (segmento B2P), COMMERCIAL (segmento B2B) o COMMERCIAL_AND_PROFESSIONAL (ambos)
 - `allies_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de aliados publicados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
-- `members_counter_mode` character varying(32) NOT NULL DEFAULT 'HIDDEN'::character varying — Tarjeta de afiliados en el login: HIDDEN (oculta), MEMBERS (titulares activos) o MEMBERS_AND_BENEFICIARIES (titulares + beneficiarios activos)
+- `members_counter_mode` character varying(32) NOT NULL DEFAULT 'MEMBERS_AND_BENEFICIARIES'::character varying — Tarjeta de afiliados en el login: HIDDEN (oculta), MEMBERS (titulares activos) o MEMBERS_AND_BENEFICIARIES (titulares + beneficiarios activos)
 - `members_counter_min` integer NOT NULL DEFAULT 20 — Cantidad mínima de afiliados para mostrar la cifra; por debajo, la tarjeta muestra un texto genérico
 
 **Constraints**
